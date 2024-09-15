@@ -1,0 +1,719 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" data-theme="light">
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Tasks &#8212; eos 0.1.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "light";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=a48b7aee" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/tasks';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Experiments" href="experiments.html" />
+    <link rel="prev" title="Laboratories" href="laboratories.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="light">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class=" navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+    
+    <img src="../_static/eos-logo.png" class="logo__image only-light" alt=""/>
+    <script>document.write(`<img src="../_static/eos-logo.png" class="logo__image only-dark" alt=""/>`);</script>
+  
+  
+    <p class="title logo__title">The Experiment Orchestration System</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class=" navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    User Guide
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
+<li class="toctree-l1"><a class="reference internal" href="devices.html">Devices</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Tasks</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="tasks">
+<h1>Tasks<a class="headerlink" href="#tasks" title="Link to this heading">#</a></h1>
+<p>A task in EOS encapsulates an operation and can be thought of as a function. Tasks are the elementary building block
+in EOS. A task is ephemeral, meaning it is created, executed, and terminated. A task takes some inputs and returns some
+outputs, and may use one or more devices.</p>
+<p>There are two kinds of inputs: <strong>parameters</strong> and <strong>containers</strong>.</p>
+<ol class="arabic simple">
+<li><p><strong>Parameters</strong>: Data such as integers, decimals, strings, booleans, etc that are passed to the task.</p></li>
+<li><p><strong>Containers</strong>: Vessels that may contain one or more samples.</p></li>
+</ol>
+<p>There are three kinds of outputs: <strong>parameters</strong>, <strong>containers</strong>, and <strong>files</strong>.</p>
+<ol class="arabic simple">
+<li><p><strong>Parameters</strong>: Data such as integers, decimals, strings, booleans, etc that are returned by the task.</p></li>
+<li><p><strong>Containers</strong>: Vessels that may contain one or more samples.</p></li>
+<li><p><strong>Files</strong>: Raw data or reports generated by the task, such as output files from analysis.</p></li>
+</ol>
+<figure class="align-center">
+<img alt="EOS Task Inputs and Outputs" src="../_images/task-inputs-outputs.png" />
+</figure>
+<section id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
+<p>Parameters are values that are input to a task or output from a task. Every parameter has a specific data type.
+EOS supports the following parameter types:</p>
+<ul class="simple">
+<li><p><strong>integer</strong>: An integer number; equivalent to Python’s <cite>int</cite></p></li>
+<li><p><strong>decimal</strong>: A decimal number; equivalent to Python’s <cite>float</cite></p></li>
+<li><p><strong>string</strong>: A string (series of text characters); equivalent to Python’s <cite>str</cite></p></li>
+<li><p><strong>boolean</strong>: A true/false value; equivalent to Python’s <cite>bool</cite></p></li>
+<li><p><strong>choice</strong>: A value that must be one of a set of predefined choices. The choices can be any type.</p></li>
+<li><p><strong>list</strong>: A list of values of a specific type. Equivalent to Python’s <cite>list</cite>.</p></li>
+<li><p><strong>dictionary</strong>: A dictionary of key-value pairs. Equivalent to Python’s <cite>dict</cite>.</p></li>
+</ul>
+<p>Tasks can have multiple parameters of different types. EOS will ensure that the parameters passed to a task are of the
+correct type and have values that meet their constraints.</p>
+</section>
+<section id="containers">
+<h2>Containers<a class="headerlink" href="#containers" title="Link to this heading">#</a></h2>
+<p>Containers are referenced by a unique identifier called a <strong>container ID</strong>. A container ID is a string that uniquely
+identifies a container. Every container in EOS must have an ID, and these can be specified in the laboratory
+definition. Containers are treated as <cite>global</cite> objects and can move across labs. However, every container must
+have a “home” lab from which it originates.</p>
+<p>In order to pass a container to a task or return a container from a task, its container ID is used. Every task
+may accept specific types of containers, such as beakers, or vials. Multiple different containers can be passed. Users
+can create their own types of containers, such as <cite>beaker_500ml</cite> or <cite>vial_2ml</cite>, which specify a unique container
+type. EOS will ensure that only container types that are compatible with the task are passed to it.</p>
+</section>
+<section id="files">
+<h2>Files<a class="headerlink" href="#files" title="Link to this heading">#</a></h2>
+<p>Files may be generated by a task and EOS will store them in an object storage (MinIO). Output files can be used to
+record raw data for future reference, and can be downloaded by the user.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Files cannot currently be passed as inputs to tasks via the EOS runtime and its object storage.
+This is planned to be supported in the future. It is still possible to pass them using an external object
+storage (e.g., MinIO), but this has to be implemented and managed manually.</p>
+</div>
+</section>
+<section id="task-implementation">
+<h2>Task Implementation<a class="headerlink" href="#task-implementation" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Tasks are implemented in the <cite>tasks</cite> subdirectory inside an EOS package</p></li>
+<li><p>Each task has its own subfolder (e.g., tasks/magnetic_mixing)</p></li>
+<li><p>There are two key files per task: <cite>task.yml</cite> and <cite>task.py</cite></p></li>
+</ul>
+<section id="yaml-file-task-yml">
+<h3>YAML File (task.yml)<a class="headerlink" href="#yaml-file-task-yml" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Specifies the task type, description, and input/output parameters and containers</p></li>
+<li><p>Acts as the interface contract (spec) for the task</p></li>
+<li><p>This contract is used to validate tasks, and EOS enforces the contract statically and dynamically during execution</p></li>
+<li><p>Useful as documentation for the task</p></li>
+</ul>
+<p>Below is an example task YAML file for a GC analysis task for GCs made by SRI Instruments:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SRI GC Analysis</span>
+<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Perform gas chromatography (GC) analysis on a sample.</span>
+
+<span class="nt">device_types</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sri_gas_chromatograph</span>
+
+<span class="nt">input_parameters</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">analysis_time</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">seconds</span>
+<span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">480</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">How long to run the GC analysis</span>
+
+<span class="nt">output_parameters</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">known_substances</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dictionary</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Peaks and peak areas of identified substances</span>
+<span class="w">  </span><span class="nt">unknown_substances</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dictionary</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Peaks and peak areas of substances that could not be identified</span>
+</pre></div>
+</div>
+<p>The task specification makes clear that:</p>
+<ul class="simple">
+<li><p>The task is of type “SRI GC Analysis”</p></li>
+<li><p>The task requires a device of type “sri_gas_chromatograph”. EOS will enforce this requirement.</p></li>
+<li><p>The task takes an input integer parameter <cite>analysis_time</cite> in seconds. It has a default value of 480, making this an
+optional parameter.</p></li>
+<li><p>The task outputs two dictionaries: <cite>known_substances</cite> and <cite>unknown_substances</cite>.</p></li>
+</ul>
+<section id="parameter-specification">
+<h4>Parameter Specification<a class="headerlink" href="#parameter-specification" title="Link to this heading">#</a></h4>
+<p>Parameters are defined in the <cite>input_parameters</cite> and <cite>output_parameters</cite> sections of the task YAML file.</p>
+<p>Below are examples and descriptions for each parameter type:</p>
+</section>
+<section id="integer">
+<h4>Integer<a class="headerlink" href="#integer" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sample_rate</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The number of samples per second</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">44100</span>
+<span class="w">  </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hz</span>
+<span class="w">  </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
+<span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192000</span>
+</pre></div>
+</div>
+<p>Integers must have a unit (can be n/a) and can also have a minimum and maximum value.</p>
+</section>
+<section id="decimal">
+<h4>Decimal<a class="headerlink" href="#decimal" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">threshold_voltage</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decimal</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The voltage threshold for signal detection</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.5</span>
+<span class="w">  </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">volts</span>
+<span class="w">  </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+<span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5.0</span>
+</pre></div>
+</div>
+<p>Decimals must have a unit (can be n/a) and can also have a minimum and maximum value.</p>
+</section>
+<section id="string">
+<h4>String<a class="headerlink" href="#string" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">file_prefix</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix for output file names</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;experiment_&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="boolean">
+<h4>Boolean<a class="headerlink" href="#boolean" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">auto_calibrate</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">boolean</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Whether to perform auto-calibration before analysis</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p>Booleans are true/false values.</p>
+</section>
+<section id="choice">
+<h4>Choice<a class="headerlink" href="#choice" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">column_type</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">choice</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HPLC column type</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;C18&quot;</span>
+<span class="w">  </span><span class="nt">choices</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;C18&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;C8&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;HILIC&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Phenyl-Hexyl&quot;</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;Amino&quot;</span>
+</pre></div>
+</div>
+<p>Choice parameters take one of the specified choices.</p>
+</section>
+<section id="list">
+<h4>List<a class="headerlink" href="#list" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">channel_gains</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">list</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gain values for each input channel</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">1.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.1</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">element_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decimal</span>
+<span class="w">  </span><span class="nt">length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+<p>List parameters are a sequence of values of a specific type. They can have a specific length and minimum and maximum
+per-element values.</p>
+</section>
+<section id="dictionary">
+<h4>Dictionary<a class="headerlink" href="#dictionary" title="Link to this heading">#</a></h4>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">buffer_composition</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dictionary</span>
+<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Composition of a buffer solution</span>
+<span class="w">  </span><span class="nt">value</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">pH</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7.4</span>
+<span class="w">    </span><span class="nt">base</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Tris&quot;</span>
+<span class="w">    </span><span class="nt">concentration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50</span>
+<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mM&quot;</span>
+<span class="w">    </span><span class="nt">additives</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">NaCl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">150</span>
+<span class="w">      </span><span class="nt">KCl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.7</span>
+<span class="w">      </span><span class="nt">CaCl2</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.0</span>
+<span class="w">    </span><span class="nt">temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">25</span>
+</pre></div>
+</div>
+<p>Dictionaries are key-value pairs. The values can be any type.</p>
+</section>
+</section>
+<section id="python-file-task-yml">
+<h3>Python File (task.yml)<a class="headerlink" href="#python-file-task-yml" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Implements the task</p></li>
+<li><p>All task implementations must inherit from <cite>BaseTask</cite></p></li>
+<li><p>The task class name must end with “Task” to be discovered by EOS</p></li>
+</ul>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.py</span></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">eos.tasks.base_task</span> <span class="kn">import</span> <span class="n">BaseTask</span>
+
+
+<span class="k">class</span> <span class="nc">MagneticMixingTask</span><span class="p">(</span><span class="n">BaseTask</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_execute</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">devices</span><span class="p">:</span> <span class="n">BaseTask</span><span class="o">.</span><span class="n">DevicesType</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="p">:</span> <span class="n">BaseTask</span><span class="o">.</span><span class="n">ParametersType</span><span class="p">,</span>
+        <span class="n">containers</span><span class="p">:</span> <span class="n">BaseTask</span><span class="o">.</span><span class="n">ContainersType</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseTask</span><span class="o">.</span><span class="n">OutputType</span><span class="p">:</span>
+        <span class="n">magnetic_mixer</span> <span class="o">=</span> <span class="n">devices</span><span class="o">.</span><span class="n">get_all_by_type</span><span class="p">(</span><span class="s2">&quot;magnetic_mixer&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">mixing_time</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;mixing_time&quot;</span><span class="p">]</span>
+        <span class="n">mixing_speed</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s2">&quot;mixing_speed&quot;</span><span class="p">]</span>
+
+        <span class="n">containers</span><span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">magnetic_mixer</span><span class="o">.</span><span class="n">mix</span><span class="p">(</span><span class="n">containers</span><span class="p">[</span><span class="s2">&quot;beaker&quot;</span><span class="p">],</span> <span class="n">mixing_time</span><span class="p">,</span> <span class="n">mixing_speed</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">containers</span><span class="p">,</span> <span class="kc">None</span>
+</pre></div>
+</div>
+<p>Let’s walk through this example code:</p>
+<p><cite>_execute</cite> is the only required function in a task implementation. It is called by EOS to execute a task. The function
+takes three arguments:</p>
+<p>#. <cite>devices</cite>: A data structure supporting lookup of specific lab devices assigned to a task. In this case, only one
+device is given, a magnetic mixer. The devices are represented as wrappers to Ray actor references, and the task
+implementation can call functions from the device implementation.</p>
+<ol class="arabic simple">
+<li><p><cite>parameters</cite>: A dictionary of the input parameters. Keys are the parameter names and values are the parameter values.</p></li>
+<li><p><cite>containers</cite>: A dictionary of the input containers. Keys are the container IDs and values are the <cite>Container</cite> objects.</p></li>
+</ol>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="laboratories.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Laboratories</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="experiments.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Experiments</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameters">Parameters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#containers">Containers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#files">Files</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-implementation">Task Implementation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#yaml-file-task-yml">YAML File (task.yml)</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-specification">Parameter Specification</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#integer">Integer</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#decimal">Decimal</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#string">String</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#boolean">Boolean</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#choice">Choice</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#list">List</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#dictionary">Dictionary</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#python-file-task-yml">Python File (task.yml)</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Angelos Angelopoulos.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.0.2.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.4.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
