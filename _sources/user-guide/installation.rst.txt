@@ -36,7 +36,7 @@ PDM is used as the project manager for EOS, making it easier to install dependen
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: shell
 
-    git clone https://github.com/aangelos28/eos
+    git clone https://github.com/UNC-Robotics/eos
 
 3. Install Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^
