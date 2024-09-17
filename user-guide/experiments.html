@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -349,20 +354,23 @@ document.write(`
                   
   <section id="experiments">
 <h1>Experiments<a class="headerlink" href="#experiments" title="Link to this heading">#</a></h1>
-<p>Experiments are a set of tasks that are executed in a specific order. Experiments are represented as directed
-acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks. Tasks part of an experiment can
-pass parameters and containers to each other using EOS’ reference system. Task parameters may be fully defined, with
-values provided for all task parameters or they may be left undefined by denoting them as dynamic parameters. Experiments with
-dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values for the
-dynamic parameters across repeated experiments to optimize some objectives.</p>
+<p>Experiments are a set of tasks that are executed in a specific order.
+Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
+Tasks part of an experiment can pass parameters and containers to each other using EOS’ reference system.
+Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
+denoting them as dynamic parameters.
+Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
+for the dynamic parameters across repeated experiments to optimize some objectives.</p>
 <figure class="align-center">
 <img alt="Example experiment graph" src="../_images/experiment-graph.png" />
 </figure>
-<p>Above is an example of a possible experiment that could be implemented with EOS. There is a series of tasks, each
-requiring one or more devices. In addition to the task precedence dependencies with edges shown in the graph, there can
-also be dependencies in the form of parameters and containers passed between tasks. For example, the task “Mix Solutions”
-may take as input parameters the volumes of the solutions to mix, and these values may be output from the “Dispense Solutions”
-task. Tasks can reference input/output parameters and containers from other tasks.</p>
+<p>Above is an example of a possible experiment that could be implemented with EOS.
+There is a series of tasks, each requiring one or more devices.
+In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
+form of parameters and containers passed between tasks.
+For example, the task “Mix Solutions” may take as input parameters the volumes of the solutions to mix, and these values
+may be output from the “Dispense Solutions” task.
+Tasks can reference input/output parameters and containers from other tasks.</p>
 <section id="experiment-implementation">
 <h2>Experiment Implementation<a class="headerlink" href="#experiment-implementation" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -372,7 +380,8 @@ task. Tasks can reference input/output parameters and containers from other task
 </ul>
 <section id="yaml-file-experiment-yml">
 <h3>YAML File (experiment.yml)<a class="headerlink" href="#yaml-file-experiment-yml" title="Link to this heading">#</a></h3>
-<p>Defines the experiment. Specifies the experiment type, labs, container initialization (optional), and tasks</p>
+<p>Defines the experiment.
+Specifies the experiment type, labs, container initialization (optional), and tasks</p>
 <p>Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
@@ -523,8 +532,10 @@ task. Tasks can reference input/output parameters and containers from other task
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 </pre></div>
 </div>
-<p>Every experiment has a type. The type is used to essentially identify the class of experiment. When an experiment is running
-then there are instances of the experiment with different IDs. Each experiment also requires one or more labs.</p>
+<p>Every experiment has a type.
+The type is used to essentially identify the class of experiment.
+When an experiment is running then there are instances of the experiment with different IDs.
+Each experiment also requires one or more labs.</p>
 <p>Now let’s look at the first task in the experiment:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
@@ -545,12 +556,14 @@ then there are instances of the experiment with different IDs. Each experiment a
 <span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </pre></div>
 </div>
-<p>The first task is named <cite>retrieve_container</cite> and is of type <cite>Retrieve Container</cite>. This task uses the robot arm to get
-a random container from storage. The task requires two devices, the robot arm and the container storage. There are five
-containers passed to it, “c_a” through “c_e”. There is also a parameter <cite>target_location</cite> that is set to <cite>color_dispenser</cite>.
+<p>The first task is named <cite>retrieve_container</cite> and is of type <cite>Retrieve Container</cite>.
+This task uses the robot arm to get a random container from storage.
+The task requires two devices, the robot arm and the container storage.
+There are five containers passed to it, “c_a” through “c_e”.
+There is also a parameter <cite>target_location</cite> that is set to <cite>color_dispenser</cite>.
 This task has no dependencies as it is the first task in the experiment and is essentially a container feeder.
-There are five containers in storage, and one of them is chosen at random for the experiment. All five containers in our
-“color lab” are passed to this task, as any one of them could be chosen.</p>
+There are five containers in storage, and one of them is chosen at random for the experiment.
+All five containers in our “color lab” are passed to this task, as any one of them could be chosen.</p>
 <p>Let’s look at the next task:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dispense_colors</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense Colors</span>
@@ -568,12 +581,14 @@ There are five containers in storage, and one of them is chosen at random for th
 <span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">retrieve_container</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p>This task takes the container from the <cite>retrieve_container</cite> task and dispenses colors into it. The task has an
-input container called “beaker” which references the output container named “beaker” from the <cite>retrieve_container</cite> task.
+<p>This task takes the container from the <cite>retrieve_container</cite> task and dispenses colors into it.
+The task has an input container called “beaker” which references the output container named “beaker” from the
+<cite>retrieve_container</cite> task.
 If we look at the <cite>task.yml</cite> file of the task <cite>Retrieve Container</cite> we would see that a container named “beaker” is
-defined in <cite>output_containers</cite>. There are also four parameters, the CMYK volumes to dispense. All these parameters are
-set to <cite>eos_dynamic</cite>, which is a special keyword in EOS for defining dynamic parameters, instructing the system that
-these parameters must be specified either by the user or an optimizer before an experiment is run.</p>
+defined in <cite>output_containers</cite>.
+There are also four parameters, the CMYK volumes to dispense.
+All these parameters are set to <cite>eos_dynamic</cite>, which is a special keyword in EOS for defining dynamic parameters,
+instructing the system that these parameters must be specified either by the user or an optimizer before an experiment is run.</p>
 </section>
 <section id="optimizer-file-optimizer-py">
 <h3>Optimizer File (optimizer.py)<a class="headerlink" href="#optimizer-file-optimizer-py" title="Link to this heading">#</a></h3>

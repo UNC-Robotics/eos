@@ -47,7 +47,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/jinja2_templating';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="prev" title="Optimizers" href="optimizers.html" />
+    <link rel="prev" title="REST API" href="rest_api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -204,6 +204,10 @@ document.write(`
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -271,6 +275,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
@@ -281,6 +286,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="current nav bd-sidenav">
@@ -344,14 +353,74 @@ document.write(`
                   
   <section id="jinja2-templating">
 <h1>Jinja2 Templating<a class="headerlink" href="#jinja2-templating" title="Link to this heading">#</a></h1>
-<p>The EOS YAML files used to define labs, devices, experiments, and tasks support Jinja2 templating. This allows easier
-authoring of complex YAML files by enabling the use of variables, loops, and conditionals. Jinja2 templates are evaluated
-with Python, so some of the expressions are the same as in Python.</p>
+<p>The YAML files used to define labs, devices, experiments, and tasks support <a class="reference external" href="https://jinja.palletsprojects.com/en/3.1.x/">Jinja2</a>
+templating.
+This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
+macros, and more.
+Jinja2 templates are evaluated with Python, so some expressions are the same as in Python.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Jinja2 templates are evaluated during loading of the YAML file, not during runtime.</p>
 </div>
-<p>Below is the “containers” portion of a lab YAML file that uses Jinja2 templating:</p>
+<p>Jinja is useful for defining templates.
+For example, an experiment template can be defined with placeholders and variables
+that when specified lead to different variations of the experiment.
+This is particularly useful for altering the task sequence of an experiment while loading it.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Experiment templating is useful if EOS dynamic parameters and references do not suffice.</p>
+</div>
+<p>Below are some useful Jinja2 features:</p>
+<section id="variables">
+<h2>Variables<a class="headerlink" href="#variables" title="Link to this heading">#</a></h2>
+<p>Jinja2 allows setting and reading variables in the YAML file.
+In the example below, the variable <cite>max_volume</cite> is set to 300 and used to define the capacity of two beakers:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">max_volume</span> <span class="o">=</span> <span class="m">300</span> <span class="cp">%}</span>
+<span class="nn">...</span>
+<span class="nt">containers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
+<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">max_volume</span> <span class="cp">}}</span>
+<span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker 1</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker 2</span>
+</pre></div>
+</div>
+</section>
+<section id="arithmetic">
+<h2>Arithmetic<a class="headerlink" href="#arithmetic" title="Link to this heading">#</a></h2>
+<p>You can perform arithmetic within Jinja2 expressions.
+In the example below, the volumes of cyan, magenta, and yellow colorants are calculated based on a total color volume:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">total_color_volume</span> <span class="o">=</span> <span class="m">100</span> <span class="cp">%}</span>
+<span class="nn">...</span>
+<span class="nt">parameters</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cyan_volume</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">total_color_volume</span> <span class="o">*</span> <span class="m">0.6</span> <span class="cp">}}</span>
+<span class="w">  </span><span class="nt">magenta_volume</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">total_color_volume</span> <span class="o">*</span> <span class="m">0.3</span> <span class="cp">}}</span>
+<span class="w">  </span><span class="nt">yellow_volume</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">total_color_volume</span> <span class="o">*</span> <span class="m">0.1</span> <span class="cp">}}</span>
+</pre></div>
+</div>
+</section>
+<section id="conditionals">
+<h2>Conditionals<a class="headerlink" href="#conditionals" title="Link to this heading">#</a></h2>
+<p>You can use if statements to include or exclude content based on conditions.
+In the example below, the task “mix_colors” is only included if the variable <cite>mix_colors</cite> is set to <cite>True</cite>:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
+<span class="w">  </span><span class="cp">{%</span> <span class="k">if</span> <span class="nv">mix_colors</span> <span class="cp">%}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color Mixing</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix the colors in the container</span>
+<span class="w">    </span><span class="c1"># ... rest of the task definition</span>
+<span class="w">  </span><span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+</section>
+<section id="loops">
+<h2>Loops<a class="headerlink" href="#loops" title="Link to this heading">#</a></h2>
+<p>Jinja2 allows you to use loops to generate repetitive content.
+In the example below, a loop is used to generate container IDs with a common prefix and a letter (e.g., <cite>c_a</cite>, <cite>c_b</cite>, <cite>c_c</cite>, etc.):</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
@@ -359,11 +428,51 @@ with Python, so some of the expressions are the same as in Python.</p>
 <span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
-<span class="w">      </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">letter</span> <span class="k">in</span> <span class="o">[</span><span class="s1">&#39;a&#39;</span><span class="o">,</span> <span class="s1">&#39;b&#39;</span><span class="o">,</span> <span class="s1">&#39;c&#39;</span><span class="o">,</span> <span class="s1">&#39;d&#39;</span><span class="o">,</span> <span class="s1">&#39;e&#39;</span><span class="o">]</span> <span class="cp">%}</span>
+<span class="w">      </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">letter</span> <span class="k">in</span> <span class="o">[</span><span class="s1">&#39;a&#39;</span><span class="o">,</span> <span class="s1">&#39;b&#39;</span><span class="o">,</span> <span class="s1">&#39;c&#39;</span><span class="o">,</span> <span class="s1">&#39;d&#39;</span><span class="o">,</span> <span class="s1">&#39;e&#39;</span><span class="o">,</span> <span class="s1">&#39;f&#39;</span><span class="o">,</span> <span class="s1">&#39;g&#39;</span><span class="o">]</span> <span class="cp">%}</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">c_</span><span class="cp">{{</span> <span class="nv">letter</span> <span class="cp">}}</span>
 <span class="w">      </span><span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
 </pre></div>
 </div>
+</section>
+<section id="macros">
+<h2>Macros<a class="headerlink" href="#macros" title="Link to this heading">#</a></h2>
+<p>Jinja2 macros allow you to define reusable blocks of content.
+In the example below, the <cite>create_containers</cite> macro is used to easily create containers with a prefix and a number
+(e.g., <cite>c_0</cite>, <cite>c_1</cite>, <cite>c_2</cite>, etc.):</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">create_containers</span><span class="o">(</span><span class="nv">type</span><span class="o">,</span> <span class="nv">location</span><span class="o">,</span> <span class="nv">capacity</span><span class="o">,</span> <span class="nv">id_prefix</span><span class="o">,</span> <span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">type</span> <span class="cp">}}</span>
+<span class="w">  </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">location</span> <span class="cp">}}</span>
+<span class="w">  </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">capacity</span> <span class="cp">}}</span>
+<span class="w">  </span><span class="nt">ids</span><span class="p">:</span>
+<span class="w">    </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">i</span> <span class="k">in</span> <span class="nv">range</span><span class="o">(</span><span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">id_prefix</span> <span class="cp">}}{{</span> <span class="nv">i</span> <span class="cp">}}</span>
+<span class="w">    </span><span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endmacro</span> <span class="cp">%}</span>
+
+<span class="nt">containers</span><span class="p">:</span>
+<span class="w">  </span><span class="cp">{{</span> <span class="nv">create_containers</span><span class="o">(</span><span class="s1">&#39;beaker&#39;</span><span class="o">,</span> <span class="s1">&#39;container_storage&#39;</span><span class="o">,</span> <span class="m">300</span><span class="o">,</span> <span class="s1">&#39;c_&#39;</span><span class="o">,</span> <span class="m">5</span><span class="o">)</span> <span class="cp">}}</span>
+</pre></div>
+</div>
+</section>
+<section id="include-files">
+<h2>Include Files<a class="headerlink" href="#include-files" title="Link to this heading">#</a></h2>
+<p>Jinja2 allows you to include YAML from other files.
+In the below example, a template experiment is included in an <cite>experiment.yml</cite> file.
+We specify the values for the Jinja2 variables of the template experiment:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">experiment_type</span> <span class="o">=</span> <span class="s1">&#39;color_mixing_1&#39;</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">set</span> <span class="nv">container</span> <span class="o">=</span> <span class="s1">&#39;c_a&#39;</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">set</span> <span class="nv">color_mixer</span> <span class="o">=</span> <span class="s1">&#39;color_mixer_1&#39;</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">set</span> <span class="nv">color_analyzer</span> <span class="o">=</span> <span class="s1">&#39;color_analyzer_1&#39;</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">set</span> <span class="nv">target_color</span> <span class="o">=</span> <span class="s1">&#39;[53, 29, 64]&#39;</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">include</span> <span class="s1">&#39;color_lab/common/color_mixing_experiment.yml&#39;</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>In EOS, the Jinja2 context is the <cite>user</cite> directory (or the directory containing packages).
+This means YAML files from different EOS packages can be included.</p>
+</section>
 </section>
 
 
@@ -377,12 +486,12 @@ with Python, so some of the expressions are the same as in Python.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="optimizers.html"
+       href="rest_api.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Optimizers</p>
+        <p class="prev-next-title">REST API</p>
       </div>
     </a>
 </div>
@@ -391,6 +500,28 @@ with Python, so some of the expressions are the same as in Python.</p>
             </div>
             
             
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#variables">Variables</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#arithmetic">Arithmetic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditionals">Conditionals</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loops">Loops</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#macros">Macros</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#include-files">Include Files</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>

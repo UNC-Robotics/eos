@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -480,9 +485,10 @@ of experiments take place.</p>
 </div>
 <section id="locations-optional">
 <h3>Locations (Optional)<a class="headerlink" href="#locations-optional" title="Link to this heading">#</a></h3>
-<p>Locations are physical stations around the lab where devices and containers are placed. They are defined in the
-<cite>locations</cite> section of the laboratory YAML file. You can define metadata for each location, such as map coordinates
-for a mobile robot. Defining locations is optional.</p>
+<p>Locations are physical stations around the lab where devices and containers are placed.
+They are defined in the <cite>locations</cite> section of the laboratory YAML file.
+You can define metadata for each location, such as map coordinates for a mobile robot.
+Defining locations is optional.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">locations</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">glovebox</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
@@ -504,12 +510,14 @@ for a mobile robot. Defining locations is optional.</p>
 </section>
 <section id="computers-optional">
 <h3>Computers (Optional)<a class="headerlink" href="#computers-optional" title="Link to this heading">#</a></h3>
-<p>Computers control devices and host EOS devices. Each computer that is required to interface with one or
-more devices must be defined in this section. The IP address of each computer must be specified.</p>
-<p>There is always a computer in each lab called <strong>eos_computer</strong> that has the IP “127.0.0.1”. This computer is the computer
-that runs the EOS orchestrator, and can be thought of as the “central” computer. No other computer named “eos_computer”
-is allowed, and no other computer can have the IP “127.0.0.1”. The “computers” section need not be defined unless
-additional computers are required (e.g., if not all devices are connected to eos_computer).</p>
+<p>Computers control devices and host EOS devices.
+Each computer that is required to interface with one or more devices must be defined in this section.
+The IP address of each computer must be specified.</p>
+<p>There is always a computer in each lab called <strong>eos_computer</strong> that has the IP “127.0.0.1”.
+This computer is the computer that runs the EOS orchestrator, and can be thought of as the “central” computer.
+No other computer named “eos_computer” is allowed, and no other computer can have the IP “127.0.0.1”.
+The “computers” section need not be defined unless additional computers are required (e.g., if not all devices are
+connected to eos_computer).</p>
 <figure class="align-center">
 <img alt="EOS computers" src="../_images/eos-computers.png" />
 </figure>
@@ -528,8 +536,8 @@ additional computers are required (e.g., if not all devices are connected to eos
 </section>
 <section id="devices-required">
 <h3>Devices (Required)<a class="headerlink" href="#devices-required" title="Link to this heading">#</a></h3>
-<p>Devices are equipment or apparatuses in the laboratory that are required to perform tasks. Each device must have a unique
-name inside the lab and must be defined in the <cite>devices</cite> section of the laboratory YAML file.</p>
+<p>Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
+Each device must have a unique name inside the lab and must be defined in the <cite>devices</cite> section of the laboratory YAML file.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
@@ -554,17 +562,18 @@ name inside the lab and must be defined in the <cite>devices</cite> section of t
 </pre></div>
 </div>
 <p><strong>type</strong>: Every device must have a type, which matches a device specification (e.g., defined in the <cite>devices</cite> subdirectory
-of an EOS package). There can be multiple devices with different names of the same type.</p>
+of an EOS package).
+There can be multiple devices with different names of the same type.</p>
 <p><strong>location</strong> (optional): The location where the device is at.</p>
-<p><strong>computer</strong>: The computer that controls the device. If not “eos_computer”, the computer must be defined in the
-“computers” section.</p>
-<p><strong>initialization_parameters</strong> (optional): Parameters required to initialize the device. These parameters are defined
-in the device specification and can be overridden here.</p>
+<p><strong>computer</strong>: The computer that controls the device.
+If not “eos_computer”, the computer must be defined in the “computers” section.</p>
+<p><strong>initialization_parameters</strong> (optional): Parameters required to initialize the device.
+These parameters are defined in the device specification and can be overridden here.</p>
 </section>
 <section id="containers-optional">
 <h3>Containers (Optional)<a class="headerlink" href="#containers-optional" title="Link to this heading">#</a></h3>
-<p>Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing). They are
-defined in the <cite>containers</cite> section of the laboratory YAML file.</p>
+<p>Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing).
+They are defined in the <cite>containers</cite> section of the laboratory YAML file.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
@@ -595,7 +604,8 @@ defined in the <cite>containers</cite> section of the laboratory YAML file.</p>
 <p><strong>type</strong>: Every container must have a type, which can be used to group together containers of the same type.</p>
 <p><strong>location</strong> (optional): The location where the container starts out at.</p>
 <p><strong>metadata</strong> (optional): Any additional information about the container, such as its capacity or contained sample.</p>
-<p><strong>ids</strong>: A list of unique identifiers for each container. These are used to identify and refer to specific containers.</p>
+<p><strong>ids</strong>: A list of unique identifiers for each container.
+These are used to identify and refer to specific containers.</p>
 </section>
 </section>
 </section>

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Configuration &#8212; EOS - The Experiment Orchestration System</title>
+    <title>Infrastructure Setup &#8212; EOS - The Experiment Orchestration System</title>
   
   
   
@@ -44,11 +44,11 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/configuration';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/infrastructure_setup';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Running" href="running.html" />
-    <link rel="prev" title="Installation" href="installation.html" />
+    <link rel="next" title="Packages" href="packages.html" />
+    <link rel="prev" title="Running" href="running.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -205,10 +205,6 @@ document.write(`
   
 
   
-    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
-      <span class="fa-solid fa-outdent"></span>
-    </button>
-  
 </div>
 
     </header>
@@ -274,9 +270,9 @@ document.write(`
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
-<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
@@ -335,7 +331,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Configuration</li>
+    <li class="breadcrumb-item active" aria-current="page">Infrastructure Setup</li>
   </ul>
 </nav>
 </div>
@@ -352,27 +348,27 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="configuration">
-<h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h1>
-<p>After installation, you need to configure external services such as MongoDB and MinIO as well as EOS itself.</p>
-<section id="configure-external-services">
-<h2>1. Configure External Services<a class="headerlink" href="#configure-external-services" title="Link to this heading">#</a></h2>
-<p>We provide a Docker Compose file that can run the external services.</p>
-<p>Copy the example environment file:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>docker/.env.example<span class="w"> </span>docker/.env
-</pre></div>
-</div>
-<p>Edit <cite>docker/.env</cite> and provide values for all fields.</p>
-</section>
-<section id="configure-eos">
-<h2>2. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
-<p>EOS reads parameters from a YAML configuration file.</p>
-<p>Copy the example configuration file:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
-</pre></div>
-</div>
-<p>Edit <cite>config.yml</cite>. Ensure that credentials are provided for the MongoDB and MinIO services.</p>
-</section>
+  <section id="infrastructure-setup">
+<h1>Infrastructure Setup<a class="headerlink" href="#infrastructure-setup" title="Link to this heading">#</a></h1>
+<p>It is critical to setup the computational and network infrastructure appropriately to ensure that EOS can access required
+laboratory devices and computers as well as to ensure security.</p>
+<p>EOS requires access to other laboratory computers that are needed to interface with laboratory apparatuses.
+EOS knows what these computers are from a <a class="reference internal" href="laboratories.html"><span class="doc">laboratory YAML file</span></a>.</p>
+<p>The following are important points for setting up the computational and network infrastructure for EOS:</p>
+<ol class="arabic simple">
+<li><p>EOS should be set up in an isolated or secured (appropriately firewalled) LAN to prevent unauthorized access.</p></li>
+<li><p>All laboratory computers that EOS will control should be in the same LAN.</p></li>
+<li><p>All laboratory computers should have a static IP address so that EOS can identify them.</p></li>
+<li><p>EOS must have full bi-directional network access to the laboratory computers.
+All ports should be accessible.
+This will likely require firewall reconfiguration.</p></li>
+<li><p>Power management settings may need to be altered to prevent computers from hibernating if automation will be running
+for a long time.</p></li>
+</ol>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/lab-lan.png"><img alt="Example LAN setup for EOS" src="../_images/lab-lan.png" style="width: 367.0px; height: 272.0px;" />
+</a>
+</figure>
 </section>
 
 
@@ -386,20 +382,20 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="installation.html"
+       href="running.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Running</p>
       </div>
     </a>
     <a class="right-next"
-       href="running.html"
+       href="packages.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Running</p>
+        <p class="prev-next-title">Packages</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -409,24 +405,6 @@ document.write(`
             </div>
             
             
-              
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
-
-
-  <div class="sidebar-secondary-item">
-<div
-    id="pst-page-navigation-heading-2"
-    class="page-toc tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-  </div>
-  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
-    <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-external-services">1. Configure External Services</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">2. Configure EOS</a></li>
-</ul>
-  </nav></div>
-
-</div></div>
               
             
           </div>

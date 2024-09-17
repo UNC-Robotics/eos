@@ -7,6 +7,7 @@ User Guide
    installation
    configuration
    running
+   infrastructure_setup
 
 .. toctree::
     :caption: Concepts
@@ -18,6 +19,11 @@ User Guide
     experiments
     campaigns
     optimizers
+
+.. toctree::
+    :caption: Interfaces
+
+    rest_api
 
 .. toctree::
     :caption: Advanced

@@ -48,7 +48,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Devices" href="devices.html" />
-    <link rel="prev" title="Running" href="running.html" />
+    <link rel="prev" title="Infrastructure Setup" href="infrastructure_setup.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -350,28 +355,32 @@ document.write(`
   <section id="packages">
 <h1>Packages<a class="headerlink" href="#packages" title="Link to this heading">#</a></h1>
 <p>Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
-Each package is essentially a folder. These packages can contain laboratory, device, task, and experiment definitions,
-code, and data, allowing reuse and sharing across the community. For example, a package can contain task and device
-implementations for equipment from a specific manufacturer, while another package may only contain experiments that
-run on a specific lab.</p>
+Each package is essentially a folder.
+These packages can contain laboratory, device, task, and experiment definitions, code, and data, allowing reuse and
+sharing.
+For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
+another package may only contain experiments that run on a specific lab.</p>
 <figure class="align-center">
 <img alt="EOS package" src="../_images/package.png" />
 </figure>
-<p>Using a package is as simple as placing it in a directory that EOS loads packages from. By default, this directory
-is called <cite>user</cite> and is located in the root of the EOS repository.</p>
-<p>Below is the directory tree of an example EOS package called “color_lab”. It contains a laboratory called “color_lab”,
-an experiment called “color_mixing”, and various devices and tasks. It also contains additional files
-such as a Python script for launching low-level device drivers, a device client under <cite>common</cite>, and a README file.</p>
+<p>Using a package is as simple as placing it in a directory that EOS loads packages from.
+By default, this directory is called <cite>user</cite> and is located in the root of the EOS repository.</p>
+<p>Below is the directory tree of an example EOS package called “color_lab”.
+It contains a laboratory called “color_lab”, experiments “color_mixing_1”, “color_mixing_2”, and “color_mixing_3”, and
+various devices and tasks. The experiments use a <a class="reference internal" href="jinja2_templating.html"><span class="doc">template</span></a> YAML file called
+“template_experiment.yml” under <cite>experiments/color_mixing</cite>. The package also contains a device client under <cite>common</cite>,
+and a README file.</p>
 <figure class="align-center">
-<img alt="Example package directory tree" src="../_images/example-package-tree.png" />
+<a class="reference internal image-reference" href="../_images/example-package-tree.png"><img alt="Example package directory tree" src="../_images/example-package-tree.png" style="width: 282.0px; height: 1003.0px;" />
+</a>
 </figure>
 <section id="create-a-package">
 <h2>Create a Package<a class="headerlink" href="#create-a-package" title="Link to this heading">#</a></h2>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>pkg<span class="w"> </span>create<span class="w"> </span>my_package
 </pre></div>
 </div>
-<p>This command is a shortcut to create a new package with all subdirectories. Feel free to delete subdirectories you don’t
-expect to use.</p>
+<p>This command is a shortcut to create a new package with all subdirectories.
+Feel free to delete subdirectories you don’t expect to use.</p>
 </section>
 </section>
 
@@ -386,12 +395,12 @@ expect to use.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="running.html"
+       href="infrastructure_setup.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Running</p>
+        <p class="prev-next-title">Infrastructure Setup</p>
       </div>
     </a>
     <a class="right-next"

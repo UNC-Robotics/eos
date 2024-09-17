@@ -5,7 +5,7 @@ After installation, you need to configure external services such as MongoDB and 
 
 1. Configure External Services
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-We provide a Docker Compose file that can run all external services for you.
+We provide a Docker Compose file that can run the external services.
 
 Copy the example environment file:
 

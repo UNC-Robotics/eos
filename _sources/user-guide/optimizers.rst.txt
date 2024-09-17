@@ -1,28 +1,31 @@
 Optimizers
 ==========
-Optimizers are key to building an autonomous laboratory. In EOS, optimizers give intelligence to experiment campaigns
-by optimizing task parameters to achieve objectives over time. Optimizers in EOS are *sequential*, meaning they iteratively
-optimize parameters by drawing insights from previous experiments. One of the most common sequential optimization
-methods is **Bayesian optimization**, and is especially useful for optimizing expensive-to-evaluate black box functions.
+Optimizers are key to building an autonomous laboratory.
+In EOS, optimizers give intelligence to experiment campaigns by optimizing task parameters to achieve objectives over time.
+Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous experiments.
+One of the most common sequential optimization methods is **Bayesian optimization**, and is especially useful for
+optimizing expensive-to-evaluate black box functions.
 
 .. figure:: ../_static/img/optimize-experiment-loop.png
    :alt: Optimization and experiment loop
    :align: center
 
 EOS has a built-in Bayesian optimizer powered by `BoFire <https://experimental-design.github.io/bofire/>`_
-(based on `BoTorch <https://botorch.org/>`_). This optimizer supports both constrained single-objective and multi-objective
-Bayesian optimization. It offers several different surrogate models, including Gaussian Processes (GPs) and
-Multi-Layer Perceptrons (MLPs), along with various acquisition functions.
+(based on `BoTorch <https://botorch.org/>`_).
+This optimizer supports both constrained single-objective and multi-objective Bayesian optimization.
+It offers several different surrogate models, including Gaussian Processes (GPs) and Multi-Layer Perceptrons (MLPs),
+along with various acquisition functions.
 
 Distributed Execution
 ---------------------
-EOS optimizers are created in a dedicated Ray actor process. This actor process can be created in any computer with an
-active Ray worker. This can enable running the optimizer on a more capable computer than the one running
-the EOS orchestrator.
+EOS optimizers are created in a dedicated Ray actor process.
+This actor process can be created in any computer with an active Ray worker.
+This can enable running the optimizer on a more capable computer than the one running the EOS orchestrator.
 
 Optimizer Implementation
 ------------------------
-EOS optimizers are defined in the `optimizer.py` file adjacent to `experiment.yml` in an EOS package. Below is an example:
+EOS optimizers are defined in the `optimizer.py` file adjacent to `experiment.yml` in an EOS package.
+Below is an example:
 
 :bdg-primary:`optimizer.py`
 
@@ -58,20 +61,23 @@ EOS optimizers are defined in the `optimizer.py` file adjacent to `experiment.ym
 
         return constructor_args, BayesianSequentialOptimizer
 
-Each `optimizer.py` file must contain the function `eos_create_campaign_optimizer`. This function must return:
+Each `optimizer.py` file must contain the function `eos_create_campaign_optimizer`.
+This function must return:
 
 #. The constructor arguments to make an optimizer class instance
 #. The class type of the optimizer
 
-In this example, we use EOS' built-in Bayesian optimizer. However, it is also possible to define custom optimizers in this
-file, and simply return the constructor arguments and the class type from `eos_create_campaign_optimizer`.
+In this example, we use EOS' built-in Bayesian optimizer.
+However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
+the class type from `eos_create_campaign_optimizer`.
 
 .. note::
     All optimizers must inherit from the class `AbstractSequentialOptimizer` under the `eos.optimization` module.
 
 Input and Output Parameter Naming
 """""""""""""""""""""""""""""""""
-The names of input and output parameters must reference task parameters. The EOS reference format must be used:
+The names of input and output parameters must reference task parameters.
+The EOS reference format must be used:
 
 **TASK.PARAMETER_NAME**
 

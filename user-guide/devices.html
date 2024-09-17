@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -349,22 +354,26 @@ document.write(`
                   
   <section id="devices">
 <h1>Devices<a class="headerlink" href="#devices" title="Link to this heading">#</a></h1>
-<p>In EOS, a device is an abstraction for a physical or virtual apparatus. A device is used by one or more tasks to
-run some operations. Each device in EOS is managed by a dedicated process which is created the moment
-a laboratory definition is loaded. This process is usually implemented as a server and tasks call various functions
-from it. For example, there could be a device called “magnetic mixer”, which communicates with a physical magnetic mixer via
+<p>In EOS, a device is an abstraction for a physical or virtual apparatus.
+A device is used by one or more tasks to run some processes.
+Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
+This process is usually implemented as a server and tasks call various functions from it.
+For example, there could be a device called “magnetic mixer”, which communicates with a physical magnetic mixer via
 serial and provides functions such as <cite>start</cite>, <cite>stop</cite>, <cite>set_time</cite> and <cite>set_speed</cite>.</p>
 <figure class="align-center">
 <img alt="EOS Tasks and Devices" src="../_images/tasks-devices.png" />
 </figure>
-<p>In the figure above, we illustrate an example of devices and a task that uses these devices. The task in this example is
-Gas Chromatography (GC) sampling, which is implemented with a GC and a mobile manipulation robot for automating the
-sample injection with a syringe. Both the GC and the robot are physical devices, and each has a device implementation
-in EOS, which runs as a persistent process. Then, the GC Sampling task uses both of the EOS devices to automate the
-sample injection process.</p>
-<p>Most often, an EOS device will represent a physical device in the lab. But this need not always be the case. A device
-in EOS can be used to represent anything that needs persistent state throughout one or more experiments. This could
-be an AI module that records inputs given to it. Remember that a device in EOS is a persistent process.</p>
+<p>In the figure above, we illustrate an example of devices and a task that uses these devices.
+The task in this example is Gas Chromatography (GC) sampling, which is implemented with a GC and a mobile manipulation
+robot for automating the sample injection with a syringe.
+Both the GC and the robot are physical devices, and each has a device implementation in EOS, which runs as a persistent
+process.
+Then, the GC Sampling task uses both of the EOS devices to automate the sample injection process.</p>
+<p>Most often, an EOS device will represent a physical device in the lab.
+But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
+throughout one or more experiments.
+This could be an AI module that records inputs given to it.
+Remember that a device in EOS is a persistent process.</p>
 <section id="device-implementation">
 <h2>Device Implementation<a class="headerlink" href="#device-implementation" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -446,8 +455,9 @@ be an AI module that records inputs given to it. Remember that a device in EOS i
 </ul>
 </li>
 </ol>
-<p>The magnetic mixer device also has the function <cite>mix</cite> for implementing the mixing operation. This function will be called
-by a task to mix the contents of a container. The <cite>mix</cite> function:</p>
+<p>The magnetic mixer device also has the function <cite>mix</cite> for implementing the mixing operation.
+This function will be called by a task to mix the contents of a container.
+The <cite>mix</cite> function:</p>
 <ul class="simple">
 <li><p>Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer</p></li>
 <li><p>Updates container metadata with mixing details</p></li>

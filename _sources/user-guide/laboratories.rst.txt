@@ -135,9 +135,10 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 
 Locations (Optional)
 """"""""""""""""""""
-Locations are physical stations around the lab where devices and containers are placed. They are defined in the
-`locations` section of the laboratory YAML file. You can define metadata for each location, such as map coordinates
-for a mobile robot. Defining locations is optional.
+Locations are physical stations around the lab where devices and containers are placed.
+They are defined in the `locations` section of the laboratory YAML file.
+You can define metadata for each location, such as map coordinates for a mobile robot.
+Defining locations is optional.
 
 .. code-block:: yaml
 
@@ -160,13 +161,15 @@ for a mobile robot. Defining locations is optional.
 
 Computers (Optional)
 """"""""""""""""""""
-Computers control devices and host EOS devices. Each computer that is required to interface with one or
-more devices must be defined in this section. The IP address of each computer must be specified.
+Computers control devices and host EOS devices.
+Each computer that is required to interface with one or more devices must be defined in this section.
+The IP address of each computer must be specified.
 
-There is always a computer in each lab called **eos_computer** that has the IP "127.0.0.1". This computer is the computer
-that runs the EOS orchestrator, and can be thought of as the "central" computer. No other computer named "eos_computer"
-is allowed, and no other computer can have the IP "127.0.0.1". The "computers" section need not be defined unless
-additional computers are required (e.g., if not all devices are connected to eos_computer).
+There is always a computer in each lab called **eos_computer** that has the IP "127.0.0.1".
+This computer is the computer that runs the EOS orchestrator, and can be thought of as the "central" computer.
+No other computer named "eos_computer" is allowed, and no other computer can have the IP "127.0.0.1".
+The "computers" section need not be defined unless additional computers are required (e.g., if not all devices are
+connected to eos_computer).
 
 .. figure:: ../_static/img/eos-computers.png
    :alt: EOS computers
@@ -187,8 +190,8 @@ additional computers are required (e.g., if not all devices are connected to eos
 
 Devices (Required)
 """"""""""""""""""
-Devices are equipment or apparatuses in the laboratory that are required to perform tasks. Each device must have a unique
-name inside the lab and must be defined in the `devices` section of the laboratory YAML file.
+Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
+Each device must have a unique name inside the lab and must be defined in the `devices` section of the laboratory YAML file.
 
 .. code-block:: yaml
 
@@ -215,20 +218,21 @@ name inside the lab and must be defined in the `devices` section of the laborato
           materials: [Au, Ag, Al]
 
 **type**: Every device must have a type, which matches a device specification (e.g., defined in the `devices` subdirectory
-of an EOS package). There can be multiple devices with different names of the same type.
+of an EOS package).
+There can be multiple devices with different names of the same type.
 
 **location** (optional): The location where the device is at.
 
-**computer**: The computer that controls the device. If not "eos_computer", the computer must be defined in the
-"computers" section.
+**computer**: The computer that controls the device.
+If not "eos_computer", the computer must be defined in the "computers" section.
 
-**initialization_parameters** (optional): Parameters required to initialize the device. These parameters are defined
-in the device specification and can be overridden here.
+**initialization_parameters** (optional): Parameters required to initialize the device.
+These parameters are defined in the device specification and can be overridden here.
 
 Containers (Optional)
 """""""""""""""""""""
-Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing). They are
-defined in the `containers` section of the laboratory YAML file.
+Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing).
+They are defined in the `containers` section of the laboratory YAML file.
 
 .. code-block:: yaml
 
@@ -264,4 +268,5 @@ defined in the `containers` section of the laboratory YAML file.
 
 **metadata** (optional): Any additional information about the container, such as its capacity or contained sample.
 
-**ids**: A list of unique identifiers for each container. These are used to identify and refer to specific containers.
+**ids**: A list of unique identifiers for each container.
+These are used to identify and refer to specific containers.

@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -349,14 +354,14 @@ document.write(`
                   
   <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>EOS should be installed on a capable computer in the laboratory. We recommend a central
-computer that is easily accessible.</p>
+<p>EOS should be installed on a capable computer in the laboratory.
+We recommend a central computer that is easily accessible.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>If EOS will be connecting to other computers to run automation, then you must ensure that the computer where EOS
 is installed has bi-directional network access to the other computers.</p>
 <p>We strongly recommend that the laboratory has its own isolated network for security and performance reasons.
-See our infrastructure setup guide for more information.</p>
+See <a class="reference internal" href="infrastructure_setup.html"><span class="doc">infrastructure setup</span></a> for more information.</p>
 </div>
 <p>EOS also requires a MongoDB database, a MinIO object storage server, and (for now) Budibase for the web UI.
 We provide a Docker Compose file that can set up all of these services for you.</p>

@@ -47,7 +47,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/optimizers';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Jinja2 Templating" href="jinja2_templating.html" />
+    <link rel="next" title="REST API" href="rest_api.html" />
     <link rel="prev" title="Campaigns" href="campaigns.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -349,26 +354,29 @@ document.write(`
                   
   <section id="optimizers">
 <h1>Optimizers<a class="headerlink" href="#optimizers" title="Link to this heading">#</a></h1>
-<p>Optimizers are key to building an autonomous laboratory. In EOS, optimizers give intelligence to experiment campaigns
-by optimizing task parameters to achieve objectives over time. Optimizers in EOS are <em>sequential</em>, meaning they iteratively
-optimize parameters by drawing insights from previous experiments. One of the most common sequential optimization
-methods is <strong>Bayesian optimization</strong>, and is especially useful for optimizing expensive-to-evaluate black box functions.</p>
+<p>Optimizers are key to building an autonomous laboratory.
+In EOS, optimizers give intelligence to experiment campaigns by optimizing task parameters to achieve objectives over time.
+Optimizers in EOS are <em>sequential</em>, meaning they iteratively optimize parameters by drawing insights from previous experiments.
+One of the most common sequential optimization methods is <strong>Bayesian optimization</strong>, and is especially useful for
+optimizing expensive-to-evaluate black box functions.</p>
 <figure class="align-center">
 <img alt="Optimization and experiment loop" src="../_images/optimize-experiment-loop.png" />
 </figure>
 <p>EOS has a built-in Bayesian optimizer powered by <a class="reference external" href="https://experimental-design.github.io/bofire/">BoFire</a>
-(based on <a class="reference external" href="https://botorch.org/">BoTorch</a>). This optimizer supports both constrained single-objective and multi-objective
-Bayesian optimization. It offers several different surrogate models, including Gaussian Processes (GPs) and
-Multi-Layer Perceptrons (MLPs), along with various acquisition functions.</p>
+(based on <a class="reference external" href="https://botorch.org/">BoTorch</a>).
+This optimizer supports both constrained single-objective and multi-objective Bayesian optimization.
+It offers several different surrogate models, including Gaussian Processes (GPs) and Multi-Layer Perceptrons (MLPs),
+along with various acquisition functions.</p>
 <section id="distributed-execution">
 <h2>Distributed Execution<a class="headerlink" href="#distributed-execution" title="Link to this heading">#</a></h2>
-<p>EOS optimizers are created in a dedicated Ray actor process. This actor process can be created in any computer with an
-active Ray worker. This can enable running the optimizer on a more capable computer than the one running
-the EOS orchestrator.</p>
+<p>EOS optimizers are created in a dedicated Ray actor process.
+This actor process can be created in any computer with an active Ray worker.
+This can enable running the optimizer on a more capable computer than the one running the EOS orchestrator.</p>
 </section>
 <section id="optimizer-implementation">
 <h2>Optimizer Implementation<a class="headerlink" href="#optimizer-implementation" title="Link to this heading">#</a></h2>
-<p>EOS optimizers are defined in the <cite>optimizer.py</cite> file adjacent to <cite>experiment.yml</cite> in an EOS package. Below is an example:</p>
+<p>EOS optimizers are defined in the <cite>optimizer.py</cite> file adjacent to <cite>experiment.yml</cite> in an EOS package.
+Below is an example:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.enum</span> <span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
@@ -401,20 +409,23 @@ the EOS orchestrator.</p>
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>Each <cite>optimizer.py</cite> file must contain the function <cite>eos_create_campaign_optimizer</cite>. This function must return:</p>
+<p>Each <cite>optimizer.py</cite> file must contain the function <cite>eos_create_campaign_optimizer</cite>.
+This function must return:</p>
 <ol class="arabic simple">
 <li><p>The constructor arguments to make an optimizer class instance</p></li>
 <li><p>The class type of the optimizer</p></li>
 </ol>
-<p>In this example, we use EOS’ built-in Bayesian optimizer. However, it is also possible to define custom optimizers in this
-file, and simply return the constructor arguments and the class type from <cite>eos_create_campaign_optimizer</cite>.</p>
+<p>In this example, we use EOS’ built-in Bayesian optimizer.
+However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
+the class type from <cite>eos_create_campaign_optimizer</cite>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>All optimizers must inherit from the class <cite>AbstractSequentialOptimizer</cite> under the <cite>eos.optimization</cite> module.</p>
 </div>
 <section id="input-and-output-parameter-naming">
 <h3>Input and Output Parameter Naming<a class="headerlink" href="#input-and-output-parameter-naming" title="Link to this heading">#</a></h3>
-<p>The names of input and output parameters must reference task parameters. The EOS reference format must be used:</p>
+<p>The names of input and output parameters must reference task parameters.
+The EOS reference format must be used:</p>
 <p><strong>TASK.PARAMETER_NAME</strong></p>
 <p>This is necessary for EOS to be able to associate the optimizer with the experiment tasks and to forward parameter values
 where needed.</p>
@@ -532,11 +543,11 @@ where needed.</p>
       </div>
     </a>
     <a class="right-next"
-       href="jinja2_templating.html"
+       href="rest_api.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Jinja2 Templating</p>
+        <p class="prev-next-title">REST API</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

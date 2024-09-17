@@ -276,6 +276,7 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="current nav bd-sidenav">
@@ -286,6 +287,10 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -349,9 +354,10 @@ document.write(`
                   
   <section id="tasks">
 <h1>Tasks<a class="headerlink" href="#tasks" title="Link to this heading">#</a></h1>
-<p>A task in EOS encapsulates an operation and can be thought of as a function. Tasks are the elementary building block
-in EOS. A task is ephemeral, meaning it is created, executed, and terminated. A task takes some inputs and returns some
-outputs, and may use one or more devices.</p>
+<p>A task in EOS encapsulates an operation and can be thought of as a function.
+Tasks are the elementary building block in EOS.
+A task is ephemeral, meaning it is created, executed, and terminated.
+A task takes some inputs and returns some outputs, and may use one or more devices.</p>
 <p>There are two kinds of inputs: <strong>parameters</strong> and <strong>containers</strong>.</p>
 <ol class="arabic simple">
 <li><p><strong>Parameters</strong>: Data such as integers, decimals, strings, booleans, etc that are passed to the task.</p></li>
@@ -368,40 +374,51 @@ outputs, and may use one or more devices.</p>
 </figure>
 <section id="parameters">
 <h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
-<p>Parameters are values that are input to a task or output from a task. Every parameter has a specific data type.
+<p>Parameters are values that are input to a task or output from a task.
+Every parameter has a specific data type.
 EOS supports the following parameter types:</p>
 <ul class="simple">
-<li><p><strong>integer</strong>: An integer number; equivalent to Python’s <cite>int</cite></p></li>
-<li><p><strong>decimal</strong>: A decimal number; equivalent to Python’s <cite>float</cite></p></li>
-<li><p><strong>string</strong>: A string (series of text characters); equivalent to Python’s <cite>str</cite></p></li>
-<li><p><strong>boolean</strong>: A true/false value; equivalent to Python’s <cite>bool</cite></p></li>
-<li><p><strong>choice</strong>: A value that must be one of a set of predefined choices. The choices can be any type.</p></li>
-<li><p><strong>list</strong>: A list of values of a specific type. Equivalent to Python’s <cite>list</cite>.</p></li>
-<li><p><strong>dictionary</strong>: A dictionary of key-value pairs. Equivalent to Python’s <cite>dict</cite>.</p></li>
+<li><p><strong>integer</strong>: An integer number.
+Equivalent to Python’s <cite>int</cite></p></li>
+<li><p><strong>decimal</strong>: A decimal number.
+Equivalent to Python’s <cite>float</cite></p></li>
+<li><p><strong>string</strong>: A string (series of text characters).
+Equivalent to Python’s <cite>str</cite></p></li>
+<li><p><strong>boolean</strong>: A true/false value.
+Equivalent to Python’s <cite>bool</cite></p></li>
+<li><p><strong>choice</strong>: A value that must be one of a set of predefined choices.
+The choices can be any type.</p></li>
+<li><p><strong>list</strong>: A list of values of a specific type.
+Equivalent to Python’s <cite>list</cite>.</p></li>
+<li><p><strong>dictionary</strong>: A dictionary of key-value pairs.
+Equivalent to Python’s <cite>dict</cite>.</p></li>
 </ul>
-<p>Tasks can have multiple parameters of different types. EOS will ensure that the parameters passed to a task are of the
-correct type and have values that meet their constraints.</p>
+<p>Tasks can have multiple parameters of different types.
+EOS will ensure that the parameters passed to a task are of the correct type and have values that meet their constraints.</p>
 </section>
 <section id="containers">
 <h2>Containers<a class="headerlink" href="#containers" title="Link to this heading">#</a></h2>
-<p>Containers are referenced by a unique identifier called a <strong>container ID</strong>. A container ID is a string that uniquely
-identifies a container. Every container in EOS must have an ID, and these can be specified in the laboratory
-definition. Containers are treated as <cite>global</cite> objects and can move across labs. However, every container must
-have a “home” lab from which it originates.</p>
-<p>In order to pass a container to a task or return a container from a task, its container ID is used. Every task
-may accept specific types of containers, such as beakers, or vials. Multiple different containers can be passed. Users
-can create their own types of containers, such as <cite>beaker_500ml</cite> or <cite>vial_2ml</cite>, which specify a unique container
-type. EOS will ensure that only container types that are compatible with the task are passed to it.</p>
+<p>Containers are referenced by a unique identifier called a <strong>container ID</strong>.
+A container ID is a string that uniquely identifies a container.
+Every container in EOS must have an ID, and these can be specified in the laboratory definition.
+Containers are treated as <cite>global</cite> objects and can move across labs.
+However, every container must have a “home” lab from which it originates.</p>
+<p>In order to pass a container to a task or return a container from a task, its container ID is used.
+Every task may accept specific types of containers, such as beakers, or vials.
+Multiple different containers can be passed.
+Users can create their own types of containers, such as <cite>beaker_500ml</cite> or <cite>vial_2ml</cite>, which specify a unique container type.
+EOS will ensure that only container types that are compatible with the task are passed to it.</p>
 </section>
 <section id="files">
 <h2>Files<a class="headerlink" href="#files" title="Link to this heading">#</a></h2>
-<p>Files may be generated by a task and EOS will store them in an object storage (MinIO). Output files can be used to
-record raw data for future reference, and can be downloaded by the user.</p>
+<p>Files may be generated by a task and EOS will store them in an object storage (MinIO).
+Output files can be used to record raw data for future reference, and can be downloaded by the user.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Files cannot currently be passed as inputs to tasks via the EOS runtime and its object storage.
-This is planned to be supported in the future. It is still possible to pass them using an external object
-storage (e.g., MinIO), but this has to be implemented and managed manually.</p>
+This is planned to be supported in the future.
+It is still possible to pass them using an external object storage (e.g., MinIO), but this has to be implemented and
+managed manually.</p>
 </div>
 </section>
 <section id="task-implementation">
@@ -446,9 +463,10 @@ storage (e.g., MinIO), but this has to be implemented and managed manually.</p>
 <p>The task specification makes clear that:</p>
 <ul class="simple">
 <li><p>The task is of type “SRI GC Analysis”</p></li>
-<li><p>The task requires a device of type “sri_gas_chromatograph”. EOS will enforce this requirement.</p></li>
-<li><p>The task takes an input integer parameter <cite>analysis_time</cite> in seconds. It has a default value of 480, making this an
-optional parameter.</p></li>
+<li><p>The task requires a device of type “sri_gas_chromatograph”.
+EOS will enforce this requirement.</p></li>
+<li><p>The task takes an input integer parameter <cite>analysis_time</cite> in seconds.
+It has a default value of 480, making this an optional parameter.</p></li>
 <li><p>The task outputs two dictionaries: <cite>known_substances</cite> and <cite>unknown_substances</cite>.</p></li>
 </ul>
 <section id="parameter-specification">
@@ -529,8 +547,8 @@ optional parameter.</p></li>
 <span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p>List parameters are a sequence of values of a specific type. They can have a specific length and minimum and maximum
-per-element values.</p>
+<p>List parameters are a sequence of values of a specific type.
+They can have a specific length and minimum and maximum per-element values.</p>
 </section>
 <section id="dictionary">
 <h4>Dictionary<a class="headerlink" href="#dictionary" title="Link to this heading">#</a></h4>
@@ -580,14 +598,18 @@ per-element values.</p>
 </pre></div>
 </div>
 <p>Let’s walk through this example code:</p>
-<p><cite>_execute</cite> is the only required function in a task implementation. It is called by EOS to execute a task. The function
-takes three arguments:</p>
-<p>#. <cite>devices</cite>: A data structure supporting lookup of specific lab devices assigned to a task. In this case, only one
-device is given, a magnetic mixer. The devices are represented as wrappers to Ray actor references, and the task
-implementation can call functions from the device implementation.</p>
+<p><cite>_execute</cite> is the only required function in a task implementation.
+It is called by EOS to execute a task.
+The function takes three arguments:</p>
 <ol class="arabic simple">
-<li><p><cite>parameters</cite>: A dictionary of the input parameters. Keys are the parameter names and values are the parameter values.</p></li>
-<li><p><cite>containers</cite>: A dictionary of the input containers. Keys are the container IDs and values are the <cite>Container</cite> objects.</p></li>
+<li><p><cite>devices</cite>: A data structure supporting lookup of specific lab devices assigned to a task.
+In this case, only one device is given, a magnetic mixer.
+The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
+the device implementation.</p></li>
+<li><p><cite>parameters</cite>: A dictionary of the input parameters.
+Keys are the parameter names and values are the parameter values.</p></li>
+<li><p><cite>containers</cite>: A dictionary of the input containers.
+Keys are the container IDs and values are the <cite>Container</cite> objects.</p></li>
 </ol>
 </section>
 </section>

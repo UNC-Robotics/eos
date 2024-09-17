@@ -1,21 +1,24 @@
 Experiments
 ===========
-Experiments are a set of tasks that are executed in a specific order. Experiments are represented as directed
-acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks. Tasks part of an experiment can
-pass parameters and containers to each other using EOS' reference system. Task parameters may be fully defined, with
-values provided for all task parameters or they may be left undefined by denoting them as dynamic parameters. Experiments with
-dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values for the
-dynamic parameters across repeated experiments to optimize some objectives.
+Experiments are a set of tasks that are executed in a specific order.
+Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
+Tasks part of an experiment can pass parameters and containers to each other using EOS' reference system.
+Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
+denoting them as dynamic parameters.
+Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
+for the dynamic parameters across repeated experiments to optimize some objectives.
 
 .. figure:: ../_static/img/experiment-graph.png
    :alt: Example experiment graph
    :align: center
 
-Above is an example of a possible experiment that could be implemented with EOS. There is a series of tasks, each
-requiring one or more devices. In addition to the task precedence dependencies with edges shown in the graph, there can
-also be dependencies in the form of parameters and containers passed between tasks. For example, the task "Mix Solutions"
-may take as input parameters the volumes of the solutions to mix, and these values may be output from the "Dispense Solutions"
-task. Tasks can reference input/output parameters and containers from other tasks.
+Above is an example of a possible experiment that could be implemented with EOS.
+There is a series of tasks, each requiring one or more devices.
+In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
+form of parameters and containers passed between tasks.
+For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
+may be output from the "Dispense Solutions" task.
+Tasks can reference input/output parameters and containers from other tasks.
 
 Experiment Implementation
 -------------------------
@@ -25,7 +28,8 @@ Experiment Implementation
 
 YAML File (experiment.yml)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-Defines the experiment. Specifies the experiment type, labs, container initialization (optional), and tasks
+Defines the experiment.
+Specifies the experiment type, labs, container initialization (optional), and tasks
 
 Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:
 
@@ -182,8 +186,10 @@ Let's dissect this file:
     labs:
       - color_lab
 
-Every experiment has a type. The type is used to essentially identify the class of experiment. When an experiment is running
-then there are instances of the experiment with different IDs. Each experiment also requires one or more labs.
+Every experiment has a type.
+The type is used to essentially identify the class of experiment.
+When an experiment is running then there are instances of the experiment with different IDs.
+Each experiment also requires one or more labs.
 
 Now let's look at the first task in the experiment:
 
@@ -207,12 +213,14 @@ Now let's look at the first task in the experiment:
         target_location: color_dispenser
       dependencies: []
 
-The first task is named `retrieve_container` and is of type `Retrieve Container`. This task uses the robot arm to get
-a random container from storage. The task requires two devices, the robot arm and the container storage. There are five
-containers passed to it, "c_a" through "c_e". There is also a parameter `target_location` that is set to `color_dispenser`.
+The first task is named `retrieve_container` and is of type `Retrieve Container`.
+This task uses the robot arm to get a random container from storage.
+The task requires two devices, the robot arm and the container storage.
+There are five containers passed to it, "c_a" through "c_e".
+There is also a parameter `target_location` that is set to `color_dispenser`.
 This task has no dependencies as it is the first task in the experiment and is essentially a container feeder.
-There are five containers in storage, and one of them is chosen at random for the experiment. All five containers in our
-"color lab" are passed to this task, as any one of them could be chosen.
+There are five containers in storage, and one of them is chosen at random for the experiment.
+All five containers in our "color lab" are passed to this task, as any one of them could be chosen.
 
 Let's look at the next task:
 
@@ -233,12 +241,14 @@ Let's look at the next task:
       black_volume: eos_dynamic
     dependencies: [retrieve_container]
 
-This task takes the container from the `retrieve_container` task and dispenses colors into it. The task has an
-input container called "beaker" which references the output container named "beaker" from the `retrieve_container` task.
+This task takes the container from the `retrieve_container` task and dispenses colors into it.
+The task has an input container called "beaker" which references the output container named "beaker" from the
+`retrieve_container` task.
 If we look at the `task.yml` file of the task `Retrieve Container` we would see that a container named "beaker" is
-defined in `output_containers`. There are also four parameters, the CMYK volumes to dispense. All these parameters are
-set to `eos_dynamic`, which is a special keyword in EOS for defining dynamic parameters, instructing the system that
-these parameters must be specified either by the user or an optimizer before an experiment is run.
+defined in `output_containers`.
+There are also four parameters, the CMYK volumes to dispense.
+All these parameters are set to `eos_dynamic`, which is a special keyword in EOS for defining dynamic parameters,
+instructing the system that these parameters must be specified either by the user or an optimizer before an experiment is run.
 
 Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

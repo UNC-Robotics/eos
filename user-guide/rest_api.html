@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Configuration &#8212; EOS - The Experiment Orchestration System</title>
+    <title>REST API &#8212; EOS - The Experiment Orchestration System</title>
   
   
   
@@ -44,11 +44,11 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/configuration';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/rest_api';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Running" href="running.html" />
-    <link rel="prev" title="Installation" href="installation.html" />
+    <link rel="next" title="Jinja2 Templating" href="jinja2_templating.html" />
+    <link rel="prev" title="Optimizers" href="optimizers.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   </head>
@@ -272,9 +272,9 @@ document.write(`
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="current nav bd-sidenav">
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
 <li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 </ul>
@@ -289,8 +289,8 @@ document.write(`
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">REST API</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -335,7 +335,7 @@ document.write(`
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page">Configuration</li>
+    <li class="breadcrumb-item active" aria-current="page">REST API</li>
   </ul>
 </nav>
 </div>
@@ -352,26 +352,40 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="configuration">
-<h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h1>
-<p>After installation, you need to configure external services such as MongoDB and MinIO as well as EOS itself.</p>
-<section id="configure-external-services">
-<h2>1. Configure External Services<a class="headerlink" href="#configure-external-services" title="Link to this heading">#</a></h2>
-<p>We provide a Docker Compose file that can run the external services.</p>
-<p>Copy the example environment file:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>docker/.env.example<span class="w"> </span>docker/.env
+  <section id="rest-api">
+<h1>REST API<a class="headerlink" href="#rest-api" title="Link to this heading">#</a></h1>
+<p>EOS has a REST API to control the orchestrator.
+Example functions include:</p>
+<ul class="simple">
+<li><p>Submit tasks, experiments, and campaigns</p></li>
+<li><p>Cancel tasks, experiments, and campaigns</p></li>
+<li><p>Load, unload, and reload experiments and laboratories</p></li>
+<li><p>Get the status of tasks, experiments, and campaigns</p></li>
+<li><p>Download task output files</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Be <strong>very careful</strong> to who accesses REST API.
+The REST API currently has no authentication.</p>
+<p>Only use it internally in its current state.
+If you need to make it accessible over the web use a VPN and set up a firewall.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>EOS will likely have control over expensive (and potentially dangerous) hardware and unchecked REST API access could
+have <strong>severe</strong> consequences.</p>
+</div>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h2>
+<p>To view the REST API documentation, start the EOS REST API:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>api
 </pre></div>
 </div>
-<p>Edit <cite>docker/.env</cite> and provide values for all fields.</p>
-</section>
-<section id="configure-eos">
-<h2>2. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
-<p>EOS reads parameters from a YAML configuration file.</p>
-<p>Copy the example configuration file:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
+<p>The REST API is documented using <a class="reference external" href="https://swagger.io/specification/">OpenAPI</a> and can be accessed at:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>http://localhost:8000/docs
 </pre></div>
 </div>
-<p>Edit <cite>config.yml</cite>. Ensure that credentials are provided for the MongoDB and MinIO services.</p>
+<p>or whatever host and port you have configured for the REST API server.</p>
 </section>
 </section>
 
@@ -386,20 +400,20 @@ document.write(`
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="installation.html"
+       href="optimizers.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Optimizers</p>
       </div>
     </a>
     <a class="right-next"
-       href="running.html"
+       href="jinja2_templating.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Running</p>
+        <p class="prev-next-title">Jinja2 Templating</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -421,8 +435,7 @@ document.write(`
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-external-services">1. Configure External Services</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">2. Configure EOS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a></li>
 </ul>
   </nav></div>
 

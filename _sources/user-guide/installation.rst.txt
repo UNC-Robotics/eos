@@ -1,15 +1,15 @@
 Installation
 ============
 
-EOS should be installed on a capable computer in the laboratory. We recommend a central
-computer that is easily accessible.
+EOS should be installed on a capable computer in the laboratory.
+We recommend a central computer that is easily accessible.
 
 .. note::
     If EOS will be connecting to other computers to run automation, then you must ensure that the computer where EOS
     is installed has bi-directional network access to the other computers.
 
     We strongly recommend that the laboratory has its own isolated network for security and performance reasons.
-    See our infrastructure setup guide for more information.
+    See :doc:`infrastructure setup <infrastructure_setup>` for more information.
 
 EOS also requires a MongoDB database, a MinIO object storage server, and (for now) Budibase for the web UI.
 We provide a Docker Compose file that can set up all of these services for you.
