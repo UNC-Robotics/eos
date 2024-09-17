@@ -19,5 +19,5 @@ The following are important points for setting up the computational and network 
 
 .. figure:: ../_static/img/lab-lan.png
    :alt: Example LAN setup for EOS
-   :scale: 50%
+   :scale: 75%
    :align: center
