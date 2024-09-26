@@ -47,6 +47,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/jinja2_templating';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Color Mixing" href="color_mixing.html" />
     <link rel="prev" title="REST API" href="rest_api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -295,6 +296,10 @@ document.write(`
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -374,7 +379,7 @@ This is particularly useful for altering the task sequence of an experiment whil
 <section id="variables">
 <h2>Variables<a class="headerlink" href="#variables" title="Link to this heading">#</a></h2>
 <p>Jinja2 allows setting and reading variables in the YAML file.
-In the example below, the variable <cite>max_volume</cite> is set to 300 and used to define the capacity of two beakers:</p>
+In the example below, the variable <code class="docutils literal notranslate"><span class="pre">max_volume</span></code> is set to 300 and used to define the capacity of two beakers:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">max_volume</span> <span class="o">=</span> <span class="m">300</span> <span class="cp">%}</span>
 <span class="nn">...</span>
@@ -405,7 +410,7 @@ In the example below, the volumes of cyan, magenta, and yellow colorants are cal
 <section id="conditionals">
 <h2>Conditionals<a class="headerlink" href="#conditionals" title="Link to this heading">#</a></h2>
 <p>You can use if statements to include or exclude content based on conditions.
-In the example below, the task “mix_colors” is only included if the variable <cite>mix_colors</cite> is set to <cite>True</cite>:</p>
+In the example below, the task “mix_colors” is only included if the variable <code class="docutils literal notranslate"><span class="pre">mix_colors</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="cp">{%</span> <span class="k">if</span> <span class="nv">mix_colors</span> <span class="cp">%}</span>
@@ -437,7 +442,7 @@ In the example below, a loop is used to generate container IDs with a common pre
 <section id="macros">
 <h2>Macros<a class="headerlink" href="#macros" title="Link to this heading">#</a></h2>
 <p>Jinja2 macros allow you to define reusable blocks of content.
-In the example below, the <cite>create_containers</cite> macro is used to easily create containers with a prefix and a number
+In the example below, the <code class="docutils literal notranslate"><span class="pre">create_containers</span></code> macro is used to easily create containers with a prefix and a number
 (e.g., <cite>c_0</cite>, <cite>c_1</cite>, <cite>c_2</cite>, etc.):</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">create_containers</span><span class="o">(</span><span class="nv">type</span><span class="o">,</span> <span class="nv">location</span><span class="o">,</span> <span class="nv">capacity</span><span class="o">,</span> <span class="nv">id_prefix</span><span class="o">,</span> <span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
@@ -459,7 +464,7 @@ In the example below, the <cite>create_containers</cite> macro is used to easily
 <section id="include-files">
 <h2>Include Files<a class="headerlink" href="#include-files" title="Link to this heading">#</a></h2>
 <p>Jinja2 allows you to include YAML from other files.
-In the below example, a template experiment is included in an <cite>experiment.yml</cite> file.
+In the below example, a template experiment is included in an <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> file.
 We specify the values for the Jinja2 variables of the template experiment:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">experiment_type</span> <span class="o">=</span> <span class="s1">&#39;color_mixing_1&#39;</span> <span class="cp">%}</span>
@@ -493,6 +498,15 @@ This means YAML files from different EOS packages can be included.</p>
         <p class="prev-next-subtitle">previous</p>
         <p class="prev-next-title">REST API</p>
       </div>
+    </a>
+    <a class="right-next"
+       href="color_mixing.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Color Mixing</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>

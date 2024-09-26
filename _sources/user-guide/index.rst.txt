@@ -29,3 +29,8 @@ User Guide
     :caption: Advanced
 
     jinja2_templating
+
+.. toctree::
+    :caption: Examples
+
+    color_mixing

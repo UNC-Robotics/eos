@@ -296,6 +296,10 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -379,19 +383,19 @@ Every parameter has a specific data type.
 EOS supports the following parameter types:</p>
 <ul class="simple">
 <li><p><strong>integer</strong>: An integer number.
-Equivalent to Python’s <cite>int</cite></p></li>
+Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">int</span></code></p></li>
 <li><p><strong>decimal</strong>: A decimal number.
-Equivalent to Python’s <cite>float</cite></p></li>
+Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
 <li><p><strong>string</strong>: A string (series of text characters).
-Equivalent to Python’s <cite>str</cite></p></li>
+Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">str</span></code></p></li>
 <li><p><strong>boolean</strong>: A true/false value.
-Equivalent to Python’s <cite>bool</cite></p></li>
+Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">bool</span></code></p></li>
 <li><p><strong>choice</strong>: A value that must be one of a set of predefined choices.
 The choices can be any type.</p></li>
 <li><p><strong>list</strong>: A list of values of a specific type.
-Equivalent to Python’s <cite>list</cite>.</p></li>
+Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">list</span></code>.</p></li>
 <li><p><strong>dictionary</strong>: A dictionary of key-value pairs.
-Equivalent to Python’s <cite>dict</cite>.</p></li>
+Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">dict</span></code>.</p></li>
 </ul>
 <p>Tasks can have multiple parameters of different types.
 EOS will ensure that the parameters passed to a task are of the correct type and have values that meet their constraints.</p>
@@ -401,12 +405,12 @@ EOS will ensure that the parameters passed to a task are of the correct type and
 <p>Containers are referenced by a unique identifier called a <strong>container ID</strong>.
 A container ID is a string that uniquely identifies a container.
 Every container in EOS must have an ID, and these can be specified in the laboratory definition.
-Containers are treated as <cite>global</cite> objects and can move across labs.
+Containers are treated as <em>global</em> objects and can move across labs.
 However, every container must have a “home” lab from which it originates.</p>
 <p>In order to pass a container to a task or return a container from a task, its container ID is used.
 Every task may accept specific types of containers, such as beakers, or vials.
 Multiple different containers can be passed.
-Users can create their own types of containers, such as <cite>beaker_500ml</cite> or <cite>vial_2ml</cite>, which specify a unique container type.
+Users can create their own types of containers, such as <code class="docutils literal notranslate"><span class="pre">beaker_500ml</span></code> or <code class="docutils literal notranslate"><span class="pre">vial_2ml</span></code>, which specify a unique container type.
 EOS will ensure that only container types that are compatible with the task are passed to it.</p>
 </section>
 <section id="files">
@@ -426,7 +430,7 @@ managed manually.</p>
 <ul class="simple">
 <li><p>Tasks are implemented in the <cite>tasks</cite> subdirectory inside an EOS package</p></li>
 <li><p>Each task has its own subfolder (e.g., tasks/magnetic_mixing)</p></li>
-<li><p>There are two key files per task: <cite>task.yml</cite> and <cite>task.py</cite></p></li>
+<li><p>There are two key files per task: <code class="docutils literal notranslate"><span class="pre">task.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">task.py</span></code></p></li>
 </ul>
 <section id="yaml-file-task-yml">
 <h3>YAML File (task.yml)<a class="headerlink" href="#yaml-file-task-yml" title="Link to this heading">#</a></h3>
@@ -465,13 +469,13 @@ managed manually.</p>
 <li><p>The task is of type “SRI GC Analysis”</p></li>
 <li><p>The task requires a device of type “sri_gas_chromatograph”.
 EOS will enforce this requirement.</p></li>
-<li><p>The task takes an input integer parameter <cite>analysis_time</cite> in seconds.
+<li><p>The task takes an input integer parameter <code class="docutils literal notranslate"><span class="pre">analysis_time</span></code> in seconds.
 It has a default value of 480, making this an optional parameter.</p></li>
-<li><p>The task outputs two dictionaries: <cite>known_substances</cite> and <cite>unknown_substances</cite>.</p></li>
+<li><p>The task outputs two dictionaries: <code class="docutils literal notranslate"><span class="pre">known_substances</span></code> and <code class="docutils literal notranslate"><span class="pre">unknown_substances</span></code>.</p></li>
 </ul>
 <section id="parameter-specification">
 <h4>Parameter Specification<a class="headerlink" href="#parameter-specification" title="Link to this heading">#</a></h4>
-<p>Parameters are defined in the <cite>input_parameters</cite> and <cite>output_parameters</cite> sections of the task YAML file.</p>
+<p>Parameters are defined in the <code class="docutils literal notranslate"><span class="pre">input_parameters</span></code> and <code class="docutils literal notranslate"><span class="pre">output_parameters</span></code> sections of the task YAML file.</p>
 <p>Below are examples and descriptions for each parameter type:</p>
 </section>
 <section id="integer">
@@ -574,7 +578,7 @@ They can have a specific length and minimum and maximum per-element values.</p>
 <h3>Python File (task.yml)<a class="headerlink" href="#python-file-task-yml" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Implements the task</p></li>
-<li><p>All task implementations must inherit from <cite>BaseTask</cite></p></li>
+<li><p>All task implementations must inherit from <code class="docutils literal notranslate"><span class="pre">BaseTask</span></code></p></li>
 <li><p>The task class name must end with “Task” to be discovered by EOS</p></li>
 </ul>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.py</span></p>
@@ -598,18 +602,18 @@ They can have a specific length and minimum and maximum per-element values.</p>
 </pre></div>
 </div>
 <p>Let’s walk through this example code:</p>
-<p><cite>_execute</cite> is the only required function in a task implementation.
+<p><code class="docutils literal notranslate"><span class="pre">_execute</span></code> is the only required function in a task implementation.
 It is called by EOS to execute a task.
 The function takes three arguments:</p>
 <ol class="arabic simple">
-<li><p><cite>devices</cite>: A data structure supporting lookup of specific lab devices assigned to a task.
+<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code>: A data structure supporting lookup of specific lab devices assigned to a task.
 In this case, only one device is given, a magnetic mixer.
 The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
 the device implementation.</p></li>
-<li><p><cite>parameters</cite>: A dictionary of the input parameters.
+<li><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code>: A dictionary of the input parameters.
 Keys are the parameter names and values are the parameter values.</p></li>
-<li><p><cite>containers</cite>: A dictionary of the input containers.
-Keys are the container IDs and values are the <cite>Container</cite> objects.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">containers</span></code>: A dictionary of the input containers.
+Keys are the container IDs and values are the <code class="docutils literal notranslate"><span class="pre">Container</span></code> objects.</p></li>
 </ol>
 </section>
 </section>

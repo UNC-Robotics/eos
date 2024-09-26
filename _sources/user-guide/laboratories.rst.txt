@@ -18,7 +18,7 @@ Laboratory Implementation
 -------------------------
 * Laboratories are implemented in the `laboratories` subdirectory inside an EOS package
 * Each laboratory has its own subfolder (e.g., laboratories/color_lab)
-* The laboratory is defined in a YAML file named `laboratory.yml`
+* The laboratory is defined in a YAML file named ``laboratory.yml``.
 
 Below is an example laboratory YAML file for a solar cell fabrication lab:
 
@@ -136,7 +136,7 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 Locations (Optional)
 """"""""""""""""""""
 Locations are physical stations around the lab where devices and containers are placed.
-They are defined in the `locations` section of the laboratory YAML file.
+They are defined in the ``locations`` section of the laboratory YAML file.
 You can define metadata for each location, such as map coordinates for a mobile robot.
 Defining locations is optional.
 
@@ -191,7 +191,7 @@ connected to eos_computer).
 Devices (Required)
 """"""""""""""""""
 Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
-Each device must have a unique name inside the lab and must be defined in the `devices` section of the laboratory YAML file.
+Each device must have a unique name inside the lab and must be defined in the ``devices`` section of the laboratory YAML file.
 
 .. code-block:: yaml
 
@@ -217,7 +217,7 @@ Each device must have a unique name inside the lab and must be defined in the `d
           max_temperature: 1000C
           materials: [Au, Ag, Al]
 
-**type**: Every device must have a type, which matches a device specification (e.g., defined in the `devices` subdirectory
+**type**: Every device must have a type, which matches a device specification (e.g., defined in the ``devices`` subdirectory
 of an EOS package).
 There can be multiple devices with different names of the same type.
 
@@ -232,7 +232,7 @@ These parameters are defined in the device specification and can be overridden h
 Containers (Optional)
 """""""""""""""""""""
 Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing).
-They are defined in the `containers` section of the laboratory YAML file.
+They are defined in the ``containers`` section of the laboratory YAML file.
 
 .. code-block:: yaml
 

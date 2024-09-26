@@ -24,7 +24,7 @@ Experiment Implementation
 -------------------------
 * Experiments are implemented in the `experiments` subdirectory inside an EOS package
 * Each experiment has its own subfolder (e.g., experiments/optimize_yield)
-* There are two key files per experiment: `experiment.yml` and `optimizer.py` (for running campaigns with optimization)
+* There are two key files per experiment: ``experiment.yml`` and ``optimizer.py`` (for running campaigns with optimization)
 
 YAML File (experiment.yml)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -213,11 +213,11 @@ Now let's look at the first task in the experiment:
         target_location: color_dispenser
       dependencies: []
 
-The first task is named `retrieve_container` and is of type `Retrieve Container`.
+The first task is named ``retrieve_container`` and is of type `Retrieve Container`.
 This task uses the robot arm to get a random container from storage.
 The task requires two devices, the robot arm and the container storage.
 There are five containers passed to it, "c_a" through "c_e".
-There is also a parameter `target_location` that is set to `color_dispenser`.
+There is also a parameter ``target_location`` that is set to ``color_dispenser``.
 This task has no dependencies as it is the first task in the experiment and is essentially a container feeder.
 There are five containers in storage, and one of them is chosen at random for the experiment.
 All five containers in our "color lab" are passed to this task, as any one of them could be chosen.
@@ -241,13 +241,13 @@ Let's look at the next task:
       black_volume: eos_dynamic
     dependencies: [retrieve_container]
 
-This task takes the container from the `retrieve_container` task and dispenses colors into it.
+This task takes the container from the ``retrieve_container`` task and dispenses colors into it.
 The task has an input container called "beaker" which references the output container named "beaker" from the
-`retrieve_container` task.
-If we look at the `task.yml` file of the task `Retrieve Container` we would see that a container named "beaker" is
-defined in `output_containers`.
+``retrieve_container`` task.
+If we look at the ``task.yml`` file of the task `Retrieve Container` we would see that a container named "beaker" is
+defined in ``output_containers``.
 There are also four parameters, the CMYK volumes to dispense.
-All these parameters are set to `eos_dynamic`, which is a special keyword in EOS for defining dynamic parameters,
+All these parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters,
 instructing the system that these parameters must be specified either by the user or an optimizer before an experiment is run.
 
 Optimizer File (optimizer.py)
@@ -292,5 +292,5 @@ As an example, below is the optimizer file for the color mixing experiment:
 
         return constructor_args, BayesianSequentialOptimizer
 
-The `optimizer.py` file is optional and only required for running experiment campaigns with optimization managed by EOS.
+The ``optimizer.py`` file is optional and only required for running experiment campaigns with optimization managed by EOS.
 More on optimizers can be found in the Optimizers section of the User Guide.

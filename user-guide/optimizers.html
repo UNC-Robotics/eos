@@ -296,6 +296,10 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -375,7 +379,7 @@ This can enable running the optimizer on a more capable computer than the one ru
 </section>
 <section id="optimizer-implementation">
 <h2>Optimizer Implementation<a class="headerlink" href="#optimizer-implementation" title="Link to this heading">#</a></h2>
-<p>EOS optimizers are defined in the <cite>optimizer.py</cite> file adjacent to <cite>experiment.yml</cite> in an EOS package.
+<p>EOS optimizers are defined in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> in an EOS package.
 Below is an example:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
@@ -409,7 +413,7 @@ Below is an example:</p>
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>Each <cite>optimizer.py</cite> file must contain the function <cite>eos_create_campaign_optimizer</cite>.
+<p>Each <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file must contain the function <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.
 This function must return:</p>
 <ol class="arabic simple">
 <li><p>The constructor arguments to make an optimizer class instance</p></li>
@@ -417,10 +421,10 @@ This function must return:</p>
 </ol>
 <p>In this example, we use EOS’ built-in Bayesian optimizer.
 However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
-the class type from <cite>eos_create_campaign_optimizer</cite>.</p>
+the class type from <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>All optimizers must inherit from the class <cite>AbstractSequentialOptimizer</cite> under the <cite>eos.optimization</cite> module.</p>
+<p>All optimizers must inherit from the class <code class="docutils literal notranslate"><span class="pre">AbstractSequentialOptimizer</span></code> under the <code class="docutils literal notranslate"><span class="pre">eos.optimization</span></code> module.</p>
 </div>
 <section id="input-and-output-parameter-naming">
 <h3>Input and Output Parameter Naming<a class="headerlink" href="#input-and-output-parameter-naming" title="Link to this heading">#</a></h3>

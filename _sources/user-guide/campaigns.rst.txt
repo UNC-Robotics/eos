@@ -34,7 +34,7 @@ There are six dynamic parameters, which are the inputs of the optimization probl
     mixing_time: eos_dynamic
     mixing_speed: eos_dynamic
 
-Looking at the task specification of the `score_color` task, we also see that there is an output parameter called "loss".
+Looking at the task specification of the ``score_color`` task, we also see that there is an output parameter called "loss".
 
 :bdg-primary:`task.yml`
 
@@ -66,7 +66,7 @@ Looking at the task specification of the `score_color` task, we also see that th
 Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
 
-This setup is also summarized in the `optimizer.py` file adjacent to `experiment.yml`.
+This setup is also summarized in the ``optimizer.py`` file adjacent to ``experiment.yml``.
 
 :bdg-primary:`optimizer.py`
 
@@ -104,7 +104,7 @@ This setup is also summarized in the `optimizer.py` file adjacent to `experiment
 
         return constructor_args, BayesianSequentialOptimizer
 
-The `eos_create_campaign_optimizer` function is used to create the optimizer for the campaign.
+The ``eos_create_campaign_optimizer`` function is used to create the optimizer for the campaign.
 We can see that the inputs are composed of all the dynamic parameters in the experiment and the output is the "loss"
 output parameter from the "score_color" task.
 The objective of the optimizer (and the campaign) is to minimize this loss.

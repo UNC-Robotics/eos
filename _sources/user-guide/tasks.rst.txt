@@ -27,19 +27,19 @@ Every parameter has a specific data type.
 EOS supports the following parameter types:
 
 * **integer**: An integer number.
-  Equivalent to Python's `int`
+  Equivalent to Python's ``int``
 * **decimal**: A decimal number.
-  Equivalent to Python's `float`
+  Equivalent to Python's ``float``
 * **string**: A string (series of text characters).
-  Equivalent to Python's `str`
+  Equivalent to Python's ``str``
 * **boolean**: A true/false value.
-  Equivalent to Python's `bool`
+  Equivalent to Python's ``bool``
 * **choice**: A value that must be one of a set of predefined choices.
   The choices can be any type.
 * **list**: A list of values of a specific type.
-  Equivalent to Python's `list`.
+  Equivalent to Python's ``list``.
 * **dictionary**: A dictionary of key-value pairs.
-  Equivalent to Python's `dict`.
+  Equivalent to Python's ``dict``.
 
 Tasks can have multiple parameters of different types.
 EOS will ensure that the parameters passed to a task are of the correct type and have values that meet their constraints.
@@ -49,13 +49,13 @@ Containers
 Containers are referenced by a unique identifier called a **container ID**.
 A container ID is a string that uniquely identifies a container.
 Every container in EOS must have an ID, and these can be specified in the laboratory definition.
-Containers are treated as `global` objects and can move across labs.
+Containers are treated as *global* objects and can move across labs.
 However, every container must have a "home" lab from which it originates.
 
 In order to pass a container to a task or return a container from a task, its container ID is used.
 Every task may accept specific types of containers, such as beakers, or vials.
 Multiple different containers can be passed.
-Users can create their own types of containers, such as `beaker_500ml` or `vial_2ml`, which specify a unique container type.
+Users can create their own types of containers, such as ``beaker_500ml`` or ``vial_2ml``, which specify a unique container type.
 EOS will ensure that only container types that are compatible with the task are passed to it.
 
 Files
@@ -73,7 +73,7 @@ Task Implementation
 -------------------
 * Tasks are implemented in the `tasks` subdirectory inside an EOS package
 * Each task has its own subfolder (e.g., tasks/magnetic_mixing)
-* There are two key files per task: `task.yml` and `task.py`
+* There are two key files per task: ``task.yml`` and ``task.py``
 
 YAML File (task.yml)
 ~~~~~~~~~~~~~~~~~~~~
@@ -114,13 +114,13 @@ The task specification makes clear that:
 * The task is of type "SRI GC Analysis"
 * The task requires a device of type "sri_gas_chromatograph".
   EOS will enforce this requirement.
-* The task takes an input integer parameter `analysis_time` in seconds.
+* The task takes an input integer parameter ``analysis_time`` in seconds.
   It has a default value of 480, making this an optional parameter.
-* The task outputs two dictionaries: `known_substances` and `unknown_substances`.
+* The task outputs two dictionaries: ``known_substances`` and ``unknown_substances``.
 
 Parameter Specification
 """""""""""""""""""""""
-Parameters are defined in the `input_parameters` and `output_parameters` sections of the task YAML file.
+Parameters are defined in the ``input_parameters`` and ``output_parameters`` sections of the task YAML file.
 
 Below are examples and descriptions for each parameter type:
 
@@ -228,7 +228,7 @@ Dictionaries are key-value pairs. The values can be any type.
 Python File (task.yml)
 ~~~~~~~~~~~~~~~~~~~~~~
 * Implements the task
-* All task implementations must inherit from `BaseTask`
+* All task implementations must inherit from ``BaseTask``
 * The task class name must end with "Task" to be discovered by EOS
 
 :bdg-primary:`task.py`
@@ -255,15 +255,15 @@ Python File (task.yml)
 
 Let's walk through this example code:
 
-`_execute` is the only required function in a task implementation.
+``_execute`` is the only required function in a task implementation.
 It is called by EOS to execute a task.
 The function takes three arguments:
 
-#. `devices`: A data structure supporting lookup of specific lab devices assigned to a task.
+#. ``devices``: A data structure supporting lookup of specific lab devices assigned to a task.
    In this case, only one device is given, a magnetic mixer.
    The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
    the device implementation.
-#. `parameters`: A dictionary of the input parameters.
+#. ``parameters``: A dictionary of the input parameters.
    Keys are the parameter names and values are the parameter values.
-#. `containers`: A dictionary of the input containers.
-   Keys are the container IDs and values are the `Container` objects.
+#. ``containers``: A dictionary of the input containers.
+   Keys are the container IDs and values are the ``Container`` objects.

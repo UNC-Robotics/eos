@@ -24,7 +24,7 @@ This can enable running the optimizer on a more capable computer than the one ru
 
 Optimizer Implementation
 ------------------------
-EOS optimizers are defined in the `optimizer.py` file adjacent to `experiment.yml` in an EOS package.
+EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``experiment.yml`` in an EOS package.
 Below is an example:
 
 :bdg-primary:`optimizer.py`
@@ -61,7 +61,7 @@ Below is an example:
 
         return constructor_args, BayesianSequentialOptimizer
 
-Each `optimizer.py` file must contain the function `eos_create_campaign_optimizer`.
+Each ``optimizer.py`` file must contain the function ``eos_create_campaign_optimizer``.
 This function must return:
 
 #. The constructor arguments to make an optimizer class instance
@@ -69,10 +69,10 @@ This function must return:
 
 In this example, we use EOS' built-in Bayesian optimizer.
 However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
-the class type from `eos_create_campaign_optimizer`.
+the class type from ``eos_create_campaign_optimizer``.
 
 .. note::
-    All optimizers must inherit from the class `AbstractSequentialOptimizer` under the `eos.optimization` module.
+    All optimizers must inherit from the class ``AbstractSequentialOptimizer`` under the ``eos.optimization`` module.
 
 Input and Output Parameter Naming
 """""""""""""""""""""""""""""""""

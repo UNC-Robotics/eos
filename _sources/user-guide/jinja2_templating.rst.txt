@@ -22,7 +22,7 @@ Below are some useful Jinja2 features:
 Variables
 ---------
 Jinja2 allows setting and reading variables in the YAML file.
-In the example below, the variable `max_volume` is set to 300 and used to define the capacity of two beakers:
+In the example below, the variable ``max_volume`` is set to 300 and used to define the capacity of two beakers:
 
 :bdg-primary:`lab.yml`
 
@@ -57,7 +57,7 @@ In the example below, the volumes of cyan, magenta, and yellow colorants are cal
 Conditionals
 ------------
 You can use if statements to include or exclude content based on conditions.
-In the example below, the task "mix_colors" is only included if the variable `mix_colors` is set to `True`:
+In the example below, the task "mix_colors" is only included if the variable ``mix_colors`` is set to ``True``:
 
 :bdg-primary:`experiment.yml`
 
@@ -93,7 +93,7 @@ In the example below, a loop is used to generate container IDs with a common pre
 Macros
 ------
 Jinja2 macros allow you to define reusable blocks of content.
-In the example below, the `create_containers` macro is used to easily create containers with a prefix and a number
+In the example below, the ``create_containers`` macro is used to easily create containers with a prefix and a number
 (e.g., `c_0`, `c_1`, `c_2`, etc.):
 
 :bdg-primary:`lab.yml`
@@ -117,7 +117,7 @@ In the example below, the `create_containers` macro is used to easily create con
 Include Files
 -------------
 Jinja2 allows you to include YAML from other files.
-In the below example, a template experiment is included in an `experiment.yml` file.
+In the below example, a template experiment is included in an ``experiment.yml`` file.
 We specify the values for the Jinja2 variables of the template experiment:
 
 :bdg-primary:`experiment.yml`

@@ -296,6 +296,10 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -382,7 +386,7 @@ There are six dynamic parameters, which are the inputs of the optimization probl
 <span class="nt">mixing_speed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
 </pre></div>
 </div>
-<p>Looking at the task specification of the <cite>score_color</cite> task, we also see that there is an output parameter called “loss”.</p>
+<p>Looking at the task specification of the <code class="docutils literal notranslate"><span class="pre">score_color</span></code> task, we also see that there is an output parameter called “loss”.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Color</span>
 <span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score a color based on how close it is to an expected color</span>
@@ -410,7 +414,7 @@ There are six dynamic parameters, which are the inputs of the optimization probl
 </div>
 <p>Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.</p>
-<p>This setup is also summarized in the <cite>optimizer.py</cite> file adjacent to <cite>experiment.yml</cite>.</p>
+<p>This setup is also summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code>.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span>
 
@@ -445,7 +449,7 @@ mixing time and mixing speed and trying to minimize the loss of a synthesized co
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>The <cite>eos_create_campaign_optimizer</cite> function is used to create the optimizer for the campaign.
+<p>The <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code> function is used to create the optimizer for the campaign.
 We can see that the inputs are composed of all the dynamic parameters in the experiment and the output is the “loss”
 output parameter from the “score_color” task.
 The objective of the optimizer (and the campaign) is to minimize this loss.</p>

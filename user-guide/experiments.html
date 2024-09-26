@@ -296,6 +296,10 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -376,7 +380,7 @@ Tasks can reference input/output parameters and containers from other tasks.</p>
 <ul class="simple">
 <li><p>Experiments are implemented in the <cite>experiments</cite> subdirectory inside an EOS package</p></li>
 <li><p>Each experiment has its own subfolder (e.g., experiments/optimize_yield)</p></li>
-<li><p>There are two key files per experiment: <cite>experiment.yml</cite> and <cite>optimizer.py</cite> (for running campaigns with optimization)</p></li>
+<li><p>There are two key files per experiment: <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> (for running campaigns with optimization)</p></li>
 </ul>
 <section id="yaml-file-experiment-yml">
 <h3>YAML File (experiment.yml)<a class="headerlink" href="#yaml-file-experiment-yml" title="Link to this heading">#</a></h3>
@@ -556,11 +560,11 @@ Each experiment also requires one or more labs.</p>
 <span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </pre></div>
 </div>
-<p>The first task is named <cite>retrieve_container</cite> and is of type <cite>Retrieve Container</cite>.
+<p>The first task is named <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> and is of type <cite>Retrieve Container</cite>.
 This task uses the robot arm to get a random container from storage.
 The task requires two devices, the robot arm and the container storage.
 There are five containers passed to it, “c_a” through “c_e”.
-There is also a parameter <cite>target_location</cite> that is set to <cite>color_dispenser</cite>.
+There is also a parameter <code class="docutils literal notranslate"><span class="pre">target_location</span></code> that is set to <code class="docutils literal notranslate"><span class="pre">color_dispenser</span></code>.
 This task has no dependencies as it is the first task in the experiment and is essentially a container feeder.
 There are five containers in storage, and one of them is chosen at random for the experiment.
 All five containers in our “color lab” are passed to this task, as any one of them could be chosen.</p>
@@ -581,13 +585,13 @@ All five containers in our “color lab” are passed to this task, as any one o
 <span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">retrieve_container</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p>This task takes the container from the <cite>retrieve_container</cite> task and dispenses colors into it.
+<p>This task takes the container from the <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> task and dispenses colors into it.
 The task has an input container called “beaker” which references the output container named “beaker” from the
-<cite>retrieve_container</cite> task.
-If we look at the <cite>task.yml</cite> file of the task <cite>Retrieve Container</cite> we would see that a container named “beaker” is
-defined in <cite>output_containers</cite>.
+<code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> task.
+If we look at the <code class="docutils literal notranslate"><span class="pre">task.yml</span></code> file of the task <cite>Retrieve Container</cite> we would see that a container named “beaker” is
+defined in <code class="docutils literal notranslate"><span class="pre">output_containers</span></code>.
 There are also four parameters, the CMYK volumes to dispense.
-All these parameters are set to <cite>eos_dynamic</cite>, which is a special keyword in EOS for defining dynamic parameters,
+All these parameters are set to <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>, which is a special keyword in EOS for defining dynamic parameters,
 instructing the system that these parameters must be specified either by the user or an optimizer before an experiment is run.</p>
 </section>
 <section id="optimizer-file-optimizer-py">
@@ -628,7 +632,7 @@ instructing the system that these parameters must be specified either by the use
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>The <cite>optimizer.py</cite> file is optional and only required for running experiment campaigns with optimization managed by EOS.
+<p>The <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file is optional and only required for running experiment campaigns with optimization managed by EOS.
 More on optimizers can be found in the Optimizers section of the User Guide.</p>
 </section>
 </section>

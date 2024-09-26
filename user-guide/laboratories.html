@@ -296,6 +296,10 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -371,7 +375,7 @@ of experiments take place.</p>
 <ul class="simple">
 <li><p>Laboratories are implemented in the <cite>laboratories</cite> subdirectory inside an EOS package</p></li>
 <li><p>Each laboratory has its own subfolder (e.g., laboratories/color_lab)</p></li>
-<li><p>The laboratory is defined in a YAML file named <cite>laboratory.yml</cite></p></li>
+<li><p>The laboratory is defined in a YAML file named <code class="docutils literal notranslate"><span class="pre">laboratory.yml</span></code>.</p></li>
 </ul>
 <p>Below is an example laboratory YAML file for a solar cell fabrication lab:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
@@ -486,7 +490,7 @@ of experiments take place.</p>
 <section id="locations-optional">
 <h3>Locations (Optional)<a class="headerlink" href="#locations-optional" title="Link to this heading">#</a></h3>
 <p>Locations are physical stations around the lab where devices and containers are placed.
-They are defined in the <cite>locations</cite> section of the laboratory YAML file.
+They are defined in the <code class="docutils literal notranslate"><span class="pre">locations</span></code> section of the laboratory YAML file.
 You can define metadata for each location, such as map coordinates for a mobile robot.
 Defining locations is optional.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">locations</span><span class="p">:</span>
@@ -537,7 +541,7 @@ connected to eos_computer).</p>
 <section id="devices-required">
 <h3>Devices (Required)<a class="headerlink" href="#devices-required" title="Link to this heading">#</a></h3>
 <p>Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
-Each device must have a unique name inside the lab and must be defined in the <cite>devices</cite> section of the laboratory YAML file.</p>
+Each device must have a unique name inside the lab and must be defined in the <code class="docutils literal notranslate"><span class="pre">devices</span></code> section of the laboratory YAML file.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
@@ -561,7 +565,7 @@ Each device must have a unique name inside the lab and must be defined in the <c
 <span class="w">      </span><span class="nt">materials</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Au</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Ag</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Al</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p><strong>type</strong>: Every device must have a type, which matches a device specification (e.g., defined in the <cite>devices</cite> subdirectory
+<p><strong>type</strong>: Every device must have a type, which matches a device specification (e.g., defined in the <code class="docutils literal notranslate"><span class="pre">devices</span></code> subdirectory
 of an EOS package).
 There can be multiple devices with different names of the same type.</p>
 <p><strong>location</strong> (optional): The location where the device is at.</p>
@@ -573,7 +577,7 @@ These parameters are defined in the device specification and can be overridden h
 <section id="containers-optional">
 <h3>Containers (Optional)<a class="headerlink" href="#containers-optional" title="Link to this heading">#</a></h3>
 <p>Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing).
-They are defined in the <cite>containers</cite> section of the laboratory YAML file.</p>
+They are defined in the <code class="docutils literal notranslate"><span class="pre">containers</span></code> section of the laboratory YAML file.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>

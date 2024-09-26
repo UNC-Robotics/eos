@@ -5,7 +5,7 @@ A device is used by one or more tasks to run some processes.
 Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
 This process is usually implemented as a server and tasks call various functions from it.
 For example, there could be a device called "magnetic mixer", which communicates with a physical magnetic mixer via
-serial and provides functions such as `start`, `stop`, `set_time` and `set_speed`.
+serial and provides functions such as ``start``, ``stop``, ``set_time`` and ``set_speed``.
 
 .. figure:: ../_static/img/tasks-devices.png
    :alt: EOS Tasks and Devices
@@ -28,7 +28,7 @@ Device Implementation
 ---------------------
 * Devices are implemented in the `devices` subdirectory inside an EOS package
 * Each device has its own subfolder (e.g., devices/magnetic_mixer)
-* There are two key files per device: `device.yml` and `device.py`
+* There are two key files per device: ``device.yml`` and ``device.py``
 
 YAML File (device.yml)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -51,7 +51,7 @@ Below is an example device YAML file for a magnetic mixer:
 Python File (device.py)
 ~~~~~~~~~~~~~~~~~~~~~~~
 * Implements device functionality
-* All devices implementations must inherit from `BaseDevice`
+* All devices implementations must inherit from ``BaseDevice``
 * The device class name must end with "Device" to be discovered by EOS
 
 Below is a example implementation of a magnetic mixer device:
@@ -104,9 +104,9 @@ There are functions required in every device implementation:
 
    * Should return any data needed to determine the state of the device (e.g., status and feedback)
 
-The magnetic mixer device also has the function `mix` for implementing the mixing operation.
+The magnetic mixer device also has the function ``mix`` for implementing the mixing operation.
 This function will be called by a task to mix the contents of a container.
-The `mix` function:
+The ``mix`` function:
 
 * Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer
 * Updates container metadata with mixing details

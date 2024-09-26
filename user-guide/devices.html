@@ -296,6 +296,10 @@ document.write(`
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a></li>
 </ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a></li>
+</ul>
 </div>
 </nav></div>
     </div>
@@ -359,7 +363,7 @@ A device is used by one or more tasks to run some processes.
 Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
 This process is usually implemented as a server and tasks call various functions from it.
 For example, there could be a device called “magnetic mixer”, which communicates with a physical magnetic mixer via
-serial and provides functions such as <cite>start</cite>, <cite>stop</cite>, <cite>set_time</cite> and <cite>set_speed</cite>.</p>
+serial and provides functions such as <code class="docutils literal notranslate"><span class="pre">start</span></code>, <code class="docutils literal notranslate"><span class="pre">stop</span></code>, <code class="docutils literal notranslate"><span class="pre">set_time</span></code> and <code class="docutils literal notranslate"><span class="pre">set_speed</span></code>.</p>
 <figure class="align-center">
 <img alt="EOS Tasks and Devices" src="../_images/tasks-devices.png" />
 </figure>
@@ -379,7 +383,7 @@ Remember that a device in EOS is a persistent process.</p>
 <ul class="simple">
 <li><p>Devices are implemented in the <cite>devices</cite> subdirectory inside an EOS package</p></li>
 <li><p>Each device has its own subfolder (e.g., devices/magnetic_mixer)</p></li>
-<li><p>There are two key files per device: <cite>device.yml</cite> and <cite>device.py</cite></p></li>
+<li><p>There are two key files per device: <code class="docutils literal notranslate"><span class="pre">device.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">device.py</span></code></p></li>
 </ul>
 <section id="yaml-file-device-yml">
 <h3>YAML File (device.yml)<a class="headerlink" href="#yaml-file-device-yml" title="Link to this heading">#</a></h3>
@@ -402,7 +406,7 @@ Remember that a device in EOS is a persistent process.</p>
 <h3>Python File (device.py)<a class="headerlink" href="#python-file-device-py" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p>Implements device functionality</p></li>
-<li><p>All devices implementations must inherit from <cite>BaseDevice</cite></p></li>
+<li><p>All devices implementations must inherit from <code class="docutils literal notranslate"><span class="pre">BaseDevice</span></code></p></li>
 <li><p>The device class name must end with “Device” to be discovered by EOS</p></li>
 </ul>
 <p>Below is a example implementation of a magnetic mixer device:</p>
@@ -455,9 +459,9 @@ Remember that a device in EOS is a persistent process.</p>
 </ul>
 </li>
 </ol>
-<p>The magnetic mixer device also has the function <cite>mix</cite> for implementing the mixing operation.
+<p>The magnetic mixer device also has the function <code class="docutils literal notranslate"><span class="pre">mix</span></code> for implementing the mixing operation.
 This function will be called by a task to mix the contents of a container.
-The <cite>mix</cite> function:</p>
+The <code class="docutils literal notranslate"><span class="pre">mix</span></code> function:</p>
 <ul class="simple">
 <li><p>Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer</p></li>
 <li><p>Updates container metadata with mixing details</p></li>
