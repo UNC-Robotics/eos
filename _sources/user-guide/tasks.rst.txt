@@ -239,7 +239,7 @@ Python File (task.yml)
 
 
     class MagneticMixingTask(BaseTask):
-        def _execute(
+        async def _execute(
             self,
             devices: BaseTask.DevicesType,
             parameters: BaseTask.ParametersType,

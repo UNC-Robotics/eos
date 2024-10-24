@@ -101,15 +101,15 @@ This is the Python code for the color analyzer device:
 
 
     class ColorAnalyzerDevice(BaseDevice):
-        def _initialize(self, initialization_parameters: dict[str, Any]) -> None:
+        async def _initialize(self, initialization_parameters: dict[str, Any]) -> None:
             port = int(initialization_parameters["port"])
             self.client = DeviceClient(port)
             self.client.open_connection()
 
-        def _cleanup(self) -> None:
+        async def _cleanup(self) -> None:
             self.client.close_connection()
 
-        def _report(self) -> dict[str, Any]:
+        async def _report(self) -> dict[str, Any]:
             return {}
 
         def analyze(self, container: Container) -> tuple[Container, tuple[int, int, int]]:
@@ -168,7 +168,7 @@ This is the Python code the "Analyze color" task:
 
 
     class AnalyzeColorTask(BaseTask):
-        def _execute(
+        async def _execute(
             self,
             devices: BaseTask.DevicesType,
             parameters: BaseTask.ParametersType,

@@ -67,15 +67,15 @@ Below is a example implementation of a magnetic mixer device:
     from user.color_lab.common.device_client import DeviceClient
 
     class MagneticMixerDevice(BaseDevice):
-        def _initialize(self, initialization_parameters: Dict[str, Any]) -> None:
+        async def _initialize(self, initialization_parameters: Dict[str, Any]) -> None:
             port = int(initialization_parameters["port"])
             self.client = DeviceClient(port)
             self.client.open_connection()
 
-        def _cleanup(self) -> None:
+        async def _cleanup(self) -> None:
             self.client.close_connection()
 
-        def _report(self) -> Dict[str, Any]:
+        async def _report(self) -> Dict[str, Any]:
             return {}
 
         def mix(self, container: Container, mixing_time: int, mixing_speed: int) -> Container:
