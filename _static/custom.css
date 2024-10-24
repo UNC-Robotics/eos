@@ -1,3 +1,9 @@
 .bd-page-width {
   max-width: 100rem;  /* default is 88rem */
 }
+
+@media screen and (max-width: 541px) {
+    .title.logo__title {
+        display: none;
+    }
+}
