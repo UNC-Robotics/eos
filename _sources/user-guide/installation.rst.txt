@@ -38,7 +38,15 @@ PDM is used as the project manager for EOS, making it easier to install dependen
 
     git clone https://github.com/UNC-Robotics/eos
 
-3. Install Dependencies
+3. Make a Virtual Environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: shell
+
+    cd eos # Navigate to the cloned repository
+    python3 -m venv env
+    source env/bin/activate
+
+4. Install Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^
 Navigate to the cloned repository and run:
 
