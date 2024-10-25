@@ -372,6 +372,7 @@ We provide a Docker Compose file that can set up all of these services for you.<
 <section id="install-pdm">
 <h2>1. Install PDM<a class="headerlink" href="#install-pdm" title="Link to this heading">#</a></h2>
 <p>PDM is used as the project manager for EOS, making it easier to install dependencies and build it.</p>
+<p>See the <a class="reference external" href="https://pdm-project.org/en/latest/">PDM documentation</a> for more information or if you encounter any issues.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
@@ -397,6 +398,10 @@ Windows</label><div class="sd-tab-content docutils">
 </section>
 <section id="make-a-virtual-environment">
 <h2>3. Make a Virtual Environment<a class="headerlink" href="#make-a-virtual-environment" title="Link to this heading">#</a></h2>
+<p>We create a virtual environment to isolate the dependencies of EOS from the rest of the system. The virtual environment
+is created in a <code class="docutils literal notranslate"><span class="pre">env</span></code> directory inside the EOS repository directory. Feel free to use PDM to manage the virtual
+environment instead. Other sections of the documentation will assume that you are using a virtual environment located
+inside the EOS repository directory.</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>eos<span class="w"> </span><span class="c1"># Navigate to the cloned repository</span>
 python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>env
 <span class="nb">source</span><span class="w"> </span>env/bin/activate

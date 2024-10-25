@@ -361,7 +361,8 @@ document.write(`
 <p>After installation, you need to configure external services such as MongoDB and MinIO as well as EOS itself.</p>
 <section id="configure-external-services">
 <h2>1. Configure External Services<a class="headerlink" href="#configure-external-services" title="Link to this heading">#</a></h2>
-<p>We provide a Docker Compose file that can run the external services.</p>
+<p>We provide a Docker Compose file that can run the external services. You do not need to install external services
+manually, just provide configuration values and Docker Compose will take care of the rest.</p>
 <p>Copy the example environment file:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>docker/.env.example<span class="w"> </span>docker/.env
 </pre></div>
@@ -376,6 +377,8 @@ document.write(`
 </pre></div>
 </div>
 <p>Edit <cite>config.yml</cite>. Ensure that credentials are provided for the MongoDB and MinIO services.</p>
+<p>By default, EOS loads the “multiplication_lab” laboratory and the “optimize_multiplication” experiment from an example
+EOS package. Feel free to change this.</p>
 </section>
 </section>
 
