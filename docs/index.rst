@@ -3,7 +3,7 @@ The Experiment Orchestration System (EOS)
 
 .. note::
 
-    EOS is currently in the alpha development stage.
+    EOS is actively being developed.
     Much additional functionality and enhancements are planned. It currently has a core feature set to use for research.
     Please report any issues, make feature requests, or contribute to development!
 

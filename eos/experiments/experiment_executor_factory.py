@@ -1,7 +1,7 @@
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
 from eos.containers.container_manager import ContainerManager
-from eos.experiments.entities.experiment import ExperimentExecutionParameters
+from eos.experiments.entities.experiment import ExperimentDefinition
 from eos.experiments.experiment_executor import ExperimentExecutor
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.scheduling.abstract_scheduler import AbstractScheduler
@@ -30,16 +30,12 @@ class ExperimentExecutorFactory:
         self._task_executor = task_executor
         self._scheduler = scheduler
 
-    def create(
-        self, experiment_id: str, experiment_type: str, execution_parameters: ExperimentExecutionParameters
-    ) -> ExperimentExecutor:
-        experiment_config = self._configuration_manager.experiments.get(experiment_type)
+    def create(self, experiment_definition: ExperimentDefinition) -> ExperimentExecutor:
+        experiment_config = self._configuration_manager.experiments.get(experiment_definition.type)
         experiment_graph = ExperimentGraph(experiment_config)
 
         return ExperimentExecutor(
-            experiment_id=experiment_id,
-            experiment_type=experiment_type,
-            execution_parameters=execution_parameters,
+            experiment_definition=experiment_definition,
             experiment_graph=experiment_graph,
             experiment_manager=self._experiment_manager,
             task_manager=self._task_manager,

@@ -8,9 +8,9 @@ from eos.configuration.packages.package_manager import PackageManager
 from eos.configuration.plugin_registries.campaign_optimizer_plugin_registry import CampaignOptimizerPluginRegistry
 from eos.configuration.plugin_registries.device_plugin_registry import DevicePluginRegistry
 from eos.configuration.plugin_registries.task_plugin_registry import TaskPluginRegistry
-from eos.configuration.spec_registries.device_specification_registry import DeviceSpecificationRegistry
-from eos.configuration.spec_registries.task_specification_registry import (
-    TaskSpecificationRegistry,
+from eos.configuration.spec_registries.device_spec_registry import DeviceSpecRegistry
+from eos.configuration.spec_registries.task_spec_registry import (
+    TaskSpecRegistry,
 )
 from eos.configuration.validation.experiment_validator import ExperimentValidator
 from eos.configuration.validation.lab_validator import LabValidator
@@ -33,16 +33,16 @@ class ConfigurationManager:
         self._user_dir = user_dir
         self._package_manager = PackageManager(user_dir)
 
-        self.labs: dict[str, LabConfig] = {}
-        self.experiments: dict[str, ExperimentConfig] = {}
-
         task_configs, task_dirs_to_task_types = self._package_manager.read_task_configs()
-        self.task_specs = TaskSpecificationRegistry(task_configs, task_dirs_to_task_types)
+        self.task_specs = TaskSpecRegistry(task_configs, task_dirs_to_task_types)
         self.tasks = TaskPluginRegistry(self._package_manager)
 
         device_configs, device_dirs_to_device_types = self._package_manager.read_device_configs()
-        self.device_specs = DeviceSpecificationRegistry(device_configs, device_dirs_to_device_types)
+        self.device_specs = DeviceSpecRegistry(device_configs, device_dirs_to_device_types)
         self.devices = DevicePluginRegistry(self._package_manager)
+
+        self.labs: dict[str, LabConfig] = {}
+        self.experiments: dict[str, ExperimentConfig] = {}
 
         self.campaign_optimizers = CampaignOptimizerPluginRegistry(self._package_manager)
 
@@ -181,7 +181,7 @@ class ConfigurationManager:
         Load multiple experiments to the configuration manager.
 
         :param experiment_types: A list of experiment names. Each name should match the name of the experiment's
-        configuration file in the experiments directory.
+        configuration file in the 'experiments' directory.
         """
         for experiment_type in experiment_types:
             self.load_experiment(experiment_type)

@@ -1,5 +1,5 @@
-from eos.configuration.entities.parameters import (
-    ParameterType,
+from eos.configuration.entities.task_parameters import (
+    TaskParameterType,
 )
 from eos.configuration.entities.task import TaskConfig
 from eos.configuration.exceptions import (
@@ -85,11 +85,11 @@ class TaskSequenceInputParameterValidator(BaseTaskSequenceValidator):
         parameter_spec = task_spec.input_parameters[parameter_name]
 
         if (
-            ParameterType(parameter_spec.type).python_type()
-            != ParameterType(referenced_parameter_spec.type).python_type()
+            TaskParameterType(parameter_spec.type).python_type
+            != TaskParameterType(referenced_parameter_spec.type).python_type
         ):
             raise EosTaskValidationError(
                 f"Type mismatch for referenced parameter '{referenced_parameter}' in task '{task.id}'. "
-                f"The required parameter type is '{parameter_spec.type}' which does not match referenced the parameter "
+                f"The required parameter type is '{parameter_spec.type}' which does not match the referenced parameter "
                 f"type '{referenced_parameter_spec.type.value}'."
             )

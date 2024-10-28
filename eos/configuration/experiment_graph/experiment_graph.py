@@ -5,10 +5,10 @@ import networkx as nx
 
 from eos.configuration.entities.experiment import ExperimentConfig
 from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_specification import TaskSpecification
+from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.configuration.exceptions import EosTaskGraphError
 from eos.configuration.experiment_graph.experiment_graph_builder import ExperimentGraphBuilder
-from eos.configuration.spec_registries.task_specification_registry import TaskSpecificationRegistry
+from eos.configuration.spec_registries.task_spec_registry import TaskSpecRegistry
 
 
 @dataclass
@@ -20,7 +20,7 @@ class TaskNodeIO:
 class ExperimentGraph:
     def __init__(self, experiment_config: ExperimentConfig):
         self._experiment_config = experiment_config
-        self._task_specs = TaskSpecificationRegistry()
+        self._task_specs = TaskSpecRegistry()
 
         self._graph = ExperimentGraphBuilder(experiment_config).build_graph()
 
@@ -49,9 +49,9 @@ class ExperimentGraph:
         return self._graph.nodes[task_id]
 
     def get_task_config(self, task_id: str) -> TaskConfig:
-        return TaskConfig(**self.get_task_node(task_id)["task_config"])
+        return self.get_task_node(task_id)["task_config"].model_copy(deep=True)
 
-    def get_task_spec(self, task_id: str) -> TaskSpecification:
+    def get_task_spec(self, task_id: str) -> TaskSpecConfig:
         return self._task_specs.get_spec_by_type(self.get_task_node(task_id)["task_config"].type)
 
     def get_task_dependencies(self, task_id: str) -> list[str]:

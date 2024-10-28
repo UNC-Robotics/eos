@@ -38,7 +38,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 .. code-block:: yaml
 
     type: color_mixing
-    description: Experiment to find optimal parameters to synthesize a desired color
+    desc: Experiment to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
@@ -46,7 +46,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
     tasks:
       - id: retrieve_container
         type: Retrieve Container
-        description: Get a random available container from storage and move it to the color dispenser
+        desc: Get a random available container from storage and move it to the color dispenser
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -64,7 +64,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: dispense_colors
         type: Dispense Colors
-        description: Dispense a color from the color dispenser into the container
+        desc: Dispense a color from the color dispenser into the container
         devices:
           - lab_id: color_lab
             id: color_dispenser
@@ -79,7 +79,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: move_container_to_mixer
         type: Move Container
-        description: Move the container to the magnetic mixer
+        desc: Move the container to the magnetic mixer
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -93,7 +93,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: mix_colors
         type: Magnetic Mixing
-        description: Mix the colors in the container
+        desc: Mix the colors in the container
         devices:
           - lab_id: color_lab
             id: magnetic_mixer
@@ -106,7 +106,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: move_container_to_analyzer
         type: Move Container
-        description: Move the container to the color analyzer
+        desc: Move the container to the color analyzer
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -120,7 +120,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: analyze_color
         type: Analyze Color
-        description: Analyze the color of the solution in the container and output the RGB values
+        desc: Analyze the color of the solution in the container and output the RGB values
         devices:
           - lab_id: color_lab
             id: color_analyzer
@@ -130,7 +130,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: score_color
         type: Score Color
-        description: Score the color based on the RGB values
+        desc: Score the color based on the RGB values
         parameters:
           red: analyze_color.red
           green: analyze_color.green
@@ -139,7 +139,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: empty_container
         type: Empty Container
-        description: Empty the container and move it to the cleaning station
+        desc: Empty the container and move it to the cleaning station
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -154,7 +154,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: clean_container
         type: Clean Container
-        description: Clean the container by rinsing it with distilled water
+        desc: Clean the container by rinsing it with distilled water
         devices:
           - lab_id: color_lab
             id: cleaning_station
@@ -164,7 +164,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
       - id: store_container
         type: Store Container
-        description: Store the container back in the container storage
+        desc: Store the container back in the container storage
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -181,7 +181,7 @@ Let's dissect this file:
 .. code-block:: yaml
 
     type: color_mixing
-    description: Experiment to find optimal parameters to synthesize a desired color
+    desc: Experiment to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
@@ -197,7 +197,7 @@ Now let's look at the first task in the experiment:
 
     - id: retrieve_container
       type: Retrieve Container
-      description: Get a random available container from storage and move it to the color dispenser
+      desc: Get a random available container from storage and move it to the color dispenser
       devices:
         - lab_id: color_lab
           id: robot_arm
@@ -228,7 +228,7 @@ Let's look at the next task:
 
   - id: dispense_colors
     type: Dispense Colors
-    description: Dispense a color from the color dispenser into the container
+    desc: Dispense a color from the color dispenser into the container
     devices:
       - lab_id: color_lab
         id: color_dispenser
@@ -260,8 +260,6 @@ As an example, below is the optimizer file for the color mixing experiment:
 
 .. code-block:: python
 
-    from typing import Type, Tuple, Dict
-
     from bofire.data_models.acquisition_functions.acquisition_function import qNEI
     from bofire.data_models.enum import SamplingMethodEnum
     from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
@@ -271,7 +269,7 @@ As an example, below is the optimizer file for the color mixing experiment:
     from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
 
-    def eos_create_campaign_optimizer() -> Tuple[Dict, Type[AbstractSequentialOptimizer]]:
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
         constructor_args = {
             "inputs": [
                 ContinuousInput(key="dispense_colors.cyan_volume", bounds=(0, 5)),

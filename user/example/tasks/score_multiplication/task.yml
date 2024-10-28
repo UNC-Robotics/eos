@@ -1,21 +1,21 @@
 type: Score Multiplication
-description: Scores multiplication based on how close the product is to 1024 and how small the initial number is using an "analyzer" device.
+desc: Scores multiplication based on how close the product is to 1024 and how small the initial number is using an "analyzer" device.
 
 device_types:
   - analyzer
 
 input_parameters:
   number:
-    type: integer
+    type: int
     unit: none
-    description: The number that was multiplied with some factors.
+    desc: The number that was multiplied with some factors.
   product:
-    type: integer
+    type: int
     unit: none
-    description: The final product after multiplying with some factors.
+    desc: The final product after multiplying with some factors.
 
 output_parameters:
   loss:
-    type: integer
+    type: int
     unit: none
-    description: The multiplication loss. Captures how far the product is from 1024 and how large the initial number is.
+    desc: The multiplication loss. Captures how far the product is from 1024 and how large the initial number is.

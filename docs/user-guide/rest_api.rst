@@ -11,7 +11,7 @@ Example functions include:
 
 .. warning::
 
-    Be **very careful** to who accesses REST API.
+    Be very careful to who accesses REST API.
     The REST API currently has no authentication.
 
     Only use it internally in its current state.
@@ -20,7 +20,7 @@ Example functions include:
 .. warning::
 
     EOS will likely have control over expensive (and potentially dangerous) hardware and unchecked REST API access could
-    have **severe** consequences.
+    have severe consequences.
 
 Documentation
 -------------

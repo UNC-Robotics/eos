@@ -77,8 +77,9 @@ class MongoDbAsyncRepository(AbstractAsyncRepository):
         """
         return await self._collection.find(kwargs, session=session).to_list(None)
 
-    async def update_one(self, updated_entity: dict[str, Any], session: AgnosticClientSession | None = None,
-                         **kwargs) -> UpdateResult:
+    async def update_one(
+        self, updated_entity: dict[str, Any], session: AgnosticClientSession | None = None, **kwargs
+    ) -> UpdateResult:
         """
         Update an entity in the collection.
 

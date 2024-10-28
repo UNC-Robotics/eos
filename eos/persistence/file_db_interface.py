@@ -3,9 +3,9 @@ from collections.abc import AsyncIterable
 
 from minio import Minio, S3Error
 
+from eos.configuration.entities.eos_config import DbConfig
 from eos.logging.logger import log
 from eos.persistence.exceptions import EosFileDbError
-from eos.persistence.service_credentials import ServiceCredentials
 
 
 class FileDbInterface:
@@ -13,7 +13,7 @@ class FileDbInterface:
     Provides access to a MinIO server for storing and retrieving files.
     """
 
-    def __init__(self, file_db_credentials: ServiceCredentials, bucket_name: str = "eos"):
+    def __init__(self, file_db_credentials: DbConfig, bucket_name: str = "eos"):
         endpoint = f"{file_db_credentials.host}:{file_db_credentials.port}"
 
         self._client = Minio(

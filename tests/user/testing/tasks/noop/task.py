@@ -1,7 +1,7 @@
 from eos.tasks.base_task import BaseTask
 
 
-class NoopTask(BaseTask):
+class Noop(BaseTask):
     async def _execute(
         self,
         devices: BaseTask.DevicesType,

@@ -1,5 +1,5 @@
 type: Purification
-description: "This task aims to purify a single substance by separating it from its impurities. The device supports two methods: evaporation and simple mixing."
+desc: This task aims to purify a single substance by separating it from its impurities. The device supports evaporation and simple mixing.
 
 device_types:
   - evaporator
@@ -15,58 +15,58 @@ input_parameters:
     choices:
       - evaporation
       - simple_mixing
-    description: The purification method to be used. Choose between evaporation and simple mixing.
+    desc: The purification method to be used. Choose between evaporation and simple mixing.
 
   # Evaporation parameters
   evaporation_time:
-    type: integer
+    type: int
     unit: sec
     value: 120
     min: 60
-    description: Duration of evaporation in seconds.
+    desc: Duration of evaporation in seconds.
   evaporation_temperature:
-    type: integer
+    type: int
     unit: celsius
     value: 90
     min: 30
     max: 150
-    description: Evaporation temperature in degrees Celsius.
+    desc: Evaporation temperature in degrees Celsius.
   evaporation_rotation_speed:
-    type: integer
+    type: int
     unit: rpm
     value: 120
     min: 10
     max: 300
-    description: Speed of rotation in rpm.
+    desc: Speed of rotation in rpm.
   evaporation_sparging:
-    type: boolean
+    type: bool
     value: true
-    description: Whether to use sparging gas during evaporation.
+    desc: Whether to use sparging gas during evaporation.
   evaporation_sparging_flow:
-    type: integer
+    type: int
     unit: ml/min
     value: 5
     min: 1
     max: 10
-    description: Flow rate of sparging gas in ml/min.
+    desc: Flow rate of sparging gas in ml/min.
 
   # Simple mixing parameters
   simple_mixing_time:
-    type: integer
+    type: int
     unit: sec
     value: 120
     min: 60
-    description: Duration of simple mixing in seconds.
+    desc: Duration of simple mixing in seconds.
   simple_mixing_rotation_speed:
-    type: integer
+    type: int
     unit: rpm
     value: 120
     min: 10
     max: 300
-    description: Speed of rotation in rpm.
+    desc: Speed of rotation in rpm.
 
 output_parameters:
   water_salinity:
-    type: integer
+    type: int
     unit: ppm
-    description: The salinity of the purified water in parts per million.
+    desc: The salinity of the purified water in parts per million.

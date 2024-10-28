@@ -1,8 +1,8 @@
 import networkx as nx
 
 from eos.configuration.entities.experiment import ExperimentConfig
-from eos.configuration.spec_registries.task_specification_registry import (
-    TaskSpecificationRegistry,
+from eos.configuration.spec_registries.task_spec_registry import (
+    TaskSpecRegistry,
 )
 from eos.configuration.validation import validation_utils
 
@@ -14,7 +14,7 @@ class ExperimentGraphBuilder:
 
     def __init__(self, experiment_config: ExperimentConfig):
         self._experiment = experiment_config
-        self._task_specs = TaskSpecificationRegistry()
+        self._task_specs = TaskSpecRegistry()
 
     def build_graph(self) -> nx.DiGraph:
         graph = nx.DiGraph()

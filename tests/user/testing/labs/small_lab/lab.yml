@@ -1,80 +1,80 @@
 type: small_lab
-description: A small laboratory for testing
+desc: A small laboratory for testing
 
 locations:
   gc_1:
-    description: Gas Chromatography station 1
+    desc: Gas Chromatography station 1
     metadata:
       map_coordinates: { x: 100, y: 32, rotation: 0 }
       areas:
         injection_port:
-          description: Injection port for the gas chromatograph
+          desc: Injection port for the gas chromatograph
 
   gc_2:
-    description: Gas Chromatography station 2
+    desc: Gas Chromatography station 2
     metadata:
       map_coordinates: { x: 110, y: 32, rotation: 0 }
       areas:
         injection_port:
-          description: Injection port for the gas chromatograph
+          desc: Injection port for the gas chromatograph
 
   wafer_station:
-    description: Wafer processing station
+    desc: Wafer processing station
     metadata:
       map_coordinates: { x: 120, y: 32, rotation: 0 }
       areas:
         wafer_stack:
-          description: Wafer storage
+          desc: Wafer storage
         cartesian_robot_head:
-          description: Head of the cartesian robot that holds the wafer
+          desc: Head of the cartesian robot that holds the wafer
 
   mixing_station:
-    description: Station equipped with magnetic mixers for substance blending
+    desc: Station equipped with magnetic mixers for substance blending
     metadata:
       map_coordinates: { x: 140, y: 32, rotation: 0 }
 
   substance_shelf:
-    description: Storage shelf for chemical substances
+    desc: Storage shelf for chemical substances
     metadata:
       map_coordinates: { x: 50, y: 10, rotation: 0 }
 
   substance_fridge:
-    description: Refrigerated storage for temperature-sensitive substances
+    desc: Refrigerated storage for temperature-sensitive substances
     metadata:
       map_coordinates: { x: 60, y: 10, rotation: 0 }
 
   fetch_charging_station:
-    description: Charging station for the Fetch mobile manipulation robot
+    desc: Charging station for the Fetch mobile manipulation robot
     metadata:
       map_coordinates: { x: 10, y: 10, rotation: 0 }
 
 devices:
   general_computer:
-    description: General-purpose computer
+    desc: General-purpose computer
     type: computer
     location: gc_1
     computer: eos_computer
 
   magnetic_mixer:
-    description: Mixer for substance blending
+    desc: Mixer for substance blending
     type: magnetic_mixer
     location: mixing_station
     computer: eos_computer
 
   magnetic_mixer_2:
-    description: Mixer for substance blending
+    desc: Mixer for substance blending
     type: magnetic_mixer
     location: mixing_station
     computer: eos_computer
 
   evaporator:
-    description: Evaporator for substance purification
+    desc: Evaporator for substance purification
     type: evaporator
     location: mixing_station
     computer: eos_computer
 
   substance_fridge:
-    description: Fridge for storing temperature-sensitive substances
+    desc: Fridge for storing temperature-sensitive substances
     type: fridge
     location: substance_fridge
     computer: eos_computer

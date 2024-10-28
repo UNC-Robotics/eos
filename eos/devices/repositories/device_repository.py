@@ -22,6 +22,7 @@ class DeviceRepository(MongoDbAsyncRepository):
         Delete all devices associated with the given lab IDs in a single operation.
 
         :param lab_ids: List of lab_ids for which to delete devices.
+        :param session: The database client session.
         :return: The result of the delete operation.
         """
         return await self._collection.delete_many({"lab_id": {"$in": lab_ids}}, session=session)
@@ -33,6 +34,7 @@ class DeviceRepository(MongoDbAsyncRepository):
         Get all devices associated with the given lab IDs in a single operation.
 
         :param lab_ids: List of lab_ids for which to fetch devices.
+        :param session: The database client session.
         :return: A dictionary with lab_ids as keys and lists of devices as values.
         """
         cursor = self._collection.find({"lab_id": {"$in": lab_ids}}, session=session)
@@ -52,6 +54,7 @@ class DeviceRepository(MongoDbAsyncRepository):
         Perform a bulk upsert operation for multiple devices.
 
         :param devices: List of device dictionaries to upsert.
+        :param session: The database client session.
         :return: The result of the bulk write operation.
         """
         operations = [

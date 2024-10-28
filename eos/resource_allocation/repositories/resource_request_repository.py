@@ -12,13 +12,16 @@ class ResourceRequestRepository(MongoDbAsyncRepository):
     def __init__(self, db_interface: AsyncMongoDbInterface):
         super().__init__("resource_requests", db_interface)
 
-    async def get_requests_prioritized(self, status: ResourceRequestAllocationStatus,
-                                       session: AgnosticClientSession | None = None) -> list[dict]:
-        return await self._collection.find({"status": status.value}, session=session).sort("request.priority",
-                                                                                           1).to_list()
+    async def get_requests_prioritized(
+        self, status: ResourceRequestAllocationStatus, session: AgnosticClientSession | None = None
+    ) -> list[dict]:
+        return (
+            await self._collection.find({"status": status.value}, session=session).sort("request.priority", 1).to_list()
+        )
 
-    async def get_existing_request(self, request: ResourceAllocationRequest,
-                                   session: AgnosticClientSession | None = None) -> dict:
+    async def get_existing_request(
+        self, request: ResourceAllocationRequest, session: AgnosticClientSession | None = None
+    ) -> dict:
         query = {
             "request.resources": [r.model_dump() for r in request.resources],
             "request.requester": request.requester,

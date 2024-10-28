@@ -45,7 +45,6 @@ class ContainerAllocator:
             id=container_id,
             owner=owner,
             container_type=container_config["type"],
-            lab=container_config["lab"],
             experiment_id=experiment_id,
         )
         await self._allocations.create(allocation.model_dump())

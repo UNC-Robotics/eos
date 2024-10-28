@@ -3,7 +3,6 @@ import itertools
 from typing import Any
 
 import ray
-from omegaconf import OmegaConf
 from ray.actor import ActorHandle
 
 from eos.configuration.configuration_manager import ConfigurationManager
@@ -115,7 +114,6 @@ class DeviceManager:
             log.debug(f"Cleaned up devices for lab(s): {', '.join(lab_ids)}")
         else:
             await self._devices.delete_all()
-            log.info("All devices have been cleaned up.")
 
     async def _create_devices_for_lab(self, lab_id: str) -> None:
         lab_config = self._configuration_manager.labs[lab_id]
@@ -171,14 +169,10 @@ class DeviceManager:
         self._device_actor_computer_ips[device_actor_id] = computer_ip
 
         spec_initialization_parameters = (
-            self._configuration_manager.device_specs.get_spec_by_type(device.type).initialization_parameters or {}
+            self._configuration_manager.device_specs.get_spec_by_type(device.type).init_parameters or {}
         )
-        if spec_initialization_parameters:
-            spec_initialization_parameters = OmegaConf.to_object(spec_initialization_parameters)
 
-        device_config_initialization_parameters = device_config.initialization_parameters or {}
-        if device_config_initialization_parameters:
-            device_config_initialization_parameters = OmegaConf.to_object(device_config_initialization_parameters)
+        device_config_initialization_parameters = device_config.init_parameters or {}
 
         initialization_parameters: dict[str, Any] = {
             **spec_initialization_parameters,
@@ -189,7 +183,7 @@ class DeviceManager:
             {"eos-core": 0.0001} if computer_ip in ["localhost", "127.0.0.1"] else {f"node:{computer_ip}": 0.0001}
         )
 
-        device_class = ray.remote(self._device_plugin_registry.get_device_class_type(device.type))
+        device_class = ray.remote(self._device_plugin_registry.get_plugin_class_type(device.type))
         self._device_actor_handles[device_actor_id] = device_class.options(
             name=device_actor_id,
             num_cpus=0,

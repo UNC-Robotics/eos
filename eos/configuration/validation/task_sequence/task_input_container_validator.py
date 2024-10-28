@@ -1,9 +1,9 @@
 from eos.configuration.entities.lab import LabContainerConfig
 from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_specification import TaskSpecification, TaskSpecificationContainer
+from eos.configuration.entities.task_spec import TaskSpecConfig, TaskSpecContainerConfig
 from eos.configuration.exceptions import EosTaskValidationError
 from eos.configuration.validation import validation_utils
-from eos.configuration.validation.container_registry import ContainerRegistry
+from eos.configuration.validation.experiment_container_registry import ExperimentContainerRegistry
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 
 
@@ -15,8 +15,8 @@ class TaskInputContainerValidator:
     def __init__(
         self,
         task: TaskConfig,
-        task_spec: TaskSpecification,
-        container_registry: ContainerRegistry,
+        task_spec: TaskSpecConfig,
+        container_registry: ExperimentContainerRegistry,
     ):
         self._task_id = task.id
         self._input_containers = task.containers
@@ -41,7 +41,7 @@ class TaskInputContainerValidator:
         self._validate_container_counts(required_containers, provided_containers)
         self._validate_container_types(required_containers, provided_containers)
 
-    def _get_required_containers(self) -> dict[str, TaskSpecificationContainer]:
+    def _get_required_containers(self) -> dict[str, TaskSpecContainerConfig]:
         """
         Get the required containers as specified in the task specification.
         """
@@ -75,7 +75,7 @@ class TaskInputContainerValidator:
         return container
 
     def _validate_container_counts(
-        self, required: dict[str, TaskSpecificationContainer], provided: dict[str, str]
+        self, required: dict[str, TaskSpecContainerConfig], provided: dict[str, str]
     ) -> None:
         """
         Validate that the total number of containers matches the requirements.
@@ -86,9 +86,7 @@ class TaskInputContainerValidator:
                 EosTaskValidationError,
             )
 
-    def _validate_container_types(
-        self, required: dict[str, TaskSpecificationContainer], provided: dict[str, str]
-    ) -> None:
+    def _validate_container_types(self, required: dict[str, TaskSpecContainerConfig], provided: dict[str, str]) -> None:
         """
         Validate that the types of non-reference containers match the requirements.
         """

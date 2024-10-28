@@ -101,11 +101,13 @@ class GreedyScheduler(AbstractScheduler):
         pending_tasks = [task_id for task_id in all_tasks if task_id not in completed_tasks]
 
         # Release resources for completed tasks
-        await asyncio.gather(*[
-            self._release_task_resources(experiment_id, task_id)
-            for task_id in completed_tasks
-            if task_id in self._allocated_resources.get(experiment_id, {})
-        ])
+        await asyncio.gather(
+            *[
+                self._release_task_resources(experiment_id, task_id)
+                for task_id in completed_tasks
+                if task_id in self._allocated_resources.get(experiment_id, {})
+            ]
+        )
 
         scheduled_tasks = []
         for task_id in pending_tasks:
@@ -140,8 +142,8 @@ class GreedyScheduler(AbstractScheduler):
                 )
             except EosSchedulerResourceAllocationError:
                 log.warning(
-                    f"Timed out in allocating resources for task '{task_id}' in experiment '{experiment_id}. "
-                    f"Will retry.'"
+                    f"Timed out in allocating resources for task '{task_id}' in experiment '{experiment_id}'. "
+                    f"Will retry."
                 )
                 continue
 

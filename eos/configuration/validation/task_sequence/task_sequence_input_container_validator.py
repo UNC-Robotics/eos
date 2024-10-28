@@ -3,7 +3,7 @@ from eos.configuration.entities.lab import LabConfig
 from eos.configuration.entities.task import TaskConfig
 from eos.configuration.exceptions import EosTaskValidationError
 from eos.configuration.validation import validation_utils
-from eos.configuration.validation.container_registry import ContainerRegistry
+from eos.configuration.validation.experiment_container_registry import ExperimentContainerRegistry
 from eos.configuration.validation.task_sequence.base_task_sequence_validator import BaseTaskSequenceValidator
 from eos.configuration.validation.task_sequence.task_input_container_validator import TaskInputContainerValidator
 
@@ -19,7 +19,7 @@ class TaskSequenceInputContainerValidator(BaseTaskSequenceValidator):
         lab_configs: list[LabConfig],
     ):
         super().__init__(experiment_config, lab_configs)
-        self._container_registry = ContainerRegistry(experiment_config, lab_configs)
+        self._container_registry = ExperimentContainerRegistry(experiment_config, lab_configs)
 
     def validate(self) -> None:
         for task in self._experiment_config.tasks:

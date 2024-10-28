@@ -5,8 +5,8 @@ from eos.configuration.entities.experiment import (
 )
 from eos.configuration.entities.lab import LabConfig
 from eos.configuration.entities.task import TaskConfig
-from eos.configuration.spec_registries.task_specification_registry import (
-    TaskSpecificationRegistry,
+from eos.configuration.spec_registries.task_spec_registry import (
+    TaskSpecRegistry,
 )
 
 
@@ -18,7 +18,7 @@ class BaseTaskSequenceValidator(ABC):
     ):
         self._experiment_config = experiment_config
         self._lab_configs = lab_configs
-        self._tasks = TaskSpecificationRegistry()
+        self._tasks = TaskSpecRegistry()
 
     @abstractmethod
     def validate(self) -> None:

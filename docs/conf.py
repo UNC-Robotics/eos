@@ -6,10 +6,13 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+
+import importlib.metadata
+
 project = "eos"
 copyright = "2024, UNC Robotics"
 author = "Angelos Angelopoulos"
-release = "0.4.0"
+release = importlib.metadata.version("eos")
 
 extensions = [
     "sphinx.ext.autodoc",

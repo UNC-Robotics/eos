@@ -4,7 +4,7 @@ from litestar.exceptions import HTTPException
 from litestar.handlers import post
 from litestar.status_codes import HTTP_200_OK, HTTP_404_NOT_FOUND, HTTP_201_CREATED
 
-from eos.web_api.common.entities import SubmitCampaignRequest
+from eos.campaigns.entities.campaign import CampaignDefinition
 from eos.web_api.public.exception_handling import handle_exceptions
 
 
@@ -26,7 +26,7 @@ class CampaignController(Controller):
 
     @post("/submit")
     @handle_exceptions("Failed to submit campaign")
-    async def submit_campaign(self, data: SubmitCampaignRequest, state: State) -> Response:
+    async def submit_campaign(self, data: CampaignDefinition, state: State) -> Response:
         orchestrator_client = state.orchestrator_client
         async with orchestrator_client.post("/api/campaigns/submit", json=data.model_dump()) as response:
             if response.status == HTTP_201_CREATED:

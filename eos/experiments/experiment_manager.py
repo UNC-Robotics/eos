@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentExecutionParameters
+from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentDefinition
 from eos.experiments.exceptions import EosExperimentStateError
 from eos.experiments.repositories.experiment_repository import ExperimentRepository
 from eos.logging.logger import log
@@ -32,21 +32,14 @@ class ExperimentManager:
 
     async def create_experiment(
         self,
-        experiment_id: str,
-        experiment_type: str,
-        execution_parameters: ExperimentExecutionParameters | None = None,
-        dynamic_parameters: dict[str, dict[str, Any]] | None = None,
-        metadata: dict[str, Any] | None = None,
+        definition: ExperimentDefinition,
     ) -> None:
         """
-        Create a new experiment of a given type with a unique id.
-
-        :param experiment_id: A unique id for the experiment.
-        :param experiment_type: The type of the experiment as defined in the configuration.
-        :param dynamic_parameters: Dictionary of the dynamic parameters per task and their provided values.
-        :param execution_parameters: Parameters for the execution of the experiment.
-        :param metadata: Additional metadata to be stored with the experiment.
+        Create a new experiment from a definition.
         """
+        experiment_id = definition.id
+        experiment_type = definition.type
+
         if await self._experiments.exists(id=experiment_id):
             raise EosExperimentStateError(f"Experiment '{experiment_id}' already exists.")
 
@@ -54,16 +47,7 @@ class ExperimentManager:
         if not experiment_config:
             raise EosExperimentStateError(f"Experiment type '{experiment_type}' not found in the configuration.")
 
-        labs = experiment_config.labs
-
-        experiment = Experiment(
-            id=experiment_id,
-            type=experiment_type,
-            execution_parameters=execution_parameters or ExperimentExecutionParameters(),
-            labs=labs,
-            dynamic_parameters=dynamic_parameters or {},
-            metadata=metadata or {},
-        )
+        experiment = Experiment.from_definition(definition)
         await self._experiments.create(experiment.model_dump())
 
         log.info(f"Created experiment '{experiment_id}'.")

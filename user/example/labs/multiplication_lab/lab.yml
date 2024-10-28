@@ -1,5 +1,5 @@
 type: multiplication_lab
-description: An example laboratory for testing multiplication
+desc: An example laboratory for testing multiplication
 
 devices:
   multiplier:

@@ -1,9 +1,7 @@
-from eos.configuration.entities.parameters import (
-    AllowedParameterTypes,
-)
+from typing import Any
 
 
-def is_parameter_reference(parameter: AllowedParameterTypes) -> bool:
+def is_parameter_reference(parameter: Any) -> bool:
     return (
         isinstance(parameter, str)
         and parameter.count(".") == 1
@@ -11,15 +9,8 @@ def is_parameter_reference(parameter: AllowedParameterTypes) -> bool:
     )
 
 
-def is_dynamic_parameter(parameter: AllowedParameterTypes) -> bool:
+def is_dynamic_parameter(parameter: Any) -> bool:
     return isinstance(parameter, str) and parameter.lower() == "eos_dynamic"
-
-
-def is_dynamic_container(container_id: str) -> bool:
-    """
-    Check if the container ID is a dynamic container ID (eos_dynamic).
-    """
-    return isinstance(container_id, str) and container_id.lower() == "eos_dynamic"
 
 
 def is_container_reference(container_id: str) -> bool:

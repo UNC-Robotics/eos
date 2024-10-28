@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from eos.configuration.entities.device_specification import DeviceSpecification
+from eos.configuration.entities.device_spec import DeviceSpec
 from eos.configuration.entities.experiment import ExperimentConfig
 from eos.configuration.entities.lab import LabConfig
-from eos.configuration.entities.task_specification import TaskSpecification
+from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.configuration.exceptions import EosMissingConfigurationError
 from eos.configuration.packages.entities import EntityType, EntityLocationInfo, ENTITY_INFO, EntityConfigType
 from eos.configuration.packages.entity_index import EntityIndex
@@ -46,10 +46,10 @@ class PackageManager:
     def read_experiment_config(self, experiment_name: str) -> ExperimentConfig:
         return self._read_entity_config(experiment_name, EntityType.EXPERIMENT)
 
-    def read_task_configs(self) -> tuple[dict[str, TaskSpecification], dict[str, str]]:
+    def read_task_configs(self) -> tuple[dict[str, TaskSpecConfig], dict[str, str]]:
         return self._read_all_entity_configs(EntityType.TASK)
 
-    def read_device_configs(self) -> tuple[dict[str, DeviceSpecification], dict[str, str]]:
+    def read_device_configs(self) -> tuple[dict[str, DeviceSpec], dict[str, str]]:
         return self._read_all_entity_configs(EntityType.DEVICE)
 
     def _read_entity_config(self, entity_name: str, entity_type: EntityType) -> EntityConfigType:

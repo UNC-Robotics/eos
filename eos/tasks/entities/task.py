@@ -1,11 +1,10 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, ClassVar
+from typing import Any
 
-from omegaconf import ListConfig, DictConfig, OmegaConf
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
-from eos.configuration.entities.task import TaskDeviceConfig
+from eos.configuration.entities.task import TaskDeviceConfig, TaskConfig
 from eos.containers.entities.container import Container
 
 
@@ -17,10 +16,6 @@ class TaskStatus(Enum):
     CANCELLED = "CANCELLED"
 
 
-class TaskContainer(BaseModel):
-    id: str
-
-
 class TaskInput(BaseModel):
     parameters: dict[str, Any] | None = None
     containers: dict[str, Container] | None = None
@@ -28,59 +23,80 @@ class TaskInput(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    @field_serializer("parameters")
-    def serialize_parameters(self, parameters: dict[str, Any] | None, _info) -> Any:
-        if parameters is None:
-            return None
-        return omegaconf_serializer(parameters)
-
 
 class TaskOutput(BaseModel):
     parameters: dict[str, Any] | None = None
     containers: dict[str, Container] | None = None
     file_names: list[str] | None = None
 
-    @field_serializer("parameters")
-    def serialize_parameters(self, parameters: dict[str, Any] | None, _info) -> Any:
-        if parameters is None:
-            return None
-        return omegaconf_serializer(parameters)
 
+class TaskDefinition(BaseModel):
+    """The definition of a task. Used for submission."""
 
-def omegaconf_serializer(obj: Any) -> Any:
-    if isinstance(obj, ListConfig | DictConfig):
-        return OmegaConf.to_object(obj)
-    if isinstance(obj, dict):
-        return {k: omegaconf_serializer(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [omegaconf_serializer(v) for v in obj]
-    return obj
-
-
-class Task(BaseModel):
     id: str
     type: str
-    experiment_id: str
+    experiment_id: str = "on_demand"
 
-    devices: list[TaskDeviceConfig] = []
-    input: TaskInput = TaskInput()
-    output: TaskOutput = TaskInput()
+    devices: list[TaskDeviceConfig] = Field(default_factory=list)
+    input: TaskInput = Field(default_factory=TaskInput)
+
+    resource_allocation_priority: int = Field(90, ge=0)
+    resource_allocation_timeout: int = Field(600, ge=0)  # sec
+
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_config(cls, config: TaskConfig, experiment_id: str) -> "TaskDefinition":
+        """Create a TaskDefinition from a TaskConfig."""
+        input_params = TaskInput(
+            parameters=config.parameters,
+            containers={
+                container_name: Container(id=container_id) for container_name, container_id in config.containers.items()
+            },
+        )
+
+        return cls(
+            id=config.id,
+            type=config.type,
+            experiment_id=experiment_id,
+            devices=config.devices,
+            input=input_params,
+        )
+
+    def to_config(self) -> TaskConfig:
+        """Convert a TaskDefinition to a TaskConfig."""
+        containers = {}
+        if self.input.containers:
+            containers = {container_name: container.id for container_name, container in self.input.containers.items()}
+
+        return TaskConfig(
+            id=self.id,
+            type=self.type,
+            devices=self.devices,
+            containers=containers,
+            parameters=self.input.parameters or {},
+            dependencies=[],
+        )
+
+
+class Task(TaskDefinition):
+    """The state of a task in the system."""
 
     status: TaskStatus = TaskStatus.CREATED
+    output: TaskOutput = TaskOutput()
 
-    metadata: dict[str, Any] = {}
     start_time: datetime | None = None
     end_time: datetime | None = None
-
-    created_at: datetime = datetime.now(tz=timezone.utc)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
 
     class Config:
         arbitrary_types_allowed = True
-        json_encoders: ClassVar = {
-            ListConfig: lambda v: omegaconf_serializer(v),
-            DictConfig: lambda v: omegaconf_serializer(v),
-        }
 
     @field_serializer("status")
     def status_enum_to_string(self, v: TaskStatus) -> str:
         return v.value
+
+    @classmethod
+    def from_definition(cls, definition: TaskDefinition) -> "Task":
+        """Create a Task instance from a TaskDefinition."""
+        return cls(**definition.model_dump())

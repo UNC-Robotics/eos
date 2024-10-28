@@ -3,10 +3,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import ray
-from omegaconf import OmegaConf
 from ray import ObjectRef
 
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.entities.task import TaskConfig
 from eos.containers.container_manager import ContainerManager
 from eos.containers.entities.container import Container
 from eos.devices.device_actor_wrapper_registry import DeviceActorReference, DeviceActorWrapperRegistry
@@ -22,13 +22,13 @@ from eos.resource_allocation.exceptions import EosResourceRequestError
 from eos.resource_allocation.resource_allocation_manager import ResourceAllocationManager
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.tasks.base_task import BaseTask
-from eos.tasks.entities.task import TaskStatus
-from eos.tasks.entities.task_execution_parameters import TaskExecutionParameters
+from eos.tasks.entities.task import TaskStatus, TaskDefinition
 from eos.tasks.exceptions import (
     EosTaskResourceAllocationError,
     EosTaskExecutionError,
     EosTaskValidationError,
-    EosTaskExistsError, EosTaskCancellationError,
+    EosTaskExistsError,
+    EosTaskCancellationError,
 )
 from eos.tasks.task_input_parameter_caster import TaskInputParameterCaster
 from eos.tasks.task_manager import TaskManager
@@ -66,13 +66,15 @@ class TaskExecutor:
         log.debug("Task executor initialized.")
 
     async def request_task_execution(
-        self, task_parameters: TaskExecutionParameters, scheduled_task: ScheduledTask | None = None
+        self,
+        task_definition: TaskDefinition,
+        scheduled_task: ScheduledTask | None = None,
     ) -> BaseTask.OutputType | None:
         """
         Request the execution of a task. Resources will first be requested to be allocated (if not pre-allocated)
         and then the task will be executed.
 
-        :param task_parameters: Parameters for task execution
+        :param task_definition: The task definition (e.g., user submission)
         :param scheduled_task: Scheduled task information, if applicable. This is populated by the EOS scheduler.
         :return: Output of the executed task
 
@@ -80,23 +82,24 @@ class TaskExecutor:
         :raises EosTaskValidationError: If the task fails validation
         :raises EosTaskResourceAllocationError: If resource allocation fails
         """
-        context = TaskExecutionContext(task_parameters.experiment_id, task_parameters.task_config.id)
+        context = TaskExecutionContext(task_definition.experiment_id, task_definition.id)
         task_key = (context.experiment_id, context.task_id)
         self._active_tasks[task_key] = context
 
         try:
-            containers = await self._prepare_containers(task_parameters)
-            await self._initialize_task(task_parameters, containers)
+            task_config = task_definition.to_config()
+            self._task_validator.validate(task_config)
 
-            self._task_validator.validate(task_parameters.task_config)
+            task_definition.input.containers = await self._prepare_containers(task_config)
+            await self._initialize_task(task_definition)
 
             context.active_resource_request = (
                 scheduled_task.allocated_resources
                 if scheduled_task
-                else await self._allocate_resources(task_parameters)
+                else await self._allocate_resources(task_definition)
             )
 
-            context.task_ref = await self._execute_task(task_parameters, containers)
+            context.task_ref = await self._execute_task(task_definition)
             return await context.task_ref
         except EosTaskExistsError as e:
             raise EosTaskExecutionError(
@@ -139,7 +142,8 @@ class TaskExecutor:
         context = self._active_tasks.get(task_key)
         if not context:
             raise EosTaskCancellationError(
-                f"Cannot cancel task '{task_id}' in experiment '{experiment_id}' as it does not exist.")
+                f"Cannot cancel task '{task_id}' in experiment '{experiment_id}' as it does not exist."
+            )
 
         if context.task_ref:
             ray.cancel(context.task_ref, recursive=True)
@@ -149,21 +153,19 @@ class TaskExecutor:
             await self._resource_allocation_manager.process_active_requests()
 
         await self._task_manager.cancel_task(experiment_id, task_id)
-        del self._active_tasks[task_key]
+        self._active_tasks.pop(task_key, None)
         log.warning(f"EXP '{experiment_id}' - Cancelled task '{task_id}'.")
 
-    async def _prepare_containers(self, execution_parameters: TaskExecutionParameters) -> dict[str, Container]:
-        containers = execution_parameters.task_config.containers
+    async def _prepare_containers(self, task_config: TaskConfig) -> dict[str, Container]:
+        containers = task_config.containers
         fetched_containers = await asyncio.gather(
             *[self._container_manager.get_container(container_id) for container_id in containers.values()]
         )
 
         return dict(zip(containers.keys(), fetched_containers, strict=True))
 
-    async def _initialize_task(
-        self, execution_parameters: TaskExecutionParameters, containers: dict[str, Container]
-    ) -> None:
-        experiment_id, task_id = execution_parameters.experiment_id, execution_parameters.task_config.id
+    async def _initialize_task(self, task_definition: TaskDefinition) -> None:
+        experiment_id, task_id = task_definition.experiment_id, task_definition.id
         log.debug(f"Execution of task '{task_id}' for experiment '{experiment_id}' has been requested")
 
         task = await self._task_manager.get_task(experiment_id, task_id)
@@ -172,22 +174,13 @@ class TaskExecutor:
             await self.request_task_cancellation(experiment_id, task_id)
             await self._task_manager.delete_task(experiment_id, task_id)
 
-        await self._task_manager.create_task(
-            experiment_id=experiment_id,
-            task_id=task_id,
-            task_type=execution_parameters.task_config.type,
-            devices=execution_parameters.task_config.devices,
-            parameters=execution_parameters.task_config.parameters,
-            containers=containers,
-        )
+        await self._task_manager.create_task(task_definition)
 
-    async def _allocate_resources(
-        self, execution_parameters: TaskExecutionParameters
-    ) -> ActiveResourceAllocationRequest:
-        resource_request = self._create_resource_request(execution_parameters)
-        return await self._request_resources(resource_request, execution_parameters.resource_allocation_timeout)
+    async def _allocate_resources(self, task_definition: TaskDefinition) -> ActiveResourceAllocationRequest:
+        resource_request = self._create_resource_request(task_definition)
+        return await self._request_resources(resource_request, task_definition.resource_allocation_timeout)
 
-    def _get_device_actor_references(self, task_parameters: TaskExecutionParameters) -> list[DeviceActorReference]:
+    def _get_device_actor_references(self, task_definition: TaskDefinition) -> list[DeviceActorReference]:
         return [
             DeviceActorReference(
                 id=device.id,
@@ -195,24 +188,18 @@ class TaskExecutor:
                 type=self._configuration_manager.labs[device.lab_id].devices[device.id].type,
                 actor_handle=self._device_manager.get_device_actor(device.lab_id, device.id),
             )
-            for device in task_parameters.task_config.devices
+            for device in task_definition.devices
         ]
 
     async def _execute_task(
         self,
-        task_execution_parameters: TaskExecutionParameters,
-        containers: dict[str, Container],
+        task_definition: TaskDefinition,
     ) -> ObjectRef:
-        experiment_id, task_id = task_execution_parameters.experiment_id, task_execution_parameters.task_config.id
-        device_actor_references = self._get_device_actor_references(task_execution_parameters)
-        task_class_type = self._task_plugin_registry.get_task_class_type(task_execution_parameters.task_config.type)
-        parameters = task_execution_parameters.task_config.parameters
-        if not isinstance(parameters, dict):
-            parameters = OmegaConf.to_object(parameters)
+        experiment_id, task_id = task_definition.experiment_id, task_definition.id
+        device_actor_references = self._get_device_actor_references(task_definition)
+        task_class_type = self._task_plugin_registry.get_plugin_class_type(task_definition.type)
 
-        parameters = self._task_input_parameter_caster.cast_input_parameters(
-            task_id, task_execution_parameters.task_config.type, parameters
-        )
+        input_parameters = self._task_input_parameter_caster.cast_input_parameters(task_definition)
 
         @ray.remote(num_cpus=0)
         def _ray_execute_task(
@@ -233,34 +220,31 @@ class TaskExecutor:
             experiment_id,
             task_id,
             device_actor_references,
-            parameters,
-            containers,
+            input_parameters,
+            task_definition.input.containers,
         )
 
     @staticmethod
     def _create_resource_request(
-        task_parameters: TaskExecutionParameters,
+        task_definition: TaskDefinition,
     ) -> ResourceAllocationRequest:
-        task_id, experiment_id = task_parameters.task_config.id, task_parameters.experiment_id
-        resource_allocation_priority = task_parameters.resource_allocation_priority
-
         request = ResourceAllocationRequest(
-            requester=task_id,
-            experiment_id=experiment_id,
-            reason=f"Resources required for task '{task_id}'",
-            priority=resource_allocation_priority,
+            requester=task_definition.id,
+            experiment_id=task_definition.experiment_id,
+            reason=f"Resources required for task '{task_definition.id}'",
+            priority=task_definition.resource_allocation_priority,
         )
 
-        for device in task_parameters.task_config.devices:
+        for device in task_definition.devices:
             request.add_resource(device.id, device.lab_id, ResourceType.DEVICE)
 
-        for container_id in task_parameters.task_config.containers.values():
-            request.add_resource(container_id, "", ResourceType.CONTAINER)
+        for container in task_definition.input.containers.values():
+            request.add_resource(container.id, "", ResourceType.CONTAINER)
 
         return request
 
     async def _request_resources(
-        self, resource_request: ResourceAllocationRequest, timeout: int = 30
+        self, resource_request: ResourceAllocationRequest, timeout: int = 600
     ) -> ActiveResourceAllocationRequest:
         allocation_event = asyncio.Event()
         active_request = None

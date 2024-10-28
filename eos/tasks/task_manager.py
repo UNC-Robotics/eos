@@ -4,13 +4,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.task import TaskDeviceConfig
-from eos.containers.entities.container import Container
 from eos.experiments.repositories.experiment_repository import ExperimentRepository
 from eos.logging.logger import log
 from eos.persistence.async_mongodb_interface import AsyncMongoDbInterface
 from eos.persistence.file_db_interface import FileDbInterface
-from eos.tasks.entities.task import Task, TaskStatus, TaskInput, TaskOutput
+from eos.tasks.entities.task import Task, TaskStatus, TaskOutput, TaskDefinition
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from eos.tasks.repositories.task_repository import TaskRepository
 
@@ -41,27 +39,16 @@ class TaskManager:
 
         log.debug("Task manager initialized.")
 
-    async def create_task(
-        self,
-        experiment_id: str,
-        task_id: str,
-        task_type: str,
-        devices: list[TaskDeviceConfig],
-        parameters: dict[str, Any] | None = None,
-        containers: dict[str, Container] | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
+    async def create_task(self, task_definition: TaskDefinition) -> None:
         """
         Create a new task instance for a specific task type that is associated with an experiment.
 
-        :param experiment_id: The id of the experiment.
-        :param task_id: The id of the task in the experiment task sequence.
-        :param task_type: The type of the task as defined in the configuration.
-        :param devices: The devices required for the task.
-        :param parameters: The input parameters for the task.
-        :param containers: The input containers for the task.
-        :param metadata: Additional metadata to be stored with the task.
+        :param task_definition: The task definition.
         """
+        task_id = task_definition.id
+        experiment_id = task_definition.experiment_id
+        task_type = task_definition.type
+
         if await self._tasks.exists(experiment_id=experiment_id, id=task_id):
             raise EosTaskExistsError(f"Cannot create task '{task_id}' as a task with that ID already exists.")
 
@@ -69,16 +56,7 @@ class TaskManager:
         if not task_spec:
             raise EosTaskStateError(f"Task type '{task_type}' does not exist.")
 
-        task_input = TaskInput(parameters=parameters or {}, containers=containers or {})
-
-        task = Task(
-            id=task_id,
-            type=task_type,
-            experiment_id=experiment_id,
-            devices=[TaskDeviceConfig(id=device.id, lab_id=device.lab_id) for device in devices],
-            input=task_input,
-            metadata=metadata or {},
-        )
+        task = Task.from_definition(task_definition)
         await self._tasks.create(task.model_dump())
 
     async def delete_task(self, experiment_id: str, task_id: str) -> None:
@@ -131,7 +109,7 @@ class TaskManager:
     async def cancel_task(self, experiment_id: str, task_id: str) -> None:
         """
         Remove a task from the running tasks list and do not add it to the executed tasks list. Update the task status
-        to cancelled.
+        to be cancelled.
         """
         await self._validate_task_exists(experiment_id, task_id)
 

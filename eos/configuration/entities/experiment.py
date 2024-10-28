@@ -1,21 +1,21 @@
-from dataclasses import dataclass
 from typing import Any
+
+from pydantic import BaseModel
 
 from eos.configuration.entities.task import TaskConfig
 
 
-@dataclass
-class ExperimentContainerConfig:
+class ExperimentContainerConfig(BaseModel):
     id: str
-    description: str | None = None
+    desc: str | None = None
     metadata: dict[str, Any] | None = None
-    tags: list[str] | None = None
 
 
-@dataclass
-class ExperimentConfig:
+class ExperimentConfig(BaseModel):
     type: str
-    description: str
+    desc: str
     labs: list[str]
+
     tasks: list[TaskConfig]
+
     containers: list[ExperimentContainerConfig] | None = None

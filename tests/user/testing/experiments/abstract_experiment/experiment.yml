@@ -1,5 +1,5 @@
 type: abstract_experiment
-description: An abstract experiment for testing
+desc: An abstract experiment for testing
 
 labs:
   - abstract_lab

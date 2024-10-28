@@ -1,14 +1,16 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import jinja2
 import yaml
-from omegaconf import OmegaConf, ValidationError
+from pydantic import BaseModel
 
 from eos.configuration.exceptions import EosConfigurationError
 from eos.configuration.packages.entities import EntityType, EntityConfigType, ENTITY_INFO
 from eos.logging.logger import log
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class EntityReader:
@@ -24,7 +26,7 @@ class EntityReader:
 
     def read_all_entities(
         self, base_dir: str, entity_type: EntityType
-    ) -> tuple[dict[str, EntityConfigType], dict[str, str]]:
+    ) -> tuple[dict[str, EntityConfigType], dict[Path, str]]:
         entity_info = ENTITY_INFO[entity_type]
         configs = {}
         dirs_to_types = {}
@@ -56,19 +58,13 @@ class EntityReader:
     def _read_config(self, file_path: str, config_type: type[EntityConfigType], config_name: str) -> EntityConfigType:
         try:
             config_data = self._render_jinja_yaml(file_path)
-
-            structured_config = OmegaConf.merge(OmegaConf.structured(config_type), OmegaConf.create(config_data))
-            _ = OmegaConf.to_object(structured_config)
-
-            return structured_config
+            return self._parse_yaml(yaml.dump(config_data), config_type)
         except OSError as e:
             raise EosConfigurationError(f"Error reading configuration file '{file_path}': {e!s}") from e
-        except ValidationError as e:
-            raise EosConfigurationError(f"Configuration is invalid: {e!s}") from e
         except jinja2.exceptions.TemplateError as e:
-            raise EosConfigurationError(f"Error in Jinja2 template processing for '{config_name}': {e!s}") from e
+            raise EosConfigurationError(f"Error in Jinja2 template for '{config_name.lower()}': {e!s}") from e
         except Exception as e:
-            raise EosConfigurationError(f"Error processing {config_name} configuration: {e!s}") from e
+            raise EosConfigurationError(f"Error processing {config_name.lower()} configuration: {e!s}") from e
 
     def _render_jinja_yaml(self, file_path: str) -> dict[str, Any]:
         """
@@ -95,3 +91,22 @@ class EntityReader:
             raise EosConfigurationError(f"Error parsing YAML in {file_path}: {e}") from e
         except jinja2.exceptions.TemplateError as e:
             raise EosConfigurationError(f"Error in Jinja2 template processing: {e}") from e
+
+    @staticmethod
+    def _parse_yaml(yaml_string: str, model_class: type[T]) -> T:
+        """
+        Parse a YAML string into a Pydantic model instance.
+
+        Args:
+            yaml_string: YAML content as a string
+            model_class: The Pydantic model class to parse into
+
+        Returns:
+            An instance of the provided Pydantic model class
+
+        Raises:
+            ValidationError: If the YAML data doesn't match the model schema
+            yaml.YAMLError: If the YAML string is invalid
+        """
+        yaml_data = yaml.safe_load(yaml_string)
+        return model_class.model_validate(yaml_data)

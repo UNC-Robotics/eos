@@ -4,7 +4,7 @@ import time
 from eos.tasks.base_task import BaseTask
 
 
-class SleepTask(BaseTask):
+class Sleep(BaseTask):
     async def _execute(
         self,
         devices: BaseTask.DevicesType,

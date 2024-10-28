@@ -1,7 +1,7 @@
 from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
-from eos.campaigns.entities.campaign import CampaignExecutionParameters
+from eos.campaigns.entities.campaign import CampaignDefinition
 from eos.configuration.configuration_manager import ConfigurationManager
 
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
@@ -30,14 +30,10 @@ class CampaignExecutorFactory:
 
     def create(
         self,
-        campaign_id: str,
-        experiment_type: str,
-        execution_parameters: CampaignExecutionParameters,
+        campaign_definition: CampaignDefinition,
     ) -> CampaignExecutor:
         return CampaignExecutor(
-            campaign_id,
-            experiment_type,
-            execution_parameters,
+            campaign_definition,
             self._campaign_manager,
             self._campaign_optimizer_manager,
             self._task_manager,

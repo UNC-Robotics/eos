@@ -1,11 +1,9 @@
 import copy
 from typing import Any
 
-from omegaconf import ListConfig, OmegaConf, DictConfig
-
-from eos.configuration.entities.parameters import ParameterType, ParameterFactory
+from eos.configuration.entities.task_parameters import TaskParameterType, TaskParameterFactory
 from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_specification import TaskSpecification
+from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.configuration.exceptions import EosConfigurationError
 from eos.configuration.validation import validation_utils
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
@@ -17,7 +15,7 @@ class TaskInputParameterValidator:
     Validates that the input parameters of a task conform to the task's specification.
     """
 
-    def __init__(self, task: TaskConfig, task_spec: TaskSpecification):
+    def __init__(self, task: TaskConfig, task_spec: TaskSpecConfig):
         self._task_id = task.id
         self._input_parameters = task.parameters
         self._task_spec = task_spec
@@ -69,8 +67,8 @@ class TaskInputParameterValidator:
         parameter_spec = copy.deepcopy(self._task_spec.input_parameters[parameter_name])
 
         try:
-            parameter = self._convert_value_type(parameter, ParameterType(parameter_spec.type))
-        except Exception:
+            parameter = self._convert_value_type(parameter, TaskParameterType(parameter_spec.type))
+        except ValueError:
             batch_error(
                 f"Parameter '{parameter_name}' in task '{self._task_id}' has incorrect type {type(parameter)}. "
                 f"Expected type: '{parameter_spec.type}'.",
@@ -78,11 +76,11 @@ class TaskInputParameterValidator:
             )
             return
 
-        parameter_spec["value"] = parameter
+        parameter_spec.value = parameter
 
         try:
-            parameter_type = ParameterType(parameter_spec.type)
-            ParameterFactory.create_parameter(parameter_type, **parameter_spec)
+            parameter_type = TaskParameterType(parameter_spec.type)
+            TaskParameterFactory.create(parameter_type, **parameter_spec.model_dump())
         except EosConfigurationError as e:
             batch_error(
                 f"Parameter '{parameter_name}' in task '{self._task_id}' validation error: {e}",
@@ -90,25 +88,23 @@ class TaskInputParameterValidator:
             )
 
     @staticmethod
-    def _convert_value_type(value: Any, expected_type: ParameterType) -> Any:
+    def _convert_value_type(value: Any, expected_type: TaskParameterType) -> Any:
         result = None
 
-        if isinstance(value, expected_type.python_type()):
+        if isinstance(value, expected_type.python_type):
             result = value
-        elif isinstance(value, ListConfig | DictConfig):
-            value = OmegaConf.to_object(value)
 
         if result is None:
             conversion_map = {
-                ParameterType.integer: int,
-                ParameterType.decimal: float,
-                ParameterType.string: str,
-                ParameterType.choice: str,
+                TaskParameterType.INT: int,
+                TaskParameterType.FLOAT: float,
+                TaskParameterType.STR: str,
+                TaskParameterType.CHOICE: str,
             }
 
             if expected_type in conversion_map:
                 result = conversion_map[expected_type](value)
-            elif expected_type == ParameterType.boolean:
+            elif expected_type == TaskParameterType.BOOL:
                 if isinstance(value, bool):
                     result = value
                 elif isinstance(value, str):
@@ -117,9 +113,9 @@ class TaskInputParameterValidator:
                         result = True
                     elif v == "false":
                         result = False
-            elif expected_type == ParameterType.list and isinstance(value, list):
+            elif expected_type == TaskParameterType.LIST and isinstance(value, list):
                 result = list(value)
-            elif expected_type == ParameterType.dictionary and isinstance(value, dict):
+            elif expected_type == TaskParameterType.DICT and isinstance(value, dict):
                 result = value
 
         if result is None:
@@ -151,4 +147,4 @@ class TaskInputParameterValidator:
         """
         Get all the required input parameters for the task.
         """
-        return [param for param, spec in self._task_spec.input_parameters.items() if "value" not in spec]
+        return [param for param, spec in self._task_spec.input_parameters.items() if spec.value is None]

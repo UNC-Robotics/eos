@@ -1,50 +1,50 @@
 type: GC Analysis
-description: Perform gas chromatography (GC) analysis on a sample.
+desc: Perform gas chromatography (GC) analysis on a sample.
 
 device_types:
   - gas_chromatograph
 
 input_parameters:
   injection_volume:
-    type: integer
+    type: int
     unit: ul
     min: 1
     max: 10
-    description: The volume of the sample to be injected into the GC system.
+    desc: The volume of the sample to be injected into the GC system.
 
   oven_temperature_initial:
-    type: integer
+    type: int
     unit: C
     min: 40
     max: 100
-    description: The initial temperature of the GC oven.
+    desc: The initial temperature of the GC oven.
 
   oven_temperature_final:
-    type: integer
+    type: int
     unit: C
     min: 150
     max: 300
-    description: The final temperature of the GC oven, should be higher than the initial temperature.
+    desc: The final temperature of the GC oven, should be higher than the initial temperature.
 
   temperature_ramp_rate:
-    type: integer
+    type: int
     unit: C/min
     min: 1
     max: 20
-    description: The rate at which the oven temperature increases.
+    desc: The rate at which the oven temperature increases.
 
   carrier_gas:
-    type: string
-    description: The type of carrier gas used in the GC analysis, e.g., Helium.
+    type: str
+    desc: The type of carrier gas used in the GC analysis, e.g., Helium.
 
   flow_rate:
-    type: integer
+    type: int
     unit: ml/min
     min: 1
     max: 5
-    description: The flow rate of the carrier gas.
+    desc: The flow rate of the carrier gas.
 
 output_parameters:
   result_folder_path:
-    type: string
-    description: The file path to the folder containing the results of the GC analysis.
+    type: str
+    desc: The file path to the folder containing the results of the GC analysis.

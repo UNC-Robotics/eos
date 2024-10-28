@@ -261,9 +261,7 @@ class ResourceAllocationManager:
         """
         Delete all device and container allocations.
         """
-        await asyncio.gather(
-            self._device_allocator.deallocate_all(), self._container_allocator.deallocate_all()
-        )
+        await asyncio.gather(self._device_allocator.deallocate_all(), self._container_allocator.deallocate_all())
 
     @property
     def device_allocator(self) -> DeviceAllocator:

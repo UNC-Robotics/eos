@@ -1,19 +1,19 @@
 type: Weigh Container
-description: This task involves using an analytical balance to accurately measure the mass of a container.
+desc: This task involves using an analytical balance to accurately measure the mass of a container.
 
 device_types:
   - balance
 
 input_parameters:
   minimum_weight:
-    type: decimal
+    type: float
     unit: g
     value: 0.1
     min: 0.0001
-    description: The minimum weight required for the measurement to be considered valid.
+    desc: The minimum weight required for the measurement to be considered valid.
 
 output_parameters:
   weight:
-    type: decimal
+    type: float
     unit: g
-    description: The measured weight of the container.
+    desc: The measured weight of the container.

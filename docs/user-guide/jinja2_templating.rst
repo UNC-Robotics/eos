@@ -67,7 +67,7 @@ In the example below, the task "mix_colors" is only included if the variable ``m
       {% if mix_colors %}
       - id: mix_colors
         type: Color Mixing
-        description: Mix the colors in the container
+        desc: Mix the colors in the container
         # ... rest of the task definition
       {% endif %}
 

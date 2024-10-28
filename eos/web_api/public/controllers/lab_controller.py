@@ -3,7 +3,7 @@ from litestar.datastructures import State
 from litestar.exceptions import HTTPException
 from litestar.status_codes import HTTP_200_OK
 
-from eos.web_api.common.entities import LabLoadedStatusesResponse, LabTypes
+from eos.web_api.common.entities import LabTypes
 from eos.web_api.public.exception_handling import handle_exceptions
 
 
@@ -62,12 +62,13 @@ class LabController(Controller):
 
             raise HTTPException(status_code=response.status, detail="Error reloading labs")
 
-    @get("/loaded_statuses")
-    @handle_exceptions("Failed to get lab loaded statuses")
-    async def get_lab_loaded_statuses(self, state: State) -> LabLoadedStatusesResponse:
+    @get("/loaded")
+    @handle_exceptions("Failed to check loaded labs")
+    async def get_loaded_labs(self, state: State) -> Response:
         orchestrator_client = state.orchestrator_client
-        async with orchestrator_client.get("/api/labs/loaded_statuses") as response:
+        async with orchestrator_client.get("/api/labs/loaded") as response:
             if response.status == HTTP_200_OK:
-                return LabLoadedStatusesResponse(**await response.json())
+                loaded_labs = await response.json()
+                return Response(content=loaded_labs, status_code=HTTP_200_OK)
 
             raise HTTPException(status_code=response.status, detail="Error fetching lab loaded statuses")

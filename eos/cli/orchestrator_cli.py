@@ -6,17 +6,18 @@ import signal
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Annotated
+import importlib.metadata
 
 import typer
 import uvicorn
+import yaml
 from litestar import Litestar, Router
 from litestar.di import Provide
 from litestar.logging import LoggingConfig
-from omegaconf import OmegaConf, DictConfig
 
+from eos.configuration.entities.eos_config import EosConfig, WebApiConfig
 from eos.logging.logger import log, LogLevel
 from eos.orchestration.orchestrator import Orchestrator
-from eos.persistence.service_credentials import ServiceCredentials
 from eos.web_api.orchestrator.controllers.campaign_controller import CampaignController
 from eos.web_api.orchestrator.controllers.experiment_controller import ExperimentController
 from eos.web_api.orchestrator.controllers.file_controller import FileController
@@ -25,33 +26,15 @@ from eos.web_api.orchestrator.controllers.task_controller import TaskController
 from eos.web_api.orchestrator.exception_handling import global_exception_handler
 
 
-def load_config(config_file: str) -> DictConfig:
-    default_config = {
-        "user_dir": "./user",
-        "labs": [],
-        "experiments": [],
-        "log_level": "INFO",
-        "web_api": {
-            "host": "localhost",
-            "port": 8070,
-        },
-        "db": {
-            "host": "localhost",
-            "port": 27017,
-            "username": None,
-            "password": None,
-        },
-        "file_db": {
-            "host": "localhost",
-            "port": 9004,
-            "username": None,
-            "password": None,
-        },
-    }
-
-    if not Path(config_file).exists():
+def load_config(config_file: str) -> EosConfig:
+    config_file_path = Path(config_file)
+    if not config_file_path.exists():
         raise FileNotFoundError(f"Config file '{config_file}' does not exist")
-    return OmegaConf.merge(OmegaConf.create(default_config), OmegaConf.load(config_file))
+
+    with Path.open(config_file_path) as f:
+        user_config = yaml.safe_load(f) or {}
+
+    return EosConfig(**user_config)
 
 
 def parse_list_arg(arg: str | None) -> list[str]:
@@ -93,19 +76,16 @@ async def handle_shutdown(
         log.info("EOS shut down.")
 
 
-async def setup_orchestrator(config: DictConfig) -> Orchestrator:
-    db_credentials = ServiceCredentials(**config.db)
-    file_db_credentials = ServiceCredentials(**config.file_db)
-
-    orchestrator = Orchestrator(config.user_dir, db_credentials, file_db_credentials)
+async def setup_orchestrator(config: EosConfig) -> Orchestrator:
+    orchestrator = Orchestrator(str(config.user_dir), config.db, config.file_db)
     await orchestrator.initialize()
-    await orchestrator.load_labs(config.labs)
-    orchestrator.load_experiments(config.experiments)
+    await orchestrator.loading.load_labs(config.labs)
+    orchestrator.loading.load_experiments(config.experiments)
 
     return orchestrator
 
 
-def setup_web_api(orchestrator: Orchestrator, config: DictConfig) -> uvicorn.Server:
+def setup_web_api(orchestrator: Orchestrator, config: WebApiConfig) -> uvicorn.Server:
     litestar_logging_config = LoggingConfig(
         configure_root_logger=False,
         loggers={"litestar": {"level": "CRITICAL"}},
@@ -125,14 +105,14 @@ def setup_web_api(orchestrator: Orchestrator, config: DictConfig) -> uvicorn.Ser
         exception_handlers={Exception: global_exception_handler},
     )
 
-    uv_config = uvicorn.Config(web_api_app, host=config.web_api.host, port=config.web_api.port, log_level="critical")
+    uv_config = uvicorn.Config(web_api_app, host=config.host, port=config.port, log_level="critical")
 
     return uvicorn.Server(uv_config)
 
 
-async def run_eos(config: DictConfig) -> None:
+async def run_eos(config: EosConfig) -> None:
     orchestrator = await setup_orchestrator(config)
-    web_api_server = setup_web_api(orchestrator, config)
+    web_api_server = setup_web_api(orchestrator, config.web_api)
 
     log.info("EOS initialized.")
 
@@ -162,21 +142,32 @@ def start_orchestrator(
     typer.echo(EOS_BANNER)
 
     file_config = load_config(config_file)
-    cli_config = {
-        "user_dir": user_dir,
-        "labs": parse_list_arg(labs) if labs else None,
-        "experiments": parse_list_arg(experiments) if experiments else None,
-        "log_level": log_level.value if log_level else None,
-    }
-    cli_config = {k: v for k, v in cli_config.items() if v is not None}
-    config = OmegaConf.merge(file_config, OmegaConf.create(cli_config))
+
+    cli_overrides = {}
+    if user_dir:
+        cli_overrides["user_dir"] = user_dir
+    parsed_labs = parse_list_arg(labs)
+    if parsed_labs:
+        cli_overrides["labs"] = parsed_labs
+    parsed_experiments = parse_list_arg(experiments)
+    if parsed_experiments:
+        cli_overrides["experiments"] = parsed_experiments
+    if log_level is not None:
+        cli_overrides["log_level"] = log_level.value
+
+    if cli_overrides:
+        config_dict = file_config.model_dump()
+        config_dict.update(cli_overrides)
+        config = EosConfig(**config_dict)
+    else:
+        config = file_config
 
     log.set_level(config.log_level)
 
     asyncio.run(run_eos(config))
 
 
-EOS_BANNER = r"""The Experiment Orchestration System
+EOS_BANNER = f"""The Experiment Orchestration System, {importlib.metadata.version("eos")}
  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄
 ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
 ▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀

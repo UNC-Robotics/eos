@@ -23,7 +23,7 @@ class FileController(Controller):
     ) -> Stream:
         async def file_stream() -> AsyncIterable:
             try:
-                async for chunk in orchestrator.stream_task_output_file(
+                async for chunk in orchestrator.results.download_task_output_file(
                     experiment_id, task_id, file_name, chunk_size=_CHUNK_SIZE
                 ):
                     yield chunk
@@ -39,7 +39,7 @@ class FileController(Controller):
     ) -> Stream:
         async def zip_stream() -> AsyncIterable:
             try:
-                file_list = await orchestrator.list_task_output_files(experiment_id, task_id)
+                file_list = await orchestrator.results.list_task_output_files(experiment_id, task_id)
 
                 buffer = io.BytesIO()
                 with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -50,7 +50,9 @@ class FileController(Controller):
                         zip_info.compress_type = zipfile.ZIP_DEFLATED
 
                         with zip_file.open(zip_info, mode="w") as file_in_zip:
-                            async for chunk in orchestrator.stream_task_output_file(experiment_id, task_id, file_name):
+                            async for chunk in orchestrator.results.download_task_output_file(
+                                experiment_id, task_id, file_name
+                            ):
                                 file_in_zip.write(chunk)
 
                                 if buffer.tell() > _CHUNK_SIZE:

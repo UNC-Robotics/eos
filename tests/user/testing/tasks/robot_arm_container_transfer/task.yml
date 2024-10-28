@@ -1,22 +1,22 @@
 type: Container Transfer
-description: Transfer a container from one location area to another using a robot arm.
+desc: Transfer a container from one location area to another using a robot arm.
 
 device_types:
   - fixed_arm_robot
 
 input_parameters:
   source_location:
-    type: string
-    description: The name of the source location area.
+    type: str
+    desc: The name of the source location area.
 
   source_location_area:
-    type: string
-    description: The name of the source location area.
+    type: str
+    desc: The name of the source location area.
 
   target_location:
-    type: string
-    description: The name of the target location area.
+    type: str
+    desc: The name of the target location area.
 
   target_location_area:
-    type: string
-    description: The name of the target location area.
+    type: str
+    desc: The name of the target location area.

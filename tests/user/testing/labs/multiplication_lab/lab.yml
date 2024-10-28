@@ -1,5 +1,5 @@
 type: multiplication_lab
-description: An abstract laboratory for testing multiplication
+desc: An abstract laboratory for testing multiplication
 
 devices:
   multiplier:

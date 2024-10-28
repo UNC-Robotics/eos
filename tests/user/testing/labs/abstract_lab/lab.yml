@@ -1,5 +1,5 @@
 type: abstract_lab
-description: An abstract laboratory with abstract devices for testing
+desc: An abstract laboratory with abstract devices for testing
 
 devices:
   D1:

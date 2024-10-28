@@ -14,10 +14,10 @@ from eos.configuration.plugin_registries.plugin_registry import PluginRegistry, 
 from eos.logging.logger import log
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
+CampaignOptimizerCreationFunction = Callable[[], tuple[dict[str, Any], type[AbstractSequentialOptimizer]]]
 
-class CampaignOptimizerPluginRegistry(
-    PluginRegistry[Callable[[], tuple[dict[str, Any], type[AbstractSequentialOptimizer]]], Any]
-):
+
+class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFunction, Any]):
     """
     Responsible for dynamically loading campaign optimizers from all packages
     and providing references to them for later use.
@@ -29,7 +29,6 @@ class CampaignOptimizerPluginRegistry(
             base_class=None,  # Campaign optimizers don't have a base class
             config_file_name=None,  # Campaign optimizers don't have a separate config file
             implementation_file_name=CAMPAIGN_OPTIMIZER_FILE_NAME,
-            class_suffix="",  # Campaign optimizers don't use a class suffix
             not_found_exception_class=EosCampaignOptimizerImplementationClassNotFoundError,
             entity_type=EntityType.EXPERIMENT,
         )
@@ -50,23 +49,42 @@ class CampaignOptimizerPluginRegistry(
             return optimizer_function()
         return None
 
-    def _load_single_plugin(self, package_name: str, dir_path: str, implementation_file: str) -> None:
-        module_name = Path(dir_path).name
-        spec = importlib.util.spec_from_file_location(module_name, implementation_file)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    def _load_single_plugin(self, package_name: str, dir_path: str, implementation_path: str) -> None:
+        module = self._import_optimizer_module(dir_path, implementation_path)
 
-        if CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME in module.__dict__:
-            experiment_type = module_name
-            self._plugin_types[experiment_type] = module.__dict__[CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME]
-            self._plugin_modules[experiment_type] = implementation_file
-            log.info(f"Loaded campaign optimizer for experiment '{experiment_type}' from package '{package_name}'.")
-        else:
+        experiment_type = Path(dir_path).name
+        if not self._register_optimizer_if_valid(module, experiment_type, package_name, implementation_path):
             log.warning(
                 f"Optimizer configuration function '{CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME}' not found in the "
                 f"campaign optimizer file '{self._config.implementation_file_name}' of experiment "
                 f"'{Path(dir_path).name}' in package '{package_name}'."
             )
+
+    def _import_optimizer_module(self, dir_path: str, implementation_path: str) -> object | None:
+        """Import the optimizer module from the given path."""
+        module_name = Path(dir_path).name
+        spec = importlib.util.spec_from_file_location(module_name, implementation_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def _register_optimizer_if_valid(
+        self,
+        module: object,
+        experiment_type: str,
+        package_name: str,
+        implementation_path: str,
+    ) -> bool:
+        """Register the optimizer if its module contains the required creation function."""
+        if CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME not in module.__dict__:
+            return False
+
+        optimizer_creator = module.__dict__[CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME]
+        self._plugin_types[experiment_type] = optimizer_creator
+        self._plugin_modules[experiment_type] = implementation_path
+
+        log.info(f"Loaded campaign optimizer for experiment '{experiment_type}' from package '{package_name}'.")
+        return True
 
     def load_campaign_optimizer(self, experiment_type: str) -> None:
         """
@@ -81,8 +99,7 @@ class CampaignOptimizerPluginRegistry(
         optimizer_file = (
             self._package_manager.get_entity_dir(experiment_type, EntityType.EXPERIMENT) / CAMPAIGN_OPTIMIZER_FILE_NAME
         )
-
-        if not Path(optimizer_file).exists():
+        if not optimizer_file.exists():
             log.warning(
                 f"No campaign optimizer found for experiment '{experiment_type}' in package "
                 f"'{experiment_package.name}'."

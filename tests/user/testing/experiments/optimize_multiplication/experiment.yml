@@ -1,5 +1,5 @@
 type: optimize_multiplication
-description: An experiment for finding the smallest number that when multiplied by two factors yields 1024
+desc: An experiment for finding the smallest number that when multiplied by two factors yields 1024
 
 labs:
   - multiplication_lab

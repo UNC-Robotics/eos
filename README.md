@@ -7,7 +7,7 @@
 ![os](https://img.shields.io/badge/OS-win%7Cmac%7Clinux-9cf)
 ![python](https://img.shields.io/badge/Python-3.10+-darkgreen)
 
-> **Note:** EOS is currently in the alpha development stage. Much additional functionality and enhancements are planned.
+> **Note:** EOS is actively being developed. Much additional functionality and enhancements are planned.
 > It currently has a core feature set to use for research. Please report any issues, make feature requests, or contribute to development!
 
 The Experiment Orchestration System (EOS) is a comprehensive software framework and runtime for laboratory automation, designed

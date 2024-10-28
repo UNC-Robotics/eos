@@ -48,13 +48,13 @@ class BaseDevice(ABC):
         self._lab_id = lab_id
         self._device_type = device_type
         self._status = DeviceStatus.DISABLED
-        self._initialization_parameters = {}
+        self._init_parameters = {}
 
         self._lock = asyncio.Lock()
 
         register_async_exit_callback(self.cleanup)
 
-    async def initialize(self, initialization_parameters: dict[str, Any]) -> None:
+    async def initialize(self, init_parameters: dict[str, Any]) -> None:
         """
         Initialize the device. After calling this method, the device is ready to be used for tasks
         and the status is IDLE.
@@ -64,9 +64,9 @@ class BaseDevice(ABC):
                 raise EosDeviceInitializationError(f"Device {self._device_id} is already initialized.")
 
             try:
-                await self._initialize(initialization_parameters)
+                await self._initialize(init_parameters)
                 self._status = DeviceStatus.IDLE
-                self._initialization_parameters = initialization_parameters
+                self._init_parameters = init_parameters
             except Exception as e:
                 self._status = DeviceStatus.ERROR
                 raise EosDeviceInitializationError(
@@ -105,7 +105,7 @@ class BaseDevice(ABC):
         Enable the device. The status should be IDLE after calling this method.
         """
         if self._status == DeviceStatus.DISABLED:
-            await self.initialize(self._initialization_parameters)
+            await self.initialize(self._init_parameters)
 
     async def disable(self) -> None:
         """
@@ -129,8 +129,8 @@ class BaseDevice(ABC):
     def get_device_type(self) -> str:
         return self._device_type
 
-    def get_initialization_parameters(self) -> dict[str, Any]:
-        return self._initialization_parameters
+    def get_init_parameters(self) -> dict[str, Any]:
+        return self._init_parameters
 
     @property
     def id(self) -> str:
@@ -149,8 +149,8 @@ class BaseDevice(ABC):
         return self._status
 
     @property
-    def initialization_parameters(self) -> dict[str, Any]:
-        return self._initialization_parameters
+    def init_parameters(self) -> dict[str, Any]:
+        return self._init_parameters
 
     @abstractmethod
     async def _initialize(self, initialization_parameters: dict[str, Any]) -> None:

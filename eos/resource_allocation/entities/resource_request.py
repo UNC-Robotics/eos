@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from bson import ObjectId
@@ -22,7 +22,7 @@ class Resource(BaseModel):
 
 class ResourceAllocationRequest(BaseModel):
     requester: str
-    resources: list[Resource] = []
+    resources: list[Resource] = Field(default_factory=list)
     experiment_id: str | None = None
     reason: str | None = None
     priority: int = Field(default=100, gt=0)
@@ -49,7 +49,7 @@ class ActiveResourceAllocationRequest(BaseModel):
     id: ObjectId = Field(default_factory=ObjectId, alias="_id")
     request: ResourceAllocationRequest
     status: ResourceRequestAllocationStatus = ResourceRequestAllocationStatus.PENDING
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
     allocated_at: datetime | None = None
 
     class Config:

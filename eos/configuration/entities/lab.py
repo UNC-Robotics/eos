@@ -1,42 +1,39 @@
-from dataclasses import dataclass, field
 from typing import Any
 
+from bofire.data_models.base import BaseModel
+from pydantic import Field
 
-@dataclass
-class Location:
-    description: str
+
+class Location(BaseModel):
+    desc: str
     metadata: dict[str, Any] | None = None
 
 
-@dataclass
-class LabComputerConfig:
+class LabComputerConfig(BaseModel):
     ip: str
-    description: str | None = None
+    desc: str | None = None
 
 
-@dataclass
-class LabDeviceConfig:
+class LabDeviceConfig(BaseModel):
     type: str
     computer: str
     location: str | None = None
-    description: str | None = None
-    initialization_parameters: dict[str, Any] | None = None
+    desc: str | None = None
+    init_parameters: dict[str, Any] | None = None
 
 
-@dataclass
-class LabContainerConfig:
+class LabContainerConfig(BaseModel):
     type: str
     location: str
     ids: list[str]
-    description: str | None = None
+    desc: str | None = None
     metadata: dict[str, Any] | None = None
 
 
-@dataclass
-class LabConfig:
+class LabConfig(BaseModel):
     type: str
-    description: str
+    desc: str
     devices: dict[str, LabDeviceConfig]
-    locations: dict[str, Location] = field(default_factory=dict)
-    computers: dict[str, LabComputerConfig] = field(default_factory=dict)
-    containers: list[LabContainerConfig] = field(default_factory=list)
+    locations: dict[str, Location] = Field(default_factory=dict)
+    computers: dict[str, LabComputerConfig] = Field(default_factory=dict)
+    containers: list[LabContainerConfig] = Field(default_factory=list)

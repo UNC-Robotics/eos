@@ -5,22 +5,18 @@ import pytest
 import ray
 import yaml
 
-from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
-from eos.campaigns.entities.campaign import CampaignExecutionParameters
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.entities.eos_config import DbConfig
 from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
 from eos.containers.container_manager import ContainerManager
 from eos.devices.device_manager import DeviceManager
-from eos.experiments.entities.experiment import ExperimentExecutionParameters
-from eos.experiments.experiment_executor import ExperimentExecutor
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.persistence.async_mongodb_interface import AsyncMongoDbInterface
 from eos.persistence.file_db_interface import FileDbInterface
-from eos.persistence.service_credentials import ServiceCredentials
 from eos.resource_allocation.container_allocator import ContainerAllocator
 from eos.resource_allocation.device_allocator import DeviceAllocator
 from eos.resource_allocation.resource_allocation_manager import (
@@ -68,18 +64,14 @@ def user_dir():
 @pytest.fixture(scope="session")
 def db_interface():
     config = load_test_config()
-
-    db_credentials = ServiceCredentials(**config["db"])
-
+    db_credentials = DbConfig(**config["db"])
     return AsyncMongoDbInterface(db_credentials, "test-eos")
 
 
 @pytest.fixture(scope="session")
 def file_db_interface(db_interface):
     config = load_test_config()
-
-    file_db_credentials = ServiceCredentials(**config["file_db"])
-
+    file_db_credentials = DbConfig(**config["file_db"])
     return FileDbInterface(file_db_credentials, bucket_name="test-eos")
 
 
@@ -166,7 +158,8 @@ async def task_manager(setup_lab_experiment, configuration_manager, db_interface
 
 @pytest.fixture(scope="session", autouse=True)
 def ray_cluster():
-    ray.init(namespace="test-eos", ignore_reinit_error=True, resources={"eos-core": 1000})
+    if not ray.is_initialized():
+        ray.init(namespace="test-eos", resources={"eos-core": 1000})
     yield
     ray.shutdown()
 
@@ -192,9 +185,7 @@ def on_demand_task_executor(
     task_manager,
     container_manager,
 ):
-    return OnDemandTaskExecutor(
-        task_executor, task_manager, container_manager
-    )
+    return OnDemandTaskExecutor(task_executor, task_manager, container_manager)
 
 
 @pytest.fixture
@@ -208,31 +199,6 @@ def greedy_scheduler(
 ):
     return GreedyScheduler(
         configuration_manager, experiment_manager, task_manager, device_manager, resource_allocation_manager
-    )
-
-
-@pytest.fixture
-def experiment_executor(
-    request,
-    experiment_manager,
-    task_manager,
-    container_manager,
-    task_executor,
-    greedy_scheduler,
-    experiment_graph,
-):
-    experiment_id, experiment_type = request.param
-
-    return ExperimentExecutor(
-        experiment_id=experiment_id,
-        experiment_type=experiment_type,
-        execution_parameters=ExperimentExecutionParameters(),
-        experiment_graph=experiment_graph,
-        experiment_manager=experiment_manager,
-        task_manager=task_manager,
-        container_manager=container_manager,
-        task_executor=task_executor,
-        scheduler=greedy_scheduler,
     )
 
 
@@ -256,10 +222,7 @@ def experiment_executor_factory(
 
 
 @pytest.fixture
-async def campaign_manager(
-    configuration_manager,
-    db_interface,
-):
+async def campaign_manager(setup_lab_experiment, configuration_manager, db_interface, clean_db):
     campaign_manager = CampaignManager(configuration_manager, db_interface)
     await campaign_manager.initialize(db_interface)
     return campaign_manager
@@ -273,34 +236,3 @@ async def campaign_optimizer_manager(
     campaign_optimizer_manager = CampaignOptimizerManager(configuration_manager, db_interface)
     await campaign_optimizer_manager.initialize(db_interface)
     return campaign_optimizer_manager
-
-
-@pytest.fixture
-def campaign_executor(
-    request,
-    configuration_manager,
-    campaign_manager,
-    campaign_optimizer_manager,
-    task_manager,
-    experiment_executor_factory,
-):
-    campaign_id, experiment_type, max_experiments, do_optimization = request.param
-
-    optimizer_computer_ip = "127.0.0.1"
-
-    execution_parameters = CampaignExecutionParameters(
-        max_experiments=max_experiments,
-        max_concurrent_experiments=1,
-        do_optimization=do_optimization,
-        optimizer_computer_ip=optimizer_computer_ip,
-    )
-
-    return CampaignExecutor(
-        campaign_id=campaign_id,
-        experiment_type=experiment_type,
-        campaign_manager=campaign_manager,
-        campaign_optimizer_manager=campaign_optimizer_manager,
-        task_manager=task_manager,
-        experiment_executor_factory=experiment_executor_factory,
-        execution_parameters=execution_parameters,
-    )

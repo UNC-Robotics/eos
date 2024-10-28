@@ -1,6 +1,6 @@
 type: HPLC Analysis
 
-description: This task performs High-Performance Liquid Chromatography (HPLC) analysis on a sample to separate, identify, and quantify its chemical components.
+desc: This task performs High-Performance Liquid Chromatography (HPLC) analysis on a sample to separate, identify, and quantify its chemical components.
 
 device_types:
   - high_performance_liquid_chromatograph
@@ -17,52 +17,52 @@ input_parameters:
       - C18
       - C8
       - HILIC
-    description: The type of HPLC column to be used for separation.
+    desc: The type of HPLC column to be used for separation.
 
   mobile_phase_a:
-    type: string
+    type: str
     value: water
-    description: The first mobile phase component (usually an aqueous solvent).
+    desc: The first mobile phase component (usually an aqueous solvent).
 
   mobile_phase_b:
-    type: string
+    type: str
     value: acetonitrile
-    description: The second mobile phase component (usually an organic solvent).
+    desc: The second mobile phase component (usually an organic solvent).
 
   gradient:
-    type: string
+    type: str
     value: "0 min: 5%B, 10 min: 95%B, 12 min: 95%B, 13 min: 5%B, 15 min: 5%B"
-    description: The gradient elution profile, specifying the change in mobile phase composition over time.
+    desc: The gradient elution profile, specifying the change in mobile phase composition over time.
 
   flow_rate:
-    type: decimal
+    type: float
     unit: ml/min
     value: 1.0
     min: 0.1
     max: 2.0
-    description: The flow rate of the mobile phase through the HPLC column.
+    desc: The flow rate of the mobile phase through the HPLC column.
 
   injection_volume:
-    type: integer
+    type: int
     unit: uL
     value: 10
     min: 1
     max: 100
-    description: The volume of sample injected into the HPLC system.
+    desc: The volume of sample injected into the HPLC system.
 
   detection_wavelength:
-    type: integer
+    type: int
     unit: nm
     value: 254
     min: 190
     max: 800
-    description: The wavelength at which the detector is set to monitor the eluting compounds.
+    desc: The wavelength at which the detector is set to monitor the eluting compounds.
 
 output_parameters:
   peak_table_file_path:
-    type: string
-    description: Path to output file summarizing the detected peaks, their retention times, and areas.
+    type: str
+    desc: Path to output file summarizing the detected peaks, their retention times, and areas.
 
   chromatogram_file_path:
-    type: string
-    description: Path to output file of chromatogram data representing the detector response over time.
+    type: str
+    desc: Path to output file of chromatogram data representing the detector response over time.

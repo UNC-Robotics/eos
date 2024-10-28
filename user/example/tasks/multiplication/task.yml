@@ -1,21 +1,21 @@
 type: Multiplication
-description: This task takes a number and a factor and multiplies them together using a "multiplier" device.
+desc: This task takes a number and a factor and multiplies them together using a "multiplier" device.
 
 device_types:
   - multiplier
 
 input_parameters:
   number:
-    type: integer
+    type: int
     unit: none
-    description: The number to multiply.
+    desc: The number to multiply.
   factor:
-    type: integer
+    type: int
     unit: none
-    description: The factor to multiply the number by.
+    desc: The factor to multiply the number by.
 
 output_parameters:
   product:
-    type: integer
+    type: int
     unit: none
-    description: The product of the number and the factor.
+    desc: The product of the number and the factor.

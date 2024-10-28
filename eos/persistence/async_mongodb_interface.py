@@ -1,9 +1,9 @@
 from motor.core import AgnosticDatabase
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from eos.configuration.entities.eos_config import DbConfig
 from eos.logging.logger import log
 from eos.persistence.async_mongodb_session_factory import AsyncMongoDbSessionFactory
-from eos.persistence.service_credentials import ServiceCredentials
 
 
 class AsyncMongoDbInterface:
@@ -13,7 +13,7 @@ class AsyncMongoDbInterface:
 
     def __init__(
         self,
-        db_credentials: ServiceCredentials,
+        db_credentials: DbConfig,
         db_name: str = "eos",
     ):
         self._db_credentials = db_credentials

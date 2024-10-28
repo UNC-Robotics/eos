@@ -1,11 +1,9 @@
 import copy
 from typing import Any
 
-from omegaconf import DictConfig, ListConfig, OmegaConf
-
-from eos.configuration.entities.parameters import ParameterType, ParameterFactory
+from eos.configuration.entities.task_parameters import TaskParameterType, TaskParameterFactory
 from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_specification import TaskSpecification
+from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.configuration.exceptions import (
     EosTaskValidationError,
     EosConfigurationError,
@@ -19,7 +17,7 @@ class TaskInputParameterValidator:
     Validates that the input parameters of a task conform to the task's specification.
     """
 
-    def __init__(self, task: TaskConfig, task_spec: TaskSpecification):
+    def __init__(self, task: TaskConfig, task_spec: TaskSpecConfig):
         self._task_id = task.id
         self._input_parameters = task.parameters
         self._task_spec = task_spec
@@ -90,10 +88,7 @@ class TaskInputParameterValidator:
         """
         parameter_spec = copy.deepcopy(self._task_spec.input_parameters[parameter_name])
 
-        if isinstance(parameter, ListConfig | DictConfig):
-            parameter = OmegaConf.to_object(parameter)
-
-        if not isinstance(parameter, ParameterType(parameter_spec.type).python_type()):
+        if not isinstance(parameter, TaskParameterType(parameter_spec.type).python_type):
             batch_error(
                 f"Parameter '{parameter_name}' in task '{self._task_id}' has incorrect type {type(parameter)}. "
                 f"Expected type: '{parameter_spec.type}'.",
@@ -101,11 +96,11 @@ class TaskInputParameterValidator:
             )
             return
 
-        parameter_spec["value"] = parameter
+        parameter_spec.value = parameter
 
         try:
-            parameter_type = ParameterType(parameter_spec.type)
-            ParameterFactory.create_parameter(parameter_type, **parameter_spec)
+            parameter_type = TaskParameterType(parameter_spec.type)
+            TaskParameterFactory.create(parameter_type, **parameter_spec.model_dump())
         except EosConfigurationError as e:
             batch_error(
                 f"Parameter '{parameter_name}' in task '{self._task_id}' validation error: {e}",
@@ -136,4 +131,4 @@ class TaskInputParameterValidator:
         """
         Get all the required input parameters for the task.
         """
-        return [param for param, spec in self._task_spec.input_parameters.items() if "value" not in spec]
+        return [param for param, spec in self._task_spec.input_parameters.items() if spec.value is None]

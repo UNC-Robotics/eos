@@ -1,21 +1,21 @@
-from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class TaskDeviceConfig:
+
+class TaskDeviceConfig(BaseModel):
     lab_id: str
     id: str
 
 
-@dataclass
-class TaskConfig:
+class TaskConfig(BaseModel):
     id: str
     type: str
-    devices: list[TaskDeviceConfig] = field(default_factory=list)
-    containers: dict[str, str] = field(default_factory=dict)
-    parameters: dict[str, Any] = field(default_factory=dict)
-    dependencies: list[str] = field(default_factory=list)
+    desc: str | None = None
+    duration: int | None = None
 
-    max_duration_seconds: int | None = None
-    description: str | None = None
+    devices: list[TaskDeviceConfig] = Field(default_factory=list)
+    containers: dict[str, str] = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+    dependencies: list[str] = Field(default_factory=list)

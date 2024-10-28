@@ -1,7 +1,7 @@
 from eos.tasks.base_task import BaseTask
 
 
-class WaferSamplingTask(BaseTask):
+class WaferSampling(BaseTask):
     async def _execute(
         self,
         devices: BaseTask.DevicesType,

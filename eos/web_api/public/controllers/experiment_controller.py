@@ -4,10 +4,9 @@ from litestar.exceptions import HTTPException
 from litestar.handlers import post
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_404_NOT_FOUND
 
+from eos.experiments.entities.experiment import ExperimentDefinition
 from eos.web_api.common.entities import (
-    SubmitExperimentRequest,
     ExperimentTypesResponse,
-    ExperimentLoadedStatusesResponse,
     ExperimentTypes,
 )
 from eos.web_api.public.exception_handling import handle_exceptions
@@ -30,7 +29,7 @@ class ExperimentController(Controller):
 
     @post("/submit")
     @handle_exceptions("Failed to submit experiment")
-    async def submit_experiment(self, data: SubmitExperimentRequest, state: State) -> Response:
+    async def submit_experiment(self, data: ExperimentDefinition, state: State) -> Response:
         orchestrator_client = state.orchestrator_client
         async with orchestrator_client.post("/api/experiments/submit", json=data.model_dump()) as response:
             if response.status == HTTP_201_CREATED:
@@ -94,23 +93,22 @@ class ExperimentController(Controller):
 
             raise HTTPException(status_code=response.status, detail="Error fetching experiment types")
 
-    @get("/loaded_statuses")
-    @handle_exceptions("Failed to get experiment loaded statuses")
-    async def get_experiment_loaded_statuses(self, state: State) -> ExperimentLoadedStatusesResponse:
+    @get("/loaded")
+    @handle_exceptions("Failed to get loaded experiments")
+    async def get_loaded_experiments(self, state: State) -> dict:
         orchestrator_client = state.orchestrator_client
-        async with orchestrator_client.get("/api/experiments/loaded_statuses") as response:
+        async with orchestrator_client.get("/api/experiments/loaded") as response:
             if response.status == HTTP_200_OK:
-                return ExperimentLoadedStatusesResponse(**await response.json())
+                return await response.json()
 
             raise HTTPException(status_code=response.status, detail="Error fetching experiment loaded statuses")
 
     @get("/{experiment_type:str}/dynamic_params_template")
     @handle_exceptions("Failed to get dynamic parameters template")
-    async def get_experiment_dynamic_params_template(self, experiment_type: str, state: State) -> Response:
+    async def get_experiment_dynamic_params_template(self, experiment_type: str, state: State) -> dict:
         orchestrator_client = state.orchestrator_client
         async with orchestrator_client.get(f"/api/experiments/{experiment_type}/dynamic_params_template") as response:
             if response.status == HTTP_200_OK:
-                dynamic_params_template = await response.json()
-                return Response(content=dynamic_params_template, status_code=HTTP_200_OK)
+                return await response.json()
 
             raise HTTPException(status_code=response.status, detail="Error fetching dynamic parameters template")

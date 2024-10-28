@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
-from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignExecutionParameters
+from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignDefinition
 from eos.campaigns.exceptions import EosCampaignStateError
 from eos.campaigns.repositories.campaign_repository import CampaignRepository
 from eos.configuration.configuration_manager import ConfigurationManager
@@ -39,19 +39,12 @@ class CampaignManager:
 
     async def create_campaign(
         self,
-        campaign_id: str,
-        experiment_type: str,
-        execution_parameters: CampaignExecutionParameters,
-        metadata: dict[str, Any] | None = None,
+        definition: CampaignDefinition,
     ) -> None:
-        """
-        Create a new campaign of a given experiment type with a unique id.
+        """Create a new campaign."""
+        campaign_id = definition.id
+        experiment_type = definition.experiment_type
 
-        :param campaign_id: A unique id for the campaign.
-        :param experiment_type: The type of the experiment as defined in the configuration.
-        :param execution_parameters: Parameters for the execution of the campaign.
-        :param metadata: Additional metadata to be stored with the campaign.
-        """
         if await self._campaigns.get_one(id=campaign_id):
             raise EosCampaignStateError(f"Campaign '{campaign_id}' already exists.")
 
@@ -59,12 +52,7 @@ class CampaignManager:
         if not experiment_config:
             raise EosCampaignStateError(f"Experiment type '{experiment_type}' not found in the configuration.")
 
-        campaign = Campaign(
-            id=campaign_id,
-            experiment_type=experiment_type,
-            execution_parameters=execution_parameters,
-            metadata=metadata or {},
-        )
+        campaign = Campaign.from_definition(definition)
         await self._campaigns.create(campaign.model_dump())
 
         log.info(f"Created campaign '{campaign_id}'.")

@@ -2,12 +2,10 @@ import asyncio
 import traceback
 from typing import Any
 
-from eos.configuration.entities.task import TaskConfig
 from eos.containers.container_manager import ContainerManager
 from eos.containers.entities.container import Container
 from eos.logging.logger import log
-from eos.tasks.entities.task import TaskOutput
-from eos.tasks.entities.task_execution_parameters import TaskExecutionParameters
+from eos.tasks.entities.task import TaskOutput, TaskDefinition
 from eos.tasks.exceptions import EosTaskExecutionError, EosTaskValidationError, EosTaskStateError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
@@ -29,25 +27,12 @@ class OnDemandTaskExecutor:
 
         log.debug("On-demand task executor initialized.")
 
-    def submit_task(
-        self,
-        task_config: TaskConfig,
-        resource_allocation_priority: int = 90,
-        resource_allocation_timeout: int = 3600,
-    ) -> None:
+    def submit_task(self, task_definition: TaskDefinition) -> None:
         """Submit an on-demand task for execution."""
-        task_id = task_config.id
-        task_execution_parameters = TaskExecutionParameters(
-            experiment_id=self.EXPERIMENT_ID,
-            task_config=task_config,
-            resource_allocation_priority=resource_allocation_priority,
-            resource_allocation_timeout=resource_allocation_timeout,
+        self._task_futures[task_definition.id] = asyncio.create_task(
+            self._task_executor.request_task_execution(task_definition)
         )
-
-        self._task_futures[task_id] = asyncio.create_task(
-            self._task_executor.request_task_execution(task_execution_parameters)
-        )
-        log.info(f"Submitted on-demand task '{task_id}'.")
+        log.info(f"Submitted on-demand task '{task_definition.id}'.")
 
     async def request_task_cancellation(self, task_id: str) -> None:
         """Request cancellation of an on-demand task."""
@@ -93,8 +78,6 @@ class OnDemandTaskExecutor:
         )
 
         task_output = TaskOutput(
-            experiment_id=self.EXPERIMENT_ID,
-            task_id=task_id,
             parameters=output_parameters,
             containers=output_containers,
             file_names=list(output_files.keys()),

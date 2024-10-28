@@ -3,7 +3,7 @@ import random
 from eos.tasks.base_task import BaseTask
 
 
-class FileGenerationTask(BaseTask):
+class FileGeneration(BaseTask):
     async def _execute(
         self,
         devices: BaseTask.DevicesType,

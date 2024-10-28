@@ -11,12 +11,12 @@ from eos.configuration.constants import (
     DEVICES_DIR,
     DEVICE_CONFIG_FILE_NAME,
 )
-from eos.configuration.entities.device_specification import DeviceSpecification
+from eos.configuration.entities.device_spec import DeviceSpec
 from eos.configuration.entities.experiment import ExperimentConfig
 from eos.configuration.entities.lab import LabConfig
-from eos.configuration.entities.task_specification import TaskSpecification
+from eos.configuration.entities.task_spec import TaskSpecConfig
 
-EntityConfigType = LabConfig | ExperimentConfig | TaskSpecification | DeviceSpecification
+EntityConfigType = LabConfig | ExperimentConfig | TaskSpecConfig | DeviceSpec
 
 
 class EntityType(Enum):
@@ -42,6 +42,6 @@ class EntityLocationInfo:
 ENTITY_INFO: dict[EntityType, EntityInfo] = {
     EntityType.LAB: EntityInfo(LABS_DIR, LAB_CONFIG_FILE_NAME, LabConfig),
     EntityType.EXPERIMENT: EntityInfo(EXPERIMENTS_DIR, EXPERIMENT_CONFIG_FILE_NAME, ExperimentConfig),
-    EntityType.TASK: EntityInfo(TASKS_DIR, TASK_CONFIG_FILE_NAME, TaskSpecification),
-    EntityType.DEVICE: EntityInfo(DEVICES_DIR, DEVICE_CONFIG_FILE_NAME, DeviceSpecification),
+    EntityType.TASK: EntityInfo(TASKS_DIR, TASK_CONFIG_FILE_NAME, TaskSpecConfig),
+    EntityType.DEVICE: EntityInfo(DEVICES_DIR, DEVICE_CONFIG_FILE_NAME, DeviceSpec),
 }

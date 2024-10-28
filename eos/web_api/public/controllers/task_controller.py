@@ -4,7 +4,8 @@ from litestar.exceptions import HTTPException
 from litestar.handlers import post
 from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_404_NOT_FOUND
 
-from eos.web_api.common.entities import SubmitTaskRequest, TaskTypesResponse
+from eos.tasks.entities.task import TaskDefinition
+from eos.web_api.common.entities import TaskTypesResponse
 from eos.web_api.public.exception_handling import handle_exceptions
 
 
@@ -26,7 +27,7 @@ class TaskController(Controller):
 
     @post("/submit")
     @handle_exceptions("Failed to submit task")
-    async def submit_task(self, data: SubmitTaskRequest, state: State) -> Response:
+    async def submit_task(self, data: TaskDefinition, state: State) -> Response:
         orchestrator_client = state.orchestrator_client
         async with orchestrator_client.post("/api/tasks/submit", json=data.model_dump()) as response:
             if response.status == HTTP_201_CREATED:

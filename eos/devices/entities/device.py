@@ -17,7 +17,7 @@ class Device(BaseModel):
     computer: str
     location: str | None = None
     status: DeviceStatus = DeviceStatus.ACTIVE
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     actor_handle: ActorHandle | None = Field(exclude=True, default=None)
 

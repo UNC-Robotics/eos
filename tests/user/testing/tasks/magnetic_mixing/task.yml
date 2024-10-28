@@ -1,5 +1,5 @@
 type: Magnetic Mixing
-description: This task involves the use of a magnetic stirrer to blend multiple substances into a homogeneous mixture. Both solid and liquid forms can be mixed to produce a liquid output.
+desc: This task involves the use of a magnetic stirrer to blend multiple substances into a homogeneous mixture. Both solid and liquid forms can be mixed to produce a liquid output.
 
 device_types:
   - magnetic_mixer
@@ -10,22 +10,22 @@ input_containers:
 
 input_parameters:
   speed:
-    type: integer
+    type: int
     unit: rpm
     value: 10
     min: 1
     max: 100
-    description: The speed at which the magnetic stirrer operates, measured in revolutions per minute (rpm).
+    desc: The speed at which the magnetic stirrer operates, measured in revolutions per minute (rpm).
   time:
-    type: integer
+    type: int
     unit: sec
     value: 360
     min: 3
     max: 720
-    description: The total time duration for which the substances will be mixed, measured in seconds.
+    desc: The total time duration for which the substances will be mixed, measured in seconds.
 
 output_parameters:
   mixing_time:
-    type: integer
+    type: int
     unit: sec
-    description: The total time duration for which the substances were mixed, measured in seconds.
+    desc: The total time duration for which the substances were mixed, measured in seconds.

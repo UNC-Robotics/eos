@@ -4,7 +4,7 @@ from typing import Any
 from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
 from eos.configuration.validation import validation_utils
 from eos.containers.container_manager import ContainerManager
-from eos.experiments.entities.experiment import ExperimentStatus, ExperimentExecutionParameters, Experiment
+from eos.experiments.entities.experiment import ExperimentStatus, Experiment, ExperimentDefinition
 from eos.experiments.exceptions import (
     EosExperimentExecutionError,
     EosExperimentTaskExecutionError,
@@ -14,8 +14,7 @@ from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.tasks.entities.task import TaskOutput
-from eos.tasks.entities.task_execution_parameters import TaskExecutionParameters
+from eos.tasks.entities.task import TaskOutput, TaskDefinition
 from eos.tasks.exceptions import EosTaskExecutionError, EosTaskCancellationError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_input_resolver import TaskInputResolver
@@ -27,9 +26,7 @@ class ExperimentExecutor:
 
     def __init__(
         self,
-        experiment_id: str,
-        experiment_type: str,
-        execution_parameters: ExperimentExecutionParameters,
+        experiment_definition: ExperimentDefinition,
         experiment_graph: ExperimentGraph,
         experiment_manager: ExperimentManager,
         task_manager: TaskManager,
@@ -37,9 +34,9 @@ class ExperimentExecutor:
         task_executor: TaskExecutor,
         scheduler: AbstractScheduler,
     ):
-        self._experiment_id = experiment_id
-        self._experiment_type = experiment_type
-        self._execution_parameters = execution_parameters
+        self._experiment_definition = experiment_definition
+        self._experiment_id = experiment_definition.id
+        self._experiment_type = experiment_definition.type
         self._experiment_graph = experiment_graph
 
         self._experiment_manager = experiment_manager
@@ -49,15 +46,11 @@ class ExperimentExecutor:
         self._scheduler = scheduler
         self._task_input_resolver = TaskInputResolver(task_manager, experiment_manager)
 
-        self._current_task_execution_parameters: dict[str, TaskExecutionParameters] = {}
+        self._current_task_definitions: dict[str, TaskDefinition] = {}
         self._task_output_futures: dict[str, asyncio.Task] = {}
         self._experiment_status = None
 
-    async def start_experiment(
-        self,
-        dynamic_parameters: dict[str, dict[str, Any]] | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> None:
+    async def start_experiment(self) -> None:
         """
         Start the experiment and register the executor with the scheduler.
         """
@@ -65,7 +58,7 @@ class ExperimentExecutor:
         if experiment:
             await self._handle_existing_experiment(experiment)
         else:
-            await self._create_new_experiment(dynamic_parameters, metadata)
+            await self._create_new_experiment()
 
         self._scheduler.register_experiment(
             experiment_id=self._experiment_id,
@@ -76,7 +69,9 @@ class ExperimentExecutor:
         await self._experiment_manager.start_experiment(self._experiment_id)
         self._experiment_status = ExperimentStatus.RUNNING
 
-        log.info(f"{'Resumed' if self._execution_parameters.resume else 'Started'} experiment '{self._experiment_id}'.")
+        log.info(
+            f"{'Resumed' if self._experiment_definition.resume else 'Started'} experiment '{self._experiment_id}'."
+        )
 
     async def _handle_existing_experiment(self, experiment: Experiment) -> None:
         """
@@ -84,7 +79,7 @@ class ExperimentExecutor:
         """
         self._experiment_status = experiment.status
 
-        if not self._execution_parameters.resume:
+        if not self._experiment_definition.resume:
 
             def _raise_error(status: str) -> None:
                 raise EosExperimentExecutionError(
@@ -152,29 +147,21 @@ class ExperimentExecutor:
         await self._experiment_manager.delete_non_completed_tasks(self._experiment_id)
         log.info(f"Experiment '{self._experiment_id}' resumed.")
 
-    async def _create_new_experiment(
-        self, dynamic_parameters: dict[str, dict[str, Any]], metadata: dict[str, Any]
-    ) -> None:
+    async def _create_new_experiment(self) -> None:
         """
-        Create a new experiment with the given parameters.
+        Create a new experiment.
         """
-        dynamic_parameters = dynamic_parameters or {}
+        dynamic_parameters = self._experiment_definition.dynamic_parameters or {}
         self._validate_dynamic_parameters(dynamic_parameters)
-        await self._experiment_manager.create_experiment(
-            experiment_id=self._experiment_id,
-            experiment_type=self._experiment_type,
-            execution_parameters=self._execution_parameters,
-            dynamic_parameters=dynamic_parameters,
-            metadata=metadata,
-        )
+        await self._experiment_manager.create_experiment(self._experiment_definition)
 
     async def _cancel_running_tasks(self) -> None:
         """
         Cancel all running tasks in the experiment.
         """
         cancellation_futures = [
-            self._task_executor.request_task_cancellation(params.experiment_id, params.task_config.id)
-            for params in self._current_task_execution_parameters.values()
+            self._task_executor.request_task_cancellation(task_definition.experiment_id, task_definition.id)
+            for task_definition in self._current_task_definitions.values()
         ]
         try:
             await asyncio.wait_for(asyncio.gather(*cancellation_futures), timeout=30)
@@ -196,6 +183,7 @@ class ExperimentExecutor:
             self._experiment_manager.complete_experiment(self._experiment_id),
         )
         self._experiment_status = ExperimentStatus.COMPLETED
+        log.info(f"Completed experiment '{self._experiment_id}'.")
 
     async def _fail_experiment(self) -> None:
         """
@@ -233,7 +221,7 @@ class ExperimentExecutor:
             ) from e
         finally:
             del self._task_output_futures[task_id]
-            del self._current_task_execution_parameters[task_id]
+            del self._current_task_definitions[task_id]
 
     async def _update_containers(self, output_containers: dict[str, Any]) -> None:
         """
@@ -253,8 +241,6 @@ class ExperimentExecutor:
         Add task output to the task manager.
         """
         task_output = TaskOutput(
-            experiment_id=self._experiment_id,
-            task_id=task_id,
             parameters=output_parameters,
             containers=output_containers,
             file_names=list(output_files.keys()),
@@ -269,7 +255,7 @@ class ExperimentExecutor:
         """
         new_scheduled_tasks = await self._scheduler.request_tasks(self._experiment_id)
         for scheduled_task in new_scheduled_tasks:
-            if scheduled_task.id not in self._current_task_execution_parameters:
+            if scheduled_task.id not in self._current_task_definitions:
                 await self._execute_task(scheduled_task)
 
     async def _execute_task(self, scheduled_task: ScheduledTask) -> None:
@@ -278,16 +264,12 @@ class ExperimentExecutor:
         """
         task_config = self._experiment_graph.get_task_config(scheduled_task.id)
         task_config = await self._task_input_resolver.resolve_task_inputs(self._experiment_id, task_config)
-        task_execution_parameters = TaskExecutionParameters(
-            task_id=scheduled_task.id,
-            experiment_id=self._experiment_id,
-            devices=scheduled_task.devices,
-            task_config=task_config,
-        )
+        task_definition = TaskDefinition.from_config(task_config, self._experiment_id)
+
         self._task_output_futures[scheduled_task.id] = asyncio.create_task(
-            self._task_executor.request_task_execution(task_execution_parameters, scheduled_task)
+            self._task_executor.request_task_execution(task_definition, scheduled_task)
         )
-        self._current_task_execution_parameters[scheduled_task.id] = task_execution_parameters
+        self._current_task_definitions[scheduled_task.id] = task_definition
 
     def _validate_dynamic_parameters(self, dynamic_parameters: dict[str, dict[str, Any]]) -> None:
         """

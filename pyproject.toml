@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.4.0"
+version = "0.6.0"
 description = "The Experiment Orchestration System (EOS) is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -22,21 +22,20 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "ray[default]~=2.37.0",
-    "typer~=0.12.5",
-    "rich~=13.8.1",
-    "omegaconf~=2.3.0",
+    "ray[default]~=2.39.0",
+    "typer~=0.13.0",
+    "rich~=13.9.4",
     "jinja2~=3.1.4",
     "PyYAML~=6.0.2",
-    "networkx~=3.4.1",
+    "networkx~=3.4.2",
     "pymongo~=4.9.2",
     "motor~=3.6.0",
     "pydantic~=2.9.2",
-    "bofire[optimization]~=0.0.13",
+    "bofire[optimization]~=0.0.15",
     "pandas~=2.2.3",
     "numpy~=1.26.2",
     "litestar[standard]~=2.12.1",
-    "minio~=7.2.8",
+    "minio~=7.2.10",
 ]
 
 [project.optional-dependencies]
@@ -136,7 +135,7 @@ lint.select = [
     "W", # pycodestyle - warning
     "YTT", # flake8-2020
 ]
-lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN101", "ANN204", "ANN401"]
+lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN101", "ANN102", "ANN204", "ANN401", "PLR0913", "N805"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.*" = [

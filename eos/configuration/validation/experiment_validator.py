@@ -1,7 +1,7 @@
 from eos.configuration.entities.experiment import ExperimentConfig
 from eos.configuration.entities.lab import LabConfig
 from eos.configuration.exceptions import EosExperimentConfigurationError
-from eos.configuration.validation.container_validator import (
+from eos.configuration.validation.experiment_container_validator import (
     ExperimentContainerValidator,
 )
 

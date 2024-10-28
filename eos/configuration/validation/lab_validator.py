@@ -3,9 +3,9 @@ from pathlib import Path
 from eos.configuration.constants import LABS_DIR, EOS_COMPUTER_NAME
 from eos.configuration.entities.lab import LabConfig
 from eos.configuration.exceptions import EosLabConfigurationError
-from eos.configuration.spec_registries.device_specification_registry import DeviceSpecificationRegistry
-from eos.configuration.spec_registries.task_specification_registry import (
-    TaskSpecificationRegistry,
+from eos.configuration.spec_registries.device_spec_registry import DeviceSpecRegistry
+from eos.configuration.spec_registries.task_spec_registry import (
+    TaskSpecRegistry,
 )
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 
@@ -19,8 +19,8 @@ class LabValidator:
     def __init__(self, config_dir: str, lab_config: LabConfig):
         self._lab_config = lab_config
         self._lab_config_dir = Path(config_dir) / LABS_DIR / lab_config.type.lower()
-        self._tasks = TaskSpecificationRegistry()
-        self._devices = DeviceSpecificationRegistry()
+        self._tasks = TaskSpecRegistry()
+        self._devices = DeviceSpecRegistry()
 
     def validate(self) -> None:
         self._validate_lab_folder_name_matches_lab_type()
@@ -34,10 +34,9 @@ class LabValidator:
         self._validate_container_locations()
 
     def _validate_lab_folder_name_matches_lab_type(self) -> None:
-        if Path(self._lab_config_dir).name != self._lab_config.type:
+        if self._lab_config_dir.name != self._lab_config.type:
             raise EosLabConfigurationError(
-                f"Lab folder name '{Path(self._lab_config_dir).name}' does not match lab type "
-                f"'{self._lab_config.type}'."
+                f"Lab folder name '{self._lab_config_dir.name}' does not match lab type '{self._lab_config.type}'."
             )
 
     def _validate_device_locations(self) -> None:
@@ -90,8 +89,9 @@ class LabValidator:
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_devices(self) -> None:
+        self._validate_device_types()
         self._validate_devices_have_computers()
-        self._validate_device_initialization_parameters()
+        self._validate_device_init_parameters()
 
     def _validate_devices_have_computers(self) -> None:
         for device_name, device in self._lab_config.devices.items():
@@ -104,19 +104,22 @@ class LabValidator:
                 )
         raise_batched_errors(EosLabConfigurationError)
 
-    def _validate_device_initialization_parameters(self) -> None:
+    def _validate_device_types(self) -> None:
         for device_name, device in self._lab_config.devices.items():
-            device_spec = self._devices.get_spec_by_config(device)
-            if not device_spec:
+            if not self._devices.get_spec_by_config(device):
                 batch_error(
-                    f"No specification found for device type '{device.type}' of device '{device_name}'.",
+                    f"Device type '{device.type}' of device '{device_name}' does not exist.",
                     EosLabConfigurationError,
                 )
-                continue
+        raise_batched_errors(EosLabConfigurationError)
 
-            if device.initialization_parameters:
-                spec_params = device_spec.initialization_parameters or {}
-                for param_name in device.initialization_parameters:
+    def _validate_device_init_parameters(self) -> None:
+        for device_name, device in self._lab_config.devices.items():
+            device_spec = self._devices.get_spec_by_config(device)
+
+            if device.init_parameters:
+                spec_params = device_spec.init_parameters or {}
+                for param_name in device.init_parameters:
                     if param_name not in spec_params:
                         batch_error(
                             f"Invalid initialization parameter '{param_name}' for device '{device_name}' "

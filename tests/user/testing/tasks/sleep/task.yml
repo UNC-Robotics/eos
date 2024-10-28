@@ -1,10 +1,10 @@
 type: Sleep
-description: This task sleeps for the specified amount of time.
+desc: This task sleeps for the specified amount of time.
 
 input_parameters:
   time:
-    type: integer
+    type: int
     unit: sec
     value: 0
     min: 0
-    description: The total time duration for which to sleep for.
+    desc: The total time duration for which to sleep for.

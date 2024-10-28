@@ -1,5 +1,5 @@
 type: water_purification
-description: Experiment to find best parameters for purifying water using evaporation
+desc: Experiment to find best parameters for purifying water using evaporation
 
 labs:
   - small_lab
@@ -15,7 +15,7 @@ tasks:
     devices:
       - lab_id: small_lab
         id: magnetic_mixer
-    description: Magnetically mix water and salt
+    desc: Magnetically mix water and salt
 
     containers:
       beaker: 026749f8f40342b38157f9824ae2f512
@@ -28,7 +28,7 @@ tasks:
     devices:
       - lab_id: small_lab
         id: evaporator
-    description: Purification of water using evaporation
+    desc: Purification of water using evaporation
     dependencies: [ "mixing" ]
 
     containers:

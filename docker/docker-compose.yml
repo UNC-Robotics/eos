@@ -38,30 +38,6 @@ services:
       - minio_data:/data
     command: server --console-address ":9001" /data
 
-  eos-budibase:
-    image: budibase/budibase:2.32.12-sqs
-    container_name: eos-budibase
-    hostname: eos-budibase
-    restart: unless-stopped
-    environment:
-      JWT_SECRET: ${BB_JWT_SECRET}
-      MINIO_ACCESS_KEY: ${BB_MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${BB_MINIO_SECRET_KEY}
-      REDIS_PASSWORD: ${BB_REDIS_PASSWORD}
-      COUCHDB_USER: ${BB_COUCHDB_USER}
-      COUCHDB_PASSWORD: ${BB_COUCHDB_PASSWORD}
-      INTERNAL_API_KEY: ${BB_INTERNAL_API_KEY}
-      BB_ADMIN_USER_EMAIL: ${BB_ADMIN_USER_EMAIL}
-      BB_ADMIN_USER_PASSWORD: ${BB_ADMIN_USER_PASSWORD}
-    ports:
-      - "8080:80"
-    networks:
-      - eos_network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - budibase_data:/data
-
 networks:
   eos_network:
     name: eos_network
@@ -71,6 +47,4 @@ volumes:
   mongodb_data:
     driver: local
   minio_data:
-    driver: local
-  budibase_data:
     driver: local
