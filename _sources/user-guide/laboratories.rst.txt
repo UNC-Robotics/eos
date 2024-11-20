@@ -27,79 +27,79 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 .. code-block:: yaml
 
     type: solar_cell_fabrication_lab
-    description: A laboratory for fabricating and characterizing perovskite solar cells
+    desc: A laboratory for fabricating and characterizing perovskite solar cells
 
     locations:
       glovebox:
-        description: Nitrogen-filled glovebox
+        desc: Nitrogen-filled glovebox
         metadata:
             map_coordinates:
                 x: 10
                 y: 20
                 theta: 0
       fume_hood:
-        description: Fume hood for solution preparation and coating
+        desc: Fume hood for solution preparation and coating
       annealing_station:
-        description: Hotplate for thermal annealing
+        desc: Hotplate for thermal annealing
       evaporation_chamber:
-        description: Thermal evaporation chamber for electrode deposition
+        desc: Thermal evaporation chamber for electrode deposition
       characterization_room:
-        description: Room for solar cell performance testing
+        desc: Room for solar cell performance testing
 
     computers:
       xrd_computer:
-        description: XRD system control and data analysis
+        desc: XRD system control and data analysis
         ip: 192.168.1.101
       solar_sim_computer:
-        description: Solar simulator control and J-V measurements
+        desc: Solar simulator control and J-V measurements
         ip: 192.168.1.102
       robot_computer:
-        description: Mobile manipulation robot control
+        desc: Mobile manipulation robot control
         ip: 192.168.1.103
 
     devices:
       spin_coater:
-        description: Spin coater for depositing perovskite and transport layers
+        desc: Spin coater for depositing perovskite and transport layers
         type: spin_coater
         location: glovebox
         computer: eos_computer
 
       uv_ozone_cleaner:
-        description: UV-Ozone cleaner for substrate treatment
+        desc: UV-Ozone cleaner for substrate treatment
         type: uv_ozone_cleaner
         location: fume_hood
         computer: eos_computer
 
       thermal_evaporator:
-        description: Thermal evaporator for metal electrode deposition
+        desc: Thermal evaporator for metal electrode deposition
         type: thermal_evaporator
         location: evaporation_chamber
         computer: eos_computer
-        initialization_parameters:
+        init_parameters:
           max_temperature: 1000C
           materials: [Au, Ag, Al]
 
       solar_simulator:
-        description: Solar simulator for J-V curve measurements
+        desc: Solar simulator for J-V curve measurements
         type: solar_simulator
         location: characterization_room
         computer: solar_sim_computer
-        initialization_parameters:
+        init_parameters:
           spectrum: AM1.5G
           intensity: 100mW/cm2
 
       xrd_system:
-        description: X-ray diffractometer for crystal structure analysis
+        desc: X-ray diffractometer for crystal structure analysis
         type: xrd
         location: characterization_room
         computer: xrd_computer
 
       mobile_robot:
-        description: Mobile manipulation robot for automated sample transfer
+        desc: Mobile manipulation robot for automated sample transfer
         type: mobile_robot
         location: characterization_room
         computer: robot_computer
-        initialization_parameters:
+        init_parameters:
           locations:
             - glovebox
             - fume_hood
@@ -144,20 +144,20 @@ Defining locations is optional.
 
     locations:
       glovebox:
-        description: Nitrogen-filled glovebox
+        desc: Nitrogen-filled glovebox
         metadata:
             map_coordinates:
                 x: 10
                 y: 20
                 theta: 0
       fume_hood:
-        description: Fume hood for solution preparation and coating
+        desc: Fume hood for solution preparation and coating
       annealing_station:
-        description: Hotplate for thermal annealing
+        desc: Hotplate for thermal annealing
       evaporation_chamber:
-        description: Thermal evaporation chamber for electrode deposition
+        desc: Thermal evaporation chamber for electrode deposition
       characterization_room:
-        description: Room for solar cell performance testing
+        desc: Room for solar cell performance testing
 
 Computers (Optional)
 """"""""""""""""""""
@@ -179,13 +179,13 @@ connected to eos_computer).
 
     computers:
       xrd_computer:
-        description: XRD system control and data analysis
+        desc: XRD system control and data analysis
         ip: 192.168.1.101
       solar_sim_computer:
-        description: Solar simulator control and J-V measurements
+        desc: Solar simulator control and J-V measurements
         ip: 192.168.1.102
       robot_computer:
-        description: Mobile manipulation robot control
+        desc: Mobile manipulation robot control
         ip: 192.168.1.103
 
 Devices (Required)
@@ -197,23 +197,23 @@ Each device must have a unique name inside the lab and must be defined in the ``
 
     devices:
       spin_coater:
-        description: Spin coater for depositing perovskite and transport layers
+        desc: Spin coater for depositing perovskite and transport layers
         type: spin_coater
         location: glovebox
         computer: eos_computer
 
       uv_ozone_cleaner:
-        description: UV-Ozone cleaner for substrate treatment
+        desc: UV-Ozone cleaner for substrate treatment
         type: uv_ozone_cleaner
         location: fume_hood
         computer: eos_computer
 
       thermal_evaporator:
-        description: Thermal evaporator for metal electrode deposition
+        desc: Thermal evaporator for metal electrode deposition
         type: thermal_evaporator
         location: evaporation_chamber
         computer: eos_computer
-        initialization_parameters:
+        init_parameters:
           max_temperature: 1000C
           materials: [Au, Ag, Al]
 
@@ -226,7 +226,7 @@ There can be multiple devices with different names of the same type.
 **computer**: The computer that controls the device.
 If not "eos_computer", the computer must be defined in the "computers" section.
 
-**initialization_parameters** (optional): Parameters required to initialize the device.
+**init_parameters** (optional): Parameters required to initialize the device.
 These parameters are defined in the device specification and can be overridden here.
 
 Containers (Optional)

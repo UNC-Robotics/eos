@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=1437fa6d"></script>
+    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -380,79 +380,79 @@ of experiments take place.</p>
 <p>Below is an example laboratory YAML file for a solar cell fabrication lab:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_cell_fabrication_lab</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A laboratory for fabricating and characterizing perovskite solar cells</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A laboratory for fabricating and characterizing perovskite solar cells</span>
 
 <span class="nt">locations</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">glovebox</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
 <span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">map_coordinates</span><span class="p">:</span>
 <span class="w">            </span><span class="nt">x</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">            </span><span class="nt">y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 <span class="w">            </span><span class="nt">theta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
 <span class="w">  </span><span class="nt">fume_hood</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Fume hood for solution preparation and coating</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Fume hood for solution preparation and coating</span>
 <span class="w">  </span><span class="nt">annealing_station</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hotplate for thermal annealing</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hotplate for thermal annealing</span>
 <span class="w">  </span><span class="nt">evaporation_chamber</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporation chamber for electrode deposition</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporation chamber for electrode deposition</span>
 <span class="w">  </span><span class="nt">characterization_room</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Room for solar cell performance testing</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Room for solar cell performance testing</span>
 
 <span class="nt">computers</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">xrd_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XRD system control and data analysis</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XRD system control and data analysis</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.101</span>
 <span class="w">  </span><span class="nt">solar_sim_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator control and J-V measurements</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator control and J-V measurements</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.102</span>
 <span class="w">  </span><span class="nt">robot_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot control</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot control</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.103</span>
 
 <span class="nt">devices</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spin_coater</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
 <span class="w">  </span><span class="nt">uv_ozone_cleaner</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UV-Ozone cleaner for substrate treatment</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UV-Ozone cleaner for substrate treatment</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv_ozone_cleaner</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fume_hood</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
 <span class="w">  </span><span class="nt">thermal_evaporator</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporator for metal electrode deposition</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporator for metal electrode deposition</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">thermal_evaporator</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-<span class="w">    </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">max_temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000C</span>
 <span class="w">      </span><span class="nt">materials</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Au</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Ag</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Al</span><span class="p p-Indicator">]</span>
 
 <span class="w">  </span><span class="nt">solar_simulator</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator for J-V curve measurements</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator for J-V curve measurements</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_simulator</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_sim_computer</span>
-<span class="w">    </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">spectrum</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AM1.5G</span>
 <span class="w">      </span><span class="nt">intensity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100mW/cm2</span>
 
 <span class="w">  </span><span class="nt">xrd_system</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">X-ray diffractometer for crystal structure analysis</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">X-ray diffractometer for crystal structure analysis</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xrd</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xrd_computer</span>
 
 <span class="w">  </span><span class="nt">mobile_robot</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot for automated sample transfer</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot for automated sample transfer</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mobile_robot</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_computer</span>
-<span class="w">    </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">locations</span><span class="p">:</span>
 <span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
 <span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fume_hood</span>
@@ -495,20 +495,20 @@ You can define metadata for each location, such as map coordinates for a mobile 
 Defining locations is optional.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">locations</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">glovebox</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
 <span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">map_coordinates</span><span class="p">:</span>
 <span class="w">            </span><span class="nt">x</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">            </span><span class="nt">y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 <span class="w">            </span><span class="nt">theta</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0</span>
 <span class="w">  </span><span class="nt">fume_hood</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Fume hood for solution preparation and coating</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Fume hood for solution preparation and coating</span>
 <span class="w">  </span><span class="nt">annealing_station</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hotplate for thermal annealing</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hotplate for thermal annealing</span>
 <span class="w">  </span><span class="nt">evaporation_chamber</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporation chamber for electrode deposition</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporation chamber for electrode deposition</span>
 <span class="w">  </span><span class="nt">characterization_room</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Room for solar cell performance testing</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Room for solar cell performance testing</span>
 </pre></div>
 </div>
 </section>
@@ -527,13 +527,13 @@ connected to eos_computer).</p>
 </figure>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">computers</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">xrd_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XRD system control and data analysis</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XRD system control and data analysis</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.101</span>
 <span class="w">  </span><span class="nt">solar_sim_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator control and J-V measurements</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator control and J-V measurements</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.102</span>
 <span class="w">  </span><span class="nt">robot_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot control</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot control</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.103</span>
 </pre></div>
 </div>
@@ -544,23 +544,23 @@ connected to eos_computer).</p>
 Each device must have a unique name inside the lab and must be defined in the <code class="docutils literal notranslate"><span class="pre">devices</span></code> section of the laboratory YAML file.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spin_coater</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
 <span class="w">  </span><span class="nt">uv_ozone_cleaner</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UV-Ozone cleaner for substrate treatment</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UV-Ozone cleaner for substrate treatment</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv_ozone_cleaner</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fume_hood</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
 <span class="w">  </span><span class="nt">thermal_evaporator</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporator for metal electrode deposition</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporator for metal electrode deposition</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">thermal_evaporator</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-<span class="w">    </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">max_temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000C</span>
 <span class="w">      </span><span class="nt">materials</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Au</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Ag</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Al</span><span class="p p-Indicator">]</span>
 </pre></div>
@@ -571,7 +571,7 @@ There can be multiple devices with different names of the same type.</p>
 <p><strong>location</strong> (optional): The location where the device is at.</p>
 <p><strong>computer</strong>: The computer that controls the device.
 If not “eos_computer”, the computer must be defined in the “computers” section.</p>
-<p><strong>initialization_parameters</strong> (optional): Parameters required to initialize the device.
+<p><strong>init_parameters</strong> (optional): Parameters required to initialize the device.
 These parameters are defined in the device specification and can be overridden here.</p>
 </section>
 <section id="containers-optional">

@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=1437fa6d"></script>
+    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -382,19 +382,19 @@ A task takes some inputs and returns some outputs, and may use one or more devic
 Every parameter has a specific data type.
 EOS supports the following parameter types:</p>
 <ul class="simple">
-<li><p><strong>integer</strong>: An integer number.
+<li><p><strong>int</strong>: An int number.
 Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">int</span></code></p></li>
-<li><p><strong>decimal</strong>: A decimal number.
+<li><p><strong>float</strong>: A float number.
 Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">float</span></code></p></li>
-<li><p><strong>string</strong>: A string (series of text characters).
+<li><p><strong>str</strong>: A str (series of text characters).
 Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">str</span></code></p></li>
-<li><p><strong>boolean</strong>: A true/false value.
+<li><p><strong>bool</strong>: A true/false value.
 Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">bool</span></code></p></li>
 <li><p><strong>choice</strong>: A value that must be one of a set of predefined choices.
 The choices can be any type.</p></li>
 <li><p><strong>list</strong>: A list of values of a specific type.
 Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">list</span></code>.</p></li>
-<li><p><strong>dictionary</strong>: A dictionary of key-value pairs.
+<li><p><strong>dict</strong>: A dict of key-value pairs.
 Equivalent to Python’s <code class="docutils literal notranslate"><span class="pre">dict</span></code>.</p></li>
 </ul>
 <p>Tasks can have multiple parameters of different types.
@@ -403,7 +403,7 @@ EOS will ensure that the parameters passed to a task are of the correct type and
 <section id="containers">
 <h2>Containers<a class="headerlink" href="#containers" title="Link to this heading">#</a></h2>
 <p>Containers are referenced by a unique identifier called a <strong>container ID</strong>.
-A container ID is a string that uniquely identifies a container.
+A container ID is a str that uniquely identifies a container.
 Every container in EOS must have an ID, and these can be specified in the laboratory definition.
 Containers are treated as <em>global</em> objects and can move across labs.
 However, every container must have a “home” lab from which it originates.</p>
@@ -435,7 +435,7 @@ managed manually.</p>
 <section id="yaml-file-task-yml">
 <h3>YAML File (task.yml)<a class="headerlink" href="#yaml-file-task-yml" title="Link to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Specifies the task type, description, and input/output parameters and containers</p></li>
+<li><p>Specifies the task type, desc, and input/output parameters and containers</p></li>
 <li><p>Acts as the interface contract (spec) for the task</p></li>
 <li><p>This contract is used to validate tasks, and EOS enforces the contract statically and dynamically during execution</p></li>
 <li><p>Useful as documentation for the task</p></li>
@@ -443,25 +443,25 @@ managed manually.</p>
 <p>Below is an example task YAML file for a GC analysis task for GCs made by SRI Instruments:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SRI GC Analysis</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Perform gas chromatography (GC) analysis on a sample.</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Perform gas chromatography (GC) analysis on a sample.</span>
 
 <span class="nt">device_types</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sri_gas_chromatograph</span>
 
 <span class="nt">input_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">analysis_time</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">seconds</span>
 <span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">480</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">How long to run the GC analysis</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">How long to run the GC analysis</span>
 
 <span class="nt">output_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">known_substances</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dictionary</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Peaks and peak areas of identified substances</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dict</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Peaks and peak areas of identified substances</span>
 <span class="w">  </span><span class="nt">unknown_substances</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dictionary</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Peaks and peak areas of substances that could not be identified</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dict</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Peaks and peak areas of substances that could not be identified</span>
 </pre></div>
 </div>
 <p>The task specification makes clear that:</p>
@@ -469,7 +469,7 @@ managed manually.</p>
 <li><p>The task is of type “SRI GC Analysis”</p></li>
 <li><p>The task requires a device of type “sri_gas_chromatograph”.
 EOS will enforce this requirement.</p></li>
-<li><p>The task takes an input integer parameter <code class="docutils literal notranslate"><span class="pre">analysis_time</span></code> in seconds.
+<li><p>The task takes an input int parameter <code class="docutils literal notranslate"><span class="pre">analysis_time</span></code> in seconds.
 It has a default value of 480, making this an optional parameter.</p></li>
 <li><p>The task outputs two dictionaries: <code class="docutils literal notranslate"><span class="pre">known_substances</span></code> and <code class="docutils literal notranslate"><span class="pre">unknown_substances</span></code>.</p></li>
 </ul>
@@ -481,8 +481,8 @@ It has a default value of 480, making this an optional parameter.</p></li>
 <section id="integer">
 <h4>Integer<a class="headerlink" href="#integer" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">sample_rate</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The number of samples per second</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The number of samples per second</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">44100</span>
 <span class="w">  </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Hz</span>
 <span class="w">  </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8000</span>
@@ -491,11 +491,11 @@ It has a default value of 480, making this an optional parameter.</p></li>
 </div>
 <p>Integers must have a unit (can be n/a) and can also have a minimum and maximum value.</p>
 </section>
-<section id="decimal">
-<h4>Decimal<a class="headerlink" href="#decimal" title="Link to this heading">#</a></h4>
+<section id="float">
+<h4>Float<a class="headerlink" href="#float" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">threshold_voltage</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decimal</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The voltage threshold for signal detection</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The voltage threshold for signal detection</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2.5</span>
 <span class="w">  </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">volts</span>
 <span class="w">  </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
@@ -507,8 +507,8 @@ It has a default value of 480, making this an optional parameter.</p></li>
 <section id="string">
 <h4>String<a class="headerlink" href="#string" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">file_prefix</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">string</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix for output file names</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">str</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix for output file names</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;experiment_&quot;</span>
 </pre></div>
 </div>
@@ -517,7 +517,7 @@ It has a default value of 480, making this an optional parameter.</p></li>
 <h4>Boolean<a class="headerlink" href="#boolean" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">auto_calibrate</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">boolean</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Whether to perform auto-calibration before analysis</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Whether to perform auto-calibration before analysis</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </pre></div>
 </div>
@@ -527,7 +527,7 @@ It has a default value of 480, making this an optional parameter.</p></li>
 <h4>Choice<a class="headerlink" href="#choice" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">column_type</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">choice</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HPLC column type</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HPLC column type</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;C18&quot;</span>
 <span class="w">  </span><span class="nt">choices</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;C18&quot;</span>
@@ -543,9 +543,9 @@ It has a default value of 480, making this an optional parameter.</p></li>
 <h4>List<a class="headerlink" href="#list" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">channel_gains</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">list</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gain values for each input channel</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gain values for each input channel</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">1.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.2</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.8</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.1</span><span class="p p-Indicator">]</span>
-<span class="w">  </span><span class="nt">element_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decimal</span>
+<span class="w">  </span><span class="nt">element_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
 <span class="w">  </span><span class="nt">length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
 <span class="w">  </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.5</span><span class="p p-Indicator">]</span>
 <span class="w">  </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">2.0</span><span class="p p-Indicator">]</span>
@@ -557,8 +557,8 @@ They can have a specific length and minimum and maximum per-element values.</p>
 <section id="dictionary">
 <h4>Dictionary<a class="headerlink" href="#dictionary" title="Link to this heading">#</a></h4>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">buffer_composition</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dictionary</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Composition of a buffer solution</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dict</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Composition of a buffer solution</span>
 <span class="w">  </span><span class="nt">value</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">pH</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">7.4</span>
 <span class="w">    </span><span class="nt">base</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Tris&quot;</span>
@@ -579,13 +579,12 @@ They can have a specific length and minimum and maximum per-element values.</p>
 <ul class="simple">
 <li><p>Implements the task</p></li>
 <li><p>All task implementations must inherit from <code class="docutils literal notranslate"><span class="pre">BaseTask</span></code></p></li>
-<li><p>The task class name must end with “Task” to be discovered by EOS</p></li>
 </ul>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">eos.tasks.base_task</span> <span class="kn">import</span> <span class="n">BaseTask</span>
 
 
-<span class="k">class</span> <span class="nc">MagneticMixingTask</span><span class="p">(</span><span class="n">BaseTask</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">MagneticMixing</span><span class="p">(</span><span class="n">BaseTask</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">def</span> <span class="nf">_execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">devices</span><span class="p">:</span> <span class="n">BaseTask</span><span class="o">.</span><span class="n">DevicesType</span><span class="p">,</span>
@@ -672,7 +671,7 @@ Keys are the container IDs and values are the <code class="docutils literal notr
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#yaml-file-task-yml">YAML File (task.yml)</a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-specification">Parameter Specification</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#integer">Integer</a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#decimal">Decimal</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#float">Float</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#string">String</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#boolean">Boolean</a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#choice">Choice</a></li>

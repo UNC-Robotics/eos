@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=1437fa6d"></script>
+    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -389,36 +389,34 @@ There are six dynamic parameters, which are the inputs of the optimization probl
 <p>Looking at the task specification of the <code class="docutils literal notranslate"><span class="pre">score_color</span></code> task, we also see that there is an output parameter called “loss”.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Color</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score a color based on how close it is to an expected color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score a color based on how close it is to an expected color</span>
 
 <span class="nt">input_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">red</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The red component of the color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The red component of the color</span>
 <span class="w">  </span><span class="nt">green</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The green component of the color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The green component of the color</span>
 <span class="w">  </span><span class="nt">blue</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The blue component of the color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The blue component of the color</span>
 
 <span class="nt">output_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">loss</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">decimal</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Total loss of the color compared to the expected color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Total loss of the color compared to the expected color</span>
 </pre></div>
 </div>
 <p>Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.</p>
 <p>This setup is also summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code>.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span>
-
-<span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.enum</span> <span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.features.continuous</span> <span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.objectives.identity</span> <span class="kn">import</span> <span class="n">MinimizeObjective</span>
@@ -427,7 +425,7 @@ mixing time and mixing speed and trying to minimize the loss of a synthesized co
 <span class="kn">from</span> <span class="nn">eos.optimization.abstract_sequential_optimizer</span> <span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
 
 
-<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
+<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
     <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;dispense_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span>

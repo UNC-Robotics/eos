@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=1437fa6d"></script>
+    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -389,7 +389,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 <p>Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
 
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -397,7 +397,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 <span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a random available container from storage and move it to the color dispenser</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a random available container from storage and move it to the color dispenser</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -415,7 +415,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dispense_colors</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense Colors</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense a color from the color dispenser into the container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense a color from the color dispenser into the container</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_dispenser</span>
@@ -430,7 +430,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_mixer</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move the container to the magnetic mixer</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move the container to the magnetic mixer</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -444,7 +444,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix the colors in the container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix the colors in the container</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">magnetic_mixer</span>
@@ -457,7 +457,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move the container to the color analyzer</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move the container to the color analyzer</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -471,7 +471,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of the solution in the container and output the RGB values</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of the solution in the container and output the RGB values</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
@@ -481,7 +481,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Color</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score the color based on the RGB values</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score the color based on the RGB values</span>
 <span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">red</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.red</span>
 <span class="w">      </span><span class="nt">green</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.green</span>
@@ -490,7 +490,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">empty_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty the container and move it to the cleaning station</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty the container and move it to the cleaning station</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -505,7 +505,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clean_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean the container by rinsing it with distilled water</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean the container by rinsing it with distilled water</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaning_station</span>
@@ -515,7 +515,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">store_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store the container back in the container storage</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store the container back in the container storage</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -530,7 +530,7 @@ Specifies the experiment type, labs, container initialization (optional), and ta
 </div>
 <p>Let’s dissect this file:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
 
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -543,7 +543,7 @@ Each experiment also requires one or more labs.</p>
 <p>Now let’s look at the first task in the experiment:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a random available container from storage and move it to the color dispenser</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a random available container from storage and move it to the color dispenser</span>
 <span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">      </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -571,7 +571,7 @@ All five containers in our “color lab” are passed to this task, as any one o
 <p>Let’s look at the next task:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dispense_colors</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense Colors</span>
-<span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense a color from the color dispenser into the container</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Dispense a color from the color dispenser into the container</span>
 <span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">      </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_dispenser</span>
@@ -599,9 +599,7 @@ instructing the system that these parameters must be specified either by the use
 <p>Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.</p>
 <p>As an example, below is the optimizer file for the color mixing experiment:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span>
-
-<span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.enum</span> <span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.features.continuous</span> <span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
 <span class="kn">from</span> <span class="nn">bofire.data_models.objectives.identity</span> <span class="kn">import</span> <span class="n">MinimizeObjective</span>
@@ -610,7 +608,7 @@ instructing the system that these parameters must be specified either by the use
 <span class="kn">from</span> <span class="nn">eos.optimization.abstract_sequential_optimizer</span> <span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
 
 
-<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
+<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
     <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;dispense_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span>

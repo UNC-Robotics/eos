@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=1437fa6d"></script>
+    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -388,16 +388,16 @@ Remember that a device in EOS is a persistent process.</p>
 <section id="yaml-file-device-yml">
 <h3>YAML File (device.yml)<a class="headerlink" href="#yaml-file-device-yml" title="Link to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Specifies the device type, description, and initialization parameters</p></li>
+<li><p>Specifies the device type, desc, and initialization parameters</p></li>
 <li><p>The same implementation can be used for multiple devices of the same type</p></li>
 <li><p>Initialization parameters can be overridden in laboratory definition</p></li>
 </ul>
 <p>Below is an example device YAML file for a magnetic mixer:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">magnetic_mixer</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic mixer for mixing the contents of a container</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic mixer for mixing the contents of a container</span>
 
-<span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5004</span>
 </pre></div>
 </div>
@@ -407,7 +407,6 @@ Remember that a device in EOS is a persistent process.</p>
 <ul class="simple">
 <li><p>Implements device functionality</p></li>
 <li><p>All devices implementations must inherit from <code class="docutils literal notranslate"><span class="pre">BaseDevice</span></code></p></li>
-<li><p>The device class name must end with “Device” to be discovered by EOS</p></li>
 </ul>
 <p>Below is a example implementation of a magnetic mixer device:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.py</span></p>
@@ -417,9 +416,9 @@ Remember that a device in EOS is a persistent process.</p>
 <span class="kn">from</span> <span class="nn">eos.devices.base_device</span> <span class="kn">import</span> <span class="n">BaseDevice</span>
 <span class="kn">from</span> <span class="nn">user.color_lab.common.device_client</span> <span class="kn">import</span> <span class="n">DeviceClient</span>
 
-<span class="k">class</span> <span class="nc">MagneticMixerDevice</span><span class="p">(</span><span class="n">BaseDevice</span><span class="p">):</span>
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initialization_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">initialization_parameters</span><span class="p">[</span><span class="s2">&quot;port&quot;</span><span class="p">])</span>
+<span class="k">class</span> <span class="nc">MagneticMixer</span><span class="p">(</span><span class="n">BaseDevice</span><span class="p">):</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_parameters</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">init_parameters</span><span class="p">[</span><span class="s2">&quot;port&quot;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">DeviceClient</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">open_connection</span><span class="p">()</span>
 

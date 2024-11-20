@@ -44,19 +44,17 @@ For example, you can submit a request to run a campaign through the REST API wit
 
 .. code-block:: bash
 
-    curl -X POST http://localhost:8000 \
+    curl -X POST http://localhost:8000/api/campaigns/submit \
          -H "Content-Type: application/json" \
          -d '{
-      "campaign_id": "mix_colors",
+      "id": "mix_colors",
       "experiment_type": "color_mixing_1",
-      "campaign_execution_parameters": {
-        "max_experiments": 150,
-        "max_concurrent_experiments": 1,
-        "do_optimization": true,
-        "optimizer_computer_ip": "127.0.0.1",
-        "dynamic_parameters": {},
-        "resume": false
-      }
+      "max_experiments": 150,
+      "max_concurrent_experiments": 1,
+      "optimize": true,
+      "optimizer_computer_ip": "127.0.0.1",
+      "dynamic_parameters": {},
+      "resume": false
     }'
 
 .. note::
@@ -101,8 +99,8 @@ This is the Python code for the color analyzer device:
 
 
     class ColorAnalyzerDevice(BaseDevice):
-        async def _initialize(self, initialization_parameters: dict[str, Any]) -> None:
-            port = int(initialization_parameters["port"])
+        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+            port = int(init_parameters["port"])
             self.client = DeviceClient(port)
             self.client.open_connection()
 
@@ -136,9 +134,9 @@ The device YAML file for the color analyzer device is:
 .. code-block:: yaml
 
     type: color_analyzer
-    description: Analyzes the RGB value of a color mixture
+    desc: Analyzes the RGB value of a color mixture
 
-    initialization_parameters:
+    init_parameters:
       port: 5002
 
 The main thing to notice is that it accepts an initialization parameter called ``port``, which is used to connect to the
@@ -167,7 +165,7 @@ This is the Python code the "Analyze color" task:
     from eos.tasks.base_task import BaseTask
 
 
-    class AnalyzeColorTask(BaseTask):
+    class AnalyzeColor(BaseTask):
         async def _execute(
             self,
             devices: BaseTask.DevicesType,
@@ -188,7 +186,7 @@ This is the Python code the "Analyze color" task:
 
 The task implementation is straightforward. We first get a reference to the color analyzer device (there is only one allocated
 to the the task). Then, we call the `analyze` function from the color analyzer device we saw earlier. Finally, we construct
-and return the dictionary of output parameters and the containers.
+and return the dict of output parameters and the containers.
 
 The task YAML file is the following:
 
@@ -197,7 +195,7 @@ The task YAML file is the following:
 .. code-block:: yaml
 
     type: Analyze Color
-    description: Analyze the color of a solution
+    desc: Analyze the color of a solution
 
     device_types:
       - color_analyzer
@@ -208,17 +206,17 @@ The task YAML file is the following:
 
     output_parameters:
       red:
-        type: integer
+        type: int
         unit: n/a
-        description: The red component of the color
+        desc: The red component of the color
       green:
-        type: integer
+        type: int
         unit: n/a
-        description: The green component of the color
+        desc: The green component of the color
       blue:
-        type: integer
+        type: int
         unit: n/a
-        description: The blue component of the color
+        desc: The blue component of the color
 
 Laboratory
 ----------
@@ -244,42 +242,42 @@ We define five beakers with a capacity of 300 mL.
 .. code-block:: yaml
 
    type: color_lab
-   description: A laboratory for color analysis and mixing
+   desc: A laboratory for color analysis and mixing
 
     locations:
       color_experiment_benchtop:
-        description: Benchtop for color experiments
+        desc: Benchtop for color experiments
       container_storage:
-        description: Storage unit for containers
+        desc: Storage unit for containers
       color_mixer_1:
-        description: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
       color_mixer_2:
-        description: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
       color_mixer_3:
-        description: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
       color_analyzer_1:
-        description: Analyzer for color solutions
+        desc: Analyzer for color solutions
       color_analyzer_2:
-        description: Analyzer for color solutions
+        desc: Analyzer for color solutions
       color_analyzer_3:
-        description: Analyzer for color solutions
+        desc: Analyzer for color solutions
       cleaning_station:
-        description: Station for cleaning containers
+        desc: Station for cleaning containers
 
     devices:
       cleaning_station:
-        description: Station for cleaning containers
+        desc: Station for cleaning containers
         type: cleaning_station
         location: cleaning_station
         computer: eos_computer
 
       robot_arm:
-        description: Robotic arm for moving containers
+        desc: Robotic arm for moving containers
         type: robot_arm
         location: color_experiment_benchtop
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           locations:
             - container_storage
             - color_mixer_1
@@ -292,57 +290,57 @@ We define five beakers with a capacity of 300 mL.
             - emptying_location
 
       color_mixer_1:
-        description: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
         type: color_mixer
         location: color_mixer_1
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           port: 5004
 
       color_mixer_2:
-        description: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
         type: color_mixer
         location: color_mixer_2
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           port: 5006
 
       color_mixer_3:
-        description: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
         type: color_mixer
         location: color_mixer_3
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           port: 5008
 
       color_analyzer_1:
-        description: Analyzer for color solutions
+        desc: Analyzer for color solutions
         type: color_analyzer
         location: color_analyzer_1
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           port: 5003
 
       color_analyzer_2:
-        description: Analyzer for color solutions
+        desc: Analyzer for color solutions
         type: color_analyzer
         location: color_analyzer_2
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           port: 5005
 
       color_analyzer_3:
-        description: Analyzer for color solutions
+        desc: Analyzer for color solutions
         type: color_analyzer
         location: color_analyzer_3
         computer: eos_computer
 
-        initialization_parameters:
+        init_parameters:
           port: 5007
 
     containers:
@@ -385,7 +383,7 @@ The YAML definition for the template experiment is shown below:
 .. code-block:: yaml
 
     type: {{ experiment_type }}
-    description: Experiment to find optimal parameters to synthesize a desired color
+    desc: Experiment to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
@@ -393,7 +391,7 @@ The YAML definition for the template experiment is shown below:
     tasks:
       - id: retrieve_container
         type: Retrieve Container
-        description: Get a container from storage and move it to the color dispenser
+        desc: Get a container from storage and move it to the color dispenser
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -405,7 +403,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: mix_colors
         type: Color Mixing
-        description: Iteratively dispense and mix the colors in the container
+        desc: Iteratively dispense and mix the colors in the container
         devices:
           - lab_id: color_lab
             id: {{ color_mixer }}
@@ -427,7 +425,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: move_container_to_analyzer
         type: Move Container
-        description: Move the container from the color mixer to the color analyzer
+        desc: Move the container from the color mixer to the color analyzer
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -441,7 +439,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: analyze_color
         type: Analyze Color
-        description: Analyze the color of the solution in the container and output the RGB values
+        desc: Analyze the color of the solution in the container and output the RGB values
         devices:
           - lab_id: color_lab
             id: {{ color_analyzer }}
@@ -451,7 +449,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: score_color
         type: Score Color
-        description: Score the color based on the RGB values
+        desc: Score the color based on the RGB values
         parameters:
           red: analyze_color.red
           green: analyze_color.green
@@ -463,7 +461,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: empty_container
         type: Empty Container
-        description: Empty the container and move it to the cleaning station
+        desc: Empty the container and move it to the cleaning station
         devices:
           - lab_id: color_lab
             id: robot_arm
@@ -478,7 +476,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: clean_container
         type: Clean Container
-        description: Clean the container by rinsing it with distilled water
+        desc: Clean the container by rinsing it with distilled water
         devices:
           - lab_id: color_lab
             id: cleaning_station
@@ -490,7 +488,7 @@ The YAML definition for the template experiment is shown below:
 
       - id: store_container
         type: Store Container
-        description: Store the container back in the container storage
+        desc: Store the container back in the container storage
         devices:
           - lab_id: color_lab
             id: robot_arm

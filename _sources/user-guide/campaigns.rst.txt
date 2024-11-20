@@ -41,27 +41,27 @@ Looking at the task specification of the ``score_color`` task, we also see that 
 .. code-block:: yaml
 
     type: Score Color
-    description: Score a color based on how close it is to an expected color
+    desc: Score a color based on how close it is to an expected color
 
     input_parameters:
       red:
-        type: integer
+        type: int
         unit: n/a
-        description: The red component of the color
+        desc: The red component of the color
       green:
-        type: integer
+        type: int
         unit: n/a
-        description: The green component of the color
+        desc: The green component of the color
       blue:
-        type: integer
+        type: int
         unit: n/a
-        description: The blue component of the color
+        desc: The blue component of the color
 
     output_parameters:
       loss:
-        type: decimal
+        type: float
         unit: n/a
-        description: Total loss of the color compared to the expected color
+        desc: Total loss of the color compared to the expected color
 
 Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
@@ -72,8 +72,6 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
 
 .. code-block:: python
 
-    from typing import Type, Tuple, Dict
-
     from bofire.data_models.acquisition_functions.acquisition_function import qNEI
     from bofire.data_models.enum import SamplingMethodEnum
     from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
@@ -83,7 +81,7 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
     from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
 
-    def eos_create_campaign_optimizer() -> Tuple[Dict, Type[AbstractSequentialOptimizer]]:
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
         constructor_args = {
             "inputs": [
                 ContinuousInput(key="dispense_colors.cyan_volume", bounds=(0, 5)),

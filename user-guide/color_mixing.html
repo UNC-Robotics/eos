@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=1437fa6d"></script>
+    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -399,19 +399,17 @@ Color mixing is simulated using real-time fluid simulation running in a web brow
 <li><p>Submit tasks, experiments, or campaigns through the user interface or the REST API.</p></li>
 </ol>
 <p>For example, you can submit a request to run a campaign through the REST API with <code class="docutils literal notranslate"><span class="pre">curl</span></code> as follows:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/campaigns/submit<span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
-<span class="s1">  &quot;campaign_id&quot;: &quot;mix_colors&quot;,</span>
+<span class="s1">  &quot;id&quot;: &quot;mix_colors&quot;,</span>
 <span class="s1">  &quot;experiment_type&quot;: &quot;color_mixing_1&quot;,</span>
-<span class="s1">  &quot;campaign_execution_parameters&quot;: {</span>
-<span class="s1">    &quot;max_experiments&quot;: 150,</span>
-<span class="s1">    &quot;max_concurrent_experiments&quot;: 1,</span>
-<span class="s1">    &quot;do_optimization&quot;: true,</span>
-<span class="s1">    &quot;optimizer_computer_ip&quot;: &quot;127.0.0.1&quot;,</span>
-<span class="s1">    &quot;dynamic_parameters&quot;: {},</span>
-<span class="s1">    &quot;resume&quot;: false</span>
-<span class="s1">  }</span>
+<span class="s1">  &quot;max_experiments&quot;: 150,</span>
+<span class="s1">  &quot;max_concurrent_experiments&quot;: 1,</span>
+<span class="s1">  &quot;optimize&quot;: true,</span>
+<span class="s1">  &quot;optimizer_computer_ip&quot;: &quot;127.0.0.1&quot;,</span>
+<span class="s1">  &quot;dynamic_parameters&quot;: {},</span>
+<span class="s1">  &quot;resume&quot;: false</span>
 <span class="s1">}&#39;</span>
 </pre></div>
 </div>
@@ -452,8 +450,8 @@ Color mixing is simulated using real-time fluid simulation running in a web brow
 
 
 <span class="k">class</span> <span class="nc">ColorAnalyzerDevice</span><span class="p">(</span><span class="n">BaseDevice</span><span class="p">):</span>
-    <span class="k">async</span> <span class="k">def</span> <span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initialization_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">initialization_parameters</span><span class="p">[</span><span class="s2">&quot;port&quot;</span><span class="p">])</span>
+    <span class="k">async</span> <span class="k">def</span> <span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">init_parameters</span><span class="p">[</span><span class="s2">&quot;port&quot;</span><span class="p">])</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">DeviceClient</span><span class="p">(</span><span class="n">port</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">open_connection</span><span class="p">()</span>
 
@@ -482,9 +480,9 @@ a parameter.</p>
 <p>The device YAML file for the color analyzer device is:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzes the RGB value of a color mixture</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzes the RGB value of a color mixture</span>
 
-<span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5002</span>
 </pre></div>
 </div>
@@ -510,7 +508,7 @@ how much color ingredients were used.</p></li>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">eos.tasks.base_task</span> <span class="kn">import</span> <span class="n">BaseTask</span>
 
 
-<span class="k">class</span> <span class="nc">AnalyzeColorTask</span><span class="p">(</span><span class="n">BaseTask</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">AnalyzeColor</span><span class="p">(</span><span class="n">BaseTask</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">def</span> <span class="nf">_execute</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">devices</span><span class="p">:</span> <span class="n">BaseTask</span><span class="o">.</span><span class="n">DevicesType</span><span class="p">,</span>
@@ -532,11 +530,11 @@ how much color ingredients were used.</p></li>
 </div>
 <p>The task implementation is straightforward. We first get a reference to the color analyzer device (there is only one allocated
 to the the task). Then, we call the <cite>analyze</cite> function from the color analyzer device we saw earlier. Finally, we construct
-and return the dictionary of output parameters and the containers.</p>
+and return the dict of output parameters and the containers.</p>
 <p>The task YAML file is the following:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of a solution</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of a solution</span>
 
 <span class="nt">device_types</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
@@ -547,17 +545,17 @@ and return the dictionary of output parameters and the containers.</p>
 
 <span class="nt">output_parameters</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">red</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The red component of the color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The red component of the color</span>
 <span class="w">  </span><span class="nt">green</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The green component of the color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The green component of the color</span>
 <span class="w">  </span><span class="nt">blue</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">integer</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
 <span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The blue component of the color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The blue component of the color</span>
 </pre></div>
 </div>
 </section>
@@ -578,42 +576,42 @@ Each color mixer + color analyzer pair require a dedicated fluid simulation.</p>
 We define five beakers with a capacity of 300 mL.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A laboratory for color analysis and mixing</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A laboratory for color analysis and mixing</span>
 
 <span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">locations</span><span class="p p-Indicator">:</span>
 <span class="w">   </span><span class="nt">color_experiment_benchtop</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Benchtop for color experiments</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Benchtop for color experiments</span>
 <span class="w">   </span><span class="nt">container_storage</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Storage unit for containers</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Storage unit for containers</span>
 <span class="w">   </span><span class="nt">color_mixer_1</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
 <span class="w">   </span><span class="nt">color_mixer_2</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
 <span class="w">   </span><span class="nt">color_mixer_3</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
 <span class="w">   </span><span class="nt">color_analyzer_1</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
 <span class="w">   </span><span class="nt">color_analyzer_2</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
 <span class="w">   </span><span class="nt">color_analyzer_3</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
 <span class="w">   </span><span class="nt">cleaning_station</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Station for cleaning containers</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Station for cleaning containers</span>
 
 <span class="w w-Error"> </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">   </span><span class="nt">cleaning_station</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Station for cleaning containers</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Station for cleaning containers</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaning_station</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaning_station</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
 <span class="w">   </span><span class="nt">robot_arm</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Robotic arm for moving containers</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Robotic arm for moving containers</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_experiment_benchtop</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">locations</span><span class="p">:</span>
 <span class="w">         </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">container_storage</span>
 <span class="w">         </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer_1</span>
@@ -626,57 +624,57 @@ We define five beakers with a capacity of 300 mL.</p>
 <span class="w">         </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">emptying_location</span>
 
 <span class="w">   </span><span class="nt">color_mixer_1</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer_1</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5004</span>
 
 <span class="w">   </span><span class="nt">color_mixer_2</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer_2</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5006</span>
 
 <span class="w">   </span><span class="nt">color_mixer_3</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color mixing apparatus for incrementally dispensing and mixing color solutions</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer_3</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5008</span>
 
 <span class="w">   </span><span class="nt">color_analyzer_1</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer_1</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5003</span>
 
 <span class="w">   </span><span class="nt">color_analyzer_2</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer_2</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5005</span>
 
 <span class="w">   </span><span class="nt">color_analyzer_3</span><span class="p">:</span>
-<span class="w">     </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
+<span class="w">     </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyzer for color solutions</span>
 <span class="w">     </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
 <span class="w">     </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer_3</span>
 <span class="w">     </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
 
-<span class="w">     </span><span class="nt">initialization_parameters</span><span class="p">:</span>
+<span class="w">     </span><span class="nt">init_parameters</span><span class="p">:</span>
 <span class="w">       </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5007</span>
 
 <span class="w"> </span><span class="nt">containers</span><span class="p">:</span>
@@ -716,7 +714,7 @@ experiments.</p>
 <p>The YAML definition for the template experiment is shown below:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">template_experiment.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">experiment_type</span><span class="w"> </span><span class="p p-Indicator">}}</span>
-<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
 
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -724,7 +722,7 @@ experiments.</p>
 <span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a container from storage and move it to the color dispenser</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a container from storage and move it to the color dispenser</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -736,7 +734,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color Mixing</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Iteratively dispense and mix the colors in the container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Iteratively dispense and mix the colors in the container</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">color_mixer</span><span class="w"> </span><span class="p p-Indicator">}}</span>
@@ -758,7 +756,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move the container from the color mixer to the color analyzer</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Move the container from the color mixer to the color analyzer</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -772,7 +770,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of the solution in the container and output the RGB values</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of the solution in the container and output the RGB values</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{{</span><span class="w"> </span><span class="nv">color_analyzer</span><span class="w"> </span><span class="p p-Indicator">}}</span>
@@ -782,7 +780,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Color</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score the color based on the RGB values</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score the color based on the RGB values</span>
 <span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">red</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.red</span>
 <span class="w">      </span><span class="nt">green</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.green</span>
@@ -794,7 +792,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">empty_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty the container and move it to the cleaning station</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty the container and move it to the cleaning station</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
@@ -809,7 +807,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clean_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean the container by rinsing it with distilled water</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean the container by rinsing it with distilled water</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cleaning_station</span>
@@ -821,7 +819,7 @@ experiments.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">store_container</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store Container</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store the container back in the container storage</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store the container back in the container storage</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>

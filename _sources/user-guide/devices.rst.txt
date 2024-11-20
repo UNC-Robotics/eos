@@ -32,7 +32,7 @@ Device Implementation
 
 YAML File (device.yml)
 ~~~~~~~~~~~~~~~~~~~~~~
-* Specifies the device type, description, and initialization parameters
+* Specifies the device type, desc, and initialization parameters
 * The same implementation can be used for multiple devices of the same type
 * Initialization parameters can be overridden in laboratory definition
 
@@ -43,16 +43,15 @@ Below is an example device YAML file for a magnetic mixer:
 .. code-block:: yaml
 
     type: magnetic_mixer
-    description: Magnetic mixer for mixing the contents of a container
+    desc: Magnetic mixer for mixing the contents of a container
 
-    initialization_parameters:
+    init_parameters:
       port: 5004
 
 Python File (device.py)
 ~~~~~~~~~~~~~~~~~~~~~~~
 * Implements device functionality
 * All devices implementations must inherit from ``BaseDevice``
-* The device class name must end with "Device" to be discovered by EOS
 
 Below is a example implementation of a magnetic mixer device:
 
@@ -66,9 +65,9 @@ Below is a example implementation of a magnetic mixer device:
     from eos.devices.base_device import BaseDevice
     from user.color_lab.common.device_client import DeviceClient
 
-    class MagneticMixerDevice(BaseDevice):
-        async def _initialize(self, initialization_parameters: Dict[str, Any]) -> None:
-            port = int(initialization_parameters["port"])
+    class MagneticMixer(BaseDevice):
+        async def _initialize(self, init_parameters: Dict[str, Any]) -> None:
+            port = int(init_parameters["port"])
             self.client = DeviceClient(port)
             self.client.open_connection()
 

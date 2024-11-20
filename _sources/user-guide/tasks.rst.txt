@@ -26,19 +26,19 @@ Parameters are values that are input to a task or output from a task.
 Every parameter has a specific data type.
 EOS supports the following parameter types:
 
-* **integer**: An integer number.
+* **int**: An int number.
   Equivalent to Python's ``int``
-* **decimal**: A decimal number.
+* **float**: A float number.
   Equivalent to Python's ``float``
-* **string**: A string (series of text characters).
+* **str**: A str (series of text characters).
   Equivalent to Python's ``str``
-* **boolean**: A true/false value.
+* **bool**: A true/false value.
   Equivalent to Python's ``bool``
 * **choice**: A value that must be one of a set of predefined choices.
   The choices can be any type.
 * **list**: A list of values of a specific type.
   Equivalent to Python's ``list``.
-* **dictionary**: A dictionary of key-value pairs.
+* **dict**: A dict of key-value pairs.
   Equivalent to Python's ``dict``.
 
 Tasks can have multiple parameters of different types.
@@ -47,7 +47,7 @@ EOS will ensure that the parameters passed to a task are of the correct type and
 Containers
 ----------
 Containers are referenced by a unique identifier called a **container ID**.
-A container ID is a string that uniquely identifies a container.
+A container ID is a str that uniquely identifies a container.
 Every container in EOS must have an ID, and these can be specified in the laboratory definition.
 Containers are treated as *global* objects and can move across labs.
 However, every container must have a "home" lab from which it originates.
@@ -77,7 +77,7 @@ Task Implementation
 
 YAML File (task.yml)
 ~~~~~~~~~~~~~~~~~~~~
-* Specifies the task type, description, and input/output parameters and containers
+* Specifies the task type, desc, and input/output parameters and containers
 * Acts as the interface contract (spec) for the task
 * This contract is used to validate tasks, and EOS enforces the contract statically and dynamically during execution
 * Useful as documentation for the task
@@ -89,32 +89,32 @@ Below is an example task YAML file for a GC analysis task for GCs made by SRI In
 .. code-block:: yaml
 
     type: SRI GC Analysis
-    description: Perform gas chromatography (GC) analysis on a sample.
+    desc: Perform gas chromatography (GC) analysis on a sample.
 
     device_types:
       - sri_gas_chromatograph
 
     input_parameters:
       analysis_time:
-        type: integer
+        type: int
         unit: seconds
         value: 480
-        description: How long to run the GC analysis
+        desc: How long to run the GC analysis
 
     output_parameters:
       known_substances:
-        type: dictionary
-        description: Peaks and peak areas of identified substances
+        type: dict
+        desc: Peaks and peak areas of identified substances
       unknown_substances:
-        type: dictionary
-        description: Peaks and peak areas of substances that could not be identified
+        type: dict
+        desc: Peaks and peak areas of substances that could not be identified
 
 The task specification makes clear that:
 
 * The task is of type "SRI GC Analysis"
 * The task requires a device of type "sri_gas_chromatograph".
   EOS will enforce this requirement.
-* The task takes an input integer parameter ``analysis_time`` in seconds.
+* The task takes an input int parameter ``analysis_time`` in seconds.
   It has a default value of 480, making this an optional parameter.
 * The task outputs two dictionaries: ``known_substances`` and ``unknown_substances``.
 
@@ -129,8 +129,8 @@ Integer
 .. code-block:: yaml
 
     sample_rate:
-      type: integer
-      description: The number of samples per second
+      type: int
+      desc: The number of samples per second
       value: 44100
       unit: Hz
       min: 8000
@@ -138,13 +138,13 @@ Integer
 
 Integers must have a unit (can be n/a) and can also have a minimum and maximum value.
 
-Decimal
-"""""""
+Float
+"""""
 .. code-block:: yaml
 
     threshold_voltage:
-      type: decimal
-      description: The voltage threshold for signal detection
+      type: float
+      desc: The voltage threshold for signal detection
       value: 2.5
       unit: volts
       min: 0.0
@@ -157,8 +157,8 @@ String
 .. code-block:: yaml
 
     file_prefix:
-      type: string
-      description: Prefix for output file names
+      type: str
+      desc: Prefix for output file names
       value: "experiment_"
 
 Boolean
@@ -167,7 +167,7 @@ Boolean
 
     auto_calibrate:
       type: boolean
-      description: Whether to perform auto-calibration before analysis
+      desc: Whether to perform auto-calibration before analysis
       value: true
 
 Booleans are true/false values.
@@ -178,7 +178,7 @@ Choice
 
     column_type:
       type: choice
-      description: HPLC column type
+      desc: HPLC column type
       value: "C18"
       choices:
         - "C18"
@@ -195,9 +195,9 @@ List
 
     channel_gains:
       type: list
-      description: Gain values for each input channel
+      desc: Gain values for each input channel
       value: [1.0, 1.2, 0.8, 1.1]
-      element_type: decimal
+      element_type: float
       length: 4
       min: [0.5, 0.5, 0.5, 0.5]
       max: [2.0, 2.0, 2.0, 2.0]
@@ -210,8 +210,8 @@ Dictionary
 .. code-block:: yaml
 
     buffer_composition:
-      type: dictionary
-      description: Composition of a buffer solution
+      type: dict
+      desc: Composition of a buffer solution
       value:
         pH: 7.4
         base: "Tris"
@@ -229,7 +229,6 @@ Python File (task.yml)
 ~~~~~~~~~~~~~~~~~~~~~~
 * Implements the task
 * All task implementations must inherit from ``BaseTask``
-* The task class name must end with "Task" to be discovered by EOS
 
 :bdg-primary:`task.py`
 
@@ -238,7 +237,7 @@ Python File (task.yml)
     from eos.tasks.base_task import BaseTask
 
 
-    class MagneticMixingTask(BaseTask):
+    class MagneticMixing(BaseTask):
         async def _execute(
             self,
             devices: BaseTask.DevicesType,
