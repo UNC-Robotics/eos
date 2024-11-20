@@ -60,15 +60,3 @@ Navigate to the cloned repository and run:
 .. code-block:: shell
 
     pdm install
-
-(Optional) If you wish to contribute to EOS development:
-
-.. code-block:: shell
-
-    pdm install -G dev
-
-(Optional) If you also wish to contribute to the EOS documentation:
-
-.. code-block:: shell
-
-    pdm install -G docs
