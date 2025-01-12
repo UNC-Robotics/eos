@@ -1,7 +1,8 @@
 Configuration
 =============
 
-After installation, you need to configure external services such as MongoDB and MinIO as well as EOS itself.
+EOS uses PostgreSQL for data storage, and MinIO for file storage. EOS must be configured to connect to these external
+services.
 
 1. Configure External Services
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -14,7 +15,7 @@ Copy the example environment file:
 
     cp docker/.env.example docker/.env
 
-Edit `docker/.env` and provide values for all fields.
+Edit the environment file `docker/.env` and provide values for all fields.
 
 2. Configure EOS
 ^^^^^^^^^^^^^^^^
@@ -26,7 +27,7 @@ Copy the example configuration file:
 
     cp config.example.yml config.yml
 
-Edit `config.yml`. Ensure that credentials are provided for the MongoDB and MinIO services.
+Edit `config.yml`. Ensure that credentials are provided for PostgreSQL and MinIO.
 
 By default, EOS loads the "multiplication_lab" laboratory and the "optimize_multiplication" experiment from an example
 EOS package. Feel free to change this.

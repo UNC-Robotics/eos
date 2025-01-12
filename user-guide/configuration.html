@@ -38,7 +38,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=dda85ae5"></script>
+    <script src="../_static/documentation_options.js?v=b9678aa1"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -358,7 +358,8 @@ document.write(`
                   
   <section id="configuration">
 <h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h1>
-<p>After installation, you need to configure external services such as MongoDB and MinIO as well as EOS itself.</p>
+<p>EOS uses PostgreSQL for data storage, and MinIO for file storage. EOS must be configured to connect to these external
+services.</p>
 <section id="configure-external-services">
 <h2>1. Configure External Services<a class="headerlink" href="#configure-external-services" title="Link to this heading">#</a></h2>
 <p>We provide a Docker Compose file that can run the external services. You do not need to install external services
@@ -367,7 +368,7 @@ manually, just provide configuration values and Docker Compose will take care of
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>docker/.env.example<span class="w"> </span>docker/.env
 </pre></div>
 </div>
-<p>Edit <cite>docker/.env</cite> and provide values for all fields.</p>
+<p>Edit the environment file <cite>docker/.env</cite> and provide values for all fields.</p>
 </section>
 <section id="configure-eos">
 <h2>2. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
@@ -376,7 +377,7 @@ manually, just provide configuration values and Docker Compose will take care of
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
 </pre></div>
 </div>
-<p>Edit <cite>config.yml</cite>. Ensure that credentials are provided for the MongoDB and MinIO services.</p>
+<p>Edit <cite>config.yml</cite>. Ensure that credentials are provided for PostgreSQL and MinIO.</p>
 <p>By default, EOS loads the “multiplication_lab” laboratory and the “optimize_multiplication” experiment from an example
 EOS package. Feel free to change this.</p>
 </section>
