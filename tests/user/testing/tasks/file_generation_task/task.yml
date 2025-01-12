@@ -1,9 +1,6 @@
 type: File Generation
 desc: Generates a file with random data.
 
-device_types:
-  - general_computer
-
 input_parameters:
   content_length:
     type: int

@@ -5,7 +5,7 @@ from eos.configuration.entities.task_parameters import TaskParameterType
 from eos.configuration.entities.task import TaskConfig
 from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.tasks.exceptions import EosTaskValidationError
-from eos.tasks.task_input_parameter_validator import TaskInputParameterValidator
+from eos.tasks.validation.task_input_parameter_validator import TaskInputParameterValidator
 
 
 class TestTaskInputParameterValidator:
@@ -51,7 +51,7 @@ class TestTaskInputParameterValidator:
         return TaskInputParameterValidator(task_config, task_spec)
 
     def test_valid_input_parameters(self, validator):
-        validator.validate_input_parameters()  # Should not raise any exceptions
+        validator.validate()  # Should not raise any exceptions
 
     @pytest.mark.parametrize(
         ("param_name", "invalid_value"),
@@ -67,17 +67,17 @@ class TestTaskInputParameterValidator:
     def test_invalid_input_parameters(self, validator, task_config, param_name, invalid_value):
         task_config.parameters[param_name] = invalid_value
         with pytest.raises((ValidationError, EosTaskValidationError)):
-            validator.validate_input_parameters()
+            validator.validate()
 
     def test_missing_required_parameter(self, validator, task_config):
         del task_config.parameters["int_param"]
         with pytest.raises((ValidationError, EosTaskValidationError)):
-            validator.validate_input_parameters()
+            validator.validate()
 
     def test_extra_parameter(self, validator, task_config):
         task_config.parameters["extra_param"] = "extra"
         with pytest.raises((ValidationError, EosTaskValidationError)):
-            validator.validate_input_parameters()
+            validator.validate()
 
     @pytest.mark.parametrize(
         ("param_type", "valid_values", "invalid_values"),
@@ -104,12 +104,12 @@ class TestTaskInputParameterValidator:
 
         for valid_value in valid_values:
             task_config.parameters[param_name] = valid_value
-            validator.validate_input_parameters()  # Should not raise any exceptions
+            validator.validate()  # Should not raise any exceptions
 
         for invalid_value in invalid_values:
             task_config.parameters[param_name] = invalid_value
             with pytest.raises((ValidationError, EosTaskValidationError)):
-                validator.validate_input_parameters()
+                validator.validate()
 
     @pytest.mark.parametrize(
         ("param_name", "invalid_value", "expected_error"),
@@ -123,4 +123,4 @@ class TestTaskInputParameterValidator:
     def test_specific_validation_cases(self, validator, task_config, param_name, invalid_value, expected_error):
         task_config.parameters[param_name] = invalid_value
         with pytest.raises(expected_error):
-            validator.validate_input_parameters()
+            validator.validate()

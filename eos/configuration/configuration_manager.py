@@ -31,20 +31,20 @@ class ConfigurationManager:
 
     def __init__(self, user_dir: str):
         self._user_dir = user_dir
-        self._package_manager = PackageManager(user_dir)
+        self.package_manager = PackageManager(user_dir)
 
-        task_configs, task_dirs_to_task_types = self._package_manager.read_task_configs()
+        task_configs, task_dirs_to_task_types = self.package_manager.read_task_configs()
         self.task_specs = TaskSpecRegistry(task_configs, task_dirs_to_task_types)
-        self.tasks = TaskPluginRegistry(self._package_manager)
+        self.tasks = TaskPluginRegistry(self.package_manager, self.task_specs)
 
-        device_configs, device_dirs_to_device_types = self._package_manager.read_device_configs()
+        device_configs, device_dirs_to_device_types = self.package_manager.read_device_configs()
         self.device_specs = DeviceSpecRegistry(device_configs, device_dirs_to_device_types)
-        self.devices = DevicePluginRegistry(self._package_manager)
+        self.devices = DevicePluginRegistry(self.package_manager, self.device_specs)
 
         self.labs: dict[str, LabConfig] = {}
         self.experiments: dict[str, ExperimentConfig] = {}
 
-        self.campaign_optimizers = CampaignOptimizerPluginRegistry(self._package_manager)
+        self.campaign_optimizers = CampaignOptimizerPluginRegistry(self.package_manager)
 
         log.debug("Configuration manager initialized")
 
@@ -55,8 +55,8 @@ class ConfigurationManager:
         """
         all_labs = set()
 
-        for package in self._package_manager.get_all_packages():
-            package_labs = self._package_manager.get_entities_in_package(package.name, EntityType.LAB)
+        for package in self.package_manager.get_all_packages():
+            package_labs = self.package_manager.get_entities_in_package(package.name, EntityType.LAB)
             all_labs.update(package_labs)
 
         return {lab: lab in self.labs for lab in all_labs}
@@ -69,9 +69,9 @@ class ConfigurationManager:
         user directory.
         :param validate_multi_lab: Whether to validate the multi-lab configuration after adding the lab.
         """
-        lab_config = self._package_manager.read_lab_config(lab_type)
+        lab_config = self.package_manager.read_lab_config(lab_type)
 
-        lab_validator = LabValidator(self._user_dir, lab_config)
+        lab_validator = LabValidator(self._user_dir, lab_config, self.task_specs, self.device_specs)
         lab_validator.validate()
 
         self.labs[lab_type] = lab_config
@@ -128,8 +128,8 @@ class ConfigurationManager:
         """
         all_experiments = set()
 
-        for package in self._package_manager.get_all_packages():
-            package_experiments = self._package_manager.get_entities_in_package(package.name, EntityType.EXPERIMENT)
+        for package in self.package_manager.get_all_packages():
+            package_experiments = self.package_manager.get_entities_in_package(package.name, EntityType.EXPERIMENT)
             all_experiments.update(package_experiments)
 
         return {exp: exp in self.experiments for exp in all_experiments}
@@ -147,7 +147,7 @@ class ConfigurationManager:
             )
 
         try:
-            experiment_config = self._package_manager.read_experiment_config(experiment_type)
+            experiment_config = self.package_manager.read_experiment_config(experiment_type)
 
             experiment_validator = ExperimentValidator(experiment_config, list(self.labs.values()))
             experiment_validator.validate()

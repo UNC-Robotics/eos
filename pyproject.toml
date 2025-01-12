@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.6.0"
+version = "0.7.0"
 description = "The Experiment Orchestration System (EOS) is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -22,14 +22,16 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "ray[default]~=2.39.0",
+    "ray[default]~=2.40.0",
     "typer~=0.13.0",
     "rich~=13.9.4",
     "jinja2~=3.1.4",
     "PyYAML~=6.0.2",
     "networkx~=3.4.2",
-    "pymongo~=4.9.2",
-    "motor~=3.6.0",
+    "sqlalchemy~=2.0.36",
+    "alembic~=1.14.0",
+    "psycopg[binary]~=3.2.3",
+    "asyncpg~=0.30.0",
     "pydantic~=2.9.2",
     "bofire[optimization]~=0.0.15",
     "pandas~=2.2.3",
@@ -40,6 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "aiosqlite",
     "ruff",
     "pytest",
     "pytest-cov",
@@ -135,7 +138,7 @@ lint.select = [
     "W", # pycodestyle - warning
     "YTT", # flake8-2020
 ]
-lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN101", "ANN102", "ANN204", "ANN401", "PLR0913", "N805"]
+lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN101", "ANN102", "ANN204", "ANN401", "PLR0913", "PLR0915", "N805"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.*" = [
@@ -155,3 +158,4 @@ lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN101", "ANN102", "ANN204
     "F401",
     "F811",
 ]
+"eos/database/_migrations/versions/**/*.*" = ["ALL"]

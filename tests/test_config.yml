@@ -1,8 +1,9 @@
 user_dir: tests/user
 
 db:
-  host: localhost
-  port: 27017
+  db_name: eos
+  db_type: sqlite
+  sqlite_in_memory: true
   username: eos-user
   password: eos-password
 

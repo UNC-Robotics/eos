@@ -1,25 +1,20 @@
 services:
-  eos-mongodb:
-    build:
-      context: .
-      dockerfile: mongodb/Dockerfile
-      args:
-        - MONGO_INITDB_ROOT_USERNAME=${EOS_MONGODB_ROOT_USER}
-        - MONGO_INITDB_ROOT_PASSWORD=${EOS_MONGODB_ROOT_PASSWORD}
-    image: eos-mongodb/latest
-    container_name: eos-mongodb
-    hostname: eos-mongodb
+  eos-postgresql:
+    image: postgres:17.2
+    container_name: eos-postgresql
+    hostname: eos-postgresql
     restart: unless-stopped
+    shm_size: 256mb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${EOS_MONGODB_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${EOS_MONGODB_ROOT_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${EOS_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${EOS_POSTGRES_PASSWORD}
     ports:
-      - "27017:27017"
+      - "5432:5432"
     networks:
       - eos_network
     volumes:
-      - mongodb_data:/data/db
-    command: ["-f", "/etc/mongod.conf"]
+      - postgresql_data:/var/lib/postgresql/data
 
   eos-minio:
     image: minio/minio:RELEASE.2024-10-02T17-50-41Z
@@ -44,7 +39,7 @@ networks:
     driver: bridge
 
 volumes:
-  mongodb_data:
+  postgresql_data:
     driver: local
   minio_data:
     driver: local

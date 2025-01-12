@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -15,10 +16,10 @@ from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
-from eos.persistence.async_mongodb_interface import AsyncMongoDbInterface
-from eos.persistence.file_db_interface import FileDbInterface
-from eos.resource_allocation.container_allocator import ContainerAllocator
-from eos.resource_allocation.device_allocator import DeviceAllocator
+from eos.database.file_db_interface import FileDbInterface
+from eos.database.sqlite_db_interface import SqliteDbInterface
+from eos.resource_allocation.container_allocation_manager import ContainerAllocationManager
+from eos.resource_allocation.device_allocation_manager import DeviceAllocationManager
 from eos.resource_allocation.resource_allocation_manager import (
     ResourceAllocationManager,
 )
@@ -61,11 +62,56 @@ def user_dir():
     return root_dir / config["user_dir"]
 
 
+class TempDirManager:
+    """Manages temporary directory creation and cleanup for tests."""
+
+    def __init__(self):
+        self.temp_dir = None
+
+    def create(self) -> Path:
+        """Create a new temporary directory."""
+        self.temp_dir = Path(tempfile.mkdtemp())
+        return self.temp_dir
+
+    def cleanup(self):
+        """Clean up the temporary directory and its contents."""
+        if self.temp_dir and self.temp_dir.exists():
+            try:
+                for file in self.temp_dir.glob("*"):
+                    file.unlink()
+                self.temp_dir.rmdir()
+            except Exception as e:
+                log.warning(f"Failed to cleanup temporary directory: {e}")
+
+
 @pytest.fixture(scope="session")
-def db_interface():
+def temp_dir_manager():
+    """Provides a temporary directory manager that persists for the test session."""
+    manager = TempDirManager()
+    yield manager
+    manager.cleanup()
+
+
+@pytest.fixture(scope="session")
+async def db_interface(temp_dir_manager):
+    """Create a database interface with a temporary directory for SQLite files."""
     config = load_test_config()
-    db_credentials = DbConfig(**config["db"])
-    return AsyncMongoDbInterface(db_credentials, "test-eos")
+
+    db_config = DbConfig(
+        db_type=config["db"]["db_type"],
+        db_name=config["db"]["db_name"],
+        sqlite_in_memory=True,
+    )
+
+    db = SqliteDbInterface(db_config)
+    await db.initialize_database()
+    return db
+
+
+@pytest.fixture
+async def db(db_interface):
+    async with db_interface.get_async_session() as db:
+        yield db
 
 
 @pytest.fixture(scope="session")
@@ -76,7 +122,7 @@ def file_db_interface(db_interface):
 
 
 @pytest.fixture
-def setup_lab_experiment(request, configuration_manager, db_interface):
+def setup_lab_experiment(request, configuration_manager):
     lab_name, experiment_name = request.param
 
     if lab_name not in configuration_manager.labs:
@@ -100,60 +146,53 @@ def experiment_graph(setup_lab_experiment):
 
 
 @pytest.fixture
-async def clean_db(db_interface):
-    await db_interface.clean_db()
+async def clear_db(db_interface):
+    await db_interface.clear_db()
 
 
 @pytest.fixture
-async def container_manager(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    container_manager = ContainerManager(configuration_manager=configuration_manager, db_interface=db_interface)
-    await container_manager.initialize(db_interface)
+async def container_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
+    container_manager = ContainerManager(configuration_manager=configuration_manager)
+    async with db_interface.get_async_session() as db:
+        await container_manager.initialize(db)
     return container_manager
 
 
 @pytest.fixture
-async def device_manager(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    device_manager = DeviceManager(configuration_manager, db_interface)
-    await device_manager.initialize(db_interface)
+async def device_manager(setup_lab_experiment, configuration_manager, db, clear_db):
+    device_manager = DeviceManager(configuration_manager)
 
-    await device_manager.update_devices(loaded_labs=set(configuration_manager.labs.keys()))
+    await device_manager.update_devices(db, loaded_labs=set(configuration_manager.labs.keys()))
     yield device_manager
-    await device_manager.cleanup_device_actors()
+    await device_manager.cleanup_device_actors(db)
 
 
 @pytest.fixture
-async def experiment_manager(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    experiment_manager = ExperimentManager(configuration_manager, db_interface)
-    await experiment_manager.initialize(db_interface)
-    return experiment_manager
+async def experiment_manager(setup_lab_experiment, configuration_manager, clear_db):
+    return ExperimentManager(configuration_manager)
 
 
 @pytest.fixture
-async def container_allocator(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    container_allocator = ContainerAllocator(configuration_manager, db_interface)
-    await container_allocator.initialize(db_interface)
-    return container_allocator
+async def container_allocation_manager(setup_lab_experiment, configuration_manager, clear_db):
+    return ContainerAllocationManager(configuration_manager)
 
 
 @pytest.fixture
-async def device_allocator(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    device_allocator = DeviceAllocator(configuration_manager, db_interface)
-    await device_allocator.initialize(db_interface)
-    return device_allocator
+async def device_allocation_manager(setup_lab_experiment, configuration_manager, clear_db):
+    return DeviceAllocationManager(configuration_manager)
 
 
 @pytest.fixture
-async def resource_allocation_manager(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    resource_allocation_manager = ResourceAllocationManager(db_interface)
-    await resource_allocation_manager.initialize(configuration_manager, db_interface)
+async def resource_allocation_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
+    resource_allocation_manager = ResourceAllocationManager(configuration_manager, db_interface)
+    async with db_interface.get_async_session() as db:
+        await resource_allocation_manager.initialize(db)
     return resource_allocation_manager
 
 
 @pytest.fixture
-async def task_manager(setup_lab_experiment, configuration_manager, db_interface, file_db_interface, clean_db):
-    task_manager = TaskManager(configuration_manager, db_interface, file_db_interface)
-    await task_manager.initialize(db_interface)
-    return task_manager
+async def task_manager(setup_lab_experiment, configuration_manager, file_db_interface, clear_db):
+    return TaskManager(configuration_manager, file_db_interface)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -172,9 +211,15 @@ def task_executor(
     container_manager,
     resource_allocation_manager,
     configuration_manager,
+    db_interface,
 ):
     return TaskExecutor(
-        task_manager, device_manager, container_manager, resource_allocation_manager, configuration_manager
+        task_manager,
+        device_manager,
+        container_manager,
+        resource_allocation_manager,
+        configuration_manager,
+        db_interface,
     )
 
 
@@ -183,9 +228,8 @@ def on_demand_task_executor(
     setup_lab_experiment,
     task_executor,
     task_manager,
-    container_manager,
 ):
-    return OnDemandTaskExecutor(task_executor, task_manager, container_manager)
+    return OnDemandTaskExecutor(task_executor, task_manager)
 
 
 @pytest.fixture
@@ -207,32 +251,27 @@ def experiment_executor_factory(
     configuration_manager,
     experiment_manager,
     task_manager,
-    container_manager,
     task_executor,
     greedy_scheduler,
+    db_interface,
 ):
     return ExperimentExecutorFactory(
         configuration_manager=configuration_manager,
         experiment_manager=experiment_manager,
         task_manager=task_manager,
-        container_manager=container_manager,
         task_executor=task_executor,
         scheduler=greedy_scheduler,
+        db_interface=db_interface,
     )
 
 
 @pytest.fixture
-async def campaign_manager(setup_lab_experiment, configuration_manager, db_interface, clean_db):
-    campaign_manager = CampaignManager(configuration_manager, db_interface)
-    await campaign_manager.initialize(db_interface)
-    return campaign_manager
+async def campaign_manager(setup_lab_experiment, configuration_manager, clear_db):
+    return CampaignManager(configuration_manager)
 
 
 @pytest.fixture
 async def campaign_optimizer_manager(
     configuration_manager,
-    db_interface,
 ):
-    campaign_optimizer_manager = CampaignOptimizerManager(configuration_manager, db_interface)
-    await campaign_optimizer_manager.initialize(db_interface)
-    return campaign_optimizer_manager
+    return CampaignOptimizerManager(configuration_manager)

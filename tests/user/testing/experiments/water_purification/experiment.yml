@@ -6,7 +6,7 @@ labs:
 
 containers:
   - id: 026749f8f40342b38157f9824ae2f512
-    metadata:
+    meta:
       substance: salt_water
 
 tasks:

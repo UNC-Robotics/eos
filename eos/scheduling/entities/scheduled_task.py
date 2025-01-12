@@ -8,4 +8,4 @@ class ScheduledTask(BaseModel):
     id: str
     experiment_id: str
     devices: list[TaskDeviceConfig]
-    allocated_resources: ActiveResourceAllocationRequest
+    allocated_resources: ActiveResourceAllocationRequest | None

@@ -1,18 +1,18 @@
-import asyncio
-import itertools
 from typing import Any
 
 import ray
 from ray.actor import ActorHandle
+from sqlalchemy import select, update, delete
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.constants import EOS_COMPUTER_NAME
-from eos.devices.entities.device import Device, DeviceStatus
+from eos.devices.entities.device import Device, DeviceStatus, DeviceModel
 from eos.devices.exceptions import EosDeviceStateError, EosDeviceInitializationError
-from eos.devices.repositories.device_repository import DeviceRepository
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 from eos.logging.logger import log
-from eos.persistence.async_mongodb_interface import AsyncMongoDbInterface
+
+from eos.database.abstract_sql_db_interface import AsyncDbSession
+from eos.utils.di.di_container import inject_all
 
 
 class DeviceManager:
@@ -20,105 +20,116 @@ class DeviceManager:
     Provides methods for interacting with the devices in a lab.
     """
 
-    def __init__(self, configuration_manager: ConfigurationManager, db_interface: AsyncMongoDbInterface):
+    @inject_all
+    def __init__(self, configuration_manager: ConfigurationManager):
         self._configuration_manager = configuration_manager
-        self._session_factory = db_interface.session_factory
-        self._devices = None
 
         self._device_plugin_registry = configuration_manager.devices
         self._device_actor_handles: dict[str, ActorHandle] = {}
         self._device_actor_computer_ips: dict[str, str] = {}
 
-    async def initialize(self, db_interface: AsyncMongoDbInterface) -> None:
-        self._devices = DeviceRepository(db_interface)
-        await self._devices.initialize()
-
         log.debug("Device manager initialized.")
 
-    async def get_device(self, lab_id: str, device_id: str) -> Device | None:
-        """
-        Get a device by its lab and device ID.
+    async def get_device(self, db: AsyncDbSession, lab_id: str, device_id: str) -> Device | None:
+        """Get a device by its lab and device ID."""
+        result = await db.execute(select(DeviceModel).where(DeviceModel.lab_id == lab_id, DeviceModel.id == device_id))
+        if device_model := result.scalar_one_or_none():
+            return Device.model_validate(device_model)
+        return None
 
-        :param lab_id: The ID of the lab the device is in.
-        :param device_id: The ID of the device in the lab.
-        """
-        device = await self._devices.get_one(lab_id=lab_id, id=device_id)
-        if not device:
-            return None
-        return Device(**device)
+    async def get_devices(self, db: AsyncDbSession, **filters: Any) -> list[Device]:
+        """Query devices with arbitrary parameters and return matching devices."""
+        stmt = select(DeviceModel)
+        for key, value in filters.items():
+            stmt = stmt.where(getattr(DeviceModel, key) == value)
 
-    async def get_devices(self, **query: dict[str, Any]) -> list[Device]:
-        """
-        Query devices with arbitrary parameters and return a list of matching devices.
+        result = await db.execute(stmt)
+        return [Device.model_validate(model) for model in result.scalars()]
 
-        :param query: Dictionary of query parameters.
-        """
-        devices = await self._devices.get_all(**query)
-        return [Device(**device) for device in devices]
-
-    async def set_device_status(self, lab_id: str, device_id: str, status: DeviceStatus) -> None:
-        """
-        Set the status of a device.
-        """
-        if not await self._devices.exists(lab_id=lab_id, id=device_id):
+    async def set_device_status(self, db: AsyncDbSession, lab_id: str, device_id: str, status: DeviceStatus) -> None:
+        """Set the status of a device."""
+        result = await db.execute(
+            select(DeviceModel.id).where(DeviceModel.lab_id == lab_id, DeviceModel.id == device_id)
+        )
+        if not result.scalar_one_or_none():
             raise EosDeviceStateError(f"Device '{device_id}' in lab '{lab_id}' does not exist.")
 
-        await self._devices.update_one({"status": status.value}, lab_id=lab_id, id=device_id)
+        await db.execute(
+            update(DeviceModel).where(DeviceModel.lab_id == lab_id, DeviceModel.id == device_id).values(status=status)
+        )
 
     def get_device_actor(self, lab_id: str, device_id: str) -> ActorHandle:
-        """
-        Get the actor handle of a device.
-        """
+        """Get the actor handle of a device."""
         actor_id = f"{lab_id}.{device_id}"
-        if actor_id not in self._device_actor_handles:
-            raise EosDeviceInitializationError(f"Device actor '{actor_id}' does not exist.")
+        if actor_handle := self._device_actor_handles.get(actor_id):
+            return actor_handle
+        raise EosDeviceInitializationError(f"Device actor '{actor_id}' does not exist.")
 
-        return self._device_actor_handles.get(actor_id)
-
-    async def update_devices(self, loaded_labs: set[str] | None = None, unloaded_labs: set[str] | None = None) -> None:
+    async def update_devices(
+        self,
+        db: AsyncDbSession,
+        loaded_labs: set[str] | None = None,
+        unloaded_labs: set[str] | None = None,
+    ) -> None:
+        """Update devices based on the loaded and unloaded labs."""
         if unloaded_labs:
-            await self.cleanup_device_actors(lab_ids=list(unloaded_labs))
+            await self.cleanup_device_actors(db, lab_ids=list(unloaded_labs))
 
         if loaded_labs:
-            creation_tasks = [self._create_devices_for_lab(lab_id) for lab_id in loaded_labs]
-            await asyncio.gather(*creation_tasks)
+            for lab_id in loaded_labs:
+                await self._create_devices_for_lab(db, lab_id)
+
+        await db.commit()
 
         self._check_device_actors_healthy()
         log.debug("Devices have been updated.")
 
-    async def cleanup_device_actors(self, lab_ids: list[str] | None = None) -> None:
-        """
-        Terminate device actors, optionally for specific labs.
+    async def cleanup_device_actors(self, db: AsyncDbSession, lab_ids: list[str] | None = None) -> None:
+        """Terminate device actors, optionally for specific labs."""
+        actor_ids = await self._get_actor_ids_to_cleanup(db, lab_ids)
 
-        :param lab_ids: If provided, cleanup devices for these labs.
-                        If None, cleanup all devices.
-        """
+        for actor_id in actor_ids:
+            await self._cleanup_single_device(actor_id)
+
+        await self.cleanup_devices(db, lab_ids)
+
+    async def _get_actor_ids_to_cleanup(self, db: AsyncDbSession, lab_ids: list[str] | None) -> list[str]:
+        if not lab_ids:
+            return list(self._device_actor_handles.keys())
+
+        result = await db.execute(select(DeviceModel).where(DeviceModel.lab_id.in_(lab_ids)))
+        devices = [Device.model_validate(device) for device in result.scalars()]
+        return [device.get_actor_id() for device in devices]
+
+    async def _cleanup_single_device(self, actor_id: str) -> None:
+        if actor_id not in self._device_actor_handles:
+            return
+
+        await self._device_actor_handles[actor_id].cleanup.remote()
+        ray.kill(self._device_actor_handles[actor_id])
+        del self._device_actor_handles[actor_id]
+        del self._device_actor_computer_ips[actor_id]
+
+    async def cleanup_devices(self, db: AsyncDbSession, lab_ids: list[str] | None = None) -> None:
         if lab_ids:
-            devices_by_lab = await self._devices.get_devices_by_lab_ids(lab_ids)
-            devices_to_remove = list(itertools.chain(*devices_by_lab.values()))
-            actor_ids = [Device(**device).get_actor_id() for device in devices_to_remove]
-        else:
-            actor_ids = list(self._device_actor_handles.keys())
-
-        async def cleanup_device(actor_id: str) -> None:
-            if actor_id in self._device_actor_handles:
-                await self._device_actor_handles[actor_id].cleanup.remote()
-                ray.kill(self._device_actor_handles[actor_id])
-                del self._device_actor_handles[actor_id]
-                del self._device_actor_computer_ips[actor_id]
-
-        await asyncio.gather(*[cleanup_device(actor_id) for actor_id in actor_ids])
-
-        if lab_ids:
-            await self._devices.delete_devices_by_lab_ids(lab_ids)
+            await db.execute(delete(DeviceModel).where(DeviceModel.lab_id.in_(lab_ids)))
             log.debug(f"Cleaned up devices for lab(s): {', '.join(lab_ids)}")
         else:
-            await self._devices.delete_all()
+            await db.execute(delete(DeviceModel))
 
-    async def _create_devices_for_lab(self, lab_id: str) -> None:
+    async def _create_devices_for_lab(self, db: AsyncDbSession, lab_id: str) -> None:
+        """
+        Create or update devices for a specific lab.
+
+        :param db: The database session
+        :param lab_id: The lab ID
+        """
         lab_config = self._configuration_manager.labs[lab_id]
 
-        existing_devices = {device["id"]: Device(**device) for device in await self._devices.get_all(lab_id=lab_id)}
+        # Get existing devices
+        stmt = select(DeviceModel).where(DeviceModel.lab_id == lab_id)
+        result = await db.execute(stmt)
+        existing_devices = {device.id: Device.model_validate(device) for device in result.scalars().all()}
 
         devices_to_upsert: list[Device] = []
 
@@ -132,17 +143,17 @@ class DeviceManager:
                 self._restore_device_actor(device)
             else:
                 new_device = Device(
-                    lab_id=lab_id,
                     id=device_id,
+                    lab_id=lab_id,
                     type=device_config.type,
-                    location=device_config.location,
                     computer=device_config.computer,
+                    location=device_config.location,
                 )
-                devices_to_upsert.append(new_device)
+                devices_to_upsert.append(DeviceModel(**new_device.model_dump()))
                 await self._create_device_actor(new_device)
 
         if devices_to_upsert:
-            await self._devices.bulk_upsert([device.model_dump() for device in devices_to_upsert])
+            db.add_all(devices_to_upsert)
 
         log.debug(f"Updated devices for lab '{lab_id}'")
 

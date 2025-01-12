@@ -6,21 +6,30 @@ experiments:
 
 log_level: INFO
 
-# EOS orchestrator's internal web API server configuration
+# Orchestrator web API configuration
 web_api:
   host: localhost
   port: 8070
 
-# EOS database (MongoDB) configuration
+# PostgreSQL database configuration
 db:
   host: localhost
-  port: 27017
+  port: 5432
   username: ""
   password: ""
 
-# EOS file database (MinIO) configuration
+# MinIO file configuration
 file_db:
   host: localhost
   port: 9004
   username: ""
   password: ""
+
+# The minimum processing rate of the orchestrator.
+# The lower the rate, the less CPU usage while idle but increases the latency
+# of the first task to process.
+orchestrator_min_hz: 0.5
+
+# The maximum processing rate of the orchestrator.
+# The higher the rate, the faster work is processed at the cost of increased CPU usage.
+orchestrator_max_hz: 10

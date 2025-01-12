@@ -15,19 +15,34 @@ class TestLabValidation:
         lab.devices["magnetic_mixer"].location = "invalid_location"
 
         with pytest.raises(EosLabConfigurationError):
-            LabValidator(configuration_manager._user_dir, lab).validate()
+            LabValidator(
+                configuration_manager._user_dir,
+                lab,
+                configuration_manager.task_specs,
+                configuration_manager.device_specs,
+            ).validate()
 
     def test_container_locations(self, configuration_manager, lab):
         lab.containers[0].location = "invalid_location"
 
         with pytest.raises(EosLabConfigurationError):
-            LabValidator(configuration_manager._user_dir, lab).validate()
+            LabValidator(
+                configuration_manager._user_dir,
+                lab,
+                configuration_manager.task_specs,
+                configuration_manager.device_specs,
+            ).validate()
 
     def test_device_computers(self, configuration_manager, lab):
         lab.devices["magnetic_mixer"].computer = "invalid_computer"
 
         with pytest.raises(EosLabConfigurationError):
-            LabValidator(configuration_manager._user_dir, lab).validate()
+            LabValidator(
+                configuration_manager._user_dir,
+                lab,
+                configuration_manager.task_specs,
+                configuration_manager.device_specs,
+            ).validate()
 
     def test_container_non_unique_type(self, configuration_manager, lab):
         lab.containers.extend(
@@ -46,7 +61,12 @@ class TestLabValidation:
         )
 
         with pytest.raises(EosLabConfigurationError):
-            LabValidator(configuration_manager._user_dir, lab).validate()
+            LabValidator(
+                configuration_manager._user_dir,
+                lab,
+                configuration_manager.task_specs,
+                configuration_manager.device_specs,
+            ).validate()
 
     def test_container_duplicate_ids(self, configuration_manager, lab):
         lab.containers.extend(
@@ -65,4 +85,9 @@ class TestLabValidation:
         )
 
         with pytest.raises(EosLabConfigurationError):
-            LabValidator(configuration_manager._user_dir, lab).validate()
+            LabValidator(
+                configuration_manager._user_dir,
+                lab,
+                configuration_manager.task_specs,
+                configuration_manager.device_specs,
+            ).validate()

@@ -13,14 +13,8 @@ Running
 
     source env/bin/activate
 
-3. Start the EOS Orchestrator
+3. Start EOS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. code-block:: shell
 
     eos orchestrator
-
-4. Start the EOS REST API
-^^^^^^^^^^^^^^^^^^^^^^^^^
-.. code-block:: shell
-
-    eos api

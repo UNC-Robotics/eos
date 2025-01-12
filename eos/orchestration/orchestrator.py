@@ -1,32 +1,39 @@
 import asyncio
+
 import ray
+import time
 
 from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.eos_config import DbConfig
+from eos.configuration.entities.eos_config import DbConfig, DatabaseType
 from eos.containers.container_manager import ContainerManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
-from eos.monitoring.graceful_termination_monitor import GracefulTerminationMonitor
 from eos.orchestration.modules.campaign_module import CampaignModule
 from eos.orchestration.modules.experiment_module import ExperimentModule
 from eos.orchestration.modules.lab_module import LabModule
 from eos.orchestration.modules.loading_module import LoadingModule
 from eos.orchestration.modules.result_module import ResultModule
 from eos.orchestration.modules.task_module import TaskModule
-from eos.persistence.async_mongodb_interface import AsyncMongoDbInterface
-from eos.persistence.file_db_interface import FileDbInterface
+
+from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
+from eos.database.file_db_interface import FileDbInterface
+from eos.database.postgresql_db_interface import PostgresqlDbInterface
+from eos.database.sqlite_db_interface import SqliteDbInterface
 from eos.resource_allocation.resource_allocation_manager import (
     ResourceAllocationManager,
 )
+from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.greedy_scheduler import GreedyScheduler
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
+from eos.utils.di.di_container import get_di_container
+from eos.utils.di.di_deps import get_device_manager, get_db_interface
 from eos.utils.singleton import Singleton
 
 
@@ -38,31 +45,17 @@ class Orchestrator(metaclass=Singleton):
     def __init__(
         self,
         user_dir: str,
-        db_credentials: DbConfig,
-        file_db_credentials: DbConfig,
+        db_config: DbConfig,
+        file_db_config: DbConfig,
     ):
         self._user_dir = user_dir
-        self._db_credentials = db_credentials
-        self._file_db_credentials = file_db_credentials
+        self._db_config = db_config
+        self._file_db_config = file_db_config
 
         self._initialized = False
 
-        self._configuration_manager: ConfigurationManager | None = None
-        self._db_interface: AsyncMongoDbInterface | None = None
-        self._file_db_interface: FileDbInterface | None = None
-        self._graceful_termination_monitor: GracefulTerminationMonitor | None = None
-        self._device_manager: DeviceManager | None = None
-        self._container_manager: ContainerManager | None = None
-        self._resource_allocation_manager: ResourceAllocationManager | None = None
-        self._task_manager: TaskManager | None = None
-        self._experiment_manager: ExperimentManager | None = None
-        self._campaign_manager: CampaignManager | None = None
-        self._campaign_optimizer_manager: CampaignOptimizerManager | None = None
         self._task_executor: TaskExecutor | None = None
         self._on_demand_task_executor: OnDemandTaskExecutor | None = None
-        self._scheduler: GreedyScheduler | None = None
-        self._experiment_executor_factory: ExperimentExecutorFactory | None = None
-        self._campaign_executor_factory: CampaignExecutorFactory | None = None
 
         self._loading: LoadingModule | None = None
         self._labs: LabModule | None = None
@@ -79,95 +72,106 @@ class Orchestrator(metaclass=Singleton):
             return
 
         log.info("Initializing EOS...")
-        log.info("Initializing Ray cluster...")
-        ray.init(namespace="eos", resources={"eos-core": 1000})
-        log.info("Ray cluster initialized.")
+
+        di = get_di_container()
 
         # Configuration ###########################################
-        self._configuration_manager = ConfigurationManager(self._user_dir)
+        configuration_manager = ConfigurationManager(self._user_dir)
+        di.register(ConfigurationManager, configuration_manager)
 
         # Persistence #############################################
-        self._db_interface = AsyncMongoDbInterface(self._db_credentials)
-        self._file_db_interface = FileDbInterface(self._file_db_credentials)
+        if self._db_config.db_type == DatabaseType.POSTGRESQL:
+            db_interface = PostgresqlDbInterface(self._db_config)
+        elif self._db_config.db_type == DatabaseType.SQLITE:
+            db_interface = SqliteDbInterface(self._db_config)
+        else:
+            raise ValueError(f"Unsupported database type '{self._db_config.db_type}'")
+        di.register(AbstractSqlDbInterface, db_interface)
+
+        await db_interface.initialize_database()
+
+        file_db_interface = FileDbInterface(self._file_db_config)
+        di.register(FileDbInterface, file_db_interface)
+
+        # Ray cluster ############################################
+        self._initialize_ray()
 
         # State management ########################################
-        self._graceful_termination_monitor = GracefulTerminationMonitor(self._db_interface)
-        await self._graceful_termination_monitor.initialize()
+        device_manager = DeviceManager()
+        async with db_interface.get_async_session() as db:
+            await device_manager.cleanup_devices(db)
+        di.register(DeviceManager, device_manager)
 
-        self._device_manager = DeviceManager(self._configuration_manager, self._db_interface)
-        await self._device_manager.initialize(self._db_interface)
+        container_manager = ContainerManager()
+        async with db_interface.get_async_session() as db:
+            await container_manager.initialize(db)
+        di.register(ContainerManager, container_manager)
 
-        self._container_manager = ContainerManager(self._configuration_manager, self._db_interface)
-        await self._container_manager.initialize(self._db_interface)
+        resource_allocation_manager = ResourceAllocationManager()
+        async with db_interface.get_async_session() as db:
+            await resource_allocation_manager.initialize(db)
+        di.register(ResourceAllocationManager, resource_allocation_manager)
 
-        self._resource_allocation_manager = ResourceAllocationManager(self._db_interface)
-        await self._resource_allocation_manager.initialize(self._configuration_manager, self._db_interface)
+        task_manager = TaskManager()
+        di.register(TaskManager, task_manager)
 
-        self._task_manager = TaskManager(self._configuration_manager, self._db_interface, self._file_db_interface)
-        await self._task_manager.initialize(self._db_interface)
+        experiment_manager = ExperimentManager()
+        di.register(ExperimentManager, experiment_manager)
 
-        self._experiment_manager = ExperimentManager(self._configuration_manager, self._db_interface)
-        await self._experiment_manager.initialize(self._db_interface)
+        campaign_manager = CampaignManager()
+        di.register(CampaignManager, campaign_manager)
 
-        self._campaign_manager = CampaignManager(self._configuration_manager, self._db_interface)
-        await self._campaign_manager.initialize(self._db_interface)
-
-        self._campaign_optimizer_manager = CampaignOptimizerManager(self._configuration_manager, self._db_interface)
-        await self._campaign_optimizer_manager.initialize(self._db_interface)
+        campaign_optimizer_manager = CampaignOptimizerManager()
+        di.register(CampaignOptimizerManager, campaign_optimizer_manager)
 
         # Execution ###############################################
-        self._task_executor = TaskExecutor(
-            self._task_manager,
-            self._device_manager,
-            self._container_manager,
-            self._resource_allocation_manager,
-            self._configuration_manager,
-        )
-        self._on_demand_task_executor = OnDemandTaskExecutor(
-            self._task_executor, self._task_manager, self._container_manager
-        )
-        self._scheduler = GreedyScheduler(
-            self._configuration_manager,
-            self._experiment_manager,
-            self._task_manager,
-            self._device_manager,
-            self._resource_allocation_manager,
-        )
-        self._experiment_executor_factory = ExperimentExecutorFactory(
-            self._configuration_manager,
-            self._experiment_manager,
-            self._task_manager,
-            self._container_manager,
-            self._task_executor,
-            self._scheduler,
-        )
-        self._campaign_executor_factory = CampaignExecutorFactory(
-            self._configuration_manager,
-            self._campaign_manager,
-            self._campaign_optimizer_manager,
-            self._task_manager,
-            self._experiment_executor_factory,
-        )
+        task_executor = TaskExecutor()
+        di.register(TaskExecutor, task_executor)
+        self._task_executor = task_executor
+
+        on_demand_task_executor = OnDemandTaskExecutor()
+        di.register(OnDemandTaskExecutor, on_demand_task_executor)
+        self._on_demand_task_executor = on_demand_task_executor
+
+        scheduler = GreedyScheduler()
+        di.register(AbstractScheduler, scheduler)
+
+        experiment_executor_factory = ExperimentExecutorFactory()
+        di.register(ExperimentExecutorFactory, experiment_executor_factory)
+
+        campaign_executor_factory = CampaignExecutorFactory()
+        di.register(CampaignExecutorFactory, campaign_executor_factory)
 
         # Orchestrator Modules #######################################
-        self._loading = LoadingModule(
-            self._configuration_manager, self._device_manager, self._container_manager, self._experiment_manager
-        )
-        self._labs = LabModule(self._configuration_manager)
-        self._results = ResultModule(self._task_manager)
-        self._tasks = TaskModule(
-            self._configuration_manager, self._task_manager, self._task_executor, self._on_demand_task_executor
-        )
-        self._experiments = ExperimentModule(
-            self._configuration_manager, self._experiment_manager, self._experiment_executor_factory
-        )
-        self._campaigns = CampaignModule(
-            self._configuration_manager, self._campaign_manager, self._campaign_executor_factory
-        )
+        self._loading = LoadingModule()
+        self._labs = LabModule()
+        self._results = ResultModule()
+        self._tasks = TaskModule()
+        self._experiments = ExperimentModule()
+        self._campaigns = CampaignModule()
 
         await self._fail_running_work()
 
         self._initialized = True
+
+    @staticmethod
+    def _initialize_ray() -> None:
+        try:
+            ray.init(address="auto", namespace="eos", ignore_reinit_error=True)
+            log.info("Connected to Ray cluster.")
+
+            cluster_resources = ray.cluster_resources()
+            if "eos-core" not in cluster_resources:
+                ray.shutdown()
+                raise Exception(
+                    "The 'eos-core' resource not found in the cluster. "
+                    "Please ensure the cluster head node is configured to provide the custom Ray resource 'eos-core'."
+                )
+
+        except ConnectionError:
+            log.info("Initializing Ray cluster...")
+            ray.init(namespace="eos", resources={"eos-core": 1000})
+            log.info("Ray cluster initialized.")
 
     async def terminate(self) -> None:
         """
@@ -177,31 +181,57 @@ class Orchestrator(metaclass=Singleton):
         if not self._initialized:
             return
         log.info("Cleaning up devices...")
-        await self._device_manager.cleanup_device_actors()
+
+        async with get_db_interface().get_async_session() as db:
+            await get_device_manager().cleanup_device_actors(db)
+
         log.info("Shutting down Ray cluster...")
         ray.shutdown()
-        await self._graceful_termination_monitor.set_terminated_gracefully()
         self._initialized = False
 
-    async def spin(self, rate_hz: int = 5) -> None:
+    async def spin(self, min_rate_hz: float = 0.5, max_rate_hz: float = 10) -> None:
         """
-        Spin the orchestrator at a given rate in Hz. Process submitted work.
+        Spin the orchestrator with an adaptive rate up to max_rate_hz.
+        When there is work to process, runs at max_rate_hz for efficient processing.
+        When idle, slows down to 1 Hz to conserve CPU.
 
-        :param rate_hz: The processing rate in Hz. This is the rate in which the orchestrator updates.
+        :param min_rate_hz: The minimum processing rate in Hz. This is the target rate when idle.
+        :param max_rate_hz: The maximum processing rate in Hz. This is the target rate when work is present.
         """
+        busy_cycle_time = 1 / max_rate_hz
+        idle_cycle_time = 1 / min_rate_hz
+
         while True:
-            await self._experiments.process_experiment_cancellations()
-            await self._campaigns.process_campaign_cancellations()
+            start = time.time()
 
-            await asyncio.gather(
-                self._tasks.process_on_demand_tasks(),
-                self._experiments.process_experiments(),
-                self._campaigns.process_campaigns(),
+            # Check if there is any work to process
+            has_work = (
+                bool(self._experiments.submitted_experiments)
+                or bool(self._campaigns.submitted_campaigns)
+                or bool(self._task_executor.has_work)
+                or bool(self._on_demand_task_executor.has_work)
             )
 
-            await self._resource_allocation_manager.process_active_requests()
+            # Process work
+            await self.spin_once()
 
-            await asyncio.sleep(1 / rate_hz)
+            elapsed = time.time() - start
+            target_cycle_time = busy_cycle_time if has_work else idle_cycle_time
+
+            remaining = target_cycle_time - elapsed
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+
+    async def spin_once(self) -> None:
+        """Process submitted work."""
+        await self._experiments.process_experiment_cancellations()
+        await self._campaigns.process_campaign_cancellations()
+
+        await self._tasks.process_on_demand_tasks()
+        await self._experiments.process_experiments()
+        await self._campaigns.process_campaigns()
+
+        await self._task_executor.process_tasks()
 
     async def _fail_running_work(self) -> None:
         """
@@ -210,9 +240,14 @@ class Orchestrator(metaclass=Singleton):
         system may be unknown. We want to force manual review of the state of the system and explicitly require
         re-submission of any work that was running.
         """
-        await self._tasks.fail_running_tasks()
-        await self._experiments.fail_running_experiments()
-        await self._campaigns.fail_running_campaigns()
+        async with get_db_interface().get_async_session() as db:
+            await self._tasks.fail_running_tasks(db)
+            await self._experiments.fail_running_experiments(db)
+            await self._campaigns.fail_running_campaigns(db)
+
+    @property
+    def db_interface(self) -> AbstractSqlDbInterface:
+        return get_db_interface()
 
     @property
     def loading(self) -> LoadingModule:

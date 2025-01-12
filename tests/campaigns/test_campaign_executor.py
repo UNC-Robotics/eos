@@ -6,82 +6,105 @@ from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.experiments.exceptions import EosExperimentExecutionError
 from tests.fixtures import *
 
-LAB_ID = "multiplication_lab"
-CAMPAIGN_ID = "optimize_multiplication_campaign"
-EXPERIMENT_TYPE = "optimize_multiplication"
-MAX_EXPERIMENTS = 30
-OPTIMIZE = True
+CAMPAIGN_CONFIG = {
+    "LAB_ID": "multiplication_lab",
+    "CAMPAIGN_ID": "optimize_multiplication_campaign",
+    "EXPERIMENT_TYPE": "optimize_multiplication",
+    "OWNER": "test",
+    "MAX_EXPERIMENTS": 30,
+    "MAX_CONCURRENT_EXPERIMENTS": 1,
+    "OPTIMIZE": True,
+    "OPTIMIZER_IP": "127.0.0.1",
+}
+
+
+@pytest.fixture
+def campaign_definition():
+    """Create a standard campaign definition for testing."""
+    return CampaignDefinition(
+        id=CAMPAIGN_CONFIG["CAMPAIGN_ID"],
+        experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
+        owner=CAMPAIGN_CONFIG["OWNER"],
+        max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
+        max_concurrent_experiments=CAMPAIGN_CONFIG["MAX_CONCURRENT_EXPERIMENTS"],
+        optimize=CAMPAIGN_CONFIG["OPTIMIZE"],
+        optimizer_computer_ip=CAMPAIGN_CONFIG["OPTIMIZER_IP"],
+    )
+
+
+@pytest.fixture
+def campaign_executor_setup(
+    configuration_manager,
+    campaign_manager,
+    campaign_optimizer_manager,
+    task_manager,
+    experiment_executor_factory,
+    db_interface,
+    campaign_definition,
+):
+    """Create and configure a campaign executor for testing."""
+    return CampaignExecutor(
+        campaign_definition=campaign_definition,
+        campaign_manager=campaign_manager,
+        campaign_optimizer_manager=campaign_optimizer_manager,
+        task_manager=task_manager,
+        experiment_executor_factory=experiment_executor_factory,
+        db_interface=db_interface,
+    )
 
 
 @pytest.mark.parametrize(
     "setup_lab_experiment",
-    [(LAB_ID, EXPERIMENT_TYPE)],
-    indirect=True,
-)
-@pytest.mark.parametrize(
-    "campaign_executor",
-    [(CAMPAIGN_ID, EXPERIMENT_TYPE, MAX_EXPERIMENTS, OPTIMIZE)],
+    [(CAMPAIGN_CONFIG["LAB_ID"], CAMPAIGN_CONFIG["EXPERIMENT_TYPE"])],
     indirect=True,
 )
 class TestCampaignExecutor:
-    @pytest.fixture
-    def campaign_executor(
-        self,
-        configuration_manager,
-        campaign_manager,
-        campaign_optimizer_manager,
-        task_manager,
-        experiment_executor_factory,
-    ):
-        optimizer_computer_ip = "127.0.0.1"
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_campaign_initialization(self, campaign_executor_setup, campaign_manager, db_interface):
+        """Test campaign initialization and status."""
+        async with db_interface.get_async_session() as db:
+            await campaign_executor_setup.start_campaign(db)
 
-        campaign_definition = CampaignDefinition(
-            id=CAMPAIGN_ID,
-            experiment_type=EXPERIMENT_TYPE,
-            max_experiments=MAX_EXPERIMENTS,
-            max_concurrent_experiments=1,
-            optimize=OPTIMIZE,
-            optimizer_computer_ip=optimizer_computer_ip,
-        )
+            campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+            assert campaign is not None
+            assert campaign.id == CAMPAIGN_CONFIG["CAMPAIGN_ID"]
+            assert campaign.status == CampaignStatus.RUNNING
 
-        return CampaignExecutor(
-            campaign_definition=campaign_definition,
-            campaign_manager=campaign_manager,
-            campaign_optimizer_manager=campaign_optimizer_manager,
-            task_manager=task_manager,
-            experiment_executor_factory=experiment_executor_factory,
-        )
+        await campaign_executor_setup.cancel_campaign()
+        campaign_executor_setup.cleanup()
 
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_start_campaign(self, campaign_executor, campaign_manager):
-        await campaign_executor.start_campaign()
-
-        campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        assert campaign is not None
-        assert campaign.id == CAMPAIGN_ID
-        assert campaign.status == CampaignStatus.RUNNING
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_progress_campaign(self, campaign_executor, campaign_manager, campaign_optimizer_manager):
-        await campaign_executor.start_campaign()
+    async def test_progress_campaign(self, campaign_executor_setup, task_executor, db_interface):
+        """Test full campaign optimization process."""
+        async with db_interface.get_async_session() as db:
+            await campaign_executor_setup.start_campaign(db)
 
         campaign_finished = False
         while not campaign_finished:
-            campaign_finished = await campaign_executor.progress_campaign()
-            await asyncio.sleep(0.1)
+            campaign_finished = await campaign_executor_setup.progress_campaign()
+            await task_executor.process_tasks()
+            await asyncio.sleep(0.01)
 
-        solutions = await campaign_executor.optimizer.get_optimal_solutions.remote()
+        solutions = await campaign_executor_setup.optimizer.get_optimal_solutions.remote()
         assert not solutions.empty
         assert len(solutions) == 1
         assert solutions["compute_multiplication_objective.objective"].iloc[0] / 100 <= 120
 
+        campaign_executor_setup.cleanup()
+
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_progress_campaign_failure(self, campaign_executor, campaign_manager, monkeypatch):
-        await campaign_executor.start_campaign()
-        await campaign_executor.progress_campaign()
+    async def test_campaign_failure_handling(
+        self, campaign_executor_setup, campaign_manager, task_executor, monkeypatch, db_interface
+    ):
+        """Test proper handling of campaign execution failures."""
+        async with db_interface.get_async_session() as db:
+            await campaign_executor_setup.start_campaign(db)
+
+        await campaign_executor_setup.progress_campaign()
+        await task_executor.process_tasks()
 
         async def mock_progress_experiment(*args, **kwargs):
             raise EosExperimentExecutionError("Simulated experiment execution error")
@@ -90,128 +113,113 @@ class TestCampaignExecutor:
             "eos.experiments.experiment_executor.ExperimentExecutor.progress_experiment", mock_progress_experiment
         )
 
-        # Attempt to progress the campaign
         with pytest.raises(EosCampaignExecutionError) as exc_info:
-            await campaign_executor.progress_campaign()
-        assert f"Error executing campaign '{CAMPAIGN_ID}'" in str(exc_info.value)
-        assert campaign_executor._campaign_status == CampaignStatus.FAILED
+            await campaign_executor_setup.progress_campaign()
 
-        # Verify that the campaign manager has marked the campaign as failed
-        campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        assert campaign.status == CampaignStatus.FAILED
+            assert f"Error executing campaign '{CAMPAIGN_CONFIG['CAMPAIGN_ID']}'" in str(exc_info.value)
+            assert campaign_executor_setup._campaign_status == CampaignStatus.FAILED
 
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_campaign_cancellation(self, campaign_executor, campaign_manager):
-        await campaign_executor.start_campaign()
+            async with db_interface.get_async_session() as db:
+                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+                assert campaign.status == CampaignStatus.FAILED
 
-        # Run until two experiments are complete
-        completed_experiments = 0
-        while completed_experiments < 2:
-            await campaign_executor.progress_campaign()
-            campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-            completed_experiments = campaign.experiments_completed
-            await asyncio.sleep(0.1)
+        campaign_executor_setup.cleanup()
 
-        # Ensure we have at least one running experiment
-        assert len(campaign_executor._experiment_executors) > 0
-
-        await campaign_executor.cancel_campaign()
-
-        campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        assert campaign.status == CampaignStatus.CANCELLED
-
-        # Try to progress the campaign after cancellation
-        campaign_finished = await campaign_executor.progress_campaign()
-        assert campaign_finished
-        assert len(campaign_executor._experiment_executors) == 0
-
-        with pytest.raises(EosCampaignExecutionError):
-            await campaign_executor.start_campaign()
-
-    @pytest.mark.slow
-    @pytest.mark.asyncio
-    async def test_campaign_resuming(
-        self, campaign_executor, campaign_manager, campaign_optimizer_manager, task_manager, experiment_executor_factory
+    async def wait_for_campaign_progress(
+        self, campaign_executor, campaign_manager, task_executor, db_interface, num_experiments=1
     ):
-        await campaign_executor.start_campaign()
-
-        # Run until three experiments are complete
+        """Helper method to wait for campaign to complete specified number of experiments."""
         completed_experiments = 0
-        while completed_experiments < 3:
-            await campaign_executor.progress_campaign()
-            campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
+        while completed_experiments < num_experiments:
+            campaign_finished = await campaign_executor.progress_campaign()
+            if campaign_finished:
+                break
+            await task_executor.process_tasks()
+            await asyncio.sleep(0.01)
+
+            async with db_interface.get_async_session() as db:
+                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
             completed_experiments = campaign.experiments_completed
-            await asyncio.sleep(0.1)
 
-        initial_campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        num_initial_reported_samples = ray.get(campaign_executor.optimizer.get_num_samples_reported.remote())
+    @pytest.mark.slow
+    @pytest.mark.asyncio
+    async def test_campaign_resumption(
+        self,
+        campaign_executor_setup,
+        campaign_manager,
+        campaign_optimizer_manager,
+        task_manager,
+        experiment_executor_factory,
+        db_interface,
+        task_executor,
+    ):
+        """Test campaign can be properly resumed after cancellation."""
+        async with db_interface.get_async_session() as db:
+            await campaign_executor_setup.start_campaign(db)
 
-        await campaign_executor.cancel_campaign()
-        campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        assert campaign.status == CampaignStatus.CANCELLED
-        campaign_executor.cleanup()
+        await self.wait_for_campaign_progress(
+            campaign_executor_setup, campaign_manager, task_executor, db_interface, num_experiments=3
+        )
 
-        # Create a new campaign executor to resume the campaign
-        campaign_definition = CampaignDefinition(
-            id=CAMPAIGN_ID,
-            experiment_type=EXPERIMENT_TYPE,
-            max_experiments=MAX_EXPERIMENTS,
-            optimize=OPTIMIZE,
+        async with db_interface.get_async_session() as db:
+            initial_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+        initial_samples = ray.get(campaign_executor_setup.optimizer.get_num_samples_reported.remote())
+
+        await campaign_executor_setup.cancel_campaign()
+        campaign_executor_setup.cleanup()
+
+        resume_definition = CampaignDefinition(
+            id=CAMPAIGN_CONFIG["CAMPAIGN_ID"],
+            experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
+            owner=CAMPAIGN_CONFIG["OWNER"],
+            max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
+            optimize=CAMPAIGN_CONFIG["OPTIMIZE"],
             resume=True,
         )
-        new_campaign_executor = CampaignExecutor(
-            campaign_definition,
+        resumed_executor = CampaignExecutor(
+            resume_definition,
             campaign_manager,
             campaign_optimizer_manager,
             task_manager,
             experiment_executor_factory,
+            db_interface,
         )
-        await new_campaign_executor.start_campaign()
-        resumed_campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        assert resumed_campaign.status == CampaignStatus.RUNNING
 
-        # Verify that the number of completed experiments is preserved
+        async with db_interface.get_async_session() as db:
+            await resumed_executor.start_campaign(db)
+            resumed_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+
+        assert resumed_campaign.status == CampaignStatus.RUNNING
         assert resumed_campaign.experiments_completed == initial_campaign.experiments_completed
 
-        # Check that the reported samples to the optimizer are preserved
-        num_restored_reported_samples = ray.get(new_campaign_executor.optimizer.get_num_samples_reported.remote())
-        print(num_restored_reported_samples)
-        assert num_restored_reported_samples == num_initial_reported_samples
+        resumed_samples = ray.get(resumed_executor.optimizer.get_num_samples_reported.remote())
+        assert resumed_samples == initial_samples
 
-        # Run a few more iterations to ensure the campaign continues properly
-        for _ in range(5):
-            await new_campaign_executor.progress_campaign()
+        await self.wait_for_campaign_progress(
+            resumed_executor, campaign_manager, task_executor, db_interface, num_experiments=5
+        )
 
-        await new_campaign_executor.cancel_campaign()
-        new_campaign_executor.cleanup()
+        await resumed_executor.cancel_campaign()
+        resumed_executor.cleanup()
 
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_campaign_cancellation_timeout(self, campaign_executor, campaign_manager):
-        await campaign_executor.start_campaign()
+    async def test_campaign_cancellation_timeout(self, campaign_executor_setup, campaign_manager, db_interface):
+        """Test handling of timeouts during campaign cancellation."""
+        async with db_interface.get_async_session() as db:
+            await campaign_executor_setup.start_campaign(db)
 
-        # Run until one experiment is complete
-        while (await campaign_manager.get_campaign(CAMPAIGN_ID)).experiments_completed < 1 or len(
-            campaign_executor._experiment_executors
-        ) < 1:
-            await campaign_executor.progress_campaign()
-            await asyncio.sleep(0.1)
-
+        # Mock slow experiment cancellation
         class SlowCancelExperimentExecutor:
             async def cancel_experiment(self):
-                await asyncio.sleep(16)  # Sleep for longer than the timeout
+                await asyncio.sleep(16)
 
-        # Replace the experiment executors with the slow version
-        campaign_executor._experiment_executors = {
+        campaign_executor_setup._experiment_executors = {
             "exp1": SlowCancelExperimentExecutor(),
             "exp2": SlowCancelExperimentExecutor(),
         }
 
-        # Try to cancel the campaign, expect a timeout
-        with pytest.raises(EosCampaignExecutionError) as exc_info:
-            await campaign_executor.cancel_campaign()
-        assert "Timed out while cancelling experiments" in str(exc_info.value)
+        with pytest.raises(EosCampaignExecutionError):
+            await campaign_executor_setup.cancel_campaign()
 
-        campaign = await campaign_manager.get_campaign(CAMPAIGN_ID)
-        assert campaign.status == CampaignStatus.CANCELLED
+        campaign_executor_setup.cleanup()

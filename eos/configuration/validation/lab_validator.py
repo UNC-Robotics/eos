@@ -4,10 +4,9 @@ from eos.configuration.constants import LABS_DIR, EOS_COMPUTER_NAME
 from eos.configuration.entities.lab import LabConfig
 from eos.configuration.exceptions import EosLabConfigurationError
 from eos.configuration.spec_registries.device_spec_registry import DeviceSpecRegistry
-from eos.configuration.spec_registries.task_spec_registry import (
-    TaskSpecRegistry,
-)
+from eos.configuration.spec_registries.task_spec_registry import TaskSpecRegistry
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
+from eos.utils.di.di_container import inject_all
 
 
 class LabValidator:
@@ -16,11 +15,14 @@ class LabValidator:
     lab configuration.
     """
 
-    def __init__(self, config_dir: str, lab_config: LabConfig):
+    @inject_all
+    def __init__(
+        self, config_dir: str, lab_config: LabConfig, task_specs: TaskSpecRegistry, device_specs: DeviceSpecRegistry
+    ):
         self._lab_config = lab_config
         self._lab_config_dir = Path(config_dir) / LABS_DIR / lab_config.type.lower()
-        self._tasks = TaskSpecRegistry()
-        self._devices = DeviceSpecRegistry()
+        self._task_specs = task_specs
+        self._device_specs = device_specs
 
     def validate(self) -> None:
         self._validate_lab_folder_name_matches_lab_type()
@@ -106,7 +108,7 @@ class LabValidator:
 
     def _validate_device_types(self) -> None:
         for device_name, device in self._lab_config.devices.items():
-            if not self._devices.get_spec_by_config(device):
+            if not self._device_specs.get_spec_by_config(device):
                 batch_error(
                     f"Device type '{device.type}' of device '{device_name}' does not exist.",
                     EosLabConfigurationError,
@@ -115,7 +117,7 @@ class LabValidator:
 
     def _validate_device_init_parameters(self) -> None:
         for device_name, device in self._lab_config.devices.items():
-            device_spec = self._devices.get_spec_by_config(device)
+            device_spec = self._device_specs.get_spec_by_config(device)
 
             if device.init_parameters:
                 spec_params = device_spec.init_parameters or {}

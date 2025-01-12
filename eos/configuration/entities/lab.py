@@ -6,7 +6,7 @@ from pydantic import Field
 
 class Location(BaseModel):
     desc: str
-    metadata: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
 
 
 class LabComputerConfig(BaseModel):
@@ -27,7 +27,7 @@ class LabContainerConfig(BaseModel):
     location: str
     ids: list[str]
     desc: str | None = None
-    metadata: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
 
 
 class LabConfig(BaseModel):

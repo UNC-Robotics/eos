@@ -8,7 +8,7 @@ from eos.configuration.entities.task import TaskConfig
 class ExperimentContainerConfig(BaseModel):
     id: str
     desc: str | None = None
-    metadata: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
 
 
 class ExperimentConfig(BaseModel):

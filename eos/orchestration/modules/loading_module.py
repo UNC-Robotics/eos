@@ -10,11 +10,14 @@ from asyncio import Lock as AsyncLock
 
 from eos.logging.logger import log
 from eos.orchestration.exceptions import EosExperimentTypeInUseError
+from eos.database.abstract_sql_db_interface import AsyncDbSession
+from eos.utils.di.di_container import inject_all
 
 
 class LoadingModule:
     """Responsible for loading/unloading entities such as labs, experiments, etc."""
 
+    @inject_all
     def __init__(
         self,
         configuration_manager: ConfigurationManager,
@@ -29,23 +32,23 @@ class LoadingModule:
 
         self._loading_lock = AsyncLock()
 
-    async def load_labs(self, labs: set[str]) -> None:
+    async def load_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
         """
         Load one or more labs into the orchestrator.
         """
         self._configuration_manager.load_labs(labs)
-        await self._device_manager.update_devices(loaded_labs=labs)
-        await self._container_manager.update_containers(loaded_labs=labs)
+        await self._device_manager.update_devices(db, loaded_labs=labs)
+        await self._container_manager.update_containers(db, loaded_labs=labs)
 
-    async def unload_labs(self, labs: set[str]) -> None:
+    async def unload_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
         """
         Unload one or more labs from the orchestrator.
         """
         self._configuration_manager.unload_labs(labs)
-        await self._device_manager.update_devices(unloaded_labs=labs)
-        await self._container_manager.update_containers(unloaded_labs=labs)
+        await self._device_manager.update_devices(db, unloaded_labs=labs)
+        await self._container_manager.update_containers(db, unloaded_labs=labs)
 
-    async def reload_labs(self, lab_types: set[str]) -> None:
+    async def reload_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """
         Reload one or more labs in the orchestrator.
         """
@@ -53,7 +56,7 @@ class LoadingModule:
             experiments_to_reload = set()
             for lab_type in lab_types:
                 existing_experiments = await self._experiment_manager.get_experiments(
-                    status=ExperimentStatus.RUNNING.value
+                    db, status=ExperimentStatus.RUNNING.value
                 )
 
                 for experiment in existing_experiments:
@@ -67,14 +70,14 @@ class LoadingModule:
                     if lab_type in experiment_config.labs:
                         experiments_to_reload.add(experiment_type)
             try:
-                await self.unload_labs(lab_types)
-                await self.load_labs(lab_types)
+                await self.unload_labs(db, lab_types)
+                await self.load_labs(db, lab_types)
                 self.load_experiments(experiments_to_reload)
             except EosConfigurationError:
                 log.error(f"Error reloading labs: {traceback.format_exc()}")
                 raise
 
-    async def update_loaded_labs(self, lab_types: set[str]) -> None:
+    async def update_loaded_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """
         Update the loaded labs with new configurations.
         """
@@ -89,7 +92,7 @@ class LoadingModule:
 
             for lab_type in to_unload:
                 existing_experiments = await self._experiment_manager.get_experiments(
-                    status=ExperimentStatus.RUNNING.value
+                    db, status=ExperimentStatus.RUNNING.value
                 )
 
                 for experiment in existing_experiments:
@@ -99,8 +102,8 @@ class LoadingModule:
                         raise EosExperimentTypeInUseError
 
             try:
-                await self.unload_labs(to_unload)
-                await self.load_labs(to_load)
+                await self.unload_labs(db, to_unload)
+                await self.load_labs(db, to_load)
             except EosConfigurationError:
                 log.error(f"Error updating loaded labs: {traceback.format_exc()}")
                 raise
@@ -123,14 +126,14 @@ class LoadingModule:
         """
         self._configuration_manager.unload_experiments(experiment_types)
 
-    async def reload_experiments(self, experiment_types: set[str]) -> None:
+    async def reload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """
         Reload one or more experiments in the orchestrator.
         """
         async with self._loading_lock:
             for experiment_type in experiment_types:
                 existing_experiments = await self._experiment_manager.get_experiments(
-                    status=ExperimentStatus.RUNNING.value, type=experiment_type
+                    db, status=ExperimentStatus.RUNNING.value, type=experiment_type
                 )
                 if existing_experiments:
                     log.error(
@@ -145,7 +148,7 @@ class LoadingModule:
                 log.error(f"Error reloading experiments: {traceback.format_exc()}")
                 raise
 
-    async def update_loaded_experiments(self, experiment_types: set[str]) -> None:
+    async def update_loaded_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """
         Update the loaded experiments with new configurations.
         """
@@ -160,7 +163,7 @@ class LoadingModule:
 
             for experiment_type in to_unload:
                 existing_experiments = await self._experiment_manager.get_experiments(
-                    status=ExperimentStatus.RUNNING.value, type=experiment_type
+                    db, status=ExperimentStatus.RUNNING.value, type=experiment_type
                 )
                 if existing_experiments:
                     log.error(

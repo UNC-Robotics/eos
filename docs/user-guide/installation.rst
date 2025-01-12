@@ -11,7 +11,7 @@ We recommend a central computer that is easily accessible.
     We strongly recommend that the laboratory has its own isolated network for security and performance reasons.
     See :doc:`infrastructure setup <infrastructure_setup>` for more information.
 
-EOS also requires a MongoDB database and a MinIO object storage server.
+EOS also requires a PostgreSQL database and a MinIO object storage server.
 We provide a Docker Compose file that can set up all of these services for you.
 
 1. Install PDM

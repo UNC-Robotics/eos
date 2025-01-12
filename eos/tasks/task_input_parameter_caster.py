@@ -19,7 +19,7 @@ class TaskInputParameterCaster:
         """
         task_id = task_definition.id
         task_type = task_definition.type
-        input_parameters = task_definition.input.parameters
+        input_parameters = task_definition.input_parameters
 
         task_spec = self.task_spec_registry.get_spec_by_type(task_type)
 

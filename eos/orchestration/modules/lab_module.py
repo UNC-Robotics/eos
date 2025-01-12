@@ -1,5 +1,6 @@
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.entities.lab import LabDeviceConfig
+from eos.utils.di.di_container import inject_all
 
 
 class LabModule:
@@ -8,6 +9,7 @@ class LabModule:
     Exposes an interface for querying lab state.
     """
 
+    @inject_all
     def __init__(
         self,
         configuration_manager: ConfigurationManager,

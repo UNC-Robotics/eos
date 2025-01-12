@@ -2,13 +2,16 @@ import asyncio
 from collections import defaultdict
 from typing import Any
 
+from sqlalchemy import select, delete, exists, update
+
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.containers.entities.container import Container
+from eos.containers.entities.container import Container, ContainerModel
 from eos.containers.exceptions import EosContainerStateError
-from eos.containers.repositories.container_repository import ContainerRepository
 from eos.logging.logger import log
-from eos.persistence.async_mongodb_interface import AsyncMongoDbInterface
+
+from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.utils.async_rlock import AsyncRLock
+from eos.utils.di.di_container import inject_all
 
 
 class ContainerManager:
@@ -16,131 +19,194 @@ class ContainerManager:
     The container manager provides methods for interacting with containers in a lab.
     """
 
-    def __init__(self, configuration_manager: ConfigurationManager, db_interface: AsyncMongoDbInterface):
+    @inject_all
+    def __init__(self, configuration_manager: ConfigurationManager):
         self._configuration_manager = configuration_manager
-        self._session_factory = db_interface.session_factory
         self._locks = defaultdict(AsyncRLock)
-        self._containers = None
 
-    async def initialize(self, db_interface: AsyncMongoDbInterface) -> None:
-        self._containers = ContainerRepository(db_interface)
-        await self._containers.initialize()
-        await self._create_containers()
+    async def initialize(self, db: AsyncDbSession) -> None:
+        """Initialize the container manager and create initial containers."""
+        await self._create_containers(db)
         log.debug("Container manager initialized.")
 
-    async def get_container(self, container_id: str) -> Container:
-        """
-        Get a copy of the container with the specified ID.
-        """
-        container = await self._containers.get_one(id=container_id)
+    async def _check_container_exists(self, db: AsyncDbSession, container_id: str) -> bool:
+        """Check if a container exists."""
+        result = await db.execute(select(exists().where(ContainerModel.id == container_id)))
+        return result.scalar()
 
-        if container:
-            return Container(**container)
+    async def get_container(self, db: AsyncDbSession, container_id: str) -> Container:
+        """
+        Get a container with the specified ID.
+
+        :param db: The database session
+        :param container_id: The ID of the container to retrieve
+        :return: The container
+        :raises EosContainerStateError: If the container doesn't exist
+        """
+        result = await db.execute(select(ContainerModel).where(ContainerModel.id == container_id))
+        if container_model := result.scalar_one_or_none():
+            return Container.model_validate(container_model)
 
         raise EosContainerStateError(f"Container '{container_id}' does not exist.")
 
-    async def get_containers(self, **query: dict[str, Any]) -> list[Container]:
+    async def get_containers(self, db: AsyncDbSession, **filters: Any) -> list[Container]:
         """
         Query containers with arbitrary parameters.
 
-        :param query: Dictionary of query parameters.
+        :param db: The database session
+        :param filters: Dictionary of query parameters
+        :return: List of matching containers
         """
-        containers = await self._containers.get_all(**query)
-        return [Container(**container) for container in containers]
+        stmt = select(ContainerModel)
+        for key, value in filters.items():
+            stmt = stmt.where(getattr(ContainerModel, key) == value)
 
-    async def set_location(self, container_id: str, location: str) -> None:
+        result = await db.execute(stmt)
+        return [Container.model_validate(model) for model in result.scalars()]
+
+    async def set_location(self, db: AsyncDbSession, container_id: str, location: str) -> None:
         """
         Set the location of a container.
+
+        :param db: The database session
+        :param container_id: The ID of the container
+        :param location: The new location
+        :raises EosContainerStateError: If the container doesn't exist
         """
         async with self._get_lock(container_id):
-            await self._containers.update_one({"location": location}, id=container_id)
+            if not await self._check_container_exists(db, container_id):
+                raise EosContainerStateError(f"Container '{container_id}' does not exist.")
 
-    async def set_lab(self, container_id: str, lab: str) -> None:
+            await db.execute(update(ContainerModel).where(ContainerModel.id == container_id).values(location=location))
+
+    async def set_lab(self, db: AsyncDbSession, container_id: str, lab: str) -> None:
         """
         Set the lab of a container.
+
+        :param db: The database session
+        :param container_id: The ID of the container
+        :param lab: The new lab
+        :raises EosContainerStateError: If the container doesn't exist
         """
         async with self._get_lock(container_id):
-            await self._containers.update_one({"lab": lab}, id=container_id)
+            if not await self._check_container_exists(db, container_id):
+                raise EosContainerStateError(f"Container '{container_id}' does not exist.")
 
-    async def set_metadata(self, container_id: str, metadata: dict[str, Any]) -> None:
+            await db.execute(update(ContainerModel).where(ContainerModel.id == container_id).values(lab=lab))
+
+    async def set_meta(self, db: AsyncDbSession, container_id: str, meta: dict[str, Any]) -> None:
         """
         Set metadata for a container.
+
+        :param db: The database session
+        :param container_id: The ID of the container
+        :param meta: The new metadata dictionary
+        :raises EosContainerStateError: If the container doesn't exist
         """
         async with self._get_lock(container_id):
-            await self._containers.update_one({"metadata": metadata}, id=container_id)
+            if not await self._check_container_exists(db, container_id):
+                raise EosContainerStateError(f"Container '{container_id}' does not exist.")
 
-    async def add_metadata(self, container_id: str, metadata: dict[str, Any]) -> None:
+            await db.execute(update(ContainerModel).where(ContainerModel.id == container_id).values(meta=meta))
+
+    async def add_meta(self, db: AsyncDbSession, container_id: str, meta: dict[str, Any]) -> None:
         """
         Add metadata to a container.
+
+        :param db: The database session
+        :param container_id: The ID of the container
+        :param meta: The metadata to add
+        :raises EosContainerStateError: If the container doesn't exist
         """
-        container = await self.get_container(container_id)
-        container.metadata.update(metadata)
-
         async with self._get_lock(container_id):
-            await self._containers.update_one({"metadata": container.metadata}, id=container_id)
+            container = await self.get_container(db, container_id)
+            container.meta.update(meta)
 
-    async def remove_metadata(self, container_id: str, metadata_keys: list[str]) -> None:
+            await db.execute(
+                update(ContainerModel).where(ContainerModel.id == container_id).values(meta=container.meta)
+            )
+
+    async def remove_meta(self, db: AsyncDbSession, container_id: str, meta_keys: list[str]) -> None:
         """
         Remove metadata from a container.
+
+        :param db: The database session
+        :param container_id: The ID of the container
+        :param meta_keys: List of metadata keys to remove
+        :raises EosContainerStateError: If the container doesn't exist
         """
-        container = await self.get_container(container_id)
-        for key in metadata_keys:
-            container.metadata.pop(key, None)
-
         async with self._get_lock(container_id):
-            await self._containers.update_one({"metadata": container.metadata}, id=container_id)
+            container = await self.get_container(db, container_id)
+            for key in meta_keys:
+                container.meta.pop(key, None)
 
-    async def update_container(self, container: Container) -> None:
+            await db.execute(
+                update(ContainerModel).where(ContainerModel.id == container_id).values(meta=container.meta)
+            )
+
+    async def update_container(self, db: AsyncDbSession, container: Container) -> None:
         """
         Update a container in the database.
+
+        :param db: The database session
+        :param container: The container to update
+        :raises EosContainerStateError: If the container doesn't exist
         """
-        await self._containers.update_one(container.model_dump(), id=container.id)
+        if not await self._check_container_exists(db, container.id):
+            raise EosContainerStateError(f"Container '{container.id}' does not exist.")
+
+        container_data = container.model_dump()
+        await db.execute(update(ContainerModel).where(ContainerModel.id == container.id).values(**container_data))
 
     async def update_containers(
-        self, loaded_labs: set[str] | None = None, unloaded_labs: set[str] | None = None
+        self, db: AsyncDbSession, loaded_labs: set[str] | None = None, unloaded_labs: set[str] | None = None
     ) -> None:
         """
         Update containers based on loaded and unloaded labs.
+
+        :param db: The database session
+        :param loaded_labs: Set of lab IDs that were loaded
+        :param unloaded_labs: Set of lab IDs that were unloaded
         """
         if unloaded_labs:
-            await asyncio.gather(*[self._remove_containers_for_lab(lab_id) for lab_id in unloaded_labs])
+            await self._remove_containers_for_labs(db, unloaded_labs)
 
         if loaded_labs:
-            await asyncio.gather(*[self._create_containers_for_lab(lab_id) for lab_id in loaded_labs])
+            await asyncio.gather(*[self._create_containers_for_lab(db, lab_id) for lab_id in loaded_labs])
 
         log.debug("Containers have been updated.")
 
-    async def _remove_containers_for_lab(self, lab_id: str) -> None:
-        """
-        Remove containers associated with an unloaded lab.
-        """
-        containers_to_remove = await self.get_containers(lab=lab_id)
-        await asyncio.gather(*[self._containers.delete_one(id=container.id) for container in containers_to_remove])
-        log.debug(f"Removed containers for lab '{lab_id}'")
+    async def _remove_containers_for_labs(self, db: AsyncDbSession, lab_ids: set[str]) -> None:
+        """Remove containers associated with unloaded labs."""
+        await db.execute(delete(ContainerModel).where(ContainerModel.lab.in_(lab_ids)))
+        log.debug(f"Removed containers for labs: {', '.join(lab_ids)}")
 
-    async def _create_containers_for_lab(self, lab_id: str) -> None:
-        """
-        Create containers for a loaded lab.
-        """
+    async def _create_containers_for_lab(self, db: AsyncDbSession, lab_id: str) -> None:
+        """Create containers for a loaded lab."""
         lab_config = self._configuration_manager.labs[lab_id]
+        containers_to_add = []
+
         for container_config in lab_config.containers:
             for container_id in container_config.ids:
-                container_exists = await self._containers.exists(id=container_id)
-                if not container_exists:
+                if not await self._check_container_exists(db, container_id):
                     container = Container(
                         id=container_id,
                         type=container_config.type,
                         lab=lab_id,
                         location=container_config.location,
-                        metadata=container_config.metadata,
+                        meta=container_config.meta,
                     )
-                    await self._containers.update_one(container.model_dump(), id=container_id)
+                    containers_to_add.append(ContainerModel(**container.model_dump()))
+
+        if containers_to_add:
+            db.add_all(containers_to_add)
+
         log.debug(f"Created containers for lab '{lab_id}'")
 
-    async def _create_containers(self) -> None:
-        """
-        Create containers from the lab configuration and add them to the database.
-        """
+    async def _create_containers(self, db: AsyncDbSession) -> None:
+        """Create containers from the lab configuration."""
+        containers_to_add = []
+
         for lab_name, lab_config in self._configuration_manager.labs.items():
             for container_config in lab_config.containers:
                 for container_id in container_config.ids:
@@ -149,9 +215,13 @@ class ContainerManager:
                         type=container_config.type,
                         lab=lab_name,
                         location=container_config.location,
-                        metadata=container_config.metadata,
+                        meta=container_config.meta,
                     )
-                    await self._containers.update_one(container.model_dump(), id=container_id)
+                    containers_to_add.append(ContainerModel(**container.model_dump()))
+
+        if containers_to_add:
+            db.add_all(containers_to_add)
+
         log.debug("Created containers")
 
     def _get_lock(self, container_id: str) -> AsyncRLock:

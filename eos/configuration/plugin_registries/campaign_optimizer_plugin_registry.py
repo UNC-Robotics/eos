@@ -50,6 +50,7 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
         return None
 
     def _load_single_plugin(self, package_name: str, dir_path: str, implementation_path: str) -> None:
+        log.info(f"Loading campaign optimizer for experiment '{Path(dir_path).name}' from package '{package_name}'.")
         module = self._import_optimizer_module(dir_path, implementation_path)
 
         experiment_type = Path(dir_path).name

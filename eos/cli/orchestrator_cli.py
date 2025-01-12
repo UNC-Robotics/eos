@@ -18,12 +18,12 @@ from litestar.logging import LoggingConfig
 from eos.configuration.entities.eos_config import EosConfig, WebApiConfig
 from eos.logging.logger import log, LogLevel
 from eos.orchestration.orchestrator import Orchestrator
-from eos.web_api.orchestrator.controllers.campaign_controller import CampaignController
-from eos.web_api.orchestrator.controllers.experiment_controller import ExperimentController
-from eos.web_api.orchestrator.controllers.file_controller import FileController
-from eos.web_api.orchestrator.controllers.lab_controller import LabController
-from eos.web_api.orchestrator.controllers.task_controller import TaskController
-from eos.web_api.orchestrator.exception_handling import global_exception_handler
+from eos.web_api.controllers.campaign_controller import CampaignController
+from eos.web_api.controllers.experiment_controller import ExperimentController
+from eos.web_api.controllers.file_controller import FileController
+from eos.web_api.controllers.lab_controller import LabController
+from eos.web_api.controllers.task_controller import TaskController
+from eos.web_api.exception_handling import global_exception_handler
 
 
 def load_config(config_file: str) -> EosConfig:
@@ -54,7 +54,7 @@ async def handle_shutdown(
     def signal_handler(*_) -> None:
         nonlocal shutdown_initiated
         if not shutdown_initiated:
-            log.warning("Shut down signal received.")
+            log.warning("Shut down signal.")
             shutdown_initiated = True
             raise GracefulExit()
 
@@ -66,7 +66,7 @@ async def handle_shutdown(
     except GracefulExit:
         pass
     finally:
-        log.info("Shutting down the internal web API server...")
+        log.info("Shutting down the web API...")
         web_api_server.should_exit = True
         await web_api_server.shutdown()
 
@@ -79,7 +79,10 @@ async def handle_shutdown(
 async def setup_orchestrator(config: EosConfig) -> Orchestrator:
     orchestrator = Orchestrator(str(config.user_dir), config.db, config.file_db)
     await orchestrator.initialize()
-    await orchestrator.loading.load_labs(config.labs)
+
+    async with orchestrator.db_interface.get_async_session() as db:
+        await orchestrator.loading.load_labs(db, config.labs)
+
     orchestrator.loading.load_experiments(config.experiments)
 
     return orchestrator
@@ -95,8 +98,9 @@ def setup_web_api(orchestrator: Orchestrator, config: WebApiConfig) -> uvicorn.S
     api_router = Router(
         path="/api",
         route_handlers=[TaskController, ExperimentController, CampaignController, LabController, FileController],
-        dependencies={"orchestrator": Provide(lambda: orchestrator)},
-        exception_handlers={Exception: global_exception_handler},
+        dependencies={
+            "orchestrator": Provide(lambda: orchestrator),
+        },
     )
 
     web_api_app = Litestar(
@@ -117,7 +121,9 @@ async def run_eos(config: EosConfig) -> None:
     log.info("EOS initialized.")
 
     async with handle_shutdown(orchestrator, web_api_server):
-        await asyncio.gather(orchestrator.spin(), web_api_server.serve())
+        await asyncio.gather(
+            orchestrator.spin(config.orchestrator_min_hz, config.orchestrator_max_hz), web_api_server.serve()
+        )
 
 
 def start_orchestrator(

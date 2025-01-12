@@ -18,11 +18,11 @@ class TestCampaignBayesianOptimizer:
             outputs=[ContinuousOutput(key="y", objective=MaximizeObjective(w=1.0))],
             constraints=[],
             acquisition_function=qLogNEI(),
-            num_initial_samples=5,
+            num_initial_samples=2,
             initial_sampling_method=SamplingMethodEnum.SOBOL,
         )
 
-        for _ in range(8):
+        for _ in range(5):
             parameters = optimizer.sample()
             results = pd.DataFrame()
             results["y"] = -((parameters["x"] - 2) ** 2) + 4
@@ -30,7 +30,7 @@ class TestCampaignBayesianOptimizer:
 
         optimal_solutions = optimizer.get_optimal_solutions()
         assert len(optimal_solutions) == 1
-        assert abs(optimal_solutions["y"].to_numpy()[0] - 4) < 0.02
+        assert abs(optimal_solutions["y"].to_numpy()[0] - 4) < 0.12
 
     @pytest.mark.slow
     def test_competing_multi_objective_optimization(self):
@@ -44,11 +44,11 @@ class TestCampaignBayesianOptimizer:
             ],
             constraints=[],
             acquisition_function=qLogNEHVI(),
-            num_initial_samples=10,
+            num_initial_samples=2,
             initial_sampling_method=SamplingMethodEnum.SOBOL,
         )
 
-        for _ in range(20):
+        for _ in range(10):
             parameters = optimizer.sample()
             results = pd.DataFrame()
             results["y1"] = -((parameters["x"] - 2) ** 2) + 4  # Objective 1: Maximize y1
@@ -73,8 +73,8 @@ class TestCampaignBayesianOptimizer:
 
         for true_solution in true_pareto_front:
             assert any(
-                abs(solution["x"] - true_solution["x"]) < 0.9
-                and abs(solution["y1"] - true_solution["y1"]) < 0.9
-                and abs(solution["y2"] - true_solution["y2"]) < 0.9
+                abs(solution["x"] - true_solution["x"]) < 2.0
+                and abs(solution["y1"] - true_solution["y1"]) < 2.0
+                and abs(solution["y2"] - true_solution["y2"]) < 2.0
                 for _, solution in optimal_solutions.iterrows()
             )

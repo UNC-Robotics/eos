@@ -4,7 +4,7 @@ desc: A small laboratory for testing
 locations:
   gc_1:
     desc: Gas Chromatography station 1
-    metadata:
+    meta:
       map_coordinates: { x: 100, y: 32, rotation: 0 }
       areas:
         injection_port:
@@ -12,7 +12,7 @@ locations:
 
   gc_2:
     desc: Gas Chromatography station 2
-    metadata:
+    meta:
       map_coordinates: { x: 110, y: 32, rotation: 0 }
       areas:
         injection_port:
@@ -20,7 +20,7 @@ locations:
 
   wafer_station:
     desc: Wafer processing station
-    metadata:
+    meta:
       map_coordinates: { x: 120, y: 32, rotation: 0 }
       areas:
         wafer_stack:
@@ -30,22 +30,22 @@ locations:
 
   mixing_station:
     desc: Station equipped with magnetic mixers for substance blending
-    metadata:
+    meta:
       map_coordinates: { x: 140, y: 32, rotation: 0 }
 
   substance_shelf:
     desc: Storage shelf for chemical substances
-    metadata:
+    meta:
       map_coordinates: { x: 50, y: 10, rotation: 0 }
 
   substance_fridge:
     desc: Refrigerated storage for temperature-sensitive substances
-    metadata:
+    meta:
       map_coordinates: { x: 60, y: 10, rotation: 0 }
 
   fetch_charging_station:
     desc: Charging station for the Fetch mobile manipulation robot
-    metadata:
+    meta:
       map_coordinates: { x: 10, y: 10, rotation: 0 }
 
 devices:
@@ -82,7 +82,7 @@ devices:
 containers:
   - type: beaker_250
     location: substance_shelf
-    metadata:
+    meta:
       capacity: 250
     ids:
       - ec1ca48cd5d14c0c8cde376476e0d98d
@@ -90,7 +90,7 @@ containers:
       - 8f55ee53aaf4429392993295476b03bc
       - d29185534fee42749a9f13932dfcb7f2
   - type: beaker_350
-    metadata:
+    meta:
       capacity: 350
     location: substance_shelf
     ids:
@@ -99,7 +99,7 @@ containers:
       - ab0b94897b1e439e90446994c88f1208
   - type: beaker_500
     location: substance_shelf
-    metadata:
+    meta:
       capacity: 500
     ids:
       - 026749f8f40342b38157f9824ae2f512
@@ -108,7 +108,7 @@ containers:
       - 2fe219d41d55449781338ef45f7f49bc
   - type: vial_20
     location: substance_shelf
-    metadata:
+    meta:
       capacity: 20
     ids:
       - 84eb17d61e884ffd9d1fdebcbad1532b
@@ -125,7 +125,7 @@ containers:
       - efb5ccbaf9b4465c90b1654fac690821
   - type: flask_250
     location: substance_shelf
-    metadata:
+    meta:
       capacity: 250
     ids:
       - dd4703461198463e980de42a6034f8de
