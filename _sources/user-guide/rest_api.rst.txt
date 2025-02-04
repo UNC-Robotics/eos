@@ -24,12 +24,6 @@ Example functions include:
 
 Documentation
 -------------
-To view the REST API documentation, start the EOS REST API:
-
-.. code-block:: bash
-
-    eos api
-
 The REST API is documented using `OpenAPI <https://swagger.io/specification/>`_ and can be accessed at:
 
 .. code-block:: bash

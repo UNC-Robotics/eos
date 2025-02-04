@@ -24,6 +24,10 @@ EOS provides:
 * Device and sample container allocation system to prevent conflicts
 * Result aggregation such as automatic output file storage
 
+.. figure:: _static/img/eos-features.png
+   :alt: Major features of EOS
+   :align: center
+
 .. toctree::
    :caption: User Guide
    :maxdepth: 2
