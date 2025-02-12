@@ -30,7 +30,7 @@
   <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=6141b7d8" />
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=1027fec7"></script>
+    <script src="../_static/documentation_options.js?v=3096642c"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -579,16 +579,16 @@ instructing the system that these parameters must be specified either by the use
 <p>Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.</p>
 <p>As an example, below is the optimizer file for the color mixing experiment:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
-<span class="kn">from</span> <span class="nn">bofire.data_models.enum</span> <span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
-<span class="kn">from</span> <span class="nn">bofire.data_models.features.continuous</span> <span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
-<span class="kn">from</span> <span class="nn">bofire.data_models.objectives.identity</span> <span class="kn">import</span> <span class="n">MinimizeObjective</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qNEI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.features.continuous</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.objectives.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinimizeObjective</span>
 
-<span class="kn">from</span> <span class="nn">eos.optimization.sequential_bayesian_optimizer</span> <span class="kn">import</span> <span class="n">BayesianSequentialOptimizer</span>
-<span class="kn">from</span> <span class="nn">eos.optimization.abstract_sequential_optimizer</span> <span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.sequential_bayesian_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesianSequentialOptimizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.abstract_sequential_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
 
 
-<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
     <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;dispense_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span>

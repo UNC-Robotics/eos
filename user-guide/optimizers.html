@@ -30,7 +30,7 @@
   <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
-    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=6141b7d8" />
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=1027fec7"></script>
+    <script src="../_static/documentation_options.js?v=3096642c"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -362,16 +362,16 @@ This can enable running the optimizer on a more capable computer than the one ru
 <p>EOS optimizers are defined in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> in an EOS package.
 Below is an example:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span> <span class="kn">import</span> <span class="n">qNEI</span>
-<span class="kn">from</span> <span class="nn">bofire.data_models.enum</span> <span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
-<span class="kn">from</span> <span class="nn">bofire.data_models.features.continuous</span> <span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
-<span class="kn">from</span> <span class="nn">bofire.data_models.objectives.identity</span> <span class="kn">import</span> <span class="n">MinimizeObjective</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qNEI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.features.continuous</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.objectives.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinimizeObjective</span>
 
-<span class="kn">from</span> <span class="nn">eos.optimization.sequential_bayesian_optimizer</span> <span class="kn">import</span> <span class="n">BayesianSequentialOptimizer</span>
-<span class="kn">from</span> <span class="nn">eos.optimization.abstract_sequential_optimizer</span> <span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.sequential_bayesian_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesianSequentialOptimizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.abstract_sequential_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
 
 
-<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
     <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;dispense_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span>
@@ -419,50 +419,50 @@ where needed.</p>
 <h2>Example Custom Optimizer<a class="headerlink" href="#example-custom-optimizer" title="Link to this heading">#</a></h2>
 <p>Below is an example of a custom optimizer implementation that randomly samples parameters for the same color mixing problem:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
-<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
-<span class="kn">from</span> <span class="nn">eos.optimization.abstract_sequential_optimizer</span> <span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.abstract_sequential_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
 
 
-<span class="k">class</span> <span class="nc">ObjectiveType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ObjectiveType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
     <span class="n">MINIMIZE</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">MAXIMIZE</span> <span class="o">=</span> <span class="mi">2</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Parameter</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Parameter</span><span class="p">:</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lower_bound</span><span class="p">:</span> <span class="nb">float</span>
     <span class="n">upper_bound</span><span class="p">:</span> <span class="nb">float</span>
 
 
 <span class="nd">@dataclass</span>
-<span class="k">class</span> <span class="nc">Metric</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Metric</span><span class="p">:</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">objective</span><span class="p">:</span> <span class="n">ObjectiveType</span>
 
 
-<span class="k">class</span> <span class="nc">RandomSamplingOptimizer</span><span class="p">(</span><span class="n">AbstractSequentialOptimizer</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span> <span class="n">metrics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Metric</span><span class="p">]):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RandomSamplingOptimizer</span><span class="p">(</span><span class="n">AbstractSequentialOptimizer</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span> <span class="n">metrics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Metric</span><span class="p">]):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="o">=</span> <span class="n">metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_experiments</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_experiments</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
         <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experiments</span><span class="p">):</span>
             <span class="n">sample</span> <span class="o">=</span> <span class="p">{</span><span class="n">param</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">param</span><span class="o">.</span><span class="n">lower_bound</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">upper_bound</span><span class="p">)</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">}</span>
             <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">outputs_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">outputs_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">inputs_df</span><span class="p">,</span> <span class="n">outputs_df</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
 
-    <span class="k">def</span> <span class="nf">get_optimal_solutions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_optimal_solutions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
                 <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
@@ -480,13 +480,13 @@ where needed.</p>
 
         <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">optimal_solutions</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_input_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_input_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">get_output_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_output_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
 
-<span class="k">def</span> <span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
     <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="p">[</span>
             <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;dispense_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span>

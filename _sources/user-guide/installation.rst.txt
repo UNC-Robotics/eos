@@ -14,11 +14,11 @@ We recommend a central computer that is easily accessible.
 EOS also requires a PostgreSQL database and a MinIO object storage server.
 We provide a Docker Compose file that can set up all of these services for you.
 
-1. Install PDM
+1. Install uv
 ^^^^^^^^^^^^^^
-PDM is used as the project manager for EOS, making it easier to install dependencies and build it.
+uv is used as the dependency manager for EOS. It installs dependencies extremely fast.
 
-See the `PDM documentation <https://pdm-project.org/en/latest/>`_ for more information or if you encounter any issues.
+See the `uv documentation <https://docs.astral.sh/uv/>`_ for more information or if you encounter any issues.
 
 .. tab-set::
 
@@ -26,13 +26,13 @@ See the `PDM documentation <https://pdm-project.org/en/latest/>`_ for more infor
 
         .. code-block:: shell
 
-            curl -sSL https://pdm-project.org/install-pdm.py | python3 -
+            curl -LsSf https://astral.sh/uv/install.sh | sh
 
     .. tab-item:: Windows
 
         .. code-block:: shell
 
-            (Invoke-WebRequest -Uri https://pdm-project.org/install-pdm.py -UseBasicParsing).Content | py -
+            powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 2. Clone the EOS Repository
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -42,16 +42,13 @@ See the `PDM documentation <https://pdm-project.org/en/latest/>`_ for more infor
 
 3. Make a Virtual Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-We create a virtual environment to isolate the dependencies of EOS from the rest of the system. The virtual environment
-is created in a ``env`` directory inside the EOS repository directory. Feel free to use PDM to manage the virtual
-environment instead. Other sections of the documentation will assume that you are using a virtual environment located
-inside the EOS repository directory.
+We create a virtual environment to isolate the dependencies of EOS from the rest of the system.
 
 .. code-block:: shell
 
     cd eos # Navigate to the cloned repository
-    python3 -m venv env
-    source env/bin/activate
+    uv venv
+    source .venv/bin/activate
 
 4. Install Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -59,4 +56,4 @@ Navigate to the cloned repository and run:
 
 .. code-block:: shell
 
-    pdm install
+    uv sync
