@@ -13,9 +13,9 @@ Copy the example environment file:
 
 .. code-block:: shell
 
-    cp docker/.env.example docker/.env
+    cp .env.example .env
 
-Edit the environment file `docker/.env` and provide values for all fields.
+Edit the environment file `.env` and provide values for all fields.
 
 2. Configure EOS
 ^^^^^^^^^^^^^^^^
