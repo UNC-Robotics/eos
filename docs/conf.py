@@ -10,7 +10,7 @@
 project = "eos"
 copyright = "2025, UNC Robotics"
 author = "Angelos Angelopoulos"
-release = "0.7.1"
+release = "0.7.2"
 
 extensions = [
     "sphinx.ext.autodoc",

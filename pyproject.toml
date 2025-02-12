@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.7.1"
+version = "0.7.2"
 description = "The Experiment Orchestration System (EOS) is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -22,25 +22,25 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "ray[default]~=2.42.0",
-    "typer~=0.15.1",
-    "rich~=13.9.4",
-    "jinja2~=3.1.5",
-    "PyYAML~=6.0.2",
-    "networkx~=3.4.2",
-    "sqlalchemy~=2.0.38",
-    "alembic~=1.14.1",
-    "psycopg[binary]~=3.2.3",
-    "asyncpg~=0.30.0",
-    "pydantic~=2.10.6",
-    "bofire[optimization]~=0.0.16",
-    "pandas~=2.2.3",
-    "numpy~=1.26.2",
-    "litestar[standard]~=2.14.0",
-    "minio~=7.2.15",
+    "ray[default]==2.42.0",
+    "typer==0.15.1",
+    "rich==13.9.4",
+    "jinja2==3.1.5",
+    "PyYAML==6.0.2",
+    "networkx==3.4.2",
+    "sqlalchemy==2.0.38",
+    "alembic==1.14.1",
+    "psycopg[binary]==3.2.3",
+    "asyncpg==0.30.0",
+    "pydantic==2.10.6",
+    "bofire[optimization]==0.0.16",
+    "pandas==2.2.3",
+    "numpy==1.26.2",
+    "litestar[standard]==2.14.0",
+    "minio==7.2.15",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "aiosqlite",
     "ruff",
@@ -58,25 +58,26 @@ docs = [
     "pydata-sphinx-theme",
 ]
 
+[tool.uv]
+default-groups = ["dev", "docs"]
+
 [build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pdm.build]
-includes = ["eos"]
-
-[tool.pdm.scripts]
-test = "pytest"
-test-with-cov = "pytest --cov=eos"
-cov-report = "coverage html"
-lint = "ruff check eos tests"
-format = "black ."
-docs-build = "sphinx-build docs docs/_build"
-docs-build-gh = { shell = "sphinx-build docs docs/_build && touch docs/_build/.nojekyll" }
-docs-serve = "sphinx-autobuild docs docs/_build/ -j auto --watch eos --watch docs --port 8002"
+[tool.hatch.build.targets.wheel]
+packages = ["eos"]
 
 [project.scripts]
 eos = "eos.eos:eos_app"
+
+test = "scripts.test:main"
+test-with-cov = "scripts.test_with_cov:main"
+lint = "scripts.lint:main"
+format = "scripts.format:main"
+docs-build = "scripts.docs_build:main"
+docs-build-gh = "scripts.docs_build_gh:main"
+docs-serve = "scripts.docs_serve:main"
 
 [tool.black]
 line-length = 120
