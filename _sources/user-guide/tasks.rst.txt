@@ -225,7 +225,7 @@ Dictionary
 
 Dictionaries are key-value pairs. The values can be any type.
 
-Python File (task.yml)
+Python File (task.py)
 ~~~~~~~~~~~~~~~~~~~~~~
 * Implements the task
 * All task implementations must inherit from ``BaseTask``

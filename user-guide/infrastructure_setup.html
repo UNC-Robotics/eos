@@ -2,19 +2,19 @@
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="../" data-theme="light">
+<html lang="en" data-content_root="../" data-theme="auto">
 
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Infrastructure Setup &#8212; EOS - The Experiment Orchestration System</title>
+    <title>Infrastructure Setup &#8212; EOS - Experiment Orchestration System</title>
   
   
   
   <script data-cfasync="false">
-    document.documentElement.dataset.mode = localStorage.getItem("mode") || "light";
-    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "auto";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "auto";
   </script>
   <!--
     this give us a css class that will be invisible only if js is disabled
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3096642c"></script>
+    <script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -50,15 +50,15 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/infrastructure_setup';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Packages" href="packages.html" />
-    <link rel="prev" title="Running" href="running.html" />
+    <link rel="next" title="Multi-Computer Lab Setup" href="multi_computer_setup.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
   </head>
   
   
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="light">
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="auto">
 
   
   
@@ -117,12 +117,14 @@
   
     
     
+      
+    
     
     <img src="../_static/eos-logo.png" class="logo__image only-light" alt=""/>
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">The Experiment Orchestration System</p>
+    <p class="title logo__title">Experiment Orchestration System</p>
   
 </a></div>
     
@@ -184,6 +186,10 @@
     </div>
   
 
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
   
 </div>
 
@@ -247,9 +253,8 @@
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Infrastructure Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
 <ul class="nav bd-sidenav">
@@ -260,6 +265,7 @@
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
 <ul class="nav bd-sidenav">
@@ -334,25 +340,21 @@
                   
   <section id="infrastructure-setup">
 <h1>Infrastructure Setup<a class="headerlink" href="#infrastructure-setup" title="Link to this heading">#</a></h1>
-<p>It is critical to setup the computational and network infrastructure appropriately to ensure that EOS can access required
-laboratory devices and computers as well as to ensure security.</p>
-<p>EOS requires access to other laboratory computers that are needed to interface with laboratory apparatuses.
-EOS knows what these computers are from a <a class="reference internal" href="laboratories.html"><span class="doc">laboratory YAML file</span></a>.</p>
-<p>The following are important points for setting up the computational and network infrastructure for EOS:</p>
+<p>EOS requires setting up a network infrastructure to securely access laboratory devices and computers, which are defined
+in a <a class="reference internal" href="laboratories.html"><span class="doc">laboratory YAML file</span></a>.</p>
+<section id="key-requirements">
+<h2>Key Requirements<a class="headerlink" href="#key-requirements" title="Link to this heading">#</a></h2>
 <ol class="arabic simple">
-<li><p>EOS should be set up in an isolated or secured (appropriately firewalled) LAN to prevent unauthorized access.</p></li>
-<li><p>All laboratory computers that EOS will control should be in the same LAN.</p></li>
-<li><p>All laboratory computers should have a static IP address so that EOS can identify them.</p></li>
-<li><p>EOS must have full bi-directional network access to the laboratory computers.
-All ports should be accessible.
-This will likely require firewall reconfiguration.</p></li>
-<li><p>Power management settings may need to be altered to prevent computers from hibernating if automation will be running
-for a long time.</p></li>
+<li><p>Use an isolated or properly firewalled LAN to prevent unauthorized access</p></li>
+<li><p>Place all controlled laboratory computers in the same LAN and assign them static IP addresses</p></li>
+<li><p>Configure firewalls to allow bi-directional network access on all ports between EOS and laboratory computers</p></li>
+<li><p>Adjust power management settings to prevent computer hibernation during long automation runs</p></li>
 </ol>
 <figure class="align-center">
 <a class="reference internal image-reference" href="../_images/lab-lan.png"><img alt="Example LAN setup for EOS" src="../_images/lab-lan.png" style="width: 550.5px; height: 408.0px;" />
 </a>
 </figure>
+</section>
 </section>
 
 
@@ -366,20 +368,20 @@ for a long time.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="running.html"
+       href="installation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Running</p>
+        <p class="prev-next-title">Installation</p>
       </div>
     </a>
     <a class="right-next"
-       href="packages.html"
+       href="multi_computer_setup.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Packages</p>
+        <p class="prev-next-title">Multi-Computer Lab Setup</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -389,6 +391,24 @@ for a long time.</p></li>
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#key-requirements">Key Requirements</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>

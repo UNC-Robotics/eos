@@ -129,7 +129,7 @@ We specify the values for the Jinja2 variables of the template experiment:
     {% set color_mixer = 'color_mixer_1' %}
     {% set color_analyzer = 'color_analyzer_1' %}
     {% set target_color = '[53, 29, 64]' %}
-    {% include 'color_lab/common/color_mixing_experiment.yml' %}
+    {% include 'color_lab/eos_examples/common/template_experiment.yml' %}
 
 In EOS, the Jinja2 context is the `user` directory (or the directory containing packages).
 This means YAML files from different EOS packages can be included.

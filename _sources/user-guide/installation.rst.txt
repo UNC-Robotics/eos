@@ -1,24 +1,20 @@
 Installation
 ============
 
-EOS should be installed on a capable computer in the laboratory.
-We recommend a central computer that is easily accessible.
+EOS should be installed on a central laboratory computer that is easily accessible.
 
 .. note::
-    If EOS will be connecting to other computers to run automation, then you must ensure that the computer where EOS
-    is installed has bi-directional network access to the other computers.
+    EOS requires bi-directional network access to any computers used for automation.
 
-    We strongly recommend that the laboratory has its own isolated network for security and performance reasons.
-    See :doc:`infrastructure setup <infrastructure_setup>` for more information.
+    Using an isolated laboratory network for security and performance is strongly recommended.
+    See :doc:`infrastructure setup <infrastructure_setup>` for details.
 
-EOS also requires a PostgreSQL database and a MinIO object storage server.
-We provide a Docker Compose file that can set up all of these services for you.
+EOS requires PostgreSQL and MinIO for data and file storage. We provide a Docker Compose file to set up these services.
 
 1. Install uv
-^^^^^^^^^^^^^^
-uv is used as the dependency manager for EOS. It installs dependencies extremely fast.
+^^^^^^^^^^^^^
 
-See the `uv documentation <https://docs.astral.sh/uv/>`_ for more information or if you encounter any issues.
+uv manages dependencies for EOS.
 
 .. tab-set::
 
@@ -34,26 +30,49 @@ See the `uv documentation <https://docs.astral.sh/uv/>`_ for more information or
 
             powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-2. Clone the EOS Repository
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2. Install EOS
+^^^^^^^^^^^^^^
+
 .. code-block:: shell
 
+    # Clone repository
     git clone https://github.com/UNC-Robotics/eos
+    cd eos
 
-3. Make a Virtual Environment
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-We create a virtual environment to isolate the dependencies of EOS from the rest of the system.
-
-.. code-block:: shell
-
-    cd eos # Navigate to the cloned repository
+    # Create and activate virtual environment
     uv venv
     source .venv/bin/activate
 
-4. Install Dependencies
-^^^^^^^^^^^^^^^^^^^^^^^
-Navigate to the cloned repository and run:
+    # Install dependencies
+    uv sync
+
+3. Configure EOS
+^^^^^^^^^^^^^^^^
 
 .. code-block:: shell
 
-    uv sync
+    # Set environment variables
+    cp .env.example .env
+    # Edit .env file and provide values
+
+    # Configure EOS
+    cp config.example.yml config.yml
+    # Edit config.yml and provide values
+
+4. Launch External Services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    # Start external services (PostgreSQL and MinIO)
+    docker compose up -d
+
+5. Start EOS
+^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    eos start
+
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
+package. You can modify this in the configuration file.

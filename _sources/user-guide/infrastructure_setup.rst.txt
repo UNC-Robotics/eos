@@ -1,21 +1,16 @@
 Infrastructure Setup
 ====================
-It is critical to setup the computational and network infrastructure appropriately to ensure that EOS can access required
-laboratory devices and computers as well as to ensure security.
 
-EOS requires access to other laboratory computers that are needed to interface with laboratory apparatuses.
-EOS knows what these computers are from a :doc:`laboratory YAML file <laboratories>`.
+EOS requires setting up a network infrastructure to securely access laboratory devices and computers, which are defined
+in a :doc:`laboratory YAML file <laboratories>`.
 
-The following are important points for setting up the computational and network infrastructure for EOS:
+Key Requirements
+----------------
 
-#. EOS should be set up in an isolated or secured (appropriately firewalled) LAN to prevent unauthorized access.
-#. All laboratory computers that EOS will control should be in the same LAN.
-#. All laboratory computers should have a static IP address so that EOS can identify them.
-#. EOS must have full bi-directional network access to the laboratory computers.
-   All ports should be accessible.
-   This will likely require firewall reconfiguration.
-#. Power management settings may need to be altered to prevent computers from hibernating if automation will be running
-   for a long time.
+#. Use an isolated or properly firewalled LAN to prevent unauthorized access
+#. Place all controlled laboratory computers in the same LAN and assign them static IP addresses
+#. Configure firewalls to allow bi-directional network access on all ports between EOS and laboratory computers
+#. Adjust power management settings to prevent computer hibernation during long automation runs
 
 .. figure:: ../_static/img/lab-lan.png
    :alt: Example LAN setup for EOS

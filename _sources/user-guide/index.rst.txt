@@ -5,9 +5,8 @@ User Guide
    :caption: Getting Started
 
    installation
-   configuration
-   running
    infrastructure_setup
+   multi_computer_setup
 
 .. toctree::
     :caption: Concepts
@@ -19,6 +18,7 @@ User Guide
     experiments
     campaigns
     optimizers
+    scheduling
 
 .. toctree::
     :caption: Interfaces

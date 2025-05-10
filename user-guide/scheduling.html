@@ -2,19 +2,19 @@
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="../" data-theme="light">
+<html lang="en" data-content_root="../" data-theme="auto">
 
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Configuration &#8212; EOS - The Experiment Orchestration System</title>
+    <title>Scheduling &#8212; EOS - Experiment Orchestration System</title>
   
   
   
   <script data-cfasync="false">
-    document.documentElement.dataset.mode = localStorage.getItem("mode") || "light";
-    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "auto";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "auto";
   </script>
   <!--
     this give us a css class that will be invisible only if js is disabled
@@ -41,24 +41,24 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=3096642c"></script>
+    <script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/configuration';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/scheduling';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Running" href="running.html" />
-    <link rel="prev" title="Installation" href="installation.html" />
+    <link rel="next" title="REST API" href="rest_api.html" />
+    <link rel="prev" title="Optimizers" href="optimizers.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
   </head>
   
   
-  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="light">
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="auto">
 
   
   
@@ -117,12 +117,14 @@
   
     
     
+      
+    
     
     <img src="../_static/eos-logo.png" class="logo__image only-light" alt=""/>
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">The Experiment Orchestration System</p>
+    <p class="title logo__title">Experiment Orchestration System</p>
   
 </a></div>
     
@@ -249,14 +251,13 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="current nav bd-sidenav">
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="running.html">Running</a></li>
 <li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="devices.html">Devices</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
@@ -264,6 +265,7 @@
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
 <ul class="nav bd-sidenav">
@@ -319,7 +321,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Configuration</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Scheduling</span></li>
   </ul>
 </nav>
 </div>
@@ -336,30 +338,57 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="configuration">
-<h1>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h1>
-<p>EOS uses PostgreSQL for data storage, and MinIO for file storage. EOS must be configured to connect to these external
-services.</p>
-<section id="configure-external-services">
-<h2>1. Configure External Services<a class="headerlink" href="#configure-external-services" title="Link to this heading">#</a></h2>
-<p>We provide a Docker Compose file that can run the external services. You do not need to install external services
-manually, just provide configuration values and Docker Compose will take care of the rest.</p>
-<p>Copy the example environment file:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+  <section id="scheduling">
+<h1>Scheduling<a class="headerlink" href="#scheduling" title="Link to this heading">#</a></h1>
+<p>When executing experiments, EOS uses scheduling to determine the execution order of tasks. EOS offers two types of
+scheduling policies:</p>
+<ol class="arabic simple">
+<li><p><strong>Greedy</strong>: tasks are scheduled for execution as soon as their requirements (e.g., precedence and device
+constraints) are met.</p></li>
+<li><p><strong>CP-SAT</strong>: tasks are scheduled based on not only when their requirements are satisfied but also in a way that
+minimizes the total duration of all submitted experiments. To make this happen, the scheduler needs to know how
+long each task is expected to take.</p></li>
+</ol>
+<section id="choosing-a-scheduler">
+<h2>Choosing a scheduler<a class="headerlink" href="#choosing-a-scheduler" title="Link to this heading">#</a></h2>
+<p>The desired scheduler can be chosen by modifying the EOS <code class="docutils literal notranslate"><span class="pre">config.yml</span></code> file:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">config.yml</span></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># ...</span>
+
+<span class="nt">scheduler</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">greedy</span><span class="w"> </span><span class="c1"># or cpsat</span>
 </pre></div>
 </div>
-<p>Edit the environment file <cite>.env</cite> and provide values for all fields.</p>
+<p>The greedy scheduler is lightweight and is the recommended scheduler for simpler experiments where task durations
+do not have a lot of variance.</p>
+<p>The CP-SAT scheduler should be used for more complex experiments, such as experiments with parallel branches, where
+ordering tasks by taking into account their durations can make a big difference in the total duration of the experiment.
+CP-SAT is a state-of-the-art constraint programming solver, and thus may require significant computational resources to run,
+especially for complex experiment task graphs. CP-SAT greatly benefits from multiprocessing, so the more cores on the
+EOS computer, the better.</p>
 </section>
-<section id="configure-eos">
-<h2>2. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
-<p>EOS reads parameters from a YAML configuration file.</p>
-<p>Copy the example configuration file:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
+<section id="task-durations">
+<h2>Task durations<a class="headerlink" href="#task-durations" title="Link to this heading">#</a></h2>
+<p>When using the CP-SAT scheduler, every task in an <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> file must be assigned an expected duration in seconds.
+For compatibility reasons, every task has a default duration of 10 seconds, unless specified otherwise. See below:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># ...</span>
+
+<span class="nt">tasks</span><span class="p">:</span>
+<span class="w">    </span><span class="c1"># ...</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">type</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">desc</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Determine the RGB value of a solution in a container</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">duration</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">        </span><span class="l l-Scalar l-Scalar-Plain">devices</span><span class="p p-Indicator">:</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">lab_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
+<span class="w">            </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
+<span class="w">      </span><span class="w w-Error">  </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer.beaker</span>
+<span class="w">        </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">move_container_to_analyzer</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="c1"># ...</span>
 </pre></div>
 </div>
-<p>Edit <cite>config.yml</cite>. Ensure that credentials are provided for PostgreSQL and MinIO.</p>
-<p>By default, EOS loads the “multiplication_lab” laboratory and the “optimize_multiplication” experiment from an example
-EOS package. Feel free to change this.</p>
 </section>
 </section>
 
@@ -374,20 +403,20 @@ EOS package. Feel free to change this.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="installation.html"
+       href="optimizers.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Optimizers</p>
       </div>
     </a>
     <a class="right-next"
-       href="running.html"
+       href="rest_api.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Running</p>
+        <p class="prev-next-title">REST API</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -410,8 +439,8 @@ EOS package. Feel free to change this.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-external-services">1. Configure External Services</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">2. Configure EOS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-a-scheduler">Choosing a scheduler</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-durations">Task durations</a></li>
 </ul>
   </nav></div>
 

@@ -153,10 +153,10 @@ Below is an example of a custom optimizer implementation that randomly samples p
 
             return pd.DataFrame(optimal_solutions)
 
-        def get_input_names(self) -> List[str]:
+        def get_input_names(self) -> list[str]:
             return [param.name for param in self.parameters]
 
-        def get_output_names(self) -> List[str]:
+        def get_output_names(self) -> list[str]:
             return [metric.name for metric in self.metrics]
 
     def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
