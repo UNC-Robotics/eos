@@ -7,16 +7,8 @@ from eos.database.abstract_sql_db_interface import Base, AbstractSqlDbInterface
 from eos.utils.di.di_container import get_di_container
 from eos.logging.logger import log
 
-# Import all SQLAlchemy models that need to be tracked for migrations
 # ruff: noqa: F401
-from eos.campaigns.entities.campaign import CampaignModel, CampaignSampleModel
-from eos.experiments.entities.experiment import ExperimentModel
-from eos.tasks.entities.task import TaskModel
-from eos.containers.entities.container import ContainerModel
-from eos.devices.entities.device import DeviceModel
-from eos.resource_allocation.entities.resource_allocation import ResourceAllocationModel
-from eos.resource_allocation.entities.resource_request import ResourceAllocationRequestModel
-from eos.resource_allocation.entities.device_allocation import DeviceAllocationModel
+import eos.database.models
 
 
 def get_db_url() -> str:
@@ -54,6 +46,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=Base.metadata,
             info={"logger": log},
+            compare_type=True,
         )
 
         with context.begin_transaction():

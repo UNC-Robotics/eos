@@ -51,7 +51,7 @@ class TestTaskInputParameterValidator:
         return TaskInputParameterValidator(task_config, task_spec)
 
     def test_valid_input_parameters(self, validator):
-        validator.validate()  # Should not raise any exceptions
+        validator.validate()
 
     @pytest.mark.parametrize(
         ("param_name", "invalid_value"),
@@ -85,7 +85,7 @@ class TestTaskInputParameterValidator:
             (TaskParameterType.INT, [0, 50, 100, "50"], [-1, 101, "fifty"]),
             (TaskParameterType.FLOAT, [0.0, 0.5, 1.0, "0.5"], [-0.1, 1.1, "half"]),
             (TaskParameterType.BOOL, [True, False, "true", "false"], ["yes", "no", 2]),
-            (TaskParameterType.STR, ["test", "123", ""], []),
+            (TaskParameterType.STR, ["test", "123", "#jd02$"], [""]),
             (TaskParameterType.LIST, [[1, 2, 3], [1, 2, 62]], [[1, 2], [1, 2, 3, 4], "not_a_list"]),
             (TaskParameterType.DICT, [{"key": "value"}, {}], ["not_a_dict", [1, 2, 3]]),
             (TaskParameterType.CHOICE, ["A", "B", "C"], ["D", 1, True]),
@@ -96,6 +96,7 @@ class TestTaskInputParameterValidator:
     ):
         param_name = f"{param_type.value}_param"
         task_spec.input_parameters[param_name].type = param_type.value
+
         if param_type == TaskParameterType.CHOICE:
             task_spec.input_parameters[param_name].choices = ["A", "B", "C"]
         elif param_type == TaskParameterType.LIST:
@@ -104,7 +105,7 @@ class TestTaskInputParameterValidator:
 
         for valid_value in valid_values:
             task_config.parameters[param_name] = valid_value
-            validator.validate()  # Should not raise any exceptions
+            validator.validate()
 
         for invalid_value in invalid_values:
             task_config.parameters[param_name] = invalid_value

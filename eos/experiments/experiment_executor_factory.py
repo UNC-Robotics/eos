@@ -7,7 +7,7 @@ from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class ExperimentExecutorFactory:
@@ -15,7 +15,7 @@ class ExperimentExecutorFactory:
     Factory class to create ExperimentExecutor instances.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,

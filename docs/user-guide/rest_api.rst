@@ -3,15 +3,14 @@ REST API
 EOS has a REST API to control the orchestrator.
 Example functions include:
 
-* Submit tasks, experiments, and campaigns
-* Cancel tasks, experiments, and campaigns
+* Submit tasks, experiments, and campaigns, as well as cancel them
 * Load, unload, and reload experiments and laboratories
 * Get the status of tasks, experiments, and campaigns
 * Download task output files
 
 .. warning::
 
-    Be very careful to who accesses REST API.
+    Be careful about who accesses the REST API.
     The REST API currently has no authentication.
 
     Only use it internally in its current state.
@@ -28,6 +27,6 @@ The REST API is documented using `OpenAPI <https://swagger.io/specification/>`_ 
 
 .. code-block:: bash
 
-    http://localhost:8000/docs
+    http://localhost:8070/docs
 
 or whatever host and port you have configured for the REST API server.

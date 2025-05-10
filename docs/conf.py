@@ -6,11 +6,12 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import importlib.metadata
 
 project = "eos"
 copyright = "2025, UNC Robotics"
 author = "Angelos Angelopoulos"
-release = "0.7.2"
+release = importlib.metadata.version("eos")
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -28,7 +29,7 @@ templates_path = ["_templates"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "pydata_sphinx_theme"
-html_title = "EOS - The Experiment Orchestration System"
+html_title = "EOS - Experiment Orchestration System"
 html_static_path = ["_static"]
 html_css_files = [
     "custom.css",
@@ -38,13 +39,15 @@ html_show_sourcelink = False
 
 html_theme_options = {
     "logo": {
-        "text": "The Experiment Orchestration System",
+        "text": "Experiment Orchestration System",
         "image_light": "_static/img/eos-logo.png",
         "image_dark": "_static/img/eos-logo.png",
     },
     "navigation_with_keys": True,
     "navbar_align": "left",
     "show_toc_level": 1,
+    "pygments_light_style": "default",
+    "pygments_dark_style": "github-dark",
 }
 
-html_context = {"default_mode": "light"}
+html_context = {"default_mode": "auto"}

@@ -1,76 +1,70 @@
 import io
 import zipfile
-from collections.abc import AsyncIterable
 from pathlib import Path
+from collections.abc import AsyncIterable
 
-from litestar import Controller, get
-from litestar.exceptions import HTTPException
+from litestar import get, Controller
 from litestar.response import Stream
 
 from eos.orchestration.orchestrator import Orchestrator
-from eos.web_api.exception_handling import handle_exceptions
+from eos.web_api.exception_handling import APIError
 
-_CHUNK_SIZE = 3 * 1024 * 1024  # 3MB
+# Constants
+CHUNK_SIZE = 3 * 1024 * 1024  # 3MB
 
 
 class FileController(Controller):
+    """Controller for file-related endpoints."""
+
     path = "/files"
 
     @get("/download/{experiment_id:str}/{task_id:str}/{file_name:str}")
-    @handle_exceptions("Failed to download file")
-    async def download_task_output_file(
+    async def download_file(
         self, experiment_id: str, task_id: str, file_name: str, orchestrator: Orchestrator
     ) -> Stream:
-        async def file_stream() -> AsyncIterable:
-            try:
-                async for chunk in orchestrator.results.download_task_output_file(
-                    experiment_id, task_id, file_name, chunk_size=_CHUNK_SIZE
-                ):
-                    yield chunk
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e)) from e
+        """Download a specific task output file."""
+
+        async def file_stream() -> AsyncIterable[bytes]:
+            async for chunk in orchestrator.results.download_task_output_file(
+                experiment_id, task_id, file_name, chunk_size=CHUNK_SIZE
+            ):
+                yield chunk
 
         return Stream(file_stream(), headers={"Content-Disposition": f"attachment; filename={file_name}"})
 
     @get("/download/{experiment_id:str}/{task_id:str}")
-    @handle_exceptions("Failed to download zipped task output files")
-    async def download_task_output_files_zipped(
-        self, experiment_id: str, task_id: str, orchestrator: Orchestrator
-    ) -> Stream:
-        async def zip_stream() -> AsyncIterable:
-            try:
-                file_list = await orchestrator.results.list_task_output_files(experiment_id, task_id)
+    async def download_zip(self, experiment_id: str, task_id: str, orchestrator: Orchestrator) -> Stream:
+        """Download all task output files as a zip archive."""
 
-                buffer = io.BytesIO()
-                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for file_path in file_list:
-                        file_name = Path(file_path).name
+        async def zip_stream() -> AsyncIterable[bytes]:
+            file_list = await orchestrator.results.list_task_output_files(experiment_id, task_id)
+            if not file_list:
+                raise APIError(status_code=404, detail="No files found for this task")
 
-                        zip_info = zipfile.ZipInfo(file_name)
-                        zip_info.compress_type = zipfile.ZIP_DEFLATED
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for file_path in file_list:
+                    file_name = Path(file_path).name
+                    zip_info = zipfile.ZipInfo(file_name)
+                    zip_info.compress_type = zipfile.ZIP_DEFLATED
 
-                        with zip_file.open(zip_info, mode="w") as file_in_zip:
-                            async for chunk in orchestrator.results.download_task_output_file(
-                                experiment_id, task_id, file_name
-                            ):
-                                file_in_zip.write(chunk)
+                    # Write file contents to zip
+                    with zip_file.open(zip_info, mode="w") as file_in_zip:
+                        async for chunk in orchestrator.results.download_task_output_file(
+                            experiment_id, task_id, file_name
+                        ):
+                            file_in_zip.write(chunk)
 
-                                if buffer.tell() > _CHUNK_SIZE:
-                                    buffer.seek(0)
-                                    yield buffer.read(_CHUNK_SIZE)
-                                    buffer.seek(0)
-                                    buffer.truncate()
+                            # Yield data in chunks
+                            if buffer.tell() > CHUNK_SIZE:
+                                buffer.seek(0)
+                                yield buffer.read(CHUNK_SIZE)
+                                buffer.seek(0)
+                                buffer.truncate()
 
-                buffer.seek(0)
-                while True:
-                    chunk = buffer.read(_CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    yield chunk
+            # Yield remaining data
+            buffer.seek(0)
+            yield buffer.getvalue()
 
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e)) from e
-
-        return Stream(
-            zip_stream(), headers={"Content-Disposition": f"attachment; filename={experiment_id}_{task_id}_output.zip"}
-        )
+        filename = f"{experiment_id}_{task_id}_output.zip"
+        return Stream(zip_stream(), headers={"Content-Disposition": f"attachment; filename={filename}"})

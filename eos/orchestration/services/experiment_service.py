@@ -12,16 +12,16 @@ from eos.logging.logger import log
 from eos.orchestration.exceptions import EosExperimentDoesNotExistError
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.experiments.experiment_executor import ExperimentExecutor
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
-class ExperimentModule:
+class ExperimentService:
     """
     Top-level experiment functionality integration.
     Exposes an interface for submission, monitoring and cancellation of experiments.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,
@@ -65,8 +65,8 @@ class ExperimentModule:
                 self._submitted_experiments[experiment_id] = experiment_executor
             except EosExperimentExecutionError:
                 log.error(f"Failed to submit experiment '{experiment_id}': {traceback.format_exc()}")
-                del self._submitted_experiments[experiment_id]
-                return
+                self._submitted_experiments.pop(experiment_id, None)
+                raise
 
             log.info(f"Submitted experiment '{experiment_id}'.")
 

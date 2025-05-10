@@ -7,18 +7,18 @@ from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.eos_config import DbConfig, DatabaseType
+from eos.configuration.eos_config import DatabaseType, EosConfig
 from eos.containers.container_manager import ContainerManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
-from eos.orchestration.modules.campaign_module import CampaignModule
-from eos.orchestration.modules.experiment_module import ExperimentModule
-from eos.orchestration.modules.lab_module import LabModule
-from eos.orchestration.modules.loading_module import LoadingModule
-from eos.orchestration.modules.result_module import ResultModule
-from eos.orchestration.modules.task_module import TaskModule
+from eos.orchestration.services.campaign_service import CampaignService
+from eos.orchestration.services.experiment_service import ExperimentService
+from eos.orchestration.services.lab_service import LabService
+from eos.orchestration.services.loading_service import LoadingService
+from eos.orchestration.services.result_service import ResultService
+from eos.orchestration.services.task_service import TaskService
 
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.database.file_db_interface import FileDbInterface
@@ -28,7 +28,7 @@ from eos.resource_allocation.resource_allocation_manager import (
     ResourceAllocationManager,
 )
 from eos.scheduling.abstract_scheduler import AbstractScheduler
-from eos.scheduling.greedy_scheduler import GreedyScheduler
+from eos.scheduling.scheduler_factory import SchedulerFactory
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
@@ -44,25 +44,24 @@ class Orchestrator(metaclass=Singleton):
 
     def __init__(
         self,
-        user_dir: str,
-        db_config: DbConfig,
-        file_db_config: DbConfig,
+        config: EosConfig,
     ):
-        self._user_dir = user_dir
-        self._db_config = db_config
-        self._file_db_config = file_db_config
+        self._user_dir = config.user_dir
+        self._scheduler_config = config.scheduler
+        self._db_config = config.db
+        self._file_db_config = config.file_db
 
         self._initialized = False
 
         self._task_executor: TaskExecutor | None = None
         self._on_demand_task_executor: OnDemandTaskExecutor | None = None
 
-        self._loading: LoadingModule | None = None
-        self._labs: LabModule | None = None
-        self._results: ResultModule | None = None
-        self._tasks: TaskModule | None = None
-        self._experiments: ExperimentModule | None = None
-        self._campaigns: CampaignModule | None = None
+        self._loading: LoadingService | None = None
+        self._labs: LabService | None = None
+        self._results: ResultService | None = None
+        self._tasks: TaskService | None = None
+        self._experiments: ExperimentService | None = None
+        self._campaigns: CampaignService | None = None
 
     async def initialize(self) -> None:
         """
@@ -80,12 +79,12 @@ class Orchestrator(metaclass=Singleton):
         di.register(ConfigurationManager, configuration_manager)
 
         # Persistence #############################################
-        if self._db_config.db_type == DatabaseType.POSTGRESQL:
+        if self._db_config.type == DatabaseType.POSTGRESQL:
             db_interface = PostgresqlDbInterface(self._db_config)
-        elif self._db_config.db_type == DatabaseType.SQLITE:
+        elif self._db_config.type == DatabaseType.SQLITE:
             db_interface = SqliteDbInterface(self._db_config)
         else:
-            raise ValueError(f"Unsupported database type '{self._db_config.db_type}'")
+            raise ValueError(f"Unsupported database type '{self._db_config.type}'")
         di.register(AbstractSqlDbInterface, db_interface)
 
         await db_interface.initialize_database()
@@ -133,7 +132,11 @@ class Orchestrator(metaclass=Singleton):
         di.register(OnDemandTaskExecutor, on_demand_task_executor)
         self._on_demand_task_executor = on_demand_task_executor
 
-        scheduler = GreedyScheduler()
+        # Scheduler
+        log.info(f"Using scheduler: {self._scheduler_config.type.value}")
+        scheduler = SchedulerFactory.create_scheduler(self._scheduler_config.type)
+        if self._scheduler_config.parameters:
+            await scheduler.update_parameters(self._scheduler_config.parameters)
         di.register(AbstractScheduler, scheduler)
 
         experiment_executor_factory = ExperimentExecutorFactory()
@@ -142,13 +145,13 @@ class Orchestrator(metaclass=Singleton):
         campaign_executor_factory = CampaignExecutorFactory()
         di.register(CampaignExecutorFactory, campaign_executor_factory)
 
-        # Orchestrator Modules #######################################
-        self._loading = LoadingModule()
-        self._labs = LabModule()
-        self._results = ResultModule()
-        self._tasks = TaskModule()
-        self._experiments = ExperimentModule()
-        self._campaigns = CampaignModule()
+        # Orchestrator Services ###################################
+        self._loading = LoadingService()
+        self._labs = LabService()
+        self._results = ResultService()
+        self._tasks = TaskService()
+        self._experiments = ExperimentService()
+        self._campaigns = CampaignService()
 
         await self._fail_running_work()
 
@@ -161,17 +164,17 @@ class Orchestrator(metaclass=Singleton):
             log.info("Connected to Ray cluster.")
 
             cluster_resources = ray.cluster_resources()
-            if "eos-core" not in cluster_resources:
+            if "eos" not in cluster_resources:
                 ray.shutdown()
                 raise Exception(
-                    "The 'eos-core' resource not found in the cluster. "
-                    "Please ensure the cluster head node is configured to provide the custom Ray resource 'eos-core'."
+                    "The 'eos' custom Ray resource not found in the cluster. "
+                    "Please ensure the cluster head node is configured to provide the custom Ray resource 'eos'."
                 )
 
         except ConnectionError:
-            log.info("Initializing Ray cluster...")
-            ray.init(namespace="eos", resources={"eos-core": 1000})
-            log.info("Ray cluster initialized.")
+            log.info("Initializing local Ray cluster...")
+            ray.init(namespace="eos", resources={"eos": 1000})
+            log.info("Local Ray cluster initialized.")
 
     async def terminate(self) -> None:
         """
@@ -185,7 +188,7 @@ class Orchestrator(metaclass=Singleton):
         async with get_db_interface().get_async_session() as db:
             await get_device_manager().cleanup_device_actors(db)
 
-        log.info("Shutting down Ray cluster...")
+        log.info("Shutting down Ray node...")
         ray.shutdown()
         self._initialized = False
 
@@ -250,25 +253,25 @@ class Orchestrator(metaclass=Singleton):
         return get_db_interface()
 
     @property
-    def loading(self) -> LoadingModule:
+    def loading(self) -> LoadingService:
         return self._loading
 
     @property
-    def labs(self) -> LabModule:
+    def labs(self) -> LabService:
         return self._labs
 
     @property
-    def results(self) -> ResultModule:
+    def results(self) -> ResultService:
         return self._results
 
     @property
-    def tasks(self) -> TaskModule:
+    def tasks(self) -> TaskService:
         return self._tasks
 
     @property
-    def experiments(self) -> ExperimentModule:
+    def experiments(self) -> ExperimentService:
         return self._experiments
 
     @property
-    def campaigns(self) -> CampaignModule:
+    def campaigns(self) -> CampaignService:
         return self._campaigns

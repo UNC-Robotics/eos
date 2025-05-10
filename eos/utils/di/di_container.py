@@ -15,7 +15,10 @@ class DIContainer:
     """Dependency injection container."""
 
     def __init__(self):
-        self._registry: dict[type, tuple[bool, Any]] = {}  # (is_instance, value)
+        # Maps interface types to a tuple: (is_instance, value)
+        # - If is_instance is True, value is the concrete instance.
+        # - Otherwise, value is a factory callable that creates the instance.
+        self._registry: dict[type, tuple[bool, Any]] = {}
 
     def register(self, interface_type: type[T], instance: T) -> None:
         """Register a concrete instance for the given interface type."""
@@ -32,31 +35,26 @@ class DIContainer:
         self._registry[interface_type] = (False, factory)
 
     def get(self, interface_type: type[T]) -> T | None:
-        """Get an instance of the specified type or None if not registered."""
-        try:
-            is_instance, value = self._registry[interface_type]
-            if is_instance:
-                return value
-
-            # Lazy instantiation for factories
-            instance = value()
-            if not isinstance(instance, interface_type):
-                raise DependencyError(
-                    f"Factory produced invalid type: {type(instance).__name__} ≠ {interface_type.__name__}"
-                )
-            # Cache the instance
-            self._registry[interface_type] = (True, instance)
-            return instance
-
-        except KeyError:
+        """Retrieve an instance of the given interface type, instantiating via a factory if necessary."""
+        entry = self._registry.get(interface_type)
+        if entry is None:
             return None
-        except Exception as e:
-            if isinstance(e, DependencyError):
-                raise
-            raise DependencyError(f"Factory creation failed: {e!s}") from e
+
+        is_instance, value = entry
+        if is_instance:
+            return value
+
+        # Instantiate using the factory and cache the result.
+        instance = value()
+        if not isinstance(instance, interface_type):
+            raise DependencyError(
+                f"Factory produced invalid type: {type(instance).__name__} ≠ {interface_type.__name__}"
+            )
+        self._registry[interface_type] = (True, instance)
+        return instance
 
     def remove(self, interface_type: type) -> None:
-        """Remove a registration."""
+        """Remove the registration for the given interface type."""
         self._registry.pop(interface_type, None)
 
     def clear(self) -> None:
@@ -72,7 +70,7 @@ class DICache:
         self._injectable_params: WeakKeyDictionary[Callable, set[str]] = WeakKeyDictionary()
 
     def get_hints(self, func: Callable) -> dict[str, type]:
-        """Get cached type hints."""
+        """Retrieve and cache the type hints for a function."""
         if func not in self._type_hints:
             hints = get_type_hints(func)
             hints.pop("return", None)
@@ -80,7 +78,10 @@ class DICache:
         return self._type_hints[func]
 
     def get_injectable_params(self, func: Callable) -> set[str]:
-        """Get cached injectable parameters."""
+        """
+        Retrieve and cache the names of parameters that are injectable,
+        excluding 'self', 'cls', and parameters with default values.
+        """
         if func not in self._injectable_params:
             sig = inspect.signature(func)
             params = {
@@ -96,38 +97,22 @@ _di_container = DIContainer()
 _di_injection_cache = DICache()
 
 
-def inject(*types: type[Any]) -> Callable:
-    """Optimized dependency injection decorator that ignores missing dependencies."""
-    # Pre-compute parameter names
-    param_names = {t: t.__name__.lower() for t in types}
+def inject(func: Callable) -> Callable:
+    """
+    Dependency injection decorator that automatically injects dependencies based on type hints.
 
-    def decorator(func) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            # Inject only missing dependencies if they are registered
-            for type_, name in param_names.items():
-                if name not in kwargs and (instance := _di_container.get(type_)):
-                    kwargs[name] = instance
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def inject_all(func) -> Callable:
-    """Optimized automatic dependency injection decorator that ignores missing dependencies."""
+    Usage:
+        @inject
+        def my_func(service: Service): ...
+    """
 
     @wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         hints = _di_injection_cache.get_hints(func)
-        params = _di_injection_cache.get_injectable_params(func)
-
-        # Inject only for parameters that need it and have registered dependencies
-        for name in params - set(kwargs):
-            if (type_ := hints.get(name)) and (instance := _di_container.get(type_)):
-                kwargs[name] = instance
-
+        injectable = _di_injection_cache.get_injectable_params(func)
+        for param in injectable - kwargs.keys():
+            if (expected_type := hints.get(param)) and ((instance := _di_container.get(expected_type)) is not None):
+                kwargs[param] = instance
         return func(*args, **kwargs)
 
     return wrapper

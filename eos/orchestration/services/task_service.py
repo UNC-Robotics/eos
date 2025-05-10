@@ -1,22 +1,24 @@
+import traceback
+
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.tasks.entities.task import Task, TaskStatus, TaskDefinition
-from eos.tasks.exceptions import EosTaskCancellationError
+from eos.tasks.exceptions import EosTaskCancellationError, EosTaskExecutionError
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
-class TaskModule:
+class TaskService:
     """
     Top-level task functionality integration.
     Exposes an interface for submission, monitoring, and cancellation of tasks.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,
@@ -54,7 +56,11 @@ class TaskModule:
         :param task_definition: The task definition.
         :return: The output of the task.
         """
-        await self._on_demand_task_executor.submit_task(db, task_definition)
+        try:
+            await self._on_demand_task_executor.submit_task(db, task_definition)
+        except EosTaskExecutionError:
+            log.error(f"Failed to submit task '{task_definition.id}': {traceback.format_exc()}")
+            raise
 
     async def cancel_task(self, task_id: str, experiment_id: str | None = None) -> None:
         """
@@ -70,6 +76,7 @@ class TaskModule:
                 await self._task_executor.cancel_task(experiment_id, task_id)
         except EosTaskCancellationError:
             log.error(f"Failed to cancel task '{task_id}'.")
+            raise
 
     async def fail_running_tasks(self, db: AsyncDbSession) -> None:
         """Fail all running tasks."""

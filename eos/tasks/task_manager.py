@@ -11,7 +11,7 @@ from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.database.file_db_interface import FileDbInterface
 from eos.tasks.entities.task import Task, TaskStatus, TaskDefinition, TaskModel
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class TaskManager:
@@ -19,7 +19,7 @@ class TaskManager:
     Manages the state of all tasks in EOS.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,

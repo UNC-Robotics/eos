@@ -1,4 +1,4 @@
-name: Documentation building and deployment
+name: Documentation building and deployment to GitHub Pages
 
 on:
   release:
@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 

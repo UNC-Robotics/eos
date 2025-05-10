@@ -112,19 +112,14 @@ class TestGreedyScheduler:
 
         # Define expected task scheduling sequence
         scheduling_sequence = [
-            # First batch - Task A
             [ExpectedTask("A", "abstract_lab", "D2")],
-            # Second batch - Tasks B and C (parallel)
             [ExpectedTask("B", "abstract_lab", "D1"), ExpectedTask("C", "abstract_lab", "D3")],
-            # Third batch - Tasks D, E, and F (parallel)
             [
                 ExpectedTask("D", "abstract_lab", "D1"),
                 ExpectedTask("E", "abstract_lab", "D3"),
                 ExpectedTask("F", "abstract_lab", "D2"),
             ],
-            # Fourth batch - Task G
             [ExpectedTask("G", "abstract_lab", "D5")],
-            # Fifth batch - Task H
             [ExpectedTask("H", "abstract_lab", "D6")],
         ]
 

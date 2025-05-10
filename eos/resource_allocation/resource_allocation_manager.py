@@ -19,7 +19,7 @@ from eos.resource_allocation.entities.resource_request import (
     ResourceAllocationRequestModel,
 )
 from eos.resource_allocation.exceptions import EosResourceRequestError
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 RequestCallback: TypeAlias = Callable[[ActiveResourceAllocationRequest], None]
 ResourceTypeStr = Literal["device", "container"]
@@ -43,7 +43,7 @@ class ResourceAllocationManager:
     _CLEANUP_STATUSES: Final = {ResourceRequestAllocationStatus.COMPLETED, ResourceRequestAllocationStatus.ABORTED}
     _BATCH_SIZE: Final = 10
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,

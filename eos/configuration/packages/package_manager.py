@@ -33,12 +33,40 @@ class PackageManager:
         log.debug("Package manager initialized")
 
     def _discover_packages(self) -> None:
+        """
+        Discover EOS packages in the user directory by recursively searching for directories
+        containing pyproject.toml files.
+        """
         if not self._user_dir.is_dir():
             raise EosMissingConfigurationError(f"User directory '{self._user_dir}' does not exist")
 
-        self._packages = {
-            item.name: Package(item.name, str(item)) for item in self._user_dir.iterdir() if item.is_dir()
-        }
+        self._packages = {}
+        self._scan_directory(self._user_dir)
+
+        if not self._packages:
+            log.warning(f"No valid packages found in {self._user_dir}")
+
+    def _scan_directory(self, directory: Path, max_depth: int = 10, current_depth: int = 0) -> None:
+        """
+        Recursively scan directories to find packages (directories with pyproject.toml files).
+        """
+        # Stop conditions
+        if not directory.is_dir() or current_depth > max_depth:
+            return
+
+        # Check if current directory is a package (but not the user directory itself)
+        pyproject_path = directory / "pyproject.toml"
+        if pyproject_path.is_file() and directory != self._user_dir:
+            # Add as package and don't scan deeper
+            package_name = directory.name
+            self._packages[package_name] = Package(package_name, str(directory))
+            log.debug(f"Discovered package: {package_name} at {directory}")
+            return
+
+        # Scan subdirectories
+        for item in directory.iterdir():
+            if item.is_dir():
+                self._scan_directory(item, max_depth, current_depth + 1)
 
     def read_lab_config(self, lab_name: str) -> LabConfig:
         return self._read_entity_config(lab_name, EntityType.LAB)

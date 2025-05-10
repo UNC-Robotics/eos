@@ -11,17 +11,22 @@ The example is implemented in an EOS package called **color_lab**, and can be fo
 
 Installation
 ------------
-1. Install the package's dependencies in the EOS virtual environment:
+1. Clone the `eos-examples` repository inside the EOS user directory:
+
+    .. code-block:: bash
+
+        cd eos/user
+        git clone https://github.com/UNC-Robotics/eos-examples eos_examples
+
+2. Install the package's dependencies in the EOS venv:
 
    .. code-block:: bash
 
-       pip3 install pymixbox websockets
+       uv pip install -r user/eos_examples/color_lab/pyproject.toml
 
-2. Load the package in EOS:
+3. Load the package in EOS:
 
-   a. Place the ``color_lab`` directory in the user directory of your EOS installation.
-
-   b. Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
+   Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
 
       .. code-block:: yaml
 
@@ -36,26 +41,26 @@ Installation
 Sample Usage
 ------------
 1. ``cd`` into the ``eos`` directory
-2. Run ``python3 user/color_lab/device_drivers.py`` to start the fluid simulation and simulated device drivers.
-3. Follow the :doc:`running guide <running>` to run EOS.
-4. Submit tasks, experiments, or campaigns through the user interface or the REST API.
+2. Run ``python3 user/eos_examples/color_lab/device_drivers.py`` to start the fluid simulation and simulated device drivers.
+3. Start EOS.
+4. Submit tasks, experiments, or campaigns through the REST API.
 
-For example, you can submit a request to run a campaign through the REST API with ``curl`` as follows:
+You can submit a request to run a campaign through the REST API with `curl` as follows:
 
 .. code-block:: bash
 
-    curl -X POST http://localhost:8000/api/campaigns/submit \
+    curl -X POST http://localhost:8070/api/campaigns \
          -H "Content-Type: application/json" \
          -d '{
-      "id": "mix_colors",
-      "experiment_type": "color_mixing_1",
-      "max_experiments": 150,
-      "max_concurrent_experiments": 1,
-      "optimize": true,
-      "optimizer_computer_ip": "127.0.0.1",
-      "dynamic_parameters": {},
-      "resume": false
-    }'
+              "id": "color_mixing",
+              "experiment_type": "color_mixing_1",
+              "owner": "name",
+              "priority": 0,
+              "max_experiments": 10,
+              "max_concurrent_experiments": 1,
+              "optimize": true,
+              "optimizer_ip": "127.0.0.1"
+        }'
 
 .. note::
 
@@ -95,7 +100,7 @@ This is the Python code for the color analyzer device:
 
     from eos.containers.entities.container import Container
     from eos.devices.base_device import BaseDevice
-    from user.color_lab.common.device_client import DeviceClient
+    from user.eos_examples.color_lab.common.device_client import DeviceClient
 
 
     class ColorAnalyzerDevice(BaseDevice):
@@ -509,6 +514,6 @@ Below is the YAML definition of the first experiment:
     {% set color_mixer = 'color_mixer_1' %}
     {% set color_analyzer = 'color_analyzer_1' %}
     {% set target_color = '[53, 29, 64]' %}
-    {% include 'color_lab/experiments/color_mixing/template_experiment.yml' %}
+    {% include 'eos_examples/color_lab/experiments/color_mixing/template_experiment.yml' %}
 
 We specify the experiment type, the container to use, the color mixer and analyzer to use, and the target color.

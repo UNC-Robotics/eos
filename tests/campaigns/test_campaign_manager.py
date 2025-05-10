@@ -14,8 +14,8 @@ def create_campaign_definition(campaign_id: str, max_experiments: int = 2) -> Ca
         max_experiments=max_experiments,
         max_concurrent_experiments=1,
         optimize=False,
-        optimizer_computer_ip="127.0.0.1",
-        dynamic_parameters=[{"param1": {"value": 0}}] * max_experiments,  # Simplified params
+        optimizer_ip="127.0.0.1",
+        parameters=[{"param1": {"value": 0}}] * max_experiments,
         meta={"test": "metadata"},
     )
 
@@ -28,13 +28,13 @@ class TestCampaignManager:
 
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
         assert campaign.id == "test_campaign"
-        assert len(campaign.dynamic_parameters) == 2
+        assert len(campaign.parameters) == 2
         assert campaign.meta == {"test": "metadata"}
 
     @pytest.mark.asyncio
     async def test_create_campaign_validation_errors(self, db, campaign_manager):
         # Test missing dynamic parameters
-        with pytest.raises(ValueError, match="Campaign dynamic parameters must be provided"):
+        with pytest.raises(Exception, match="Campaign parameters must be provided"):
             invalid_definition = CampaignDefinition(
                 id="test_campaign",
                 experiment_type=EXPERIMENT_TYPE,
@@ -42,15 +42,15 @@ class TestCampaignManager:
                 max_experiments=2,
                 max_concurrent_experiments=1,
                 optimize=False,
-                optimizer_computer_ip="127.0.0.1",
-                dynamic_parameters=None,
+                optimizer_ip="127.0.0.1",
+                parameters=None,
             )
             await campaign_manager.create_campaign(db, invalid_definition)
 
         # Test incorrect number of dynamic parameters
-        with pytest.raises(ValueError, match="Dynamic parameters must be provided for all experiments"):
+        with pytest.raises(ValueError, match="Parameters must be provided for all experiments"):
             invalid_definition = create_campaign_definition("test_campaign", max_experiments=3)
-            invalid_definition.dynamic_parameters = [{"param1": {"value": 0}}]  # Only one set
+            invalid_definition.parameters = [{"param1": {"value": 0}}]  # Only one set
             await campaign_manager.create_campaign(db, invalid_definition)
 
     @pytest.mark.asyncio

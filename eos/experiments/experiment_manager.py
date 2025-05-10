@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import exists, select, Select, delete, and_, update
+from sqlalchemy import exists, select, delete, and_, update
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentDefinition, ExperimentModel
@@ -10,7 +10,7 @@ from eos.logging.logger import log
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.tasks.entities.task import TaskModel, TaskStatus
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class ExperimentManager:
@@ -18,18 +18,14 @@ class ExperimentManager:
     Responsible for managing the state of all experiments in EOS and tracking their execution.
     """
 
-    @inject_all
+    @inject
     def __init__(self, configuration_manager: ConfigurationManager):
         self._configuration_manager = configuration_manager
         log.debug("Experiment manager initialized.")
 
-    def _get_experiment_exists_query(self, experiment_id: str) -> Select:
-        """Create a reusable exists query for experiment validation."""
-        return select(exists().where(ExperimentModel.id == experiment_id))
-
     async def _check_experiment_exists(self, db: AsyncDbSession, experiment_id: str) -> bool:
         """Check if an experiment exists."""
-        result = await db.execute(self._get_experiment_exists_query(experiment_id))
+        result = await db.execute(select(exists().where(ExperimentModel.id == experiment_id)))
         return bool(result.scalar())
 
     async def _validate_experiment_exists(self, db: AsyncDbSession, experiment_id: str) -> None:
@@ -95,6 +91,32 @@ class ExperimentManager:
         if tasks := result.scalar_one_or_none():
             return set(tasks)
         return set()
+
+    async def get_all_completed_tasks(self, db: AsyncDbSession, experiment_ids: list[str]) -> dict[str, set[str]]:
+        """
+        Get completed tasks for all experiments in the provided list.
+        Returns a dictionary mapping experiment_id to a set of completed task IDs.
+        """
+        stmt = select(ExperimentModel.id, ExperimentModel.completed_tasks).where(ExperimentModel.id.in_(experiment_ids))
+        result = await db.execute(stmt)
+        completed_mapping = {exp_id: set(tasks or []) for exp_id, tasks in result.all()}
+        # Ensure all experiment_ids are present in the result
+        for exp_id in experiment_ids:
+            completed_mapping.setdefault(exp_id, set())
+        return completed_mapping
+
+    async def get_all_running_tasks(self, db: AsyncDbSession, experiment_ids: list[str]) -> dict[str, set[str]]:
+        """
+        Get running tasks for all experiments in the provided list.
+        Returns a dictionary mapping experiment_id to a set of running task IDs.
+        """
+        stmt = select(ExperimentModel.id, ExperimentModel.running_tasks).where(ExperimentModel.id.in_(experiment_ids))
+        result = await db.execute(stmt)
+        running_mapping = {exp_id: set(tasks or []) for exp_id, tasks in result.all()}
+        # Ensure all experiment_ids are present in the result
+        for exp_id in experiment_ids:
+            running_mapping.setdefault(exp_id, set())
+        return running_mapping
 
     async def delete_non_completed_tasks(self, db: AsyncDbSession, experiment_id: str) -> None:
         """Delete running, failed and cancelled tasks for an experiment."""

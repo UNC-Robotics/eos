@@ -11,8 +11,9 @@ LAB_ID = "small_lab"
 EXPERIMENT_TYPE = "water_purification"
 EXPERIMENT_ID = "water_purification_#1"
 
-DYNAMIC_PARAMETERS = {
+PARAMETERS = {
     "mixing": {
+        "speed": 50,
         "time": 120,
     },
     "evaporation": {
@@ -41,7 +42,7 @@ class TestExperimentExecutor:
     ):
         return ExperimentExecutor(
             experiment_definition=ExperimentDefinition(
-                id=EXPERIMENT_ID, type=EXPERIMENT_TYPE, owner="test", dynamic_parameters=DYNAMIC_PARAMETERS
+                id=EXPERIMENT_ID, type=EXPERIMENT_TYPE, owner="test", parameters=PARAMETERS
             ),
             experiment_graph=experiment_graph,
             experiment_manager=experiment_manager,
@@ -76,7 +77,7 @@ class TestExperimentExecutor:
 
         async with db_interface.get_async_session() as db:
             task = await task_manager.get_task(db, EXPERIMENT_ID, "mixing")
-        assert task.output_parameters["mixing_time"] == DYNAMIC_PARAMETERS["mixing"]["time"]
+        assert task.output_parameters["mixing_time"] == PARAMETERS["mixing"]["time"]
 
     @pytest.mark.asyncio
     async def test_resolve_input_parameter_references_and_dynamic_parameters(
@@ -97,7 +98,8 @@ class TestExperimentExecutor:
             evaporation_task = await task_manager.get_task(db, EXPERIMENT_ID, "evaporation")
 
         # Check the dynamic parameter for input mixing time
-        assert mixing_task.input_parameters["time"] == DYNAMIC_PARAMETERS["mixing"]["time"]
+        assert mixing_task.input_parameters["speed"] == PARAMETERS["mixing"]["speed"]
+        assert mixing_task.input_parameters["time"] == PARAMETERS["mixing"]["time"]
 
         # Check that the output parameter mixing time was assigned to the input parameter evaporation time
         assert evaporation_task.input_parameters["evaporation_time"] == mixing_task.output_parameters["mixing_time"]

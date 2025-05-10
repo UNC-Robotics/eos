@@ -3,7 +3,7 @@ from collections.abc import AsyncIterable
 
 from minio import Minio, S3Error
 
-from eos.configuration.entities.eos_config import DbConfig
+from eos.configuration.eos_config import FileDbConfig
 from eos.logging.logger import log
 from eos.database.exceptions import EosFileDbError
 
@@ -13,16 +13,16 @@ class FileDbInterface:
     Provides access to a MinIO server for storing and retrieving files.
     """
 
-    def __init__(self, file_db_credentials: DbConfig, bucket_name: str = "eos"):
-        endpoint = f"{file_db_credentials.host}:{file_db_credentials.port}"
+    def __init__(self, file_db_config: FileDbConfig):
+        endpoint = f"{file_db_config.host}:{file_db_config.port}"
 
         self._client = Minio(
             endpoint,
-            access_key=file_db_credentials.username,
-            secret_key=file_db_credentials.password,
+            access_key=file_db_config.username,
+            secret_key=file_db_config.password,
             secure=False,
         )
-        self._bucket_name = bucket_name
+        self._bucket_name = file_db_config.bucket
 
         if not self._client.bucket_exists(self._bucket_name):
             self._client.make_bucket(self._bucket_name)

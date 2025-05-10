@@ -1,162 +1,203 @@
 import inspect
 import os
+import sys
 from dataclasses import dataclass
+from importlib import util as importlib_util
 from pathlib import Path
 from typing import Generic, TypeVar
-from importlib import util as importlib_util
 
 from eos.configuration.packages.entities import EntityType
 from eos.configuration.packages.package_manager import PackageManager
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 from eos.logging.logger import log
 
-T = TypeVar("T")  # Plugin class type
-S = TypeVar("S")  # Specification registry type
+T = TypeVar("T")  # plugin class type
+S = TypeVar("S")  # spec registry type
 
 
-@dataclass
-class PluginRegistryConfig:
+@dataclass(frozen=True)
+class PluginRegistryConfig(Generic[T, S]):
     spec_registry: S
     base_class: type[T]
     config_file_name: str | None
     implementation_file_name: str
-    not_found_exception_class: type[Exception]
+    exception_class: type[Exception]
     entity_type: EntityType
 
 
 class PluginRegistry(Generic[T, S]):
-    """A generic registry for dynamically discovering and loading plugin-like implementation classes."""
+    """Registry for discovering, loading, and reloading plugin implementations."""
 
-    def __init__(self, package_manager: PackageManager, config: PluginRegistryConfig):
+    def __init__(
+        self,
+        package_manager: PackageManager,
+        config: PluginRegistryConfig[T, S],
+        initialize: bool = True,
+    ):
         self._package_manager = package_manager
         self._config = config
-        self._plugin_types: dict[str, type[T]] = {}
-        self._plugin_modules: dict[str, str] = {}  # Maps type_name to module path
+        self.plugin_types: dict[str, type[T]] = {}
+        self.plugin_modules: dict[str, str] = {}
+        # Stores (package_name, relative_dir, implementation_path) for each type
+        self._plugin_meta: dict[str, tuple[str, Path, Path]] = {}
 
-        self._initialize_registry()
+        if initialize:
+            self._initialize_registry()
 
     def get_plugin_class_type(self, type_name: str) -> type[T]:
-        if type_name not in self._plugin_types:
-            raise self._config.not_found_exception_class(f"Plugin implementation for '{type_name}' not found.")
-
-        return self._plugin_types[type_name]
+        try:
+            return self.plugin_types[type_name]
+        except KeyError as e:
+            raise self._config.exception_class(f"Plugin implementation for '{type_name}' not found.") from e
 
     def reload_plugin(self, type_name: str) -> None:
-        """Reload a specific plugin by type name."""
-        if type_name not in self._plugin_modules:
-            raise self._config.not_found_exception_class(f"Plugin '{type_name}' not found.")
+        """Reload a specific plugin by type name, pulling fresh code from disk."""
+        meta = self._plugin_meta.get(type_name)
+        if meta is None:
+            raise self._config.exception_class(f"Plugin '{type_name}' not found.")
 
-        module_path = Path(self._plugin_modules[type_name])
-        package_name = module_path.parent.parent.name
-        dir_path = module_path.parent
+        package_name, relative_dir, impl_path = meta
+        module_name = self._make_module_name(package_name, relative_dir.name)
 
-        self._load_single_plugin(package_name, dir_path, module_path)
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+
+        self._load_single_plugin(package_name, relative_dir, impl_path)
         log.debug(f"Reloaded plugin '{type_name}'")
 
     def reload_all_plugins(self) -> None:
-        """Reload all plugins in the registry."""
+        """Clear and rebuild the entire registry from disk."""
+        self.plugin_types.clear()
+        self.plugin_modules.clear()
+        self._plugin_meta.clear()
         self._initialize_registry()
         log.debug("Reloaded all plugins")
 
     def _initialize_registry(self) -> None:
-        """Load all plugins from all packages."""
-        self._plugin_types.clear()
-        self._plugin_modules.clear()
-
-        for package in self._package_manager.get_all_packages():
-            self._load_package_plugins(package)
-
-        raise_batched_errors(root_exception_type=self._config.not_found_exception_class)
+        """Walk every package and load its plugins."""
+        for pkg in self._package_manager.get_all_packages():
+            self._load_package_plugins(pkg)
+        raise_batched_errors(root_exception_type=self._config.exception_class)
 
     def _load_package_plugins(self, package) -> None:
-        """Load all plugins from a specific package."""
-        directory = package.get_entity_dir(self._config.entity_type)
-        if not directory.is_dir():
+        """Load all plugins under one package's entity directory."""
+        entity_dir = package.get_entity_dir(self._config.entity_type)
+        if not entity_dir.is_dir() or not self._config.config_file_name:
             return
 
-        for current_dir, _, files in os.walk(directory):
+        for root, _, files in os.walk(entity_dir):
             if self._config.config_file_name not in files:
                 continue
 
-            current_dir_path = Path(current_dir)
-            dir_path = current_dir_path.relative_to(directory)
-            implementation_path = current_dir_path / self._config.implementation_file_name
+            relative = Path(root).relative_to(entity_dir)
+            impl_file = Path(root) / self._config.implementation_file_name
+            self._load_single_plugin(package.name, relative, impl_file)
 
-            self._load_single_plugin(package.name, dir_path, implementation_path)
-
-    def _load_single_plugin(self, package_name: str, dir_path: Path, implementation_path: Path) -> None:
-        """Load a single plugin from a file."""
-        if not implementation_path.exists():
+    def _load_single_plugin(self, package_name: str, relative_dir: Path, impl_file: Path) -> None:
+        """Load/register one plugin file, reporting errors to the batch logger."""
+        if not impl_file.exists():
             batch_error(
-                f"Implementation file '{implementation_path}' for package '{package_name}' not found.",
-                self._config.not_found_exception_class,
+                f"Implementation file '{impl_file}' for package '{package_name}' not found.",
+                self._config.exception_class,
             )
             return
 
-        module = self._import_plugin_module(implementation_path, dir_path.name)
+        module_name = self._make_module_name(package_name, relative_dir.name)
+        module = self._import_module_from_file(module_name, impl_file)
         if not module:
             return
 
-        implementation_class = self._extract_implementation_class(module, package_name)
-        if not implementation_class:
+        cls = self._extract_implementation_class(module)
+        if not cls:
             return
 
-        self._register_plugin(implementation_class, package_name, dir_path, implementation_path)
+        self._register_plugin(cls, package_name, relative_dir, impl_file)
 
-    def _import_plugin_module(self, implementation_path: Path, module_name: str) -> object | None:
-        """Import a module from a file."""
+    def _make_module_name(self, package_name: str, dir_name: str) -> str:
+        """Create a unique module name for importlib from package + dir."""
+        return f"{package_name}.{dir_name}"
+
+    def _import_module_from_file(self, module_name: str, path: Path) -> object | None:
+        """Load a module via importlib.util from an arbitrary file path."""
         try:
-            spec = importlib_util.spec_from_file_location(module_name, implementation_path)
+            spec = importlib_util.spec_from_file_location(module_name, str(path))
             module = importlib_util.module_from_spec(spec)
-            spec.loader.exec_module(module)
+            spec.loader.exec_module(module)  # type: ignore
             return module
         except Exception as e:
             batch_error(
-                f"Failed to load module '{module_name}' from '{implementation_path}': {e!s}",
-                self._config.not_found_exception_class,
+                f"Failed to import '{module_name}' from '{path}': {e}",
+                self._config.exception_class,
             )
             return None
 
-    def _extract_implementation_class(self, module: object, package_name: str) -> type[T] | None:
-        """Find and extract the implementation class in a module."""
-        implementation_classes = self._find_implementation_classes(module)
-
-        if not implementation_classes:
-            batch_error(
-                f"No implementation class inheriting from '{self._config.base_class.__name__}' found in "
-                f"'{module}' in package '{package_name}'.",
-                self._config.not_found_exception_class,
-            )
-            return None
-
-        if len(implementation_classes) > 1:
-            batch_error(
-                f"Multiple implementation classes found in '{module}' in package '{package_name}': "
-                f"{', '.join(implementation_classes)}. Each module should contain exactly one implementation class.",
-                self._config.not_found_exception_class,
-            )
-            return None
-
-        return implementation_classes[0]
-
-    def _find_implementation_classes(self, module: object) -> list[type[T]]:
-        return [
+    def _extract_implementation_class(self, module: object) -> type[T] | None:
+        """Find exactly one subclass of base_class in the given module."""
+        candidates = [
             obj
-            for _, obj in module.__dict__.items()
-            if (
-                inspect.isclass(obj) and obj is not self._config.base_class and issubclass(obj, self._config.base_class)
-            )
+            for obj in vars(module).values()
+            if inspect.isclass(obj) and issubclass(obj, self._config.base_class) and obj is not self._config.base_class
         ]
+        if not candidates:
+            batch_error(
+                f"No subclass of '{self._config.base_class.__name__}' found in module {module}.",
+                self._config.exception_class,
+            )
+            return None
+        if len(candidates) > 1:
+            names = ", ".join(c.__name__ for c in candidates)
+            batch_error(
+                f"Multiple subclasses in module {module}: {names}. Only one allowed.",
+                self._config.exception_class,
+            )
+            return None
+        return candidates[0]
 
     def _register_plugin(
-        self, implementation_class: type[T], package_name: str, dir_path: Path, implementation_file: Path
+        self,
+        cls: type[T],
+        package_name: str,
+        relative_dir: Path,
+        impl_file: Path,
     ) -> None:
-        """Register a loaded plugin in the registry."""
-        type_name = self._config.spec_registry.get_spec_by_dir(Path(package_name) / dir_path)
-        self._plugin_types[type_name] = implementation_class
-        self._plugin_modules[type_name] = str(implementation_file)
+        """Record a freshly loaded plugin in our lookup tables."""
+        type_name = self._config.spec_registry.get_spec_by_dir(Path(package_name) / relative_dir)
+        self.plugin_types[type_name] = cls
+        self.plugin_modules[type_name] = str(impl_file)
+        self._plugin_meta[type_name] = (package_name, relative_dir, impl_file)
+        log.debug(f"Loaded plugin '{type_name}' ({cls.__name__}) from {impl_file}")
 
-        log.debug(
-            f"Loaded plugin class '{implementation_class.__name__}' "
-            f"for type '{type_name}' from package '{package_name}'"
-        )
+    def initialize_for_types(self, types: set[str]) -> None:
+        """
+        Load (or reload) only the given set of plugin types.
+        Any errors are batched and raised together.
+        """
+        errors: list[tuple[str, type[Exception]]] = []
+
+        for type_name in types:
+            pkg = self._package_manager.find_package_for_entity(type_name, self._config.entity_type)
+            if not pkg:
+                continue
+
+            entity_dir = self._package_manager.get_entity_dir(type_name, self._config.entity_type)
+            impl_file = entity_dir / self._config.implementation_file_name
+
+            if not impl_file.exists():
+                errors.append(
+                    (
+                        f"Implementation file for '{type_name}' not found at '{impl_file}'",
+                        self._config.exception_class,
+                    )
+                )
+                continue
+
+            relative = entity_dir.relative_to(pkg.get_entity_dir(self._config.entity_type))
+
+            try:
+                self._load_single_plugin(pkg.name, relative, impl_file)
+            except Exception as e:
+                errors.append((f"Error loading plugin '{type_name}': {e}", self._config.exception_class))
+
+        if errors:
+            combined = "\n".join(f"{msg} ({exc.__name__})" for msg, exc in errors)
+            raise self._config.exception_class(combined)

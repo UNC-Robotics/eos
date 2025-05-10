@@ -1,10 +1,21 @@
 import asyncio
 from pathlib import Path
-from typing import Annotated, TYPE_CHECKING
-import typer
+from typing import TYPE_CHECKING
 
-from eos.configuration.entities.eos_config import DatabaseType, EosConfig
+import typer
+from typer import Context
+
+from eos.configuration.eos_config import EosConfig, DatabaseType
 from eos.logging.logger import log
+from eos.utils.di.di_container import get_di_container
+from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
+from eos.database.postgresql_db_interface import PostgresqlDbInterface
+from eos.database.sqlite_db_interface import SqliteDbInterface
+from eos.database.alembic_commands import (
+    alembic_upgrade,
+    alembic_downgrade,
+    alembic_revision,
+)
 
 if TYPE_CHECKING:
     from alembic.config import Config
@@ -15,13 +26,8 @@ db_app = typer.Typer(help="Database management commands", no_args_is_help=True)
 def load_config(config_path: str) -> EosConfig:
     """
     Load and validate the EOS configuration file.
-
-    :param config_path: Path to the configuration YAML file
-    :return: Parsed configuration object
     """
     import yaml
-    from eos.configuration.entities.eos_config import EosConfig
-    from eos.logging.logger import log
 
     config_file = Path(config_path)
     if not config_file.exists():
@@ -41,28 +47,18 @@ def load_config(config_path: str) -> EosConfig:
 
 def setup_alembic(eos_config: EosConfig) -> "Config":
     """
-    Initialize database interface and create Alembic configuration.
-
-    :param eos_config: Parsed EOS configuration object
-    :return: Configured Alembic Config object
+    Initialize database interface and register it for Alembic.
     """
     from alembic.config import Config
-    from eos.configuration.entities.eos_config import DatabaseType
-    from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
-    from eos.database.postgresql_db_interface import PostgresqlDbInterface
-    from eos.database.sqlite_db_interface import SqliteDbInterface
-    from eos.utils.di.di_container import get_di_container
 
-    # Initialize database interface
     di = get_di_container()
     db_interface = (
         PostgresqlDbInterface(eos_config.db)
-        if eos_config.db.db_type == DatabaseType.POSTGRESQL
+        if eos_config.db.type == DatabaseType.POSTGRESQL
         else SqliteDbInterface(eos_config.db)
     )
     di.register(AbstractSqlDbInterface, db_interface)
 
-    # Configure Alembic
     migrations_path = Path(__file__).parent.parent / "database" / "_migrations" / "alembic.ini"
     if not migrations_path.exists():
         raise FileNotFoundError(f"Alembic configuration not found at: {migrations_path}")
@@ -70,204 +66,199 @@ def setup_alembic(eos_config: EosConfig) -> "Config":
     return Config(str(migrations_path))
 
 
-def handle_db_operation(operation_name: str, operation_func: callable, *args, **kwargs) -> None:
+@db_app.command("init")
+def initialize_database(ctx: Context) -> None:
     """
-    Execute a database operation.
-
-    :param operation_name: Name of the operation for logging
-    :param operation_func: Alembic command function to execute
-    :param args: Positional arguments for the operation
-    :param kwargs: Keyword arguments for the operation
+    Initialize database and create all tables.
     """
-    from alembic.util.exc import CommandError
+    eos_config: EosConfig = ctx.obj
 
     try:
-        operation_func(*args, **kwargs)
-    except CommandError as e:
-        log.error(f"Alembic command error during {operation_name}: {e}")
-        raise typer.Exit(1) from e
+        di = get_di_container()
+        db_interface = (
+            PostgresqlDbInterface(eos_config.db)
+            if eos_config.db.type == DatabaseType.POSTGRESQL
+            else SqliteDbInterface(eos_config.db)
+        )
+        di.register(AbstractSqlDbInterface, db_interface)
+
+        asyncio.run(db_interface.initialize_database())
+
+        alembic_upgrade("head")
+
+        typer.secho("Database initialized successfully", fg="green")
     except Exception as e:
-        log.error(f"Unexpected error during {operation_name}: {e}")
+        typer.secho(f"Failed to initialize database: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 
-# Common option for config file path
-ConfigOption = Annotated[
-    str,
-    typer.Option(
-        "--config",
-        "-c",
-        help="Path to config.yml",
-        show_default=True,
-    ),
-]
+@db_app.callback(invoke_without_command=True)
+def _global(
+    ctx: Context,
+    config: str = typer.Option("./config.yml", "--config", "-c", help="Path to EOS config YAML"),
+) -> None:
+    """
+    Load EOS config once and set up logging.
+    """
+    try:
+        eos_config = load_config(config)
+    except Exception as e:
+        typer.secho(f"Failed to load configuration: {e}", fg="red", err=True)
+        raise typer.Exit(1) from e
+
+    ctx.obj = eos_config
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
 
 
 @db_app.command()
 def migrate(
-    message: Annotated[str, typer.Argument(help="Migration message")],
-    config: ConfigOption = "./config.yml",
-    autogenerate: Annotated[bool, typer.Option(help="Enable autogeneration")] = True,
+    ctx: Context,
+    message: str = typer.Argument(..., help="Migration message"),
+    autogenerate: bool = typer.Option(True, "--autogenerate", "-a", help="Detect schema changes automatically"),
 ) -> None:
     """
     Create a new database migration.
-
-    This command performs the following steps:
-
-    1. Loads the configuration
-    2. Initializes the database connection
-    3. Creates a new migration file with the provided message
-
-    :param message: Description of the migration changes
-    :param config: Path to configuration file
-    :param autogenerate: Whether to detect schema changes automatically
     """
-    from alembic import command
-
+    eos_config: EosConfig = ctx.obj
     try:
-        eos_config = load_config(config)
-        alembic_cfg = setup_alembic(eos_config)
-
-        # Ensure database is up to date before creating new migration
-        handle_db_operation("upgrade to head", command.upgrade, alembic_cfg, "head")
-
-        handle_db_operation("migration creation", command.revision, alembic_cfg, message, autogenerate=autogenerate)
-
-        typer.echo(f"Created new migration: {message}")
+        setup_alembic(eos_config)
+        alembic_upgrade("head")
+        alembic_revision(message=message, autogenerate=autogenerate)
+        typer.secho(f"Created new migration: {message}", fg="green")
     except Exception as e:
-        typer.echo(f"Failed to create migration: {e}", err=True)
+        typer.secho(f"Failed to create migration: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 
 @db_app.command()
 def upgrade(
-    config: ConfigOption = "./config.yml",
-    revision: Annotated[str, typer.Option(help="Target revision (default: head)")] = "head",
+    ctx: Context,
+    revision: str = typer.Option("head", "--revision", "-r", help="Target revision (default: head)"),
 ) -> None:
     """
     Upgrade database to specified revision.
-
-    :param config: Path to configuration file
-    :param revision: Target revision identifier
     """
-    from alembic import command
-
+    eos_config: EosConfig = ctx.obj
     try:
-        alembic_cfg = setup_alembic(load_config(config))
-        handle_db_operation("database upgrade", command.upgrade, alembic_cfg, revision)
-        typer.echo(f"Successfully upgraded database to: {revision}")
+        setup_alembic(eos_config)
+        alembic_upgrade(revision)
+        typer.secho(f"Successfully upgraded to: {revision}", fg="green")
     except Exception as e:
-        typer.echo(f"Failed to upgrade database: {e}", err=True)
+        typer.secho(f"Failed to upgrade database: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 
 @db_app.command()
 def downgrade(
-    config: ConfigOption = "./config.yml",
-    revision: Annotated[str, typer.Option(help="Target revision (default: -1)")] = "-1",
-    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+    ctx: Context,
+    revision: str = typer.Option("-1", "--revision", "-r", help="Target revision (default: -1)"),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        "--yes",
+        help="Skip confirmation prompt (yes/force)",
+    ),
 ) -> None:
     """
     Downgrade database to specified revision.
-
-    :param config: Path to configuration file
-    :param revision: Target revision identifier
-    :param force: Skip confirmation prompt if True
     """
-    from alembic import command
+    if not force and not typer.confirm(f"Downgrade to {revision}?"):
+        raise typer.Exit()
 
-    if not force:
-        confirmed = typer.confirm(
-            f"Are you sure you want to downgrade the database to revision {revision}?", abort=True
-        )
-        if not confirmed:
-            return
-
+    eos_config: EosConfig = ctx.obj
     try:
-        alembic_cfg = setup_alembic(load_config(config))
-        handle_db_operation("database downgrade", command.downgrade, alembic_cfg, revision)
-        typer.echo(f"Successfully downgraded database to: {revision}")
+        setup_alembic(eos_config)
+        alembic_downgrade(revision)
+        typer.secho(f"Successfully downgraded to: {revision}", fg="green")
     except Exception as e:
-        typer.echo(f"Failed to downgrade database: {e}", err=True)
+        typer.secho(f"Failed to downgrade database: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 
 @db_app.command()
-def history(
-    config: ConfigOption = "./config.yml",
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show detailed history")] = False,
-) -> None:
+def history(ctx: Context) -> None:
     """
     Show migration history.
-
-    :param config: Path to configuration file
-    :param verbose: Show detailed history if True
     """
     from alembic import command
 
+    eos_config: EosConfig = ctx.obj
     try:
-        alembic_cfg = setup_alembic(load_config(config))
-        if verbose:
-            alembic_cfg.print_stdout = True
-        handle_db_operation("show history", command.history, alembic_cfg)
+        cfg = setup_alembic(eos_config)
+        command.history(cfg)
     except Exception as e:
-        typer.echo(f"Failed to show history: {e}", err=True)
+        typer.secho(f"Failed to show history: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 
 @db_app.command()
-def current(config: ConfigOption = "./config.yml") -> None:
+def current(ctx: Context) -> None:
     """
     Show current revision.
-
-    :param config: Path to configuration file
-    :raises typer.Exit: If current revision display fails
     """
     from alembic import command
 
+    eos_config: EosConfig = ctx.obj
     try:
-        alembic_cfg = setup_alembic(load_config(config))
-        handle_db_operation("show current revision", command.current, alembic_cfg)
+        cfg = setup_alembic(eos_config)
+        command.current(cfg)
     except Exception as e:
-        typer.echo(f"Failed to show current revision: {e}", err=True)
+        typer.secho(f"Failed to show current revision: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 
 @db_app.command()
 def clear(
-    config: ConfigOption = "./config.yml",
-    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+    ctx: Context,
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        "--yes",
+        help="Skip confirmation prompt (yes/force)",
+    ),
 ) -> None:
     """
-    Clear all data from database tables while preserving the schema.
-
-    :param config: Path to configuration file
-    :param force: Skip confirmation prompt if True
+    Clear all data from database tables while preserving schema.
     """
-    from eos.database.postgresql_db_interface import PostgresqlDbInterface
-    from eos.database.sqlite_db_interface import SqliteDbInterface
+    # ruff: noqa: F401
+    import eos.database.models
 
-    if not force:
-        confirmed = typer.confirm(
-            "WARNING: This will delete all data in the database tables. The database structure will be preserved. "
-            "Are you sure?",
-            abort=True,
-        )
-        if not confirmed:
-            return
+    if not force and not typer.confirm("WARNING: this will delete *all* data but keep the schema - continue?"):
+        raise typer.Exit()
+
+    eos_config: EosConfig = ctx.obj
+    db_interface: AbstractSqlDbInterface = (
+        PostgresqlDbInterface(eos_config.db)
+        if eos_config.db.type == DatabaseType.POSTGRESQL
+        else SqliteDbInterface(eos_config.db)
+    )
 
     try:
-        # Setup database interface
-        eos_config = load_config(config)
-        db_interface = (
-            PostgresqlDbInterface(eos_config.db)
-            if eos_config.db.db_type == DatabaseType.POSTGRESQL
-            else SqliteDbInterface(eos_config.db)
-        )
-
-        # Clear all tables
         asyncio.run(db_interface.clear_db())
-        typer.echo("Successfully cleared all data from database tables")
+        typer.secho("Cleared all data from database tables", fg="green")
     except Exception as e:
-        typer.echo(f"Failed to clear database: {e}", err=True)
+        typer.secho(f"Failed to clear database: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
+
+
+@db_app.command("check")
+def check_connection(ctx: Context) -> None:
+    """
+    Test database connectivity.
+    """
+    eos_config: EosConfig = ctx.obj
+    db_interface: AbstractSqlDbInterface = (
+        PostgresqlDbInterface(eos_config.db)
+        if eos_config.db.type == DatabaseType.POSTGRESQL
+        else SqliteDbInterface(eos_config.db)
+    )
+
+    ok = asyncio.run(db_interface.check_connection())
+    if ok:
+        typer.secho("Database connection OK", fg="green")
+    else:
+        typer.secho("Database connection FAILED", fg="red", err=True)
+        raise typer.Exit(1)

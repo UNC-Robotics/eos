@@ -1,4 +1,4 @@
-from eos.configuration.entities.eos_config import DbConfig
+from eos.configuration.eos_config import DbConfig
 
 from pathlib import Path
 import sqlite3
@@ -16,7 +16,7 @@ class SqliteDbInterface(AbstractSqlDbInterface):
 
     def __init__(self, db_config: DbConfig):
         """Initialize database interface with configuration."""
-        self._is_in_memory = db_config.sqlite_in_memory
+        self._is_in_memory = db_config.sqlite.in_memory
         super().__init__(db_config)
 
     def _get_connection_args(self) -> dict:
@@ -53,7 +53,9 @@ class SqliteDbInterface(AbstractSqlDbInterface):
         """Construct the complete database file path."""
         if self._is_in_memory:
             return Path(self.IN_MEMORY_PATH)
-        return (Path(self._db_config.sqlite_db_dir) / f"{self._db_name}{self.DB_FILE_EXTENSION}").resolve()
+        return (
+            Path(self._db_config.sqlite.db_dir) / f"{self._db_config.sqlite.db_name}{self.DB_FILE_EXTENSION}"
+        ).resolve()
 
     def build_db_url(self, use_system_db: bool = False) -> str:
         """Build the synchronous database URL."""
@@ -96,5 +98,5 @@ class SqliteDbInterface(AbstractSqlDbInterface):
     async def _database_exists(self) -> bool:
         if self._is_in_memory:
             return False  # Always create tables for in-memory database
-        db_path = Path(self._db_config.sqlite_db_dir) / Path(self._db_name + ".db")
+        db_path = Path(self._db_config.sqlite.db_dir) / Path(self._db_config.sqlite.db_name + ".db")
         return db_path.exists()

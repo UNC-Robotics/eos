@@ -11,11 +11,11 @@ from eos.database.alembic_commands import alembic_upgrade, alembic_downgrade
 
 
 class PostgresqlDbInterface(AbstractSqlDbInterface):
-    """PostgreSQL-specific database interface implementation.
+    """PostgreSQL-specific database interface implementation."""
 
-    :param db_config: Database configuration object
-    :type db_config: DbConfig
-    """
+    def __init__(self, db_config):
+        self._db_name = db_config.postgres.name
+        super().__init__(db_config)
 
     def _get_connection_args(self) -> dict:
         """Get connection pool arguments for PostgreSQL.
@@ -24,9 +24,9 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         :rtype: dict
         """
         return {
-            "pool_size": self._db_config.pool_size,
-            "max_overflow": self._db_config.max_overflow,
-            "pool_timeout": self._db_config.pool_timeout,
+            "pool_size": self._db_config.postgres.pool_size,
+            "max_overflow": self._db_config.postgres.max_overflow,
+            "pool_timeout": self._db_config.postgres.pool_timeout,
         }
 
     def build_db_url(self, use_system_db: bool = False) -> str:
@@ -39,8 +39,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         """
         db = "postgres" if use_system_db else self._db_name
         return (
-            f"postgresql+psycopg://{self._db_config.username}:{self._db_config.password}"
-            f"@{self._db_config.host}:{self._db_config.port}/{db}"
+            f"postgresql+psycopg://{self._db_config.postgres.username}:{self._db_config.postgres.password}"
+            f"@{self._db_config.postgres.host}:{self._db_config.postgres.port}/{db}"
         )
 
     def build_async_db_url(self, use_system_db: bool = False) -> str:
@@ -53,8 +53,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         """
         db = "postgres" if use_system_db else self._db_name
         return (
-            f"postgresql+asyncpg://{self._db_config.username}:{self._db_config.password}"
-            f"@{self._db_config.host}:{self._db_config.port}/{db}"
+            f"postgresql+asyncpg://{self._db_config.postgres.username}:{self._db_config.postgres.password}"
+            f"@{self._db_config.postgres.host}:{self._db_config.postgres.port}/{db}"
         )
 
     async def initialize_database(self) -> None:

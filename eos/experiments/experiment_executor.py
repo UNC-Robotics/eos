@@ -144,8 +144,8 @@ class ExperimentExecutor:
         """
         Create a new experiment.
         """
-        dynamic_parameters = self._experiment_definition.dynamic_parameters or {}
-        self._validate_dynamic_parameters(dynamic_parameters)
+        parameters = self._experiment_definition.parameters or {}
+        self._validate_parameters(parameters)
         await self._experiment_manager.create_experiment(db, self._experiment_definition)
 
     async def _cancel_running_tasks(self) -> None:
@@ -212,28 +212,23 @@ class ExperimentExecutor:
         )
         self._current_task_definitions[scheduled_task.id] = task_definition
 
-    def _validate_dynamic_parameters(self, dynamic_parameters: dict[str, dict[str, Any]]) -> None:
-        """Validate that all required dynamic parameters are provided and there are no surplus parameters."""
-        required_params = self._get_required_dynamic_parameters()
-        provided_params = {
-            f"{task_id}.{param_name}" for task_id, params in dynamic_parameters.items() for param_name in params
-        }
+    def _validate_parameters(self, parameters: dict[str, dict[str, Any]]) -> None:
+        """Validate that all required parameters are provided."""
+        required_params = self._get_required_parameters()
+        provided_params = {f"{task_id}.{param_name}" for task_id, params in parameters.items() for param_name in params}
 
         missing_params = required_params - provided_params
-        unexpected_params = provided_params - required_params
 
         if missing_params:
-            raise EosExperimentExecutionError(f"Missing values for dynamic parameters: {missing_params}")
-        if unexpected_params:
-            raise EosExperimentExecutionError(f"Unexpected dynamic parameters provided: {unexpected_params}")
+            raise EosExperimentExecutionError(f"Missing values for parameters: {missing_params}")
 
-    def _get_required_dynamic_parameters(self) -> set[str]:
-        """Get a set of all required dynamic parameters in the experiment graph."""
+    def _get_required_parameters(self) -> set[str]:
+        """Get a set of all required parameters in the experiment graph."""
         return {
             f"{task_id}.{param_name}"
             for task_id in self._experiment_graph.get_tasks()
             for param_name, param_value in self._experiment_graph.get_task_config(task_id).parameters.items()
-            if validation_utils.is_dynamic_parameter(param_value)
+            if validation_utils.is_dynamic_parameter(param_value) or param_value is None
         }
 
     @property

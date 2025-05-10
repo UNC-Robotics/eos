@@ -29,7 +29,7 @@ class ExperimentDefinition(BaseModel):
 
     priority: int = Field(0, ge=0)
 
-    dynamic_parameters: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    parameters: dict[str, dict[str, Any]] = Field(default_factory=dict)
     meta: dict[str, Any] | None = None
 
     resume: bool = False
@@ -72,7 +72,7 @@ class ExperimentModel(Base):
 
     priority: Mapped[int] = mapped_column(nullable=False, default=0)
 
-    dynamic_parameters: Mapped[dict] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
+    parameters: Mapped[dict] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
     meta: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
 
     resume: Mapped[bool] = mapped_column(nullable=False, default=False)

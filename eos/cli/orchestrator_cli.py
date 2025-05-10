@@ -11,7 +11,7 @@ import importlib.metadata
 import typer
 import yaml
 
-from eos.configuration.entities.eos_config import EosConfig, WebApiConfig
+from eos.configuration.eos_config import EosConfig, WebApiConfig
 from eos.logging.logger import log, LogLevel
 
 if TYPE_CHECKING:
@@ -72,28 +72,32 @@ async def handle_shutdown(
 async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
     from eos.orchestration.orchestrator import Orchestrator
 
-    orchestrator = Orchestrator(str(config.user_dir), config.db, config.file_db)
+    orchestrator = Orchestrator(config)
     await orchestrator.initialize()
 
     async with orchestrator.db_interface.get_async_session() as db:
         await orchestrator.loading.load_labs(db, config.labs)
 
-    orchestrator.loading.load_experiments(config.experiments)
+    await orchestrator.loading.load_experiments(config.experiments)
 
     return orchestrator
 
 
 def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicorn.Server":
     from litestar import Litestar, Router
-    from litestar.di import Provide
+    from litestar import Controller
+    from litestar.config.cors import CORSConfig
     from litestar.logging import LoggingConfig
+    from litestar.openapi import OpenAPIConfig
+    from litestar.openapi.plugins import ScalarRenderPlugin
     import uvicorn
     from eos.web_api.controllers.campaign_controller import CampaignController
     from eos.web_api.controllers.experiment_controller import ExperimentController
     from eos.web_api.controllers.file_controller import FileController
     from eos.web_api.controllers.lab_controller import LabController
     from eos.web_api.controllers.task_controller import TaskController
-    from eos.web_api.exception_handling import global_exception_handler
+    from eos.web_api.dependencies import get_common_dependencies
+    from eos.web_api.exception_handling import general_exception_handler
 
     litestar_logging_config = LoggingConfig(
         configure_root_logger=False,
@@ -101,18 +105,40 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
     )
     os.environ["LITESTAR_WARN_IMPLICIT_SYNC_TO_THREAD"] = "0"
 
+    controllers: list[type[Controller]] = [
+        CampaignController,
+        ExperimentController,
+        FileController,
+        LabController,
+        TaskController,
+    ]
+
     api_router = Router(
         path="/api",
-        route_handlers=[TaskController, ExperimentController, CampaignController, LabController, FileController],
-        dependencies={
-            "orchestrator": Provide(lambda: orchestrator),
-        },
+        route_handlers=controllers,
+        dependencies=get_common_dependencies(orchestrator),
+    )
+
+    cors_config = CORSConfig(
+        allow_origins=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+
+    openapi_config = OpenAPIConfig(
+        title="EOS REST API",
+        description="EOS REST API documentation",
+        version="0.1.0",
+        path="/docs",
+        render_plugins=[ScalarRenderPlugin()],
     )
 
     web_api_app = Litestar(
         route_handlers=[api_router],
         logging_config=litestar_logging_config,
-        exception_handlers={Exception: global_exception_handler},
+        exception_handlers={Exception: general_exception_handler},
+        cors_config=cors_config,
+        openapi_config=openapi_config,
     )
 
     uv_config = uvicorn.Config(web_api_app, host=config.host, port=config.port, log_level="critical")
@@ -128,7 +154,7 @@ async def run_eos(config: EosConfig) -> None:
 
     async with handle_shutdown(orchestrator, web_api_server):
         await asyncio.gather(
-            orchestrator.spin(config.orchestrator_min_hz, config.orchestrator_max_hz), web_api_server.serve()
+            orchestrator.spin(config.orchestrator_hz.min, config.orchestrator_hz.max), web_api_server.serve()
         )
 
 
@@ -170,7 +196,7 @@ def start_orchestrator(
     if cli_overrides:
         config_dict = file_config.model_dump()
         config_dict.update(cli_overrides)
-        config = EosConfig(**config_dict)
+        config = EosConfig.model_validate(config_dict)
     else:
         config = file_config
 

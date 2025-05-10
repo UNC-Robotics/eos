@@ -1,35 +1,36 @@
-from litestar import Controller, Response, get
-from litestar.handlers import post
-from litestar.status_codes import HTTP_200_OK, HTTP_404_NOT_FOUND, HTTP_201_CREATED
+from litestar import get, post, Controller, Response
 
-from eos.campaigns.entities.campaign import CampaignDefinition
+from eos.campaigns.entities.campaign import CampaignDefinition, Campaign
+from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
-from eos.web_api.exception_handling import handle_exceptions
+from eos.web_api.exception_handling import APIError
 
 
 class CampaignController(Controller):
+    """Controller for campaign-related endpoints."""
+
     path = "/campaigns"
 
     @get("/{campaign_id:str}")
-    @handle_exceptions("Failed to get campaign")
-    async def get_campaign(self, campaign_id: str, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            campaign = await orchestrator.campaigns.get_campaign(db, campaign_id)
+    async def get_campaign(self, campaign_id: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Campaign:
+        """Get a campaign by ID."""
+        campaign = await orchestrator.campaigns.get_campaign(db, campaign_id)
 
         if campaign is None:
-            return Response(content={"error": "Campaign not found"}, status_code=HTTP_404_NOT_FOUND)
+            raise APIError(status_code=404, detail="Campaign not found")
 
-        return Response(content=campaign.model_dump_json(), status_code=HTTP_200_OK)
+        return campaign
 
-    @post("/submit")
-    @handle_exceptions("Failed to submit campaign")
-    async def submit_campaign(self, data: CampaignDefinition, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            await orchestrator.campaigns.submit_campaign(db, data)
-        return Response(content=None, status_code=HTTP_201_CREATED)
+    @post("/")
+    async def submit_campaign(
+        self, data: CampaignDefinition, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> Response:
+        """Submit a new campaign for execution."""
+        await orchestrator.campaigns.submit_campaign(db, data)
+        return Response(content="Submitted", status_code=201)
 
     @post("/{campaign_id:str}/cancel")
-    @handle_exceptions("Failed to cancel campaign")
     async def cancel_campaign(self, campaign_id: str, orchestrator: Orchestrator) -> Response:
+        """Cancel a running campaign."""
         await orchestrator.campaigns.cancel_campaign(campaign_id)
-        return Response(content=None, status_code=HTTP_200_OK)
+        return Response(content="Cancellation request submitted.", status_code=202)

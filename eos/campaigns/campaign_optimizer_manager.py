@@ -14,7 +14,7 @@ from eos.database.abstract_sql_db_interface import AsyncDbSession
 
 import warnings
 
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 # Ignore warnings from bofire
 warnings.filterwarnings("ignore", category=UserWarning, module="bofire.utils.cheminformatics")
@@ -27,7 +27,7 @@ class CampaignOptimizerManager:
     Responsible for managing the optimizers associated with experiment campaigns.
     """
 
-    @inject_all
+    @inject
     def __init__(self, configuration_manager: ConfigurationManager):
         self._campaign_optimizer_plugin_registry = configuration_manager.campaign_optimizers
         self._optimizer_actors: dict[str, ActorHandle] = {}
@@ -50,7 +50,7 @@ class CampaignOptimizerManager:
             self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(experiment_type)
         )
 
-        resources = {"eos-core": 0.01} if computer_ip in ["localhost", "127.0.0.1"] else {f"node:{computer_ip}": 0.01}
+        resources = {"eos": 0.01} if computer_ip in ["localhost", "127.0.0.1"] else {f"node:{computer_ip}": 0.01}
 
         optimizer_actor = SequentialOptimizerActor.options(name=f"{campaign_id}_optimizer", resources=resources).remote(
             constructor_args, optimizer_type

@@ -1,17 +1,16 @@
 <p align="center">
-    <img src="docs/_static/img/eos-logo.png" alt="Alt Text" width="512">
+    <img src="docs/_static/img/eos-logo.png" alt="Alt Text" width="400">
 </p>
 
 <h1 align="center">The Experiment Orchestration System (EOS)</h1>
+<h3 align="center">Foundation for laboratory automation</h3>
 
-![os](https://img.shields.io/badge/OS-win%7Cmac%7Clinux-9cf)
-![python](https://img.shields.io/badge/Python-3.10+-darkgreen)
+![python](https://img.shields.io/badge/Python-3.11+-darkgreen)
+[![Docs](https://img.shields.io/badge/Docs-Available-brightgreen)](https://unc-robotics.github.io/eos/) 
+![license](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 
-> **Note:** EOS is actively being developed. Much additional functionality and enhancements are planned.
-> It currently has a core feature set to use for research. Please report any issues, make feature requests, or contribute to development!
-
-The Experiment Orchestration System (EOS) is a comprehensive software framework and runtime for laboratory automation, designed
-to serve as the foundation for one or more automated or self-driving labs (SDLs).
+EOS is a comprehensive software framework and runtime for laboratory automation, designed to serve as 
+the foundation for one or more automated or self-driving labs (SDLs).
 
 EOS provides:
 
@@ -31,79 +30,42 @@ Documentation is available at [https://unc-robotics.github.io/eos/](https://unc-
 
 ## Installation
 
-### 1. Install uv
+EOS should be installed on a central laboratory computer that is easily accessible.
 
-uv is used as the dependency manager for EOS. It installs dependencies extremely fast.
+EOS requires PostgreSQL and MinIO for data and file storage. These can be run with Docker Compose.
 
-#### Linux/Mac
+1. **Install uv**
+   - **Linux/Mac**
+     ```shell
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     ```
+   - **Windows**
+     ```shell
+     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+     ```
 
-```shell
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+2. **Install EOS**
+   ```shell
+   git clone https://github.com/UNC-Robotics/eos
+   cd eos
+   uv venv
+   source .venv/bin/activate
+   uv sync
+   ```
 
-#### Windows
+3. **Configure EOS**
+   ```shell
+   cp .env.example .env
+   cp config.example.yml config.yml
+   ```
 
-```shell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+   Edit both `.env` and `config.yml` and provide values for missing fields
 
-### 2. Clone the EOS Repository
+4. **Launch External Services**
+   ```shell
+   docker compose up -d
+   ```
 
-```shell
-git clone https://github.com/UNC-Robotics/eos
-```
-
-### 3. Install Dependencies
-
-Navigate to the cloned repository and run:
-
-```shell
-uv sync
-```
-
-## Configuration
-
-After installation, you need to configure external services such as PostgreSQL and MinIO as well as EOS itself.
-
-### 1. Configure External Services
-
-We provide a Docker Compose file that can run all external services for you.
-
-Copy the example environment file:
-
-```shell
-cp .env.example .env
-```
-
-Edit `.env` and provide values for all fields.
-
-### 2. Configure EOS
-
-EOS reads parameters from a YAML configuration file.
-
-Copy the example configuration file:
-
-```shell
-cp config.example.yml config.yml
-```
-
-Edit `config.yml`. Ensure that credentials are provided for PostgreSQL and MinIO services.
-
-## Running
-### 1. Start External Services
-
-```shell
-docker compose up -d
-```
-
-### 2. Source the Virtual Environment
-
-```shell
-source .venv/bin/activate
-```
-
-### 3. Start EOS
-
-```shell
-eos orchestrator
-```
+5. **Start EOS**
+   ```shell
+   eos start

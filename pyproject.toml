@@ -1,7 +1,7 @@
 [project]
 name = "eos"
-version = "0.7.2"
-description = "The Experiment Orchestration System (EOS) is a comprehensive software framework and runtime for laboratory automation."
+version = "0.8.0"
+description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
     { name = "Angelos Angelopoulos", email = "aangelos@cs.unc.edu" }
@@ -20,27 +20,42 @@ classifiers = [
     "Intended Audience :: Science/Research",
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "ray[default]==2.42.0",
-    "typer==0.15.1",
-    "rich==13.9.4",
-    "jinja2==3.1.5",
+    "ray[default]==2.46.0",
+    "typer==0.15.3",
+    "rich==14.0.0",
     "PyYAML==6.0.2",
+    "jinja2==3.1.6",
+    "pydantic==2.11.4",
+    "pydantic-settings==2.9.1",
     "networkx==3.4.2",
-    "sqlalchemy==2.0.38",
-    "alembic==1.14.1",
-    "psycopg[binary]==3.2.3",
+    "sqlalchemy==2.0.40",
+    "alembic==1.15.2",
+    "psycopg[binary]==3.2.7",
     "asyncpg==0.30.0",
-    "pydantic==2.10.6",
-    "bofire[optimization]==0.0.16",
-    "pandas==2.2.3",
-    "numpy==1.26.2",
-    "litestar[standard]==2.14.0",
     "minio==7.2.15",
+    "bofire[optimization]==0.1.0",
+    "cvxpy>=1.6.5",
+    "pandas==2.2.3",
+    "ortools<=9.12",
+    "litestar[standard]==2.16.0",
 ]
 
 [dependency-groups]
+worker = [
+    "ray[default]==2.46.0",
+    "typer==0.15.3",
+    "rich==14.0.0",
+    "pydantic==2.11.4",
+]
+optimizer_worker = [
+    { include-group = "worker" },
+    "bofire[optimization]==0.1.0",
+    "cvxpy>=1.6.5",
+    "pandas==2.2.3",
+]
+
 dev = [
     "aiosqlite",
     "ruff",
@@ -71,13 +86,13 @@ packages = ["eos"]
 [project.scripts]
 eos = "eos.eos:eos_app"
 
-test = "scripts.test:main"
-test-with-cov = "scripts.test_with_cov:main"
-lint = "scripts.lint:main"
-format = "scripts.format:main"
-docs-build = "scripts.docs_build:main"
-docs-build-gh = "scripts.docs_build_gh:main"
-docs-serve = "scripts.docs_serve:main"
+test = "scripts.dev.test:main"
+test-with-cov = "scripts.dev.test_with_cov:main"
+lint = "scripts.dev.lint:main"
+format = "scripts.dev.format:main"
+docs-build = "scripts.dev.docs_build:main"
+docs-build-gh = "scripts.dev.docs_build_gh:main"
+docs-serve = "scripts.dev.docs_serve:main"
 
 [tool.black]
 line-length = 120
@@ -87,6 +102,7 @@ extend-exclude = "eos/database/_migrations/versions/"
 testpaths = [
     "tests",
 ]
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "slow: mark tests as slow (deselect with '-m \"not slow\"')",
 ]
@@ -140,7 +156,7 @@ lint.select = [
     "W", # pycodestyle - warning
     "YTT", # flake8-2020
 ]
-lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR0913", "PLR0915", "N805"]
+lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR0913", "PLR0915", "N805", "A005", "S603"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.*" = [
@@ -161,3 +177,8 @@ lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR091
     "F811",
 ]
 "eos/database/_migrations/versions/**/*.*" = ["ALL"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "typer.Argument"
+]

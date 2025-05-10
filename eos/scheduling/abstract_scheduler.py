@@ -15,7 +15,7 @@ class AbstractScheduler(ABC):
 
         :param experiment_id: The ID of the experiment.
         :param experiment_type: The type of the experiment.
-        :param experiment_graph: The task graph of the experiment's task sequence.
+        :param experiment_graph: The task graph of the experiment.
         """
 
     @abstractmethod
@@ -45,4 +45,13 @@ class AbstractScheduler(ABC):
         :param db: A database session.
         :param experiment_id: The ID of the experiment.
         :return: True if the experiment has been completed, False otherwise.
+        """
+
+    @abstractmethod
+    async def update_parameters(self, parameters: dict) -> None:
+        """
+        Update scheduler-specific parameters.
+
+        :param parameters: Dictionary of parameter names and values to update.
+        :return: None
         """

@@ -1,13 +1,14 @@
 import asyncio
 import traceback
 
+from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.tasks.entities.task import TaskDefinition
 from eos.tasks.exceptions import EosTaskExecutionError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class OnDemandTaskExecutor:
@@ -15,14 +16,16 @@ class OnDemandTaskExecutor:
     Executor for on-demand tasks (not part of an experiment or campaign).
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         task_executor: TaskExecutor,
         task_manager: TaskManager,
+        configuration_manager: ConfigurationManager,
     ):
         self._task_executor = task_executor
         self._task_manager = task_manager
+        self._configuration_manager = configuration_manager
 
         self._task_futures: dict[str, asyncio.Task] = {}
 
@@ -30,6 +33,10 @@ class OnDemandTaskExecutor:
 
     async def submit_task(self, db: AsyncDbSession, task_definition: TaskDefinition) -> None:
         """Submit an on-demand task for execution."""
+        task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_definition.type)
+        if not task_spec:
+            raise EosTaskExecutionError(f"Unknown task type '{task_definition.type}'.")
+
         if await self._task_manager.get_task(db, None, task_definition.id):
             raise EosTaskExecutionError(f"Cannot submit duplicate on-demand task '{task_definition.id}'.")
 

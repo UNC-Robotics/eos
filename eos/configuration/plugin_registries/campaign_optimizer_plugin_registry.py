@@ -7,7 +7,7 @@ from eos.configuration.constants import (
     CAMPAIGN_OPTIMIZER_FILE_NAME,
     CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME,
 )
-from eos.configuration.exceptions import EosCampaignOptimizerImplementationClassNotFoundError
+from eos.configuration.exceptions import EosCampaignOptimizerPluginError
 from eos.configuration.packages.entities import EntityType
 from eos.configuration.packages.package_manager import PackageManager
 from eos.configuration.plugin_registries.plugin_registry import PluginRegistry, PluginRegistryConfig
@@ -29,7 +29,7 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
             base_class=None,  # Campaign optimizers don't have a base class
             config_file_name=None,  # Campaign optimizers don't have a separate config file
             implementation_file_name=CAMPAIGN_OPTIMIZER_FILE_NAME,
-            not_found_exception_class=EosCampaignOptimizerImplementationClassNotFoundError,
+            exception_class=EosCampaignOptimizerPluginError,
             entity_type=EntityType.EXPERIMENT,
         )
         super().__init__(package_manager, config)
@@ -81,8 +81,8 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
             return False
 
         optimizer_creator = module.__dict__[CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME]
-        self._plugin_types[experiment_type] = optimizer_creator
-        self._plugin_modules[experiment_type] = implementation_path
+        self.plugin_types[experiment_type] = optimizer_creator
+        self.plugin_modules[experiment_type] = implementation_path
 
         log.info(f"Loaded campaign optimizer for experiment '{experiment_type}' from package '{package_name}'.")
         return True
@@ -113,9 +113,9 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
         """
         Unload the optimizer configuration function for the given experiment.
         """
-        if experiment_type in self._plugin_types:
-            del self._plugin_types[experiment_type]
-            del self._plugin_modules[experiment_type]
+        if experiment_type in self.plugin_types:
+            del self.plugin_types[experiment_type]
+            del self.plugin_modules[experiment_type]
             log.info(f"Unloaded campaign optimizer for experiment '{experiment_type}'.")
 
     def reload_plugin(self, experiment_type: str) -> None:
@@ -130,7 +130,7 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
         """
         Reload all campaign optimizers.
         """
-        experiment_types = list(self._plugin_types.keys())
+        experiment_types = list(self.plugin_types.keys())
         for experiment_type in experiment_types:
             self.reload_plugin(experiment_type)
         log.info("Reloaded all campaign optimizers.")

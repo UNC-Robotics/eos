@@ -1,0 +1,61 @@
+type: abstract_experiment_2
+desc: An abstract experiment for testing the HLFET scheduler
+
+labs:
+  - abstract_lab
+
+tasks:
+  - id: A
+    type: Noop
+    duration: 10
+    devices:
+      - lab_id: abstract_lab
+        id: D1
+
+  - id: B
+    type: Noop
+    dependencies: [ "A" ]
+    duration: 20
+    devices:
+      - lab_id: abstract_lab
+        id: D2
+
+  - id: C
+    type: Noop
+    dependencies: [ "A" ]
+    duration: 20
+    devices:
+      - lab_id: abstract_lab
+        id: D3
+
+  - id: D
+    type: Noop
+    dependencies: [ "B" ]
+    duration: 40
+    devices:
+      - lab_id: abstract_lab
+        id: D3
+
+  - id: E
+    type: Noop
+    dependencies: [ "C", "D" ]
+    duration: 20
+    devices:
+      - lab_id: abstract_lab
+        id: D4
+
+  - id: F
+    type: Noop
+    dependencies: [ "A" ]
+    duration: 40
+    devices:
+      - lab_id: abstract_lab
+        id: D3
+
+  - id: G
+    type: Noop
+    dependencies: [ "E", "F" ]
+    duration: 15
+    devices:
+      - lab_id: abstract_lab
+        id: D5

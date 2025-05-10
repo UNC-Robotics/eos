@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from eos.configuration.exceptions import (
     EosConfigurationError,
+    EosDevicePluginError,
 )
 from eos.configuration.packages.entities import EntityType
 from eos.configuration.packages.package_manager import PackageManager
@@ -48,7 +49,7 @@ class ConfigurationManager:
 
         log.debug("Configuration manager initialized")
 
-    def get_lab_loaded_statuses(self) -> dict[str, bool]:
+    def get_loaded_labs(self) -> dict[str, bool]:
         """
         Returns a dictionary where the lab type (name of directory) is associated
         with a boolean value indicating if it's currently loaded.
@@ -77,6 +78,7 @@ class ConfigurationManager:
         self.labs[lab_type] = lab_config
 
         if validate_multi_lab:
+            self._initialize_device_plugins()
             multi_lab_validator = MultiLabValidator(list(self.labs.values()))
             multi_lab_validator.validate()
 
@@ -92,6 +94,8 @@ class ConfigurationManager:
         """
         for lab_name in lab_types:
             self.load_lab(lab_name, validate_multi_lab=False)
+
+        self._initialize_device_plugins()
 
         multi_lab_validator = MultiLabValidator(list(self.labs.values()))
         multi_lab_validator.validate()
@@ -121,7 +125,7 @@ class ConfigurationManager:
         self.labs.pop(lab_type)
         log.info(f"Unloaded lab '{lab_type}'")
 
-    def get_experiment_loaded_statuses(self) -> dict[str, bool]:
+    def get_loaded_experiments(self) -> dict[str, bool]:
         """
         Returns a dictionary where the experiment type (name of directory) is associated
         with a boolean value indicating if it's currently loaded.
@@ -223,3 +227,24 @@ class ConfigurationManager:
         for experiment_name in experiments_to_remove:
             self.unload_experiment(experiment_name)
             log.debug(f"Unloaded experiment '{experiment_name}' as it was associated with lab(s) {lab_names}")
+
+    def _initialize_device_plugins(self) -> None:
+        """Initialize the device plugins for all devices used in the loaded labs.
+        This method is safe to call both at startup and when dynamically loading labs at runtime.
+        """
+        # Get all device types used in loaded labs
+        device_types = set()
+        for lab in self.labs.values():
+            device_types.update(device.type for device in lab.devices.values())
+
+        # Filter to only device types that haven't been loaded yet
+        new_device_types = device_types - set(self.devices.plugin_types.keys())
+
+        if not new_device_types:
+            return  # No new devices to initialize
+
+        try:
+            self.devices.initialize_for_types(new_device_types)
+        except EosDevicePluginError as e:
+            log.error(f"Failed to initialize device plugins: {e}")
+            raise

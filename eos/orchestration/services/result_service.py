@@ -1,16 +1,16 @@
 from collections.abc import AsyncIterable
 
 from eos.tasks.task_manager import TaskManager
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
-class ResultModule:
+class ResultService:
     """
     Top-level result querying integration.
     Exposes an interface for querying results, such as downloading task output files.
     """
 
-    @inject_all
+    @inject
     def __init__(self, task_manager: TaskManager):
         self._task_manager = task_manager
 

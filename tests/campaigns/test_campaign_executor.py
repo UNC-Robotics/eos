@@ -28,7 +28,7 @@ def campaign_definition():
         max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
         max_concurrent_experiments=CAMPAIGN_CONFIG["MAX_CONCURRENT_EXPERIMENTS"],
         optimize=CAMPAIGN_CONFIG["OPTIMIZE"],
-        optimizer_computer_ip=CAMPAIGN_CONFIG["OPTIMIZER_IP"],
+        optimizer_ip=CAMPAIGN_CONFIG["OPTIMIZER_IP"],
     )
 
 

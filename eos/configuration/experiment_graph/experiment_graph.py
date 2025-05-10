@@ -18,6 +18,10 @@ class TaskNodeIO:
 
 
 class ExperimentGraph:
+    """
+    Represents the task graph of an experiment.
+    """
+
     def __init__(self, experiment_config: ExperimentConfig):
         self._experiment_config = experiment_config
         self._task_specs = TaskSpecRegistry()

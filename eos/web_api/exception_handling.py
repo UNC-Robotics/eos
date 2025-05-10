@@ -1,40 +1,32 @@
-from functools import wraps
-
-from litestar import Response, status_codes, Request
+from litestar.exceptions import HTTPException
+from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
+from litestar.response import Response
+from litestar.connection import Request
 
 from eos.logging.logger import log
 
 
-class AppError(Exception):
-    def __init__(
-        self, message: str, status_code: int = status_codes.HTTP_500_INTERNAL_SERVER_ERROR, expose_message: bool = False
-    ):
-        self.message = message
-        self.status_code = status_code
-        self.expose_message = expose_message
+class APIError(HTTPException):
+    """Base API error with consistent response format."""
+
+    def __init__(self, status_code: int = HTTP_500_INTERNAL_SERVER_ERROR, detail: str = "An unexpected error occurred"):
+        super().__init__(status_code=status_code, detail=detail)
 
 
-def handle_exceptions(error_msg: str) -> callable:
-    def decorator(func: callable) -> callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs) -> Response:
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                raise AppError(f"{error_msg}: {e!s}", expose_message=True) from e
+def general_exception_handler(request: Request, exc: Exception) -> Response:
+    """Handle all exceptions and format into a consistent response."""
+    log.error(f"API error: {exc!s}")
 
-        return wrapper
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        detail = exc.detail
+    else:
+        status_code = HTTP_500_INTERNAL_SERVER_ERROR
+        detail = str(exc)
 
-    return decorator
+    content = {"error": detail}
 
-
-def global_exception_handler(request: Request, exc: Exception) -> Response:
-    log.error(f"Web API error: {exc!s}")
-    if isinstance(exc, AppError):
-        content = {"message": exc.message} if exc.expose_message else {"message": "An error occurred"}
-        return Response(content=content, status_code=exc.status_code)
-
-    # For any other exception, return a generic error message
     return Response(
-        content={"message": "An unexpected error occurred"}, status_code=status_codes.HTTP_500_INTERNAL_SERVER_ERROR
+        content=content,
+        status_code=status_code,
     )

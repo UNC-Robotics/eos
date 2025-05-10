@@ -11,7 +11,7 @@ from eos.logging.logger import log
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.utils.async_rlock import AsyncRLock
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class ContainerManager:
@@ -19,7 +19,7 @@ class ContainerManager:
     The container manager provides methods for interacting with containers in a lab.
     """
 
-    @inject_all
+    @inject
     def __init__(self, configuration_manager: ConfigurationManager):
         self._configuration_manager = configuration_manager
         self._locks = defaultdict(AsyncRLock)

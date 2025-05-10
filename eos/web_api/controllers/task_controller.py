@@ -1,45 +1,65 @@
-from litestar import Controller, Response, get
-from litestar.handlers import post
-from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED
+from typing import Any
 
+from litestar import get, post, Controller, Response
+from pydantic import BaseModel
+
+from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
-from eos.tasks.entities.task import TaskDefinition
-from eos.web_api.entities import TaskTypesResponse
-from eos.web_api.exception_handling import handle_exceptions
+from eos.tasks.entities.task import TaskDefinition, Task
+from eos.web_api.exception_handling import APIError
+
+
+class TaskTypesResponse(BaseModel):
+    task_types: list[str]
+
+
+class ReloadTaskPluginsRequest(BaseModel):
+    task_types: list[str]
 
 
 class TaskController(Controller):
+    """Controller for task-related endpoints."""
+
     path = "/tasks"
 
     @get("/{experiment_id:str}/{task_id:str}")
-    @handle_exceptions("Failed to get task")
-    async def get_task(self, experiment_id: str, task_id: str, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            task = await orchestrator.tasks.get_task(db, experiment_id, task_id)
-        return Response(content=task.model_dump_json(), status_code=HTTP_200_OK)
+    async def get_task(self, experiment_id: str, task_id: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Task:
+        """Get a task by ID."""
+        task = await orchestrator.tasks.get_task(db, experiment_id, task_id)
+        if not task:
+            raise APIError(status_code=404, detail="Task not found")
+        return task
 
-    @post("/submit")
-    @handle_exceptions("Failed to submit task")
-    async def submit_task(self, data: TaskDefinition, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            await orchestrator.tasks.submit_task(db, data)
-        return Response(content=None, status_code=HTTP_201_CREATED)
+    @post("/")
+    async def submit_task(self, data: TaskDefinition, db: AsyncDbSession, orchestrator: Orchestrator) -> Response:
+        """Submit a new task for execution."""
+        await orchestrator.tasks.submit_task(db, data)
+        return Response(content="Submitted", status_code=201)
 
     @post("/{task_id:str}/cancel")
-    @handle_exceptions("Failed to cancel task")
     async def cancel_task(self, task_id: str, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            await orchestrator.tasks.cancel_task(db, task_id)
-        return Response(content=None, status_code=HTTP_200_OK)
+        """Cancel a running task."""
+        await orchestrator.tasks.cancel_task(task_id)
+        return Response(content="Cancellation request submitted.", status_code=202)
 
     @get("/types")
-    @handle_exceptions("Failed to get task types")
     async def get_task_types(self, orchestrator: Orchestrator) -> TaskTypesResponse:
+        """Get all available task types."""
         task_types = await orchestrator.tasks.get_task_types()
         return TaskTypesResponse(task_types=task_types)
 
     @get("/{task_type:str}/spec")
-    @handle_exceptions("Failed to get task spec")
-    async def get_task_spec(self, task_type: str, orchestrator: Orchestrator) -> Response:
+    async def get_task_spec(self, task_type: str, orchestrator: Orchestrator) -> dict[str, Any]:
+        """Get specification for a task type."""
         task_spec = await orchestrator.tasks.get_task_spec(task_type)
-        return Response(content=task_spec, status_code=HTTP_200_OK)
+        if not task_spec:
+            raise APIError(status_code=404, detail=f"Task type '{task_type}' not found")
+        return task_spec
+
+    @post("/reload")
+    async def reload_tasks(
+        self, data: ReloadTaskPluginsRequest, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> Response:
+        """Reload specified task plugins."""
+        await orchestrator.loading.reload_task_plugins(db, set(data.task_types))
+        return Response(content="OK", status_code=200)

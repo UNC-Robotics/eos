@@ -15,7 +15,7 @@ class AsyncResolver(Protocol):
 
 class TaskInputResolver:
     """
-    Resolves dynamic parameters, input parameter references, and input container references for a task that is
+    Resolves parameters, input parameter references, and input container references for a task that is
     part of an experiment.
     """
 
@@ -32,7 +32,7 @@ class TaskInputResolver:
             experiment_id,
             task_config,
             [
-                self._resolve_dynamic_parameters,
+                self._resolve_parameters,
                 self._resolve_input_parameter_references,
                 self._resolve_input_container_references,
             ],
@@ -49,13 +49,11 @@ class TaskInputResolver:
             config = await resolver(db, experiment_id, config)
         return config
 
-    async def resolve_dynamic_parameters(
-        self, db: AsyncDbSession, experiment_id: str, task_config: TaskConfig
-    ) -> TaskConfig:
+    async def resolve_parameters(self, db: AsyncDbSession, experiment_id: str, task_config: TaskConfig) -> TaskConfig:
         """
-        Resolve dynamic parameters for a task.
+        Resolve parameters for a task.
         """
-        return await self._apply_resolvers(db, experiment_id, task_config, [self._resolve_dynamic_parameters])
+        return await self._apply_resolvers(db, experiment_id, task_config, [self._resolve_parameters])
 
     async def resolve_input_parameter_references(
         self, db: AsyncDbSession, experiment_id: str, task_config: TaskConfig
@@ -73,13 +71,11 @@ class TaskInputResolver:
         """
         return await self._apply_resolvers(db, experiment_id, task_config, [self._resolve_input_container_references])
 
-    async def _resolve_dynamic_parameters(
-        self, db: AsyncDbSession, experiment_id: str, task_config: TaskConfig
-    ) -> TaskConfig:
+    async def _resolve_parameters(self, db: AsyncDbSession, experiment_id: str, task_config: TaskConfig) -> TaskConfig:
         experiment = await self._experiment_manager.get_experiment(db, experiment_id)
-        task_dynamic_parameters = experiment.dynamic_parameters.get(task_config.id, {})
+        task_parameters = experiment.parameters.get(task_config.id, {})
 
-        task_config.parameters.update(task_dynamic_parameters)
+        task_config.parameters.update(task_parameters)
 
         unresolved_parameters = [
             param for param, value in task_config.parameters.items() if validation_utils.is_dynamic_parameter(value)
@@ -87,7 +83,7 @@ class TaskInputResolver:
 
         if unresolved_parameters:
             raise EosTaskInputResolutionError(
-                f"Unresolved input dynamic parameters in task '{task_config.id}': {unresolved_parameters}"
+                f"Unresolved input parameters in task '{task_config.id}': {unresolved_parameters}"
             )
 
         return task_config

@@ -16,7 +16,7 @@ from eos.experiments.entities.experiment import ExperimentStatus, ExperimentMode
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.tasks.entities.task import TaskModel
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class CampaignManager:
@@ -24,7 +24,7 @@ class CampaignManager:
     Responsible for managing the state of all experiment campaigns in EOS and tracking their execution.
     """
 
-    @inject_all
+    @inject
     def __init__(self, configuration_manager: ConfigurationManager):
         self._configuration_manager = configuration_manager
 

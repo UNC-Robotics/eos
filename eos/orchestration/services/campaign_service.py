@@ -10,16 +10,16 @@ from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.orchestration.exceptions import EosExperimentDoesNotExistError
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
-class CampaignModule:
+class CampaignService:
     """
     Top-level campaign functionality integration.
     Exposes an interface for submission, monitoring, and cancellation of campaigns.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,
@@ -63,8 +63,8 @@ class CampaignModule:
                 self._submitted_campaigns[campaign_id] = campaign_executor
             except EosCampaignExecutionError:
                 log.error(f"Failed to submit campaign '{campaign_id}': {traceback.format_exc()}")
-                del self._submitted_campaigns[campaign_id]
-                return
+                self._submitted_campaigns.pop(campaign_id, None)
+                raise
 
             log.info(f"Submitted campaign '{campaign_id}'.")
 

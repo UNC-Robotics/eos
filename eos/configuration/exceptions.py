@@ -33,11 +33,11 @@ class EosTaskGraphError(Exception):
     pass
 
 
-class EosTaskImplementationClassNotFoundError(Exception):
+class EosTaskPluginError(Exception):
     pass
 
 
-class EosCampaignOptimizerImplementationClassNotFoundError(Exception):
+class EosCampaignOptimizerPluginError(Exception):
     pass
 
 
@@ -45,5 +45,5 @@ class EosCampaignOptimizerNotFoundError(Exception):
     pass
 
 
-class EosDeviceImplementationClassNotFoundError(EosDeviceError):
+class EosDevicePluginError(EosDeviceError):
     pass

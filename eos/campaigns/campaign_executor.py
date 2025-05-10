@@ -114,7 +114,7 @@ class CampaignExecutor:
         self._optimizer = await self._campaign_optimizer_manager.create_campaign_optimizer_actor(
             self._experiment_type,
             self._campaign_id,
-            self._campaign_definition.optimizer_computer_ip,
+            self._campaign_definition.optimizer_ip,
         )
 
         self._optimizer_input_names, self._optimizer_output_names = (
@@ -245,7 +245,7 @@ class CampaignExecutor:
             type=self._experiment_type,
             owner=self._campaign_id,
             priority=self._campaign_definition.priority,
-            dynamic_parameters=parameters,
+            parameters=parameters,
         )
 
         experiment_executor = self._experiment_executor_factory.create(experiment_definition)
@@ -264,10 +264,8 @@ class CampaignExecutor:
 
     async def _get_experiment_parameters(self, iteration: int) -> dict[str, Any]:
         """Get parameters for a new experiment from campaign definition or optimizer."""
-        if self._campaign_definition.dynamic_parameters and iteration < len(
-            self._campaign_definition.dynamic_parameters
-        ):
-            return self._campaign_definition.dynamic_parameters[iteration]
+        if self._campaign_definition.parameters and iteration < len(self._campaign_definition.parameters):
+            return self._campaign_definition.parameters[iteration]
 
         if self._campaign_definition.optimize:
             log.info(f"CMP '{self._campaign_id}' - Sampling new parameters...")
@@ -276,9 +274,7 @@ class CampaignExecutor:
             log.debug(f"CMP '{self._campaign_id}' - Sampled parameters: {new_parameters}")
             return dict_utils.unflatten_dict(new_parameters)
 
-        raise EosCampaignExecutionError(
-            f"CMP '{self._campaign_id}' - No dynamic parameters provided for iteration {iteration}"
-        )
+        raise EosCampaignExecutionError(f"CMP '{self._campaign_id}' - No parameters provided for iteration {iteration}")
 
     def _is_campaign_completed(self, campaign: Campaign) -> bool:
         """Check if campaign has completed all experiments."""

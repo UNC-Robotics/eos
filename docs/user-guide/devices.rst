@@ -59,14 +59,14 @@ Below is a example implementation of a magnetic mixer device:
 
 .. code-block:: python
 
-    from typing import Dict, Any
+    from typing import Any
 
     from eos.containers.entities.container import Container
     from eos.devices.base_device import BaseDevice
-    from user.color_lab.common.device_client import DeviceClient
+    from user.eos_examples.color_lab.common.device_client import DeviceClient
 
     class MagneticMixer(BaseDevice):
-        async def _initialize(self, init_parameters: Dict[str, Any]) -> None:
+        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
             port = int(init_parameters["port"])
             self.client = DeviceClient(port)
             self.client.open_connection()
@@ -74,7 +74,7 @@ Below is a example implementation of a magnetic mixer device:
         async def _cleanup(self) -> None:
             self.client.close_connection()
 
-        async def _report(self) -> Dict[str, Any]:
+        async def _report(self) -> dict[str, Any]:
             return {}
 
         def mix(self, container: Container, mixing_time: int, mixing_speed: int) -> Container:

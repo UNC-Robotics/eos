@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from sqlalchemy import String, ForeignKey, JSON, Integer, Enum as sa_Enum, DateTime, Index
 from sqlalchemy.ext.mutable import MutableList, MutableDict
 from sqlalchemy.orm import Mapped, mapped_column
@@ -35,6 +35,12 @@ class TaskDefinition(BaseModel):
     resource_allocation_timeout: int = Field(600, ge=0)  # sec
 
     meta: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("experiment_id", mode="before")
+    def empty_str_to_none(cls, v) -> str | None:
+        if v == "":
+            return None
+        return v
 
     @classmethod
     def from_config(cls, config: TaskConfig, experiment_id: str | None) -> "TaskDefinition":

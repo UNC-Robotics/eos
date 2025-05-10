@@ -12,7 +12,8 @@ class TaskConfig(BaseModel):
     id: str
     type: str
     desc: str | None = None
-    duration: int | None = None
+
+    duration: int = 1  # seconds
 
     devices: list[TaskDeviceConfig] = Field(default_factory=list)
     containers: dict[str, str] = Field(default_factory=dict)

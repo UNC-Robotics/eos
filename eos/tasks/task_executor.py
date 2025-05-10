@@ -31,7 +31,7 @@ from eos.tasks.exceptions import (
 from eos.tasks.task_input_parameter_caster import TaskInputParameterCaster
 from eos.tasks.task_manager import TaskManager
 from eos.tasks.validation.task_validator import TaskValidator
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 @dataclass
@@ -60,7 +60,7 @@ class TaskExecutionContext:
 class TaskExecutor:
     """Manages the execution lifecycle of tasks in the system."""
 
-    @inject_all
+    @inject
     def __init__(
         self,
         task_manager: TaskManager,

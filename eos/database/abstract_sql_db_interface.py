@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
-from eos.configuration.entities.eos_config import DbConfig
+from eos.configuration.eos_config import DbConfig
 from eos.logging.logger import log
 
 
@@ -27,14 +27,11 @@ class AbstractSqlDbInterface(ABC):
     def __init__(self, db_config: DbConfig):
         """Initialize database interface with configuration."""
         self._db_config = db_config
-        self._db_name = db_config.db_name
 
         self._sync_engine = self._create_sync_engine()
         self._async_engine = self._create_async_engine()
         self._sync_session_factory = self._create_sync_session_factory()
         self._async_session_factory = self._create_async_session_factory()
-
-        log.debug(f"Database interface initialized for database '{self._db_name}'")
 
     @abstractmethod
     def _get_connection_args(self) -> dict:

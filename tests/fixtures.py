@@ -9,7 +9,7 @@ import yaml
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.eos_config import DbConfig
+from eos.configuration.eos_config import EosConfig
 from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
 from eos.containers.container_manager import ContainerManager
 from eos.devices.device_manager import DeviceManager
@@ -23,6 +23,7 @@ from eos.resource_allocation.device_allocation_manager import DeviceAllocationMa
 from eos.resource_allocation.resource_allocation_manager import (
     ResourceAllocationManager,
 )
+from eos.scheduling.cpsat_scheduler import CpSatScheduler
 from eos.scheduling.greedy_scheduler import GreedyScheduler
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
@@ -31,21 +32,39 @@ from eos.tasks.task_manager import TaskManager
 log.set_level("INFO")
 
 
-def load_test_config():
-    config_path = Path(__file__).resolve().parent / "test_config.yml"
+def load_test_config() -> EosConfig:
+    """Load the test configuration and return it as an EosConfig object."""
+    from dotenv import load_dotenv
 
+    tests_dir = Path(__file__).resolve().parent
+    load_dotenv(tests_dir / ".env")
+
+    config_path = tests_dir / "test_config.yml"
     if not config_path.exists():
         raise FileNotFoundError(f"Test config file not found at {config_path}")
 
-    with Path(config_path).open("r") as file:
-        return yaml.safe_load(file)
+    with config_path.open("r") as file:
+        user_config = yaml.safe_load(file) or {}
+
+    return EosConfig.model_validate(user_config)
 
 
 @pytest.fixture(scope="session")
-def configuration_manager():
-    config = load_test_config()
+def eos_config() -> EosConfig:
+    """Load the test configuration once per session as an EosConfig fixture."""
+    return load_test_config()
+
+
+@pytest.fixture(scope="session")
+def user_dir(eos_config):
+    return eos_config.user_dir
+
+
+@pytest.fixture(scope="session")
+def configuration_manager(eos_config):
+    """Provides a ConfigurationManager using the session-scoped EosConfig."""
     root_dir = Path(__file__).resolve().parent.parent
-    user_dir = root_dir / config["user_dir"]
+    user_dir = root_dir / eos_config.user_dir
     os.chdir(root_dir)
     return ConfigurationManager(user_dir=str(user_dir))
 
@@ -53,13 +72,6 @@ def configuration_manager():
 @pytest.fixture(scope="session")
 def task_specification_registry(configuration_manager):
     return configuration_manager.task_specs
-
-
-@pytest.fixture
-def user_dir():
-    config = load_test_config()
-    root_dir = Path(__file__).resolve().parent.parent
-    return root_dir / config["user_dir"]
 
 
 class TempDirManager:
@@ -93,17 +105,9 @@ def temp_dir_manager():
 
 
 @pytest.fixture(scope="session")
-async def db_interface(temp_dir_manager):
+async def db_interface(eos_config):
     """Create a database interface with a temporary directory for SQLite files."""
-    config = load_test_config()
-
-    db_config = DbConfig(
-        db_type=config["db"]["db_type"],
-        db_name=config["db"]["db_name"],
-        sqlite_in_memory=True,
-    )
-
-    db = SqliteDbInterface(db_config)
+    db = SqliteDbInterface(eos_config.db)
     await db.initialize_database()
     return db
 
@@ -115,10 +119,8 @@ async def db(db_interface):
 
 
 @pytest.fixture(scope="session")
-def file_db_interface(db_interface):
-    config = load_test_config()
-    file_db_credentials = DbConfig(**config["file_db"])
-    return FileDbInterface(file_db_credentials, bucket_name="test-eos")
+def file_db_interface(eos_config, db_interface):
+    return FileDbInterface(eos_config.file_db)
 
 
 @pytest.fixture
@@ -159,8 +161,8 @@ async def container_manager(setup_lab_experiment, configuration_manager, db_inte
 
 
 @pytest.fixture
-async def device_manager(setup_lab_experiment, configuration_manager, db, clear_db):
-    device_manager = DeviceManager(configuration_manager)
+async def device_manager(setup_lab_experiment, configuration_manager, db, db_interface, clear_db):
+    device_manager = DeviceManager(configuration_manager, db_interface)
 
     await device_manager.update_devices(db, loaded_labs=set(configuration_manager.labs.keys()))
     yield device_manager
@@ -198,7 +200,7 @@ async def task_manager(setup_lab_experiment, configuration_manager, file_db_inte
 @pytest.fixture(scope="session", autouse=True)
 def ray_cluster():
     if not ray.is_initialized():
-        ray.init(namespace="test-eos", resources={"eos-core": 1000})
+        ray.init(namespace="test-eos", resources={"eos": 1000})
     yield
     ray.shutdown()
 
@@ -228,8 +230,9 @@ def on_demand_task_executor(
     setup_lab_experiment,
     task_executor,
     task_manager,
+    configuration_manager,
 ):
-    return OnDemandTaskExecutor(task_executor, task_manager)
+    return OnDemandTaskExecutor(task_executor, task_manager, configuration_manager)
 
 
 @pytest.fixture
@@ -247,12 +250,30 @@ def greedy_scheduler(
 
 
 @pytest.fixture
+def cpsat_scheduler(
+    setup_lab_experiment,
+    configuration_manager,
+    experiment_manager,
+    task_manager,
+    device_manager,
+    resource_allocation_manager,
+):
+    return CpSatScheduler(
+        configuration_manager,
+        experiment_manager,
+        task_manager,
+        device_manager,
+        resource_allocation_manager,
+    )
+
+
+@pytest.fixture
 def experiment_executor_factory(
     configuration_manager,
     experiment_manager,
     task_manager,
     task_executor,
-    greedy_scheduler,
+    cpsat_scheduler,
     db_interface,
 ):
     return ExperimentExecutorFactory(
@@ -260,7 +281,7 @@ def experiment_executor_factory(
         experiment_manager=experiment_manager,
         task_manager=task_manager,
         task_executor=task_executor,
-        scheduler=greedy_scheduler,
+        scheduler=cpsat_scheduler,
         db_interface=db_interface,
     )
 

@@ -6,7 +6,7 @@ from eos.configuration.exceptions import EosLabConfigurationError
 from eos.configuration.spec_registries.device_spec_registry import DeviceSpecRegistry
 from eos.configuration.spec_registries.task_spec_registry import TaskSpecRegistry
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class LabValidator:
@@ -15,7 +15,7 @@ class LabValidator:
     lab configuration.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self, config_dir: str, lab_config: LabConfig, task_specs: TaskSpecRegistry, device_specs: DeviceSpecRegistry
     ):

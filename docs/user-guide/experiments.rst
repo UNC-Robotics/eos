@@ -46,63 +46,36 @@ Below is an example experiment YAML file for an experiment to optimize parameter
     tasks:
       - id: retrieve_container
         type: Retrieve Container
-        desc: Get a random available container from storage and move it to the color dispenser
+        desc: Get a container from storage and move it to the color dispenser
         devices:
           - lab_id: color_lab
             id: robot_arm
-          - lab_id: color_lab
-            id: container_storage
         containers:
-          c_a: c_a
-          c_b: c_b
-          c_c: c_c
-          c_d: c_d
-          c_e: c_e
+          beaker: c_a
         parameters:
-          target_location: color_dispenser
+          target_location: color_mixer_1
         dependencies: []
 
-      - id: dispense_colors
-        type: Dispense Colors
-        desc: Dispense a color from the color dispenser into the container
+      - id: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
         devices:
           - lab_id: color_lab
-            id: color_dispenser
+            id: color_mixer_1
         containers:
           beaker: retrieve_container.beaker
         parameters:
           cyan_volume: eos_dynamic
+          cyan_strength: eos_dynamic
           magenta_volume: eos_dynamic
+          magenta_strength: eos_dynamic
           yellow_volume: eos_dynamic
+          yellow_strength: eos_dynamic
           black_volume: eos_dynamic
-        dependencies: [retrieve_container]
-
-      - id: move_container_to_mixer
-        type: Move Container
-        desc: Move the container to the magnetic mixer
-        devices:
-          - lab_id: color_lab
-            id: robot_arm
-          - lab_id: color_lab
-            id: magnetic_mixer
-        containers:
-          beaker: dispense_colors.beaker
-        parameters:
-          target_location: magnetic_mixer
-        dependencies: [dispense_colors]
-
-      - id: mix_colors
-        type: Magnetic Mixing
-        desc: Mix the colors in the container
-        devices:
-          - lab_id: color_lab
-            id: magnetic_mixer
-        containers:
-          beaker: move_container_to_mixer.beaker
-        parameters:
+          black_strength: eos_dynamic
           mixing_time: eos_dynamic
           mixing_speed: eos_dynamic
-        dependencies: [move_container_to_mixer]
+        dependencies: [retrieve_container]
 
       - id: move_container_to_analyzer
         type: Move Container
@@ -111,11 +84,11 @@ Below is an example experiment YAML file for an experiment to optimize parameter
           - lab_id: color_lab
             id: robot_arm
           - lab_id: color_lab
-            id: color_analyzer
+            id: color_mixer_1
         containers:
           beaker: mix_colors.beaker
         parameters:
-          target_location: color_analyzer
+          target_location: color_mixer_1
         dependencies: [mix_colors]
 
       - id: analyze_color
@@ -123,7 +96,7 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         desc: Analyze the color of the solution in the container and output the RGB values
         devices:
           - lab_id: color_lab
-            id: color_analyzer
+            id: color_analyzer_1
         containers:
           beaker: move_container_to_analyzer.beaker
         dependencies: [move_container_to_analyzer]
@@ -135,6 +108,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
           red: analyze_color.red
           green: analyze_color.green
           blue: analyze_color.blue
+          total_color_volume: mix_colors.total_color_volume
+          max_total_color_volume: 300.0
+          target_color: [53, 29, 64]
         dependencies: [analyze_color]
 
       - id: empty_container
@@ -160,6 +136,8 @@ Below is an example experiment YAML file for an experiment to optimize parameter
             id: cleaning_station
         containers:
           beaker: empty_container.beaker
+        parameters:
+          duration: 2
         dependencies: [empty_container]
 
       - id: store_container
@@ -168,8 +146,6 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         devices:
           - lab_id: color_lab
             id: robot_arm
-          - lab_id: color_lab
-            id: container_storage
         containers:
           beaker: clean_container.beaker
         parameters:
@@ -187,7 +163,7 @@ Let's dissect this file:
       - color_lab
 
 Every experiment has a type.
-The type is used to essentially identify the class of experiment.
+The type is used to identify the class of experiment.
 When an experiment is running then there are instances of the experiment with different IDs.
 Each experiment also requires one or more labs.
 
@@ -197,58 +173,57 @@ Now let's look at the first task in the experiment:
 
     - id: retrieve_container
       type: Retrieve Container
-      desc: Get a random available container from storage and move it to the color dispenser
+      desc: Get a container from storage and move it to the color dispenser
       devices:
         - lab_id: color_lab
           id: robot_arm
-        - lab_id: color_lab
-          id: container_storage
       containers:
-        c_a: c_a
-        c_b: c_b
-        c_c: c_c
-        c_d: c_d
-        c_e: c_e
+        beaker: c_a
       parameters:
-        target_location: color_dispenser
+        target_location: color_mixer_1
       dependencies: []
 
 The first task is named ``retrieve_container`` and is of type `Retrieve Container`.
-This task uses the robot arm to get a random container from storage.
-The task requires two devices, the robot arm and the container storage.
-There are five containers passed to it, "c_a" through "c_e".
-There is also a parameter ``target_location`` that is set to ``color_dispenser``.
-This task has no dependencies as it is the first task in the experiment and is essentially a container feeder.
-There are five containers in storage, and one of them is chosen at random for the experiment.
-All five containers in our "color lab" are passed to this task, as any one of them could be chosen.
+This task uses the robot arm to get a container from storage.
+The task requires the robot arm device.
+There is a parameter ``target_location`` that is set to ``color_mixer_1``, denoting where to move the container
+after retrieving it.
+This task has no dependencies as it is the first task in the experiment.
 
 Let's look at the next task:
 
 .. code-block:: yaml
 
-  - id: dispense_colors
-    type: Dispense Colors
-    desc: Dispense a color from the color dispenser into the container
-    devices:
-      - lab_id: color_lab
-        id: color_dispenser
-    containers:
-      beaker: retrieve_container.beaker
-    parameters:
-      cyan_volume: eos_dynamic
-      magenta_volume: eos_dynamic
-      yellow_volume: eos_dynamic
-      black_volume: eos_dynamic
-    dependencies: [retrieve_container]
+    - id: mix_colors
+      type: Mix Colors
+      desc: Mix the colors in the container
+      devices:
+        - lab_id: color_lab
+          id: {{ color_mixer }}
+      containers:
+        beaker: retrieve_container.beaker
+      parameters:
+        cyan_volume: eos_dynamic
+        cyan_strength: eos_dynamic
+        magenta_volume: eos_dynamic
+        magenta_strength: eos_dynamic
+        yellow_volume: eos_dynamic
+        yellow_strength: eos_dynamic
+        black_volume: eos_dynamic
+        black_strength: eos_dynamic
+        mixing_time: eos_dynamic
+        mixing_speed: eos_dynamic
+      dependencies: [retrieve_container]
 
-This task takes the container from the ``retrieve_container`` task and dispenses colors into it.
+This task takes the container from the ``retrieve_container`` task, dispenses colors, and mixes them.
 The task has an input container called "beaker" which references the output container named "beaker" from the
 ``retrieve_container`` task.
 If we look at the ``task.yml`` file of the task `Retrieve Container` we would see that a container named "beaker" is
 defined in ``output_containers``.
-There are also four parameters, the CMYK volumes to dispense.
+There are also parameters for CMYK volumes and strengths, mixing time, and mixing speed.
 All these parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters,
-instructing the system that these parameters must be specified either by the user or an optimizer before an experiment is run.
+instructing the system that these parameters must be specified either by the user or an optimizer before an experiment
+can be executed.
 
 Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -260,7 +235,7 @@ As an example, below is the optimizer file for the color mixing experiment:
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qNEI
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
     from bofire.data_models.enum import SamplingMethodEnum
     from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
     from bofire.data_models.objectives.identity import MinimizeObjective
@@ -272,18 +247,22 @@ As an example, below is the optimizer file for the color mixing experiment:
     def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
         constructor_args = {
             "inputs": [
-                ContinuousInput(key="dispense_colors.cyan_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.magenta_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.yellow_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.black_volume", bounds=(0, 5)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 15)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(10, 500)),
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
             ],
             "outputs": [
                 ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
             ],
             "constraints": [],
-            "acquisition_function": qNEI(),
+            "acquisition_function": qUCB(beta=1),
             "num_initial_samples": 50,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
@@ -291,4 +270,3 @@ As an example, below is the optimizer file for the color mixing experiment:
         return constructor_args, BayesianSequentialOptimizer
 
 The ``optimizer.py`` file is optional and only required for running experiment campaigns with optimization managed by EOS.
-More on optimizers can be found in the Optimizers section of the User Guide.

@@ -9,7 +9,7 @@ pkg_app.add_typer(add_app, name="add", help="Add entities to an existing package
 EntityType = Literal["lab", "device", "task", "experiment"]
 
 
-def validate_package_exists(package_dir: Path) -> None:
+def _validate_package_exists(package_dir: Path) -> None:
     """Validate that the package exists and has the expected structure."""
     if not package_dir.exists():
         raise typer.BadParameter(f"Package directory {package_dir} does not exist")
@@ -17,14 +17,13 @@ def validate_package_exists(package_dir: Path) -> None:
         raise typer.BadParameter(f"{package_dir} is not a directory")
 
 
-def add_entity(package_dir: Path, entity_type: EntityType, name: str, files: dict[str, str] | None = None) -> None:
+def _add_entity(package_dir: Path, entity_type: EntityType, name: str, files: dict[str, str] | None = None) -> None:
     """Add a new entity to the package with specified files."""
     base_dir = package_dir / f"{entity_type}s" / name
 
     try:
         base_dir.mkdir(parents=True, exist_ok=False)
 
-        # Create the specified files with empty content
         if files:
             for filename, content in files.items():
                 file_path = base_dir / filename
@@ -53,10 +52,21 @@ def create_package(
         for subdir in subdirs:
             (package_dir / subdir).mkdir()
 
-        # Create README.md with just the package name
         readme_content = f"# {name}"
         readme_path = package_dir / "README.md"
         readme_path.write_text(readme_content)
+
+        pyproject_content = f"""[project]
+name = "{name}"
+version = "0.1.0"
+description = f"EOS package {name}"
+readme = "README.md"
+dependencies = [
+  "eos",
+]
+"""
+        pyproject_path = package_dir / "pyproject.toml"
+        pyproject_path.write_text(pyproject_content)
 
         typer.echo(f"Successfully created package '{name}' in {package_dir}")
     except FileExistsError:
@@ -75,10 +85,10 @@ def add_lab(
 ) -> None:
     """Add a new lab to an existing package."""
     package_dir = Path(user_dir) / package
-    validate_package_exists(package_dir)
+    _validate_package_exists(package_dir)
 
     files = {"lab.yml": ""}
-    add_entity(package_dir, "lab", name, files)
+    _add_entity(package_dir, "lab", name, files)
 
 
 @add_app.command(name="device")
@@ -91,10 +101,10 @@ def add_device(
 ) -> None:
     """Add a new device to an existing package."""
     package_dir = Path(user_dir) / package
-    validate_package_exists(package_dir)
+    _validate_package_exists(package_dir)
 
     files = {"device.yml": "", "device.py": ""}
-    add_entity(package_dir, "device", name, files)
+    _add_entity(package_dir, "device", name, files)
 
 
 @add_app.command(name="task")
@@ -107,10 +117,10 @@ def add_task(
 ) -> None:
     """Add a new task to an existing package."""
     package_dir = Path(user_dir) / package
-    validate_package_exists(package_dir)
+    _validate_package_exists(package_dir)
 
     files = {"task.yml": "", "task.py": ""}
-    add_entity(package_dir, "task", name, files)
+    _add_entity(package_dir, "task", name, files)
 
 
 @add_app.command(name="experiment")
@@ -123,10 +133,10 @@ def add_experiment(
 ) -> None:
     """Add a new experiment to an existing package."""
     package_dir = Path(user_dir) / package
-    validate_package_exists(package_dir)
+    _validate_package_exists(package_dir)
 
     files = {"experiment.yml": "", "optimizer.py": ""}
-    add_entity(package_dir, "experiment", name, files)
+    _add_entity(package_dir, "experiment", name, files)
 
 
 if __name__ == "__main__":

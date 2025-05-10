@@ -8,7 +8,7 @@ from eos.experiments.experiment_executor_factory import ExperimentExecutorFactor
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 
 from eos.tasks.task_manager import TaskManager
-from eos.utils.di.di_container import inject_all
+from eos.utils.di.di_container import inject
 
 
 class CampaignExecutorFactory:
@@ -16,7 +16,7 @@ class CampaignExecutorFactory:
     Factory class to create CampaignExecutor instances.
     """
 
-    @inject_all
+    @inject
     def __init__(
         self,
         configuration_manager: ConfigurationManager,

@@ -23,22 +23,22 @@ class CampaignDefinition(BaseModel):
     max_concurrent_experiments: int = Field(1, ge=1)
 
     optimize: bool
-    optimizer_computer_ip: str = "127.0.0.1"
+    optimizer_ip: str = "127.0.0.1"
 
-    dynamic_parameters: list[dict[str, dict[str, Any]]] | None = None
+    parameters: list[dict[str, dict[str, Any]]] | None = None
 
     meta: dict[str, Any] = Field(default_factory=dict)
 
     resume: bool = False
 
     @model_validator(mode="after")
-    def validate_dynamic_parameters(self) -> "CampaignDefinition":
+    def validate_parameters(self) -> "CampaignDefinition":
         if not self.optimize:
-            if not self.dynamic_parameters:
-                raise ValueError("Campaign dynamic parameters must be provided if optimization is not enabled.")
-            if len(self.dynamic_parameters) != self.max_experiments:
+            if not self.parameters:
+                raise ValueError("Campaign parameters must be provided if optimization is not enabled.")
+            if len(self.parameters) != self.max_experiments:
                 raise ValueError(
-                    "Dynamic parameters must be provided for all experiments up to the max experiments if "
+                    "Parameters must be provided for all experiments up to the max experiments if "
                     "optimization is not enabled."
                 )
         return self
@@ -110,9 +110,9 @@ class CampaignModel(Base):
     max_concurrent_experiments: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     optimize: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    optimizer_computer_ip: Mapped[str] = mapped_column(String, nullable=False, default="127.0.0.1")
+    optimizer_ip: Mapped[str] = mapped_column(String, nullable=False, default="127.0.0.1")
 
-    dynamic_parameters: Mapped[list[dict[str, dict[str, Any]]] | None] = mapped_column(
+    parameters: Mapped[list[dict[str, dict[str, Any]]] | None] = mapped_column(
         MutableList.as_mutable(JSON), nullable=True
     )
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})

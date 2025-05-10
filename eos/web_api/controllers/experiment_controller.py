@@ -1,65 +1,79 @@
-from litestar import Controller, get, put, Response
-from litestar.handlers import post
-from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_404_NOT_FOUND
+from typing import Any
 
-from eos.experiments.entities.experiment import ExperimentDefinition
+from litestar import get, post, put, Controller, Response
+from pydantic import BaseModel
+
+from eos.database.abstract_sql_db_interface import AsyncDbSession
+from eos.experiments.entities.experiment import ExperimentDefinition, Experiment
 from eos.orchestration.orchestrator import Orchestrator
-from eos.web_api.entities import ExperimentTypes, ExperimentTypesResponse
-from eos.web_api.exception_handling import handle_exceptions
+from eos.web_api.exception_handling import APIError
+
+
+class ExperimentTypes(BaseModel):
+    experiment_types: list[str]
+
+
+class ExperimentTypesResponse(BaseModel):
+    experiment_types: list[str]
 
 
 class ExperimentController(Controller):
+    """Controller for experiment-related endpoints."""
+
     path = "/experiments"
 
-    @get("/{experiment_id:str}")
-    async def get_experiment(self, experiment_id: str, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            experiment = await orchestrator.experiments.get_experiment(db, experiment_id)
-
-        if experiment is None:
-            return Response(content={"error": "Experiment not found"}, status_code=HTTP_404_NOT_FOUND)
-
-        return Response(content=experiment.model_dump_json(), status_code=HTTP_200_OK)
-
-    @post("/submit")
-    @handle_exceptions("Failed to submit experiment")
-    async def submit_experiment(self, data: ExperimentDefinition, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            await orchestrator.experiments.submit_experiment(db, data)
-        return Response(content=None, status_code=HTTP_201_CREATED)
+    @post("/")
+    async def submit_experiment(
+        self, data: ExperimentDefinition, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> Response:
+        """Submit a new experiment for execution."""
+        await orchestrator.experiments.submit_experiment(db, data)
+        return Response(content="Submitted", status_code=201)
 
     @post("/{experiment_id:str}/cancel")
-    @handle_exceptions("Failed to cancel experiment")
     async def cancel_experiment(self, experiment_id: str, orchestrator: Orchestrator) -> Response:
+        """Cancel a running experiment."""
         await orchestrator.experiments.cancel_experiment(experiment_id)
-        return Response(content=None, status_code=HTTP_200_OK)
+        return Response(content="Cancellation request submitted.", status_code=202)
 
-    @put("/update_loaded")
-    @handle_exceptions("Failed to update loaded experiments")
-    async def update_loaded_experiments(self, data: ExperimentTypes, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            await orchestrator.loading.update_loaded_experiments(db, set(data.experiment_types))
-        return Response(content=None, status_code=HTTP_200_OK)
+    @get("/{experiment_id:str}")
+    async def get_experiment(self, experiment_id: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Experiment:
+        """Get an experiment by ID."""
+        experiment = await orchestrator.experiments.get_experiment(db, experiment_id)
 
-    @put("/reload")
-    @handle_exceptions("Failed to reload experiments")
-    async def reload_experiments(self, data: ExperimentTypes, orchestrator: Orchestrator) -> Response:
-        async with orchestrator.db_interface.get_async_session() as db:
-            await orchestrator.loading.reload_experiments(db, set(data.experiment_types))
-        return Response(content=None, status_code=HTTP_200_OK)
+        if experiment is None:
+            raise APIError(status_code=404, detail="Experiment not found")
+
+        return experiment
 
     @get("/types")
-    @handle_exceptions("Failed to get experiment types")
-    async def get_experiment_types(self, orchestrator: Orchestrator) -> ExperimentTypesResponse:
-        experiment_types = await orchestrator.experiments.get_experiment_types()
-        return ExperimentTypesResponse(experiment_types=experiment_types)
+    async def get_experiment_types(self, orchestrator: Orchestrator) -> dict[str, bool]:
+        """List experiment types."""
+        return await orchestrator.loading.list_experiments()
 
-    @get("/loaded")
-    @handle_exceptions("Failed to get loaded experiments")
-    async def get_loaded_experiments(self, orchestrator: Orchestrator) -> dict:
-        return await orchestrator.loading.get_loaded()
+    @post("/load")
+    async def load_experiments(self, data: ExperimentTypes, orchestrator: Orchestrator) -> Response:
+        """Load experiment configurations."""
+        await orchestrator.loading.load_experiments(set(data.experiment_types))
+        return Response(content="OK", status_code=200)
+
+    @post("/unload")
+    async def unload_experiments(
+        self, data: ExperimentTypes, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> Response:
+        """Unload experiment configurations."""
+        await orchestrator.loading.unload_experiments(db, set(data.experiment_types))
+        return Response(content="OK", status_code=200)
+
+    @put("/reload")
+    async def reload_experiments(
+        self, data: ExperimentTypes, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> Response:
+        """Reload experiment configurations."""
+        await orchestrator.loading.reload_experiments(db, set(data.experiment_types))
+        return Response(content="OK", status_code=200)
 
     @get("/{experiment_type:str}/dynamic_params_template")
-    @handle_exceptions("Failed to get dynamic parameters template")
-    async def get_experiment_dynamic_params_template(self, experiment_type: str, orchestrator: Orchestrator) -> dict:
+    async def get_dynamic_params_template(self, experiment_type: str, orchestrator: Orchestrator) -> dict[str, Any]:
+        """Get dynamic parameters template for an experiment type."""
         return await orchestrator.experiments.get_experiment_dynamic_params_template(experiment_type)
