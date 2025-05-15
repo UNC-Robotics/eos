@@ -48,6 +48,9 @@ worker = [
     "typer==0.15.3",
     "rich==14.0.0",
     "pydantic==2.11.4",
+    "pydantic-settings==2.9.1",
+    "sqlalchemy==2.0.40",
+    "alembic==1.15.2",
 ]
 optimizer_worker = [
     { include-group = "worker" },
