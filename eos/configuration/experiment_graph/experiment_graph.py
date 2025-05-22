@@ -89,4 +89,9 @@ class ExperimentGraph:
     @staticmethod
     def _stable_topological_sort(graph: nx.Graph) -> list[str]:
         nodes = sorted(graph.nodes())
-        return list(nx.topological_sort(nx.DiGraph((u, v) for u, v in graph.edges() if u in nodes and v in nodes)))
+
+        dg = nx.DiGraph()
+        dg.add_nodes_from(nodes)
+        dg.add_edges_from(graph.edges())
+
+        return list(nx.topological_sort(dg))

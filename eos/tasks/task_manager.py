@@ -5,7 +5,6 @@ from typing import Any
 from sqlalchemy import select, update, delete, exists
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.experiments.entities.experiment import ExperimentModel
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.database.file_db_interface import FileDbInterface
@@ -81,77 +80,25 @@ class TaskManager:
         await db.execute(delete(TaskModel).where(TaskModel.experiment_id == experiment_id, TaskModel.id == task_id))
         log.info(f"Deleted task '{task_id}' from experiment '{experiment_id}'.")
 
-    async def _update_experiment_tasks(
-        self,
-        db: AsyncDbSession,
-        experiment_id: str,
-        task_id: str,
-        add_to: list[str] | None = None,
-        remove_from: list[str] | None = None,
-    ) -> None:
-        """
-        Update experiment task lists.
-
-        :param db: Database session
-        :param experiment_id: The ID of the experiment
-        :param task_id: The ID of the task
-        :param add_to: List of fields to add the task ID to
-        :param remove_from: List of fields to remove the task ID from
-        """
-        if experiment_id == "on_demand":
-            return
-
-        update_values = {}
-
-        # First get the current state of the experiment
-        result = await db.execute(select(ExperimentModel).where(ExperimentModel.id == experiment_id))
-        experiment = result.scalar_one_or_none()
-        if not experiment:
-            raise ValueError(f"Experiment {experiment_id} not found")
-
-        if remove_from:
-            for field in remove_from:
-                current_array = getattr(experiment, field, [])
-                update_values[field] = [x for x in current_array if x != task_id]
-
-        if add_to:
-            for field in add_to:
-                current_array = getattr(experiment, field, [])
-                if task_id not in current_array:
-                    update_values[field] = [*current_array, task_id]
-
-        if update_values:
-            await db.execute(update(ExperimentModel).where(ExperimentModel.id == experiment_id).values(update_values))
-
     async def start_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
-        """Add a task to the running tasks list and update its status to running."""
+        """Update task status to running."""
         await self._validate_task_exists(db, experiment_id, task_id)
         await self._set_task_status(db, experiment_id, task_id, TaskStatus.RUNNING)
-        if experiment_id:
-            await self._update_experiment_tasks(db, experiment_id, task_id, add_to=["running_tasks"])
 
     async def complete_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
-        """Update task status to completed and move task from running to completed queue."""
+        """Update task status to completed."""
         await self._validate_task_exists(db, experiment_id, task_id)
         await self._set_task_status(db, experiment_id, task_id, TaskStatus.COMPLETED)
-        if experiment_id:
-            await self._update_experiment_tasks(
-                db, experiment_id, task_id, add_to=["completed_tasks"], remove_from=["running_tasks"]
-            )
 
     async def fail_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
-        """Update task status to failed and remove from running queue."""
+        """Update task status to failed."""
         await self._validate_task_exists(db, experiment_id, task_id)
         await self._set_task_status(db, experiment_id, task_id, TaskStatus.FAILED)
-        if experiment_id:
-            await self._update_experiment_tasks(db, experiment_id, task_id, remove_from=["running_tasks"])
 
     async def cancel_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
-        """Update task status to cancelled and remove from running queue."""
+        """Update task status to cancelled."""
         await self._validate_task_exists(db, experiment_id, task_id)
         await self._set_task_status(db, experiment_id, task_id, TaskStatus.CANCELLED)
-        if experiment_id:
-            await self._update_experiment_tasks(db, experiment_id, task_id, remove_from=["running_tasks"])
         log.warning(f"EXP '{experiment_id}' - Cancelled task '{task_id}'.")
 
     async def get_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> Task | None:

@@ -80,26 +80,39 @@ class ExperimentManager:
 
     async def get_running_tasks(self, db: AsyncDbSession, experiment_id: str | None) -> set[str]:
         """Get the set of currently running task IDs for an experiment."""
-        result = await db.execute(select(ExperimentModel.running_tasks).where(ExperimentModel.id == experiment_id))
-        if tasks := result.scalar_one_or_none():
-            return set(tasks)
-        return set()
+        result = await db.execute(
+            select(TaskModel.id).where(
+                and_(TaskModel.experiment_id == experiment_id, TaskModel.status == TaskStatus.RUNNING)
+            )
+        )
+        return {task_id for task_id, in result.all()}
 
     async def get_completed_tasks(self, db: AsyncDbSession, experiment_id: str) -> set[str]:
         """Get the set of completed task IDs for an experiment."""
-        result = await db.execute(select(ExperimentModel.completed_tasks).where(ExperimentModel.id == experiment_id))
-        if tasks := result.scalar_one_or_none():
-            return set(tasks)
-        return set()
+        result = await db.execute(
+            select(TaskModel.id).where(
+                and_(TaskModel.experiment_id == experiment_id, TaskModel.status == TaskStatus.COMPLETED)
+            )
+        )
+        return {task_id for task_id, in result.all()}
 
     async def get_all_completed_tasks(self, db: AsyncDbSession, experiment_ids: list[str]) -> dict[str, set[str]]:
         """
         Get completed tasks for all experiments in the provided list.
         Returns a dictionary mapping experiment_id to a set of completed task IDs.
         """
-        stmt = select(ExperimentModel.id, ExperimentModel.completed_tasks).where(ExperimentModel.id.in_(experiment_ids))
-        result = await db.execute(stmt)
-        completed_mapping = {exp_id: set(tasks or []) for exp_id, tasks in result.all()}
+        result = await db.execute(
+            select(TaskModel.experiment_id, TaskModel.id).where(
+                and_(TaskModel.experiment_id.in_(experiment_ids), TaskModel.status == TaskStatus.COMPLETED)
+            )
+        )
+
+        completed_mapping = {}
+        for exp_id, task_id in result.all():
+            if exp_id not in completed_mapping:
+                completed_mapping[exp_id] = set()
+            completed_mapping[exp_id].add(task_id)
+
         # Ensure all experiment_ids are present in the result
         for exp_id in experiment_ids:
             completed_mapping.setdefault(exp_id, set())
@@ -110,9 +123,18 @@ class ExperimentManager:
         Get running tasks for all experiments in the provided list.
         Returns a dictionary mapping experiment_id to a set of running task IDs.
         """
-        stmt = select(ExperimentModel.id, ExperimentModel.running_tasks).where(ExperimentModel.id.in_(experiment_ids))
-        result = await db.execute(stmt)
-        running_mapping = {exp_id: set(tasks or []) for exp_id, tasks in result.all()}
+        result = await db.execute(
+            select(TaskModel.experiment_id, TaskModel.id).where(
+                and_(TaskModel.experiment_id.in_(experiment_ids), TaskModel.status == TaskStatus.RUNNING)
+            )
+        )
+
+        running_mapping = {}
+        for exp_id, task_id in result.all():
+            if exp_id not in running_mapping:
+                running_mapping[exp_id] = set()
+            running_mapping[exp_id].add(task_id)
+
         # Ensure all experiment_ids are present in the result
         for exp_id in experiment_ids:
             running_mapping.setdefault(exp_id, set())
@@ -120,27 +142,14 @@ class ExperimentManager:
 
     async def delete_non_completed_tasks(self, db: AsyncDbSession, experiment_id: str) -> None:
         """Delete running, failed and cancelled tasks for an experiment."""
-        experiment = await self.get_experiment(db, experiment_id)
-        if not experiment:
-            raise EosExperimentStateError(f"Experiment '{experiment_id}' does not exist.")
+        await self._validate_experiment_exists(db, experiment_id)
 
-        # Delete running tasks
-        if experiment.running_tasks:
-            await db.execute(
-                delete(TaskModel).where(
-                    and_(TaskModel.experiment_id == experiment_id, TaskModel.id.in_(experiment.running_tasks))
-                )
-            )
-
-        # Clear running tasks list in experiment
-        await db.execute(update(ExperimentModel).where(ExperimentModel.id == experiment_id).values(running_tasks=[]))
-
-        # Delete failed and cancelled tasks
+        # Delete non-completed tasks (running, failed, cancelled)
         await db.execute(
             delete(TaskModel).where(
                 and_(
                     TaskModel.experiment_id == experiment_id,
-                    TaskModel.status.in_([TaskStatus.FAILED, TaskStatus.CANCELLED]),
+                    TaskModel.status.in_([TaskStatus.RUNNING, TaskStatus.FAILED, TaskStatus.CANCELLED]),
                 )
             )
         )

@@ -691,18 +691,24 @@ docs = [
     { name = "sphinx-design" },
 ]
 optimizer-worker = [
+    { name = "alembic" },
     { name = "bofire", extra = ["optimization"] },
     { name = "cvxpy" },
     { name = "pandas" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "ray", extra = ["default"] },
     { name = "rich" },
+    { name = "sqlalchemy" },
     { name = "typer" },
 ]
 worker = [
+    { name = "alembic" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "ray", extra = ["default"] },
     { name = "rich" },
+    { name = "sqlalchemy" },
     { name = "typer" },
 ]
 
@@ -746,18 +752,24 @@ docs = [
     { name = "sphinx-design" },
 ]
 optimizer-worker = [
+    { name = "alembic", specifier = "==1.15.2" },
     { name = "bofire", extras = ["optimization"], specifier = "==0.1.0" },
     { name = "cvxpy", specifier = ">=1.6.5" },
     { name = "pandas", specifier = "==2.2.3" },
     { name = "pydantic", specifier = "==2.11.4" },
+    { name = "pydantic-settings", specifier = "==2.9.1" },
     { name = "ray", extras = ["default"], specifier = "==2.46.0" },
     { name = "rich", specifier = "==14.0.0" },
+    { name = "sqlalchemy", specifier = "==2.0.40" },
     { name = "typer", specifier = "==0.15.3" },
 ]
 worker = [
+    { name = "alembic", specifier = "==1.15.2" },
     { name = "pydantic", specifier = "==2.11.4" },
+    { name = "pydantic-settings", specifier = "==2.9.1" },
     { name = "ray", extras = ["default"], specifier = "==2.46.0" },
     { name = "rich", specifier = "==14.0.0" },
+    { name = "sqlalchemy", specifier = "==2.0.40" },
     { name = "typer", specifier = "==0.15.3" },
 ]
 

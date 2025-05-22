@@ -128,6 +128,7 @@ class ExperimentExecutor:
                 return True
 
             await self._process_completed_tasks(db)
+            await db.commit()
             await self._execute_tasks(db)
 
             return False

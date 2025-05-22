@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_serializer
 from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum
-from sqlalchemy.ext.mutable import MutableDict, MutableList
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
 
 from eos.database.abstract_sql_db_interface import Base
@@ -43,9 +43,6 @@ class Experiment(ExperimentDefinition):
 
     status: ExperimentStatus = ExperimentStatus.CREATED
 
-    running_tasks: list[str] = Field(default_factory=list)
-    completed_tasks: list[str] = Field(default_factory=list)
-
     start_time: datetime | None = None
     end_time: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
@@ -80,9 +77,6 @@ class ExperimentModel(Base):
     status: Mapped[ExperimentStatus] = mapped_column(
         sa_Enum(ExperimentStatus), nullable=False, default=ExperimentStatus.CREATED
     )
-
-    running_tasks: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), nullable=False, default=[])
-    completed_tasks: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), nullable=False, default=[])
 
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
