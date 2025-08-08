@@ -80,8 +80,8 @@ Below is a example implementation of a magnetic mixer device:
         def mix(self, container: Container, mixing_time: int, mixing_speed: int) -> Container:
             result = self.client.send_command("mix", {"mixing_time": mixing_time, "mixing_speed": mixing_speed})
             if result:
-                container.metadata["mixing_time"] = mixing_time
-                container.metadata["mixing_speed"] = mixing_speed
+                container.meta["mixing_time"] = mixing_time
+                container.meta["mixing_speed"] = mixing_speed
 
             return container
 
