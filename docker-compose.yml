@@ -1,6 +1,6 @@
 services:
   eos-postgresql:
-    image: postgres:17.4
+    image: postgres:17.5
     container_name: eos-postgres
     hostname: eos-postgres
     restart: unless-stopped
@@ -17,7 +17,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   eos-minio:
-    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
     container_name: eos-minio
     hostname: eos-minio
     restart: unless-stopped
