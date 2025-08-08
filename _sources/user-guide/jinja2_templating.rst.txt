@@ -32,7 +32,7 @@ In the example below, the variable ``max_volume`` is set to 300 and used to defi
     ...
     containers:
       - type: beaker
-        metadata:
+        meta:
           capacity: {{ max_volume }}
         ids:
           - beaker 1
@@ -83,7 +83,7 @@ In the example below, a loop is used to generate container IDs with a common pre
     containers:
       - type: beaker
         location: container_storage
-        metadata:
+        meta:
           capacity: 300
         ids:
           {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g'] %}
@@ -103,7 +103,7 @@ In the example below, the ``create_containers`` macro is used to easily create c
     {% macro create_containers(type, location, capacity, id_prefix, count) %}
     - type: {{ type }}
       location: {{ location }}
-      metadata:
+      meta:
         capacity: {{ capacity }}
       ids:
         {% for i in range(count) %}

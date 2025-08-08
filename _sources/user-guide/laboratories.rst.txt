@@ -32,7 +32,7 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
     locations:
       glovebox:
         desc: Nitrogen-filled glovebox
-        metadata:
+        meta:
             map_coordinates:
                 x: 10
                 y: 20
@@ -110,7 +110,7 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
     containers:
       - type: vial
         location: glovebox
-        metadata:
+        meta:
           solvent: 20 #ml
         ids:
           - precursor_vial_1
@@ -119,7 +119,7 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 
       - type: petri_dish
         location: glovebox
-        metadata:
+        meta:
           capacity: 100 #ml
         ids:
           - substrate_dish_1
@@ -127,7 +127,7 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 
       - type: crucible
         location: evaporation_chamber
-        metadata:
+        meta:
           capacity: 5 #ml
         ids:
           - au_crucible
@@ -137,7 +137,7 @@ Locations (Optional)
 """"""""""""""""""""
 Locations are physical stations around the lab where devices and containers are placed.
 They are defined in the ``locations`` section of the laboratory YAML file.
-You can define metadata for each location, such as map coordinates for a mobile robot.
+You can define meta for each location, such as map coordinates for a mobile robot.
 Defining locations is optional.
 
 .. code-block:: yaml
@@ -145,7 +145,7 @@ Defining locations is optional.
     locations:
       glovebox:
         desc: Nitrogen-filled glovebox
-        metadata:
+        meta:
             map_coordinates:
                 x: 10
                 y: 20
@@ -239,7 +239,7 @@ They are defined in the ``containers`` section of the laboratory YAML file.
     containers:
       - type: vial
         location: glovebox
-        metadata:
+        meta:
           capacity: 20 #ml
         ids:
           - precursor_vial_1
@@ -248,7 +248,7 @@ They are defined in the ``containers`` section of the laboratory YAML file.
 
       - type: petri_dish
         location: glovebox
-        metadata:
+        meta:
           capacity: 100 #ml
         ids:
           - substrate_dish_1
@@ -256,7 +256,7 @@ They are defined in the ``containers`` section of the laboratory YAML file.
 
       - type: crucible
         location: evaporation_chamber
-        metadata:
+        meta:
           capacity: 5 #ml
         ids:
           - au_crucible
@@ -266,7 +266,7 @@ They are defined in the ``containers`` section of the laboratory YAML file.
 
 **location** (optional): The location where the container starts out at.
 
-**metadata** (optional): Any additional information about the container, such as its capacity or contained sample.
+**meta** (optional): Any additional information about the container, such as its capacity or contained sample.
 
 **ids**: A list of unique identifiers for each container.
 These are used to identify and refer to specific containers.

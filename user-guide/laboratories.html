@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=cce5339e"></script>
+    <script src="../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -367,7 +367,7 @@ of experiments take place.</p>
 <span class="nt">locations</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">glovebox</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">map_coordinates</span><span class="p">:</span>
 <span class="w">            </span><span class="nt">x</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">            </span><span class="nt">y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
@@ -445,7 +445,7 @@ of experiments take place.</p>
 <span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">solvent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w"> </span><span class="c1">#ml</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">precursor_vial_1</span>
@@ -454,7 +454,7 @@ of experiments take place.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">petri_dish</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w"> </span><span class="c1">#ml</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">substrate_dish_1</span>
@@ -462,7 +462,7 @@ of experiments take place.</p>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">crucible</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w"> </span><span class="c1">#ml</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">au_crucible</span>
@@ -473,12 +473,12 @@ of experiments take place.</p>
 <h3>Locations (Optional)<a class="headerlink" href="#locations-optional" title="Link to this heading">#</a></h3>
 <p>Locations are physical stations around the lab where devices and containers are placed.
 They are defined in the <code class="docutils literal notranslate"><span class="pre">locations</span></code> section of the laboratory YAML file.
-You can define metadata for each location, such as map coordinates for a mobile robot.
+You can define meta for each location, such as map coordinates for a mobile robot.
 Defining locations is optional.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">locations</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">glovebox</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Nitrogen-filled glovebox</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">map_coordinates</span><span class="p">:</span>
 <span class="w">            </span><span class="nt">x</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">            </span><span class="nt">y</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
@@ -563,7 +563,7 @@ They are defined in the <code class="docutils literal notranslate"><span class="
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w"> </span><span class="c1">#ml</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">precursor_vial_1</span>
@@ -572,7 +572,7 @@ They are defined in the <code class="docutils literal notranslate"><span class="
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">petri_dish</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w"> </span><span class="c1">#ml</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">substrate_dish_1</span>
@@ -580,7 +580,7 @@ They are defined in the <code class="docutils literal notranslate"><span class="
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">crucible</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w"> </span><span class="c1">#ml</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">au_crucible</span>
@@ -589,7 +589,7 @@ They are defined in the <code class="docutils literal notranslate"><span class="
 </div>
 <p><strong>type</strong>: Every container must have a type, which can be used to group together containers of the same type.</p>
 <p><strong>location</strong> (optional): The location where the container starts out at.</p>
-<p><strong>metadata</strong> (optional): Any additional information about the container, such as its capacity or contained sample.</p>
+<p><strong>meta</strong> (optional): Any additional information about the container, such as its capacity or contained sample.</p>
 <p><strong>ids</strong>: A list of unique identifiers for each container.
 These are used to identify and refer to specific containers.</p>
 </section>

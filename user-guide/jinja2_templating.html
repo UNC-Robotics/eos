@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=cce5339e"></script>
+    <script src="../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -367,7 +367,7 @@ In the example below, the variable <code class="docutils literal notranslate"><s
 <span class="nn">...</span>
 <span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">max_volume</span> <span class="cp">}}</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker 1</span>
@@ -412,7 +412,7 @@ In the example below, a loop is used to generate container IDs with a common pre
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">containers</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
 <span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">container_storage</span>
-<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
 <span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">      </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">letter</span> <span class="k">in</span> <span class="o">[</span><span class="s1">&#39;a&#39;</span><span class="o">,</span> <span class="s1">&#39;b&#39;</span><span class="o">,</span> <span class="s1">&#39;c&#39;</span><span class="o">,</span> <span class="s1">&#39;d&#39;</span><span class="o">,</span> <span class="s1">&#39;e&#39;</span><span class="o">,</span> <span class="s1">&#39;f&#39;</span><span class="o">,</span> <span class="s1">&#39;g&#39;</span><span class="o">]</span> <span class="cp">%}</span>
@@ -430,7 +430,7 @@ In the example below, the <code class="docutils literal notranslate"><span class
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">create_containers</span><span class="o">(</span><span class="nv">type</span><span class="o">,</span> <span class="nv">location</span><span class="o">,</span> <span class="nv">capacity</span><span class="o">,</span> <span class="nv">id_prefix</span><span class="o">,</span> <span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
 <span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">type</span> <span class="cp">}}</span>
 <span class="w">  </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">location</span> <span class="cp">}}</span>
-<span class="w">  </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">capacity</span> <span class="cp">}}</span>
 <span class="w">  </span><span class="nt">ids</span><span class="p">:</span>
 <span class="w">    </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">i</span> <span class="k">in</span> <span class="nv">range</span><span class="o">(</span><span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>

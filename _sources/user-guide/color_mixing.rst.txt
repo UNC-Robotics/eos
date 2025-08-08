@@ -351,7 +351,7 @@ We define five beakers with a capacity of 300 mL.
     containers:
       - type: beaker
         location: container_storage
-        metadata:
+        meta:
           capacity: 300
         ids:
           - c_a
