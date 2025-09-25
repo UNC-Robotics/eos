@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=65a547f8"></script>
+    <script src="../_static/documentation_options.js?v=4514dd13"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -354,12 +354,32 @@ Example functions include:</p>
 The REST API currently has no authentication.</p>
 <p>Only use it internally in its current state.
 If you need to make it accessible over the web use a VPN and set up a firewall.</p>
-</div>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
 <p>EOS will likely have control over expensive (and potentially dangerous) hardware and unchecked REST API access could
 have severe consequences.</p>
 </div>
+<section id="device-rpc">
+<h2>Device RPC<a class="headerlink" href="#device-rpc" title="Link to this heading">#</a></h2>
+<p>EOS provides an RPC endpoint to call device functions directly through the REST API.</p>
+<p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/rpc/{lab_id}/{device_id}/{function_name}</span></code></p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;http://localhost:8070/api/rpc/my_lab/pipette/aspirate&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;volume&quot;: 50, &quot;location&quot;: &quot;A1&quot;}&#39;</span>
+</pre></div>
+</div>
+<p><strong>Parameters:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">lab_id</span></code>: The laboratory ID</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">device_id</span></code>: The device ID within the lab</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">function_name</span></code>: The name of the device function to call</p></li>
+<li><p>Request body: JSON object containing function parameters</p></li>
+</ul>
+<p>The endpoint will dynamically call the specified function on the device actor with the provided parameters and return the result.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Direct device control bypasses EOS validation, resource allocation, and scheduling.</p>
+</div>
+</section>
 <section id="documentation">
 <h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h2>
 <p>The REST API is documented using <a class="reference external" href="https://swagger.io/specification/">OpenAPI</a> and can be accessed at:</p>
@@ -417,6 +437,7 @@ have severe consequences.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-rpc">Device RPC</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a></li>
 </ul>
   </nav></div>
