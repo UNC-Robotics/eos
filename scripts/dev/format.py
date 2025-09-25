@@ -2,7 +2,7 @@ import subprocess
 
 
 def main():
-    subprocess.run(["black", "."], check=True)
+    subprocess.run(["ruff", "format", "eos", "tests"], check=True)
 
 
 if __name__ == "__main__":

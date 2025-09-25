@@ -150,8 +150,7 @@ class ListTaskParameter(TaskParameter):
     def _check_element_types(self, label: str, lst: list[Any] | None) -> None:
         if lst is not None and not all(isinstance(item, self.element_type.python_type) for item in lst):
             raise ValueError(
-                f"All elements of list parameter '{label}' must be of "
-                f"type {self.element_type.python_type.__name__}."
+                f"All elements of list parameter '{label}' must be of type {self.element_type.python_type.__name__}."
             )
 
     def _check_within_bounds(self) -> None:

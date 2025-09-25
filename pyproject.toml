@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.8.1"
+version = "0.8.2"
 description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -22,12 +22,12 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "ray[default]==2.48.0",
-    "typer==0.16.0",
+    "ray[default]==2.49.2",
+    "typer==0.19.2",
     "rich==14.1.0",
     "PyYAML==6.0.2",
     "jinja2==3.1.6",
-    "pydantic==2.11.7",
+    "pydantic==2.11.9",
     "pydantic-settings==2.10.1",
     "networkx==3.5.0",
     "sqlalchemy==2.0.42",
@@ -43,10 +43,10 @@ dependencies = [
 
 [dependency-groups]
 worker = [
-    "ray[default]==2.48.0",
-    "typer==0.16.0",
+    "ray[default]==2.49.2",
+    "typer==0.19.2",
     "rich==14.1.0",
-    "pydantic==2.11.7",
+    "pydantic==2.11.9",
     "pydantic-settings==2.10.1",
     "sqlalchemy==2.0.42",
     "alembic==1.16.4",
@@ -63,7 +63,6 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
-    "black",
 ]
 docs = [
     "sphinx",
@@ -87,17 +86,12 @@ packages = ["eos"]
 [project.scripts]
 eos = "eos.eos:eos_app"
 
-test = "scripts.dev.test:main"
-test-with-cov = "scripts.dev.test_with_cov:main"
-lint = "scripts.dev.lint:main"
-format = "scripts.dev.format:main"
-docs-build = "scripts.dev.docs_build:main"
-docs-build-gh = "scripts.dev.docs_build_gh:main"
-docs-serve = "scripts.dev.docs_serve:main"
-
-[tool.black]
-line-length = 120
-extend-exclude = "eos/database/_migrations/versions/"
+eos_test = "scripts.dev.test:main"
+eos_lint = "scripts.dev.lint:main"
+eos_format = "scripts.dev.format:main"
+eos_docs_build = "scripts.dev.docs_build:main"
+eos_docs_build_gh = "scripts.dev.docs_build_gh:main"
+eos_docs_serve = "scripts.dev.docs_serve:main"
 
 [tool.pytest.ini_options]
 testpaths = [
@@ -113,6 +107,9 @@ asyncio_mode = "auto"
 include = [
     "{eos,tests}/**/*.py",
     "pyproject.toml"
+]
+exclude = [
+    "eos/database/_migrations/versions/"
 ]
 target-version = "py310"
 line-length = 120
@@ -182,4 +179,16 @@ lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR091
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
     "typer.Argument"
+]
+
+[tool.coverage.run]
+data_file = ".coverage/.coverage"
+parallel = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
 ]

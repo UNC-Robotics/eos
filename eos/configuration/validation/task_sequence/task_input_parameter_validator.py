@@ -75,8 +75,7 @@ class TaskInputParameterValidator:
             )
         elif validation_utils.is_dynamic_parameter(parameter):
             batch_error(
-                f"Input parameter '{parameter_name}' in task '{self._task_id}' is 'eos_dynamic', which is not "
-                f"allowed.",
+                f"Input parameter '{parameter_name}' in task '{self._task_id}' is 'eos_dynamic', which is not allowed.",
                 EosTaskValidationError,
             )
         else:

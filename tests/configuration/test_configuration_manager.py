@@ -14,7 +14,6 @@ LAB_2_ID = "multiplication_lab"
 
 
 class TestConfigurationManager:
-
     def test_load_lab(self, configuration_manager):
         initial_labs = configuration_manager.labs
         configuration_manager.load_lab(LAB_1_ID)

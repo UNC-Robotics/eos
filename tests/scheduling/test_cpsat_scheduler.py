@@ -27,7 +27,6 @@ def experiment_graph(configuration_manager):
 
 @pytest.mark.parametrize("setup_lab_experiment", [("abstract_lab", EXPERIMENT_TYPE)], indirect=True)
 class TestCpSatScheduler:
-
     @pytest.mark.asyncio
     async def test_register_experiment(self, cpsat_scheduler, experiment_graph):
         await cpsat_scheduler.register_experiment("exp1", EXPERIMENT_TYPE, experiment_graph)

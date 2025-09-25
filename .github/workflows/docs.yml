@@ -29,7 +29,7 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Build docs
-        run: uv run docs-build-gh
+        run: uv run eos_docs_build_gh
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@v4

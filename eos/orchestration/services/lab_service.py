@@ -63,3 +63,24 @@ class LabService:
                 f"Failed to get device report for lab '{lab_id}' and device '{device_id}': {traceback.format_exc()}"
             )
             raise
+
+    async def call_device_function(self, lab_id: str, device_id: str, function_name: str, parameters: dict) -> dict:
+        """Call any function on a device actor with the given parameters."""
+        try:
+            device_actor = self._device_manager.get_device_actor(lab_id, device_id)
+
+            # Get the function from the actor
+            if not hasattr(device_actor, function_name):
+                raise AttributeError(f"Device '{lab_id}.{device_id}' does not have function '{function_name}'")
+
+            device_function = getattr(device_actor, function_name)
+
+            # Call the function with parameters
+            if parameters:
+                return await device_function.remote(**parameters)
+            return await device_function.remote()
+        except Exception:
+            log.error(
+                f"Failed to call function '{function_name}' on device '{lab_id}.{device_id}': {traceback.format_exc()}"
+            )
+            raise

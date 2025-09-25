@@ -3,7 +3,7 @@ import sys
 
 
 def main():
-    cmd = ["pytest"] + sys.argv[1:]
+    cmd = ["pytest", "--cov=eos"] + sys.argv[1:]
     subprocess.run(cmd, check=True)
 
 

@@ -24,7 +24,6 @@ def experiment_graph(configuration_manager):
 
 @pytest.mark.parametrize("setup_lab_experiment", [("abstract_lab", "abstract_experiment")], indirect=True)
 class TestGreedyScheduler:
-
     @pytest.mark.asyncio
     async def test_register_experiment(self, greedy_scheduler, experiment_graph):
         await greedy_scheduler.register_experiment("exp1", "abstract_experiment", experiment_graph)

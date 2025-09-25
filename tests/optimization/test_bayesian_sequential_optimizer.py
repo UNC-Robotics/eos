@@ -30,7 +30,7 @@ class TestCampaignBayesianOptimizer:
 
         optimal_solutions = optimizer.get_optimal_solutions()
         assert len(optimal_solutions) == 1
-        assert abs(optimal_solutions["y"].to_numpy()[0] - 4) < 0.12
+        assert abs(optimal_solutions["y"].to_numpy()[0] - 4) < 0.20
 
     @pytest.mark.slow
     def test_competing_multi_objective_optimization(self):

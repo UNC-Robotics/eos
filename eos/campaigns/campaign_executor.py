@@ -117,9 +117,10 @@ class CampaignExecutor:
             self._campaign_definition.optimizer_ip,
         )
 
-        self._optimizer_input_names, self._optimizer_output_names = (
-            await self._campaign_optimizer_manager.get_input_and_output_names(self._campaign_id)
-        )
+        (
+            self._optimizer_input_names,
+            self._optimizer_output_names,
+        ) = await self._campaign_optimizer_manager.get_input_and_output_names(self._campaign_id)
 
     async def progress_campaign(self) -> bool:
         """
