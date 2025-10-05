@@ -6,9 +6,9 @@ class ScoreMultiplication(BaseTask):
         self,
         devices: BaseTask.DevicesType,
         parameters: BaseTask.ParametersType,
-        containers: BaseTask.ContainersType,
+        resources: BaseTask.ResourcesType,
     ) -> BaseTask.OutputType:
-        analyzer = devices.get_all_by_type("analyzer")[0]
+        analyzer = devices["analyzer"]
         loss = analyzer.analyze_result(parameters["number"], parameters["product"])
         output_parameters = {"loss": loss}
 

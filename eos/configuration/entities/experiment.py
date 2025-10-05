@@ -5,8 +5,7 @@ from pydantic import BaseModel, Field
 from eos.configuration.entities.task import TaskConfig
 
 
-class ExperimentContainerConfig(BaseModel):
-    id: str
+class ExperimentResourceConfig(BaseModel):
     desc: str | None = None
     meta: dict[str, Any] = Field(default_factory=dict)
 
@@ -18,4 +17,4 @@ class ExperimentConfig(BaseModel):
 
     tasks: list[TaskConfig]
 
-    containers: list[ExperimentContainerConfig] = Field(default_factory=list)
+    resources: dict[str, ExperimentResourceConfig] = Field(default_factory=dict)

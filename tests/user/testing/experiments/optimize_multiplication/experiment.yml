@@ -5,28 +5,31 @@ labs:
   - multiplication_lab
 
 tasks:
-  - id: mult_1
+  - name: mult_1
     type: Multiplication
     devices:
-      - lab_id: multiplication_lab
-        id: multiplier
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
     parameters:
       number: eos_dynamic
       factor: eos_dynamic
-  - id: mult_2
+  - name: mult_2
     type: Multiplication
     devices:
-      - lab_id: multiplication_lab
-        id: multiplier
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
     dependencies: [ mult_1 ]
     parameters:
       number: mult_1.product
       factor: eos_dynamic
-  - id: compute_multiplication_objective
+  - name: compute_multiplication_objective
     type: Compute Multiplication Objective
     devices:
-      - lab_id: multiplication_lab
-        id: analyzer
+      analyzer:
+        lab_name: multiplication_lab
+        name: analyzer
     dependencies: [ mult_1, mult_2 ]
     parameters:
       number: mult_1.number

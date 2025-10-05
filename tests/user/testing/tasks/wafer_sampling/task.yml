@@ -1,8 +1,9 @@
 type: Wafer Sampling
 desc: Perform wafer sampling with a cartesian robot and pump/valve system.
 
-device_types:
-  - cartesian_robot
+devices:
+  cartesian_robot:
+    type: cartesian_robot
 
 input_parameters:
   wafer_spot:

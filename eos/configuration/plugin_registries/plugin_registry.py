@@ -45,10 +45,34 @@ class PluginRegistry(Generic[T, S]):
             self._initialize_registry()
 
     def get_plugin_class_type(self, type_name: str) -> type[T]:
-        try:
+        # Return if already loaded
+        if type_name in self.plugin_types:
             return self.plugin_types[type_name]
-        except KeyError as e:
-            raise self._config.exception_class(f"Plugin implementation for '{type_name}' not found.") from e
+
+        # Attempt lazy initialization for this specific type if supported
+        lazy_init_error = None
+        try:
+            # Only attempt targeted initialization when we have the machinery
+            # to resolve entities (i.e., for task/device registries).
+            if self._config.spec_registry is not None:
+                self.initialize_for_types({type_name})
+        except Exception as e:
+            # Capture the error for detailed reporting
+            lazy_init_error = e
+
+        # Return if loaded by lazy init; otherwise, raise a detailed error
+        if type_name in self.plugin_types:
+            return self.plugin_types[type_name]
+
+        # Build detailed error message
+        if lazy_init_error:
+            raise self._config.exception_class(
+                f"Failed to load plugin implementation for '{type_name}': {lazy_init_error}"
+            ) from lazy_init_error
+        raise self._config.exception_class(
+            f"Plugin implementation for '{type_name}' not found. "
+            f"Ensure the plugin exists and is properly registered."
+        )
 
     def reload_plugin(self, type_name: str) -> None:
         """Reload a specific plugin by type name, pulling fresh code from disk."""
@@ -175,26 +199,44 @@ class PluginRegistry(Generic[T, S]):
         errors: list[tuple[str, type[Exception]]] = []
 
         for type_name in types:
-            pkg = self._package_manager.find_package_for_entity(type_name, self._config.entity_type)
-            if not pkg:
-                continue
-
-            entity_dir = self._package_manager.get_entity_dir(type_name, self._config.entity_type)
-            impl_file = entity_dir / self._config.implementation_file_name
-
-            if not impl_file.exists():
-                errors.append(
-                    (
-                        f"Implementation file for '{type_name}' not found at '{impl_file}'",
-                        self._config.exception_class,
-                    )
-                )
-                continue
-
-            relative = entity_dir.relative_to(pkg.get_entity_dir(self._config.entity_type))
-
             try:
+                # Resolve exclusively via spec registry (type -> <package>/<relative_dir>)
+                if self._config.spec_registry is None:
+                    errors.append((f"Spec registry not configured for '{type_name}'", self._config.exception_class))
+                    continue
+
+                resolved_dir = self._config.spec_registry.get_dir_by_type(type_name)
+                if resolved_dir is None:
+                    errors.append((f"No specification found for type '{type_name}'", self._config.exception_class))
+                    continue
+
+                parts = resolved_dir.parts
+                if not parts:
+                    errors.append((f"Invalid directory mapping for '{type_name}'", self._config.exception_class))
+                    continue
+
+                package_name = parts[0]
+                relative = Path(*parts[1:]) if len(parts) > 1 else Path()
+                pkg = self._package_manager.get_package(package_name)
+                if not pkg:
+                    errors.append(
+                        (f"Package '{package_name}' not found for '{type_name}'", self._config.exception_class)
+                    )
+                    continue
+
+                entity_dir = pkg.get_entity_dir(self._config.entity_type) / relative
+                impl_file = entity_dir / self._config.implementation_file_name
+                if not impl_file.exists():
+                    errors.append(
+                        (
+                            f"Implementation file for '{type_name}' not found at '{impl_file}'",
+                            self._config.exception_class,
+                        )
+                    )
+                    continue
+
                 self._load_single_plugin(pkg.name, relative, impl_file)
+
             except Exception as e:
                 errors.append((f"Error loading plugin '{type_name}': {e}", self._config.exception_class))
 

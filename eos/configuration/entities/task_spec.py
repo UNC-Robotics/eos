@@ -9,13 +9,13 @@ from eos.configuration.entities.task_parameters import (
 )
 
 
-class TaskSpecContainerConfig(BaseModel):
+class TaskSpecResourceConfig(BaseModel):
     type: str
 
     @field_validator("type")
     def _validate_type_not_empty(cls, v: str) -> str:
         if not v.strip():
-            raise ValueError("Container 'type' field must be specified.")
+            raise ValueError("Resource 'type' field must be specified.")
         return v
 
 
@@ -47,22 +47,32 @@ class TaskSpecOutputParameterConfig(BaseModel):
 ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_.]*$")]
 
 
+class TaskSpecDeviceConfig(BaseModel):
+    type: str
+
+    @field_validator("type")
+    def _validate_type_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Device 'type' field must be specified.")
+        return v
+
+
 class TaskSpecConfig(BaseModel):
     type: str
     desc: str | None = None
-    device_types: list[str] | None = None
+    devices: dict[ValidName, TaskSpecDeviceConfig] = Field(default_factory=dict)
 
-    input_containers: dict[ValidName, TaskSpecContainerConfig] = Field(default_factory=dict)
+    input_resources: dict[ValidName, TaskSpecResourceConfig] = Field(default_factory=dict)
     input_parameters: dict[ValidName, Any] = Field(default_factory=dict)
 
-    output_containers: dict[ValidName, TaskSpecContainerConfig] = Field(default_factory=dict)
+    output_resources: dict[ValidName, TaskSpecResourceConfig] = Field(default_factory=dict)
     output_parameters: dict[ValidName, TaskSpecOutputParameterConfig] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _set_default_output_containers(self) -> Self:
-        """Set output containers to input containers if not specified"""
-        if not self.output_containers:
-            self.output_containers = self.input_containers.copy()
+    def _set_default_output_resources(self) -> Self:
+        """Set output resources to input resources if not specified"""
+        if not self.output_resources:
+            self.output_resources = self.input_resources.copy()
         return self
 
     @field_validator("input_parameters")

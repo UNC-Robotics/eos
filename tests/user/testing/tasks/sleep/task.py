@@ -9,8 +9,8 @@ class Sleep(BaseTask):
         self,
         devices: BaseTask.DevicesType,
         parameters: BaseTask.ParametersType,
-        containers: BaseTask.ContainersType,
-    ) -> BaseTask.OutputType:
+        resources: BaseTask.ResourcesType,
+    ) -> BaseTask.OutputType | None:
         self.cancel_requested = False
 
         sleep_time = parameters["time"]

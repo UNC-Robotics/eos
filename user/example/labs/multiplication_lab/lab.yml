@@ -1,4 +1,4 @@
-type: multiplication_lab
+name: multiplication_lab
 desc: An example laboratory for testing multiplication
 
 devices:

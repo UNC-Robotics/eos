@@ -95,7 +95,7 @@ class SchedulerType(Enum):
 class SchedulerConfig(BaseModel):
     """Configuration for the scheduler."""
 
-    type: SchedulerType = SchedulerType.GREEDY
+    type: SchedulerType = SchedulerType.CPSAT
     parameters: dict = Field(default_factory=dict)
 
 

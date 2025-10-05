@@ -34,13 +34,13 @@ class CampaignOptimizerManager:
         log.debug("Campaign optimizer manager initialized.")
 
     async def create_campaign_optimizer_actor(
-        self, experiment_type: str, campaign_id: str, computer_ip: str
+        self, experiment_type: str, campaign_name: str, computer_ip: str
     ) -> ActorHandle:
         """
         Create a new campaign optimizer Ray actor with status check.
 
         :param experiment_type: The type of the experiment.
-        :param campaign_id: The ID of the campaign.
+        :param campaign_name: The name of the campaign.
         :param computer_ip: The IP address of the optimizer computer on which the actor will run.
         :raises TimeoutError: If the actor fails to respond within timeout
         :raises RuntimeError: If the actor creation or initialization fails
@@ -52,43 +52,43 @@ class CampaignOptimizerManager:
 
         resources = {"eos": 0.01} if computer_ip in ["localhost", "127.0.0.1"] else {f"node:{computer_ip}": 0.01}
 
-        optimizer_actor = SequentialOptimizerActor.options(name=f"{campaign_id}_optimizer", resources=resources).remote(
-            constructor_args, optimizer_type
-        )
+        optimizer_actor = SequentialOptimizerActor.options(
+            name=f"{campaign_name}_optimizer", resources=resources
+        ).remote(constructor_args, optimizer_type)
 
         await self._validate_optimizer_health(optimizer_actor)
 
-        self._optimizer_actors[campaign_id] = optimizer_actor
+        self._optimizer_actors[campaign_name] = optimizer_actor
         return optimizer_actor
 
-    def terminate_campaign_optimizer_actor(self, campaign_id: str) -> None:
+    def terminate_campaign_optimizer_actor(self, campaign_name: str) -> None:
         """
         Terminate the Ray actor associated with the optimizer for a campaign.
 
-        :param campaign_id: The ID of the campaign.
+        :param campaign_name: The name of the campaign.
         """
-        optimizer_actor = self._optimizer_actors.pop(campaign_id, None)
+        optimizer_actor = self._optimizer_actors.pop(campaign_name, None)
 
         if optimizer_actor is not None:
             ray.kill(optimizer_actor)
 
-    def get_campaign_optimizer_actor(self, campaign_id: str) -> ActorHandle:
+    def get_campaign_optimizer_actor(self, campaign_name: str) -> ActorHandle:
         """
         Get an existing Ray actor associated with the optimizer for a campaign.
 
-        :param campaign_id: The ID of the campaign.
+        :param campaign_name: The name of the campaign.
         :return: The Ray actor associated with the optimizer.
         """
-        return self._optimizer_actors[campaign_id]
+        return self._optimizer_actors[campaign_name]
 
-    async def get_input_and_output_names(self, campaign_id: str) -> tuple[list[str], list[str]]:
+    async def get_input_and_output_names(self, campaign_name: str) -> tuple[list[str], list[str]]:
         """
         Get the input and output names from an optimizer associated with a campaign.
 
-        :param campaign_id: The ID of the campaign associated with the optimizer.
+        :param campaign_name: The name of the campaign associated with the optimizer.
         :return: A tuple containing the input and output names.
         """
-        optimizer_actor = self._optimizer_actors[campaign_id]
+        optimizer_actor = self._optimizer_actors[campaign_name]
 
         input_names, output_names = await asyncio.gather(
             optimizer_actor.get_input_names.remote(), optimizer_actor.get_output_names.remote()
@@ -99,8 +99,8 @@ class CampaignOptimizerManager:
     async def record_campaign_samples(
         self,
         db: AsyncDbSession,
-        campaign_id: str,
-        experiment_ids: list[str],
+        campaign_name: str,
+        experiment_names: list[str],
         inputs: pd.DataFrame,
         outputs: pd.DataFrame,
     ) -> None:
@@ -109,8 +109,8 @@ class CampaignOptimizerManager:
         Each sample is a data point for the optimizer to learn from.
 
         :param db: The database session
-        :param campaign_id: The ID of the campaign.
-        :param experiment_ids: The IDs of the experiments.
+        :param campaign_name: The name of the campaign.
+        :param experiment_names: The names of the experiments.
         :param inputs: The input data.
         :param outputs: The output data.
         """
@@ -119,32 +119,32 @@ class CampaignOptimizerManager:
 
         campaign_samples = [
             CampaignSample(
-                campaign_id=campaign_id,
-                experiment_id=experiment_id,
+                campaign_name=campaign_name,
+                experiment_name=experiment_name,
                 inputs=inputs_dict[i],
                 outputs=outputs_dict[i],
             )
-            for i, experiment_id in enumerate(experiment_ids)
+            for i, experiment_name in enumerate(experiment_names)
         ]
 
         db.add_all([CampaignSampleModel(**sample.model_dump()) for sample in campaign_samples])
 
-    async def delete_campaign_samples(self, db: AsyncDbSession, campaign_id: str) -> None:
+    async def delete_campaign_samples(self, db: AsyncDbSession, campaign_name: str) -> None:
         """
         Delete all campaign samples for a campaign.
 
         :param db: The database session
-        :param campaign_id: The ID of the campaign.
+        :param campaign_name: The name of the campaign.
         """
-        await db.execute(delete(CampaignSampleModel).where(CampaignSampleModel.campaign_id == campaign_id))
+        await db.execute(delete(CampaignSampleModel).where(CampaignSampleModel.campaign_name == campaign_name))
 
     async def get_campaign_samples(
-        self, db: AsyncDbSession, campaign_id: str, experiment_id: str | None = None
+        self, db: AsyncDbSession, campaign_name: str, experiment_name: str | None = None
     ) -> list[CampaignSample]:
         """Get samples for a campaign, optionally filtered by experiment."""
-        stmt = select(CampaignSampleModel).where(CampaignSampleModel.campaign_id == campaign_id)
-        if experiment_id:
-            stmt = stmt.where(CampaignSampleModel.experiment_id == experiment_id)
+        stmt = select(CampaignSampleModel).where(CampaignSampleModel.campaign_name == campaign_name)
+        if experiment_name:
+            stmt = stmt.where(CampaignSampleModel.experiment_name == experiment_name)
 
         result = await db.execute(stmt)
         return [CampaignSample.model_validate(model) for model in result.scalars()]

@@ -13,9 +13,11 @@ from eos.configuration.spec_registries.device_spec_registry import DeviceSpecReg
 from eos.configuration.spec_registries.task_spec_registry import (
     TaskSpecRegistry,
 )
-from eos.configuration.validation.experiment_validator import ExperimentValidator
-from eos.configuration.validation.lab_validator import LabValidator
-from eos.configuration.validation.multi_lab_validator import MultiLabValidator
+from eos.configuration.validation.validators import (
+    ExperimentValidator,
+    LabValidator,
+    MultiLabValidator,
+)
 from eos.logging.logger import log
 
 if TYPE_CHECKING:

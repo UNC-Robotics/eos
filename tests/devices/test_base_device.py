@@ -8,9 +8,9 @@ from eos.devices.exceptions import EosDeviceError, EosDeviceCleanupError, EosDev
 
 
 class MockDevice(BaseDevice):
-    def __init__(self, device_id: str, lab_id: str, device_type: str):
+    def __init__(self, device_name: str, lab_name: str, device_type: str):
         self.mock_resource = None
-        super().__init__(device_id, lab_id, device_type)
+        super().__init__(device_name, lab_name, device_type)
 
     async def _initialize(self, init_parameters: dict[str, Any]) -> None:
         self.mock_resource = Mock()
@@ -35,7 +35,7 @@ class TestBaseDevice:
         return mock_device
 
     def test_initialize(self, mock_device):
-        assert mock_device.id == "test_device"
+        assert mock_device.name == "test_device"
         assert mock_device.device_type == "mock"
         assert mock_device.status == DeviceStatus.IDLE
         assert mock_device.mock_resource is not None
@@ -60,7 +60,8 @@ class TestBaseDevice:
 
     def test_get_status(self, mock_device):
         status_report = mock_device.get_status()
-        assert status_report["id"] == "test_device"
+        assert status_report["name"] == "test_device"
+        assert status_report["lab_name"] == "test_lab"
         assert status_report["status"] == DeviceStatus.IDLE
 
     def test_exception_handling(self, mock_device):

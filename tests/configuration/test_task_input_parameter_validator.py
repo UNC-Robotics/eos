@@ -33,7 +33,7 @@ class TestTaskInputParameterValidator:
     @pytest.fixture
     def task_config(self, task_spec):
         return TaskConfig(
-            id="test_task_1",
+            name="test_task_1",
             type="test_task",
             parameters={
                 "int_param": 50,
@@ -95,7 +95,6 @@ class TestTaskInputParameterValidator:
         self, validator, task_config, task_spec, param_type, valid_values, invalid_values
     ):
         param_name = f"{param_type.value}_param"
-        task_spec.input_parameters[param_name].type = param_type.value
 
         if param_type == TaskParameterType.CHOICE:
             task_spec.input_parameters[param_name].choices = ["A", "B", "C"]

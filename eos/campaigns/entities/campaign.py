@@ -13,7 +13,7 @@ from eos.database.abstract_sql_db_interface import Base
 class CampaignDefinition(BaseModel):
     """The definition of a campaign. Used for submission."""
 
-    id: str
+    name: str
     experiment_type: str
 
     owner: str
@@ -25,7 +25,8 @@ class CampaignDefinition(BaseModel):
     optimize: bool
     optimizer_ip: str = "127.0.0.1"
 
-    parameters: list[dict[str, dict[str, Any]]] | None = None
+    global_parameters: dict[str, dict[str, Any]] | None = None  # Shared across all experiments
+    experiment_parameters: list[dict[str, dict[str, Any]]] | None = None  # Per-experiment (overrides global)
 
     meta: dict[str, Any] = Field(default_factory=dict)
 
@@ -34,11 +35,14 @@ class CampaignDefinition(BaseModel):
     @model_validator(mode="after")
     def validate_parameters(self) -> "CampaignDefinition":
         if not self.optimize:
-            if not self.parameters:
-                raise ValueError("Campaign parameters must be provided if optimization is not enabled.")
-            if len(self.parameters) != self.max_experiments:
+            if not self.experiment_parameters and not self.global_parameters:
                 raise ValueError(
-                    "Parameters must be provided for all experiments up to the max experiments if "
+                    "Campaign experiment_parameters or global_parameters must be provided if optimization is not "
+                    "enabled."
+                )
+            if self.experiment_parameters and len(self.experiment_parameters) != self.max_experiments:
+                raise ValueError(
+                    "experiment_parameters must be provided for all experiments up to the max experiments if "
                     "optimization is not enabled."
                 )
         return self
@@ -62,7 +66,7 @@ class Campaign(CampaignDefinition):
     status: CampaignStatus = CampaignStatus.CREATED
 
     experiments_completed: int = Field(0, ge=0)
-    current_experiment_ids: list[str] = Field(default_factory=list)
+    current_experiment_names: list[str] = Field(default_factory=list)
 
     pareto_solutions: list[dict[str, Any]] | None = None
 
@@ -83,8 +87,8 @@ class Campaign(CampaignDefinition):
 class CampaignSample(BaseModel):
     """A sample collected during campaign execution."""
 
-    campaign_id: str
-    experiment_id: str
+    campaign_name: str
+    experiment_name: str
 
     inputs: dict[str, Any]
     outputs: dict[str, Any]
@@ -100,7 +104,9 @@ class CampaignModel(Base):
 
     __tablename__ = "campaigns"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     experiment_type: Mapped[str] = mapped_column(String, nullable=False)
 
     owner: Mapped[str] = mapped_column(String, nullable=False)
@@ -112,7 +118,10 @@ class CampaignModel(Base):
     optimize: Mapped[bool] = mapped_column(Boolean, nullable=False)
     optimizer_ip: Mapped[str] = mapped_column(String, nullable=False, default="127.0.0.1")
 
-    parameters: Mapped[list[dict[str, dict[str, Any]]] | None] = mapped_column(
+    global_parameters: Mapped[dict[str, dict[str, Any]] | None] = mapped_column(
+        MutableDict.as_mutable(JSON), nullable=True
+    )
+    experiment_parameters: Mapped[list[dict[str, dict[str, Any]]] | None] = mapped_column(
         MutableList.as_mutable(JSON), nullable=True
     )
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
@@ -123,7 +132,9 @@ class CampaignModel(Base):
     )
 
     experiments_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    current_experiment_ids: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), nullable=False, default=[])
+    current_experiment_names: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(JSON), nullable=False, default=[]
+    )
 
     pareto_solutions: Mapped[list[dict[str, Any]] | None] = mapped_column(MutableList.as_mutable(JSON), nullable=True)
 
@@ -139,8 +150,8 @@ class CampaignSampleModel(Base):
 
     __tablename__ = "campaign_samples"
 
-    campaign_id: Mapped[str] = mapped_column(String, ForeignKey("campaigns.id"), primary_key=True)
-    experiment_id: Mapped[str] = mapped_column(String, ForeignKey("experiments.id"), primary_key=True)
+    campaign_name: Mapped[str] = mapped_column(String, ForeignKey("campaigns.name"), primary_key=True)
+    experiment_name: Mapped[str] = mapped_column(String, ForeignKey("experiments.name"), primary_key=True)
 
     inputs: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
     outputs: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)

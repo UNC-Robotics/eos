@@ -1,0 +1,58 @@
+name: dynamic_lab
+desc: Lab for dynamic device allocation tests
+
+devices:
+  DX3A:
+    type: DT3
+    computer: eos_computer
+  DX3B:
+    type: DT3
+    computer: eos_computer
+  DX3C:
+    type: DT3
+    computer: eos_computer
+  DX3D:
+    type: DT3
+    computer: eos_computer
+  DY2A:
+    type: DT2
+    computer: eos_computer
+  DY2B:
+    type: DT2
+    computer: eos_computer
+  DZ5A:
+    type: DT5
+    computer: eos_computer
+  DZ5B:
+    type: DT5
+    computer: eos_computer
+
+resource_types:
+  beaker_500: {}
+  vial: {}
+
+resources:
+  B500A:
+    type: beaker_500
+    meta:
+      location: shelf
+
+  B500B:
+    type: beaker_500
+    meta:
+      location: shelf
+
+  B500C:
+    type: beaker_500
+    meta:
+      location: shelf
+
+  VIAL1:
+    type: vial
+    meta:
+      location: shelf
+
+  VIAL2:
+    type: vial
+    meta:
+      location: shelf

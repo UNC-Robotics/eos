@@ -1,8 +1,9 @@
 type: Score Multiplication
 desc: Scores multiplication based on how close the product is to 1024 and how small the initial number is using an "analyzer" device.
 
-device_types:
-  - analyzer
+devices:
+  analyzer:
+    type: analyzer
 
 input_parameters:
   number:

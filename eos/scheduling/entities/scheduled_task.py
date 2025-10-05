@@ -1,11 +1,13 @@
-from pydantic import BaseModel
+from dataclasses import dataclass
 
 from eos.configuration.entities.task import TaskDeviceConfig
-from eos.resource_allocation.entities.resource_request import ActiveResourceAllocationRequest
+from eos.allocation.entities.allocation_request import ActiveAllocationRequest
 
 
-class ScheduledTask(BaseModel):
-    id: str
-    experiment_id: str
-    devices: list[TaskDeviceConfig]
-    allocated_resources: ActiveResourceAllocationRequest | None
+@dataclass(slots=True, frozen=True)
+class ScheduledTask:
+    name: str
+    experiment_name: str
+    devices: dict[str, TaskDeviceConfig]
+    resources: dict[str, str]
+    allocations: ActiveAllocationRequest | None

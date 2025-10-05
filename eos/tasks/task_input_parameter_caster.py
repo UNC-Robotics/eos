@@ -17,7 +17,7 @@ class TaskInputParameterCaster:
         :param task_definition: The task definition.
         :return: The input parameters cast to the expected Python types.
         """
-        task_id = task_definition.id
+        task_name = task_definition.name
         task_type = task_definition.type
         input_parameters = task_definition.input_parameters
 
@@ -29,7 +29,7 @@ class TaskInputParameterCaster:
                 input_parameters[parameter_name] = parameter_type.python_type(parameter)
             except TypeError as e:
                 raise EosTaskValidationError(
-                    f"Failed to cast input parameter '{parameter_name}' of task '{task_id}' of type \
+                    f"Failed to cast input parameter '{parameter_name}' of task '{task_name}' of type \
                     f'{type(parameter)}' to the expected type '{task_spec.input_parameters[parameter_name].type}'."
                 ) from e
 

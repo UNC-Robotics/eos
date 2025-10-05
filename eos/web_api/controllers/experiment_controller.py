@@ -30,16 +30,16 @@ class ExperimentController(Controller):
         await orchestrator.experiments.submit_experiment(db, data)
         return Response(content="Submitted", status_code=201)
 
-    @post("/{experiment_id:str}/cancel")
-    async def cancel_experiment(self, experiment_id: str, orchestrator: Orchestrator) -> Response:
+    @post("/{experiment_name:str}/cancel")
+    async def cancel_experiment(self, experiment_name: str, orchestrator: Orchestrator) -> Response:
         """Cancel a running experiment."""
-        await orchestrator.experiments.cancel_experiment(experiment_id)
+        await orchestrator.experiments.cancel_experiment(experiment_name)
         return Response(content="Cancellation request submitted.", status_code=202)
 
-    @get("/{experiment_id:str}")
-    async def get_experiment(self, experiment_id: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Experiment:
-        """Get an experiment by ID."""
-        experiment = await orchestrator.experiments.get_experiment(db, experiment_id)
+    @get("/{experiment_name:str}")
+    async def get_experiment(self, experiment_name: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Experiment:
+        """Get an experiment by name."""
+        experiment = await orchestrator.experiments.get_experiment(db, experiment_name)
 
         if experiment is None:
             raise APIError(status_code=404, detail="Experiment not found")

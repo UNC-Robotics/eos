@@ -1,8 +1,9 @@
 type: Container Transfer
 desc: Transfer a container from one location area to another using a robot arm.
 
-device_types:
-  - fixed_arm_robot
+devices:
+  fixed_arm_robot:
+    type: fixed_arm_robot
 
 input_parameters:
   source_location:

@@ -16,7 +16,7 @@ class TaskInputParameterValidator:
     """
 
     def __init__(self, task: TaskConfig, task_spec: TaskSpecConfig):
-        self._task_id = task.id
+        self._task_name = task.name
         self._input_parameters = task.parameters
         self._task_spec = task_spec
 
@@ -42,7 +42,7 @@ class TaskInputParameterValidator:
         """
         if parameter_name not in self._task_spec.input_parameters:
             batch_error(
-                f"Parameter '{parameter_name}' in task '{self._task_id}' is invalid. "
+                f"Parameter '{parameter_name}' in task '{self._task_name}' is invalid. "
                 f"Expected a parameter found in the task specification.",
                 EosTaskValidationError,
             )
@@ -53,7 +53,7 @@ class TaskInputParameterValidator:
         """
         if validation_utils.is_dynamic_parameter(parameter):
             batch_error(
-                f"Input parameter '{parameter_name}' in task '{self._task_id}' is marked as needing a value, "
+                f"Input parameter '{parameter_name}' in task '{self._task_name}' is marked as needing a value, "
                 f"but none was provided.",
                 EosTaskValidationError,
             )
@@ -70,7 +70,7 @@ class TaskInputParameterValidator:
             parameter = self._convert_value_type(parameter, TaskParameterType(parameter_spec.type))
         except ValueError:
             batch_error(
-                f"Parameter '{parameter_name}' in task '{self._task_id}' has incorrect type {type(parameter)}. "
+                f"Parameter '{parameter_name}' in task '{self._task_name}' has incorrect type {type(parameter)}. "
                 f"Expected type: '{parameter_spec.type}'.",
                 EosTaskValidationError,
             )
@@ -83,7 +83,7 @@ class TaskInputParameterValidator:
             TaskParameterFactory.create(parameter_type, **parameter_spec.model_dump())
         except EosConfigurationError as e:
             batch_error(
-                f"Parameter '{parameter_name}' in task '{self._task_id}' validation error: {e}",
+                f"Parameter '{parameter_name}' in task '{self._task_name}' validation error: {e}",
                 EosTaskValidationError,
             )
 
@@ -131,7 +131,7 @@ class TaskInputParameterValidator:
 
         if missing_parameters:
             raise EosTaskValidationError(
-                f"Task '{self._task_id}' is missing required input parameters: {missing_parameters}"
+                f"Task '{self._task_name}' is missing required input parameters: {missing_parameters}"
             )
 
     def _get_missing_required_task_parameters(self) -> list[str]:

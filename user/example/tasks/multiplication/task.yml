@@ -1,8 +1,9 @@
 type: Multiplication
 desc: This task takes a number and a factor and multiplies them together using a "multiplier" device.
 
-device_types:
-  - multiplier
+devices:
+  multiplier:
+    type: multiplier
 
 input_parameters:
   number:

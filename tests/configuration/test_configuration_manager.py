@@ -108,13 +108,3 @@ class TestConfigurationManager:
         configuration_manager.load_lab(LAB_1_ID)
         with pytest.raises(EosConfigurationError):
             configuration_manager.unload_experiment("nonexistent_experiment")
-
-    def test_nonexistent_task_implementation_class(self, user_dir):
-        with tempfile.TemporaryDirectory(prefix="eos_test-") as temp_user_dir:
-            shutil.copytree(user_dir, temp_user_dir, dirs_exist_ok=True)
-
-            temp_tasks_dir_path = Path(temp_user_dir) / "testing" / "tasks"
-            (temp_tasks_dir_path / "noop" / TASK_IMPLEMENTATION_FILE_NAME).unlink()
-
-            with pytest.raises(EosTaskPluginError):
-                ConfigurationManager(user_dir=str(temp_user_dir))

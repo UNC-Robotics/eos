@@ -22,10 +22,12 @@ class TaskController(Controller):
 
     path = "/tasks"
 
-    @get("/{experiment_id:str}/{task_id:str}")
-    async def get_task(self, experiment_id: str, task_id: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Task:
-        """Get a task by ID."""
-        task = await orchestrator.tasks.get_task(db, experiment_id, task_id)
+    @get("/{experiment_name:str}/{task_name:str}")
+    async def get_task(
+        self, experiment_name: str, task_name: str, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> Task:
+        """Get a task by name."""
+        task = await orchestrator.tasks.get_task(db, experiment_name, task_name)
         if not task:
             raise APIError(status_code=404, detail="Task not found")
         return task
@@ -36,10 +38,10 @@ class TaskController(Controller):
         await orchestrator.tasks.submit_task(db, data)
         return Response(content="Submitted", status_code=201)
 
-    @post("/{task_id:str}/cancel")
-    async def cancel_task(self, task_id: str, orchestrator: Orchestrator) -> Response:
+    @post("/{task_name:str}/cancel")
+    async def cancel_task(self, task_name: str, orchestrator: Orchestrator) -> Response:
         """Cancel a running task."""
-        await orchestrator.tasks.cancel_task(task_id)
+        await orchestrator.tasks.cancel_task(task_name)
         return Response(content="Cancellation request submitted.", status_code=202)
 
     @get("/types")

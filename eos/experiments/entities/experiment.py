@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_serializer
-from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum
+from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum, Integer
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -22,7 +22,7 @@ class ExperimentStatus(Enum):
 class ExperimentDefinition(BaseModel):
     """The definition of an experiment. Used for submission."""
 
-    id: str
+    name: str
     type: str
 
     owner: str
@@ -62,7 +62,8 @@ class ExperimentModel(Base):
 
     __tablename__ = "experiments"
 
-    id: Mapped[str] = mapped_column(String, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
     type: Mapped[str] = mapped_column(String, nullable=False)
 
     owner: Mapped[str] = mapped_column(String, nullable=False)

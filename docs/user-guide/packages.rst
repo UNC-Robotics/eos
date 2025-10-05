@@ -15,9 +15,8 @@ Using a package is as simple as placing it in a directory that EOS loads package
 By default, this directory is called `user` and is located in the root of the EOS repository.
 
 Below is the directory tree of an example EOS package called "color_lab".
-It contains a laboratory called "color_lab", experiments "color_mixing_1", "color_mixing_2", and "color_mixing_3", and
-various devices and tasks. The experiments use a :doc:`template <jinja2_templating>` YAML file called
-"template_experiment.yml" under `experiments/color_mixing`. The package also contains a device client under `common`,
+It contains a laboratory called "color_lab", the "color_mixing" experiment, and
+various devices and tasks. The package also contains a device client under `common`,
 and a README file.
 
 .. figure:: ../_static/img/example-package-tree.png

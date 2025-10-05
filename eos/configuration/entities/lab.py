@@ -4,11 +4,6 @@ from bofire.data_models.base import BaseModel
 from pydantic import Field
 
 
-class Location(BaseModel):
-    desc: str
-    meta: dict[str, Any] = Field(default_factory=dict)
-
-
 class LabComputerConfig(BaseModel):
     ip: str
     desc: str | None = None
@@ -17,24 +12,28 @@ class LabComputerConfig(BaseModel):
 class LabDeviceConfig(BaseModel):
     type: str
     computer: str
-    location: str | None = None
     desc: str | None = None
     init_parameters: dict[str, Any] = Field(default_factory=dict)
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class LabContainerConfig(BaseModel):
+class LabResourceTypeConfig(BaseModel):
+    """Configuration for a resource type with default metadata."""
+
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class LabResourceConfig(BaseModel):
+    """Configuration for a unique resource instance."""
+
     type: str
-    location: str
-    ids: list[str]
-    desc: str | None = None
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
 class LabConfig(BaseModel):
-    type: str
+    name: str
     desc: str
     devices: dict[str, LabDeviceConfig]
-    locations: dict[str, Location] = Field(default_factory=dict)
     computers: dict[str, LabComputerConfig] = Field(default_factory=dict)
-    containers: list[LabContainerConfig] = Field(default_factory=list)
+    resource_types: dict[str, LabResourceTypeConfig] = Field(default_factory=dict)
+    resources: dict[str, LabResourceConfig] = Field(default_factory=dict)

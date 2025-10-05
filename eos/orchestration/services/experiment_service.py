@@ -38,9 +38,9 @@ class ExperimentService:
         self._submitted_experiments: dict[str, ExperimentExecutor] = {}
         self._experiment_cancellation_queue = asyncio.Queue(maxsize=100)
 
-    async def get_experiment(self, db: AsyncDbSession, experiment_id: str) -> Experiment | None:
+    async def get_experiment(self, db: AsyncDbSession, experiment_name: str) -> Experiment | None:
         """Get an experiment by its unique identifier."""
-        return await self._experiment_manager.get_experiment(db, experiment_id)
+        return await self._experiment_manager.get_experiment(db, experiment_name)
 
     async def submit_experiment(
         self,
@@ -48,43 +48,41 @@ class ExperimentService:
         experiment_definition: ExperimentDefinition,
     ) -> None:
         """Submit a new experiment for execution. The experiment will be executed asynchronously."""
-        experiment_id = experiment_definition.id
+        experiment_name = experiment_definition.name
         experiment_type = experiment_definition.type
 
         self._validate_experiment_type(experiment_type)
 
         async with self._experiment_submission_lock:
-            if experiment_id in self._submitted_experiments:
-                log.warning(f"Experiment '{experiment_id}' is already submitted. Ignoring new submission.")
+            if experiment_name in self._submitted_experiments:
+                log.warning(f"Experiment '{experiment_name}' is already submitted. Ignoring new submission.")
                 return
 
             experiment_executor = self._experiment_executor_factory.create(experiment_definition)
 
             try:
                 await experiment_executor.start_experiment(db)
-                self._submitted_experiments[experiment_id] = experiment_executor
+                self._submitted_experiments[experiment_name] = experiment_executor
             except EosExperimentExecutionError:
-                log.error(f"Failed to submit experiment '{experiment_id}': {traceback.format_exc()}")
-                self._submitted_experiments.pop(experiment_id, None)
+                log.error(f"Failed to submit experiment '{experiment_name}': {traceback.format_exc()}")
+                self._submitted_experiments.pop(experiment_name, None)
                 raise
 
-            log.info(f"Submitted experiment '{experiment_id}'.")
-
-    async def cancel_experiment(self, experiment_id: str) -> None:
+    async def cancel_experiment(self, experiment_name: str) -> None:
         """
         Cancel an experiment that is currently being executed.
 
-        :param experiment_id: The unique identifier of the experiment.
+        :param experiment_name: The unique name of the experiment.
         """
-        if experiment_id in self._submitted_experiments:
-            await self._experiment_cancellation_queue.put(experiment_id)
+        if experiment_name in self._submitted_experiments:
+            await self._experiment_cancellation_queue.put(experiment_name)
 
     async def fail_running_experiments(self, db: AsyncDbSession) -> None:
         """Fail all running experiments."""
         running_experiments = await self._experiment_manager.get_experiments(db, status=ExperimentStatus.RUNNING.value)
 
         for experiment in running_experiments:
-            await self._experiment_manager.fail_experiment(db, experiment.id)
+            await self._experiment_manager.fail_experiment(db, experiment.name)
 
         if running_experiments:
             log.warning(
@@ -113,7 +111,7 @@ class ExperimentService:
                 if validation_utils.is_dynamic_parameter(value)
             }
             if task_dynamic_parameters:
-                dynamic_parameters[task.id] = task_dynamic_parameters
+                dynamic_parameters[task.name] = task_dynamic_parameters
 
         return dynamic_parameters
 
@@ -127,60 +125,60 @@ class ExperimentService:
 
         # Process experiments in priority order
         sorted_experiments = self._get_sorted_experiments()
-        for experiment_id, experiment_executor in sorted_experiments:
+        for experiment_name, experiment_executor in sorted_experiments:
             async with self._db_interface.get_async_session() as db:
                 try:
                     completed = await experiment_executor.progress_experiment(db)
 
                     if completed:
-                        completed_experiments.append(experiment_id)
+                        completed_experiments.append(experiment_name)
                 except EosExperimentExecutionError:
-                    log.error(f"Error in experiment '{experiment_id}': {traceback.format_exc()}")
-                    failed_experiments.append(experiment_id)
+                    log.error(f"Error in experiment '{experiment_name}': {traceback.format_exc()}")
+                    failed_experiments.append(experiment_name)
 
         # Clean up completed and failed experiments
-        for experiment_id in completed_experiments:
-            log.info(f"Completed experiment '{experiment_id}'.")
-            del self._submitted_experiments[experiment_id]
+        for experiment_name in completed_experiments:
+            del self._submitted_experiments[experiment_name]
 
-        for experiment_id in failed_experiments:
-            log.error(f"Failed experiment '{experiment_id}'.")
-            del self._submitted_experiments[experiment_id]
+        for experiment_name in failed_experiments:
+            log.error(f"Failed experiment '{experiment_name}'.")
+            del self._submitted_experiments[experiment_name]
 
     def _get_sorted_experiments(self) -> list[tuple[str, ExperimentExecutor]]:
         experiment_priorities = {}
-        for exp_id, executor in self._submitted_experiments.items():
-            experiment_priorities[exp_id] = executor.experiment_definition.priority
+        for exp_name, executor in self._submitted_experiments.items():
+            experiment_priorities[exp_name] = executor.experiment_definition.priority
 
         return sorted(self._submitted_experiments.items(), key=lambda x: experiment_priorities[x[0]], reverse=True)
 
     async def process_experiment_cancellations(self) -> None:
         """Try to cancel all experiments that are queued for cancellation."""
-        experiment_ids = []
+        experiment_names = []
         while not self._experiment_cancellation_queue.empty():
-            experiment_ids.append(await self._experiment_cancellation_queue.get())
+            experiment_names.append(await self._experiment_cancellation_queue.get())
 
-        if not experiment_ids:
+        if not experiment_names:
             return
 
-        log.warning(f"Attempting to cancel experiments: {experiment_ids}")
+        log.warning(f"Attempting to cancel experiments: {experiment_names}")
 
-        async def cancel(exp_id: str) -> None:
+        async def cancel(exp_name: str) -> None:
             async with self._db_interface.get_async_session() as db:
-                await self._submitted_experiments[exp_id].cancel_experiment(db)
+                await self._submitted_experiments[exp_name].cancel_experiment(db)
 
-        cancellation_tasks = [cancel(exp_id) for exp_id in experiment_ids]
+        cancellation_tasks = [cancel(exp_name) for exp_name in experiment_names]
         await asyncio.gather(*cancellation_tasks)
 
-        for exp_id in experiment_ids:
-            del self._submitted_experiments[exp_id]
+        for exp_name in experiment_names:
+            del self._submitted_experiments[exp_name]
 
-        log.warning(f"Cancelled experiments: {experiment_ids}")
+        log.warning(f"Cancelled experiments: {experiment_names}")
 
     def _validate_experiment_type(self, experiment_type: str) -> None:
         if experiment_type not in self._configuration_manager.experiments:
-            log.error(f"Cannot submit experiment of type '{experiment_type}' as it does not exist.")
-            raise EosExperimentDoesNotExistError
+            error_msg = f"Cannot submit experiment of type '{experiment_type}' as it does not exist."
+            log.error(error_msg)
+            raise EosExperimentDoesNotExistError(error_msg)
 
     @property
     def submitted_experiments(self) -> dict[str, ExperimentExecutor]:

@@ -1,8 +1,9 @@
 type: GC Analysis
 desc: Perform gas chromatography (GC) analysis on a sample.
 
-device_types:
-  - gas_chromatograph
+devices:
+  gas_chromatograph:
+    type: gas_chromatograph
 
 input_parameters:
   injection_volume:

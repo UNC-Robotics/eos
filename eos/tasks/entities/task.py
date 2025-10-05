@@ -8,7 +8,7 @@ from sqlalchemy.ext.mutable import MutableList, MutableDict
 from sqlalchemy.orm import Mapped, mapped_column
 
 from eos.configuration.entities.task import TaskDeviceConfig, TaskConfig
-from eos.containers.entities.container import Container
+from eos.resources.entities.resource import Resource
 from eos.database.abstract_sql_db_interface import Base
 
 
@@ -23,50 +23,62 @@ class TaskStatus(Enum):
 class TaskDefinition(BaseModel):
     """The definition of a task. Used for submission."""
 
-    id: str
+    name: str
     type: str
-    experiment_id: str | None = None
+    experiment_name: str | None = None
 
-    devices: list[TaskDeviceConfig] = Field(default_factory=list)
+    devices: dict[str, TaskDeviceConfig] = Field(default_factory=dict)
     input_parameters: dict[str, Any] | None = None
-    input_containers: dict[str, Container] | None = None
+    input_resources: dict[str, Resource] | None = None
 
     priority: int = Field(0, ge=0)
-    resource_allocation_timeout: int = Field(600, ge=0)  # sec
+    allocation_timeout: int = Field(600, ge=0)  # sec
 
     meta: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("experiment_id", mode="before")
+    @field_validator("experiment_name", mode="before")
     def empty_str_to_none(cls, v) -> str | None:
         if v == "":
             return None
         return v
 
     @classmethod
-    def from_config(cls, config: TaskConfig, experiment_id: str | None) -> "TaskDefinition":
-        """Create a TaskDefinition from a TaskConfig."""
+    def from_config(cls, config: TaskConfig, experiment_name: str | None) -> "TaskDefinition":
+        """Create a TaskDefinition from a TaskConfig.
+
+        Only specific device assignments (TaskDeviceConfig) are converted to TaskDefinition.
+        Dynamic devices are resolved by the scheduler and converted to specific assignments.
+
+        If config.resources contains resource names, create minimal Resource objects to preserve the
+        assignment. The task executor will replace these with full Resource objects during initialization.
+        """
+        specific_devices = {name: dev for name, dev in config.devices.items() if isinstance(dev, TaskDeviceConfig)}
+
+        # Convert resource name assignments to Resource objects so to_config() can extract them
+        input_resources = None
+        if config.resources:
+            input_resources = {key: Resource(name=name, type="") for key, name in config.resources.items()}
+
         return cls(
-            id=config.id,
+            name=config.name,
             type=config.type,
-            experiment_id=experiment_id,
-            devices=config.devices,
+            experiment_name=experiment_name,
+            devices=specific_devices,
             input_parameters=config.parameters,
-            input_containers={
-                container_name: Container(id=container_id) for container_name, container_id in config.containers.items()
-            },
+            input_resources=input_resources,
         )
 
     def to_config(self) -> TaskConfig:
         """Convert a TaskDefinition to a TaskConfig."""
-        containers = {}
-        if self.input_containers:
-            containers = {container_name: container.id for container_name, container in self.input_containers.items()}
+        resources = {}
+        if self.input_resources:
+            resources = {resource_name: resource.name for resource_name, resource in self.input_resources.items()}
 
         return TaskConfig(
-            id=self.id,
+            name=self.name,
             type=self.type,
             devices=self.devices,
-            containers=containers,
+            resources=resources,
             parameters=self.input_parameters or {},
             dependencies=[],
         )
@@ -80,7 +92,7 @@ class Task(TaskDefinition):
 
     status: TaskStatus = TaskStatus.CREATED
     output_parameters: dict[str, Any] | None = None
-    output_containers: dict[str, Container] | None = None
+    output_resources: dict[str, Resource] | None = None
     output_file_names: list[str] | None = None
 
     start_time: datetime | None = None
@@ -105,27 +117,26 @@ class TaskModel(Base):
 
     __tablename__ = "tasks"
 
-    # Global unique identifier
-    uid: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    id: Mapped[str] = mapped_column(String, nullable=False)
-    experiment_id: Mapped[str | None] = mapped_column(
-        String, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=True
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    experiment_name: Mapped[str | None] = mapped_column(
+        String, ForeignKey("experiments.name", ondelete="CASCADE"), nullable=True
     )
 
     type: Mapped[str] = mapped_column(String, nullable=False)
 
-    devices: Mapped[list[dict]] = mapped_column(MutableList.as_mutable(JSON), nullable=False, default=[])
+    devices: Mapped[dict[str, dict]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
 
     input_parameters: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
-    input_containers: Mapped[dict[str, dict] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
+    input_resources: Mapped[dict[str, dict] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
 
     output_parameters: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
-    output_containers: Mapped[dict[str, dict] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
+    output_resources: Mapped[dict[str, dict] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
     output_file_names: Mapped[list[str] | None] = mapped_column(MutableList.as_mutable(JSON), nullable=True)
 
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    resource_allocation_timeout: Mapped[int] = mapped_column(Integer, nullable=False, default=600)
+    allocation_timeout: Mapped[int] = mapped_column(Integer, nullable=False, default=600)
 
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
 
@@ -138,6 +149,6 @@ class TaskModel(Base):
     )
 
     __table_args__ = (
-        # Composite unique index for (id, experiment_id)
-        Index("idx_experiment_id_task_id", "experiment_id", "id", unique=True),
+        # Composite unique index for (experiment_name, name)
+        Index("idx_experiment_name_task_name", "experiment_name", "name", unique=True),
     )

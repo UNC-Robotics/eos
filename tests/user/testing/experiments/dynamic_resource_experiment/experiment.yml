@@ -1,0 +1,35 @@
+type: dynamic_resource_experiment
+desc: Experiment to test dynamic resource allocation
+
+labs:
+  - dynamic_lab
+
+tasks:
+  - name: A
+    type: Container Usage
+    resources:
+      sample:
+        allocation_type: dynamic
+        resource_type: beaker_500
+
+  - name: B
+    type: Container Usage
+    dependencies: ["A"]
+    resources:
+      sample:
+        allocation_type: dynamic
+        resource_type: beaker_500
+
+  - name: C
+    type: Container Usage
+    dependencies: ["A"]
+    resources:
+      sample: B500B
+
+  - name: D
+    type: Container Vial Usage
+    dependencies: ["B", "C"]
+    resources:
+      sample:
+        allocation_type: dynamic
+        resource_type: vial

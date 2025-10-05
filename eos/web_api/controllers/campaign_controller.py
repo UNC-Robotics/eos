@@ -11,10 +11,10 @@ class CampaignController(Controller):
 
     path = "/campaigns"
 
-    @get("/{campaign_id:str}")
-    async def get_campaign(self, campaign_id: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Campaign:
-        """Get a campaign by ID."""
-        campaign = await orchestrator.campaigns.get_campaign(db, campaign_id)
+    @get("/{campaign_name:str}")
+    async def get_campaign(self, campaign_name: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Campaign:
+        """Get a campaign by name."""
+        campaign = await orchestrator.campaigns.get_campaign(db, campaign_name)
 
         if campaign is None:
             raise APIError(status_code=404, detail="Campaign not found")
@@ -29,8 +29,8 @@ class CampaignController(Controller):
         await orchestrator.campaigns.submit_campaign(db, data)
         return Response(content="Submitted", status_code=201)
 
-    @post("/{campaign_id:str}/cancel")
-    async def cancel_campaign(self, campaign_id: str, orchestrator: Orchestrator) -> Response:
+    @post("/{campaign_name:str}/cancel")
+    async def cancel_campaign(self, campaign_name: str, orchestrator: Orchestrator) -> Response:
         """Cancel a running campaign."""
-        await orchestrator.campaigns.cancel_campaign(campaign_id)
+        await orchestrator.campaigns.cancel_campaign(campaign_name)
         return Response(content="Cancellation request submitted.", status_code=202)

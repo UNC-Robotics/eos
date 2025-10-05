@@ -2,14 +2,14 @@ from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.containers.container_manager import ContainerManager
+from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.database.file_db_interface import FileDbInterface
-from eos.resource_allocation.resource_allocation_manager import ResourceAllocationManager
-from eos.scheduling.greedy_scheduler import GreedyScheduler
+from eos.allocation.allocation_manager import AllocationManager
+from eos.scheduling.cpsat_scheduler import CpSatScheduler
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
@@ -52,22 +52,22 @@ def get_device_manager() -> DeviceManager:
     return get_di_container().get(DeviceManager)
 
 
-def get_container_manager() -> ContainerManager:
+def get_resource_manager() -> ResourceManager:
     """
-    Get the ContainerManager instance.
+    Get the ResourceManager instance.
 
-    :return: The ContainerManager instance
+    :return: The ResourceManager instance
     """
-    return get_di_container().get(ContainerManager)
+    return get_di_container().get(ResourceManager)
 
 
-def get_resource_allocation_manager() -> ResourceAllocationManager:
+def get_allocation_manager() -> AllocationManager:
     """
-    Get the ResourceAllocationManager instance.
+    Get the AllocationManager instance.
 
-    :return: The ResourceAllocationManager instance
+    :return: The AllocationManager instance
     """
-    return get_di_container().get(ResourceAllocationManager)
+    return get_di_container().get(AllocationManager)
 
 
 def get_task_manager() -> TaskManager:
@@ -124,13 +124,13 @@ def get_on_demand_task_executor() -> OnDemandTaskExecutor:
     return get_di_container().get(OnDemandTaskExecutor)
 
 
-def get_scheduler() -> GreedyScheduler:
+def get_scheduler() -> CpSatScheduler:
     """
-    Get the GreedyScheduler instance.
+    Get the CpSatScheduler instance.
 
-    :return: The GreedyScheduler instance
+    :return: The CpSatScheduler instance
     """
-    return get_di_container().get(GreedyScheduler)
+    return get_di_container().get(CpSatScheduler)
 
 
 def get_experiment_executor_factory() -> ExperimentExecutorFactory:

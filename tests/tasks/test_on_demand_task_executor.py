@@ -14,10 +14,10 @@ class TestOnDemandTaskExecutor:
     @pytest.mark.asyncio
     async def test_execute_on_demand_task(self, db, on_demand_task_executor, task_executor, task_manager):
         task_config = TaskConfig(
-            id="mixing",
+            name="mixing",
             type="Magnetic Mixing",
             desc="Mixing task",
-            devices=[TaskDeviceConfig(lab_id="small_lab", id="magnetic_mixer")],
+            devices={"magnetic_mixer": TaskDeviceConfig(lab_name="small_lab", name="magnetic_mixer")},
             parameters={"time": 5},
         )
         task_definition = TaskDefinition.from_config(task_config, None)
@@ -40,7 +40,7 @@ class TestOnDemandTaskExecutor:
     @pytest.mark.asyncio
     async def test_on_demand_task_output(self, db, on_demand_task_executor, task_executor, task_manager):
         task_config = TaskConfig(
-            id="file_gen",
+            name="file_gen",
             type="File Generation",
             desc="File generation task",
             parameters={"content_length": 32},
@@ -65,7 +65,7 @@ class TestOnDemandTaskExecutor:
     @pytest.mark.asyncio
     async def test_request_task_cancellation(self, db, on_demand_task_executor, task_executor, task_manager):
         task_config = TaskConfig(
-            id="sleep",
+            name="sleep",
             type="Sleep",
             desc="Sleeping task",
             parameters={"time": 20},

@@ -1,8 +1,9 @@
 type: GC Injection
 desc: This task involves the use of a mobile robot to perform sample injection in a GC.
 
-device_types:
-  - mobile_manipulation_robot
+devices:
+  mobile_manipulation_robot:
+    type: mobile_manipulation_robot
 
 input_parameters:
   gc_target_name:

@@ -4,34 +4,33 @@ desc: Experiment to find best parameters for purifying water using evaporation
 labs:
   - small_lab
 
-containers:
-  - id: 026749f8f40342b38157f9824ae2f512
+resources:
+  026749f8f40342b38157f9824ae2f512:
     meta:
       substance: salt_water
 
 tasks:
-  - id: mixing
+  - name: mixing
     type: Magnetic Mixing
-    devices:
-      - lab_id: small_lab
-        id: magnetic_mixer
     desc: Magnetically mix water and salt
-
-    containers:
+    devices:
+      magnetic_mixer:
+        lab_name: small_lab
+        name: magnetic_mixer
+    resources:
       beaker: 026749f8f40342b38157f9824ae2f512
     parameters:
       speed: 60
       time: eos_dynamic
 
-  - id: evaporation
+  - name: evaporation
     type: Purification
-    devices:
-      - lab_id: small_lab
-        id: evaporator
     desc: Purification of water using evaporation
-    dependencies: [ "mixing" ]
-
-    containers:
+    devices:
+      evaporator:
+        lab_name: small_lab
+        name: evaporator
+    resources:
       beaker: 026749f8f40342b38157f9824ae2f512
     parameters:
       method: evaporation
@@ -40,3 +39,5 @@ tasks:
       evaporation_rotation_speed: eos_dynamic
       evaporation_sparging: true
       evaporation_sparging_flow: eos_dynamic
+
+    dependencies: [ "mixing" ]

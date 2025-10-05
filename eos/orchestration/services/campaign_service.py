@@ -36,9 +36,9 @@ class CampaignService:
         self._submitted_campaigns: dict[str, CampaignExecutor] = {}
         self._campaign_cancellation_queue = asyncio.Queue(maxsize=100)
 
-    async def get_campaign(self, db: AsyncDbSession, campaign_id: str) -> Campaign | None:
+    async def get_campaign(self, db: AsyncDbSession, campaign_name: str) -> Campaign | None:
         """Get a campaign by its unique identifier."""
-        return await self._campaign_manager.get_campaign(db, campaign_id)
+        return await self._campaign_manager.get_campaign(db, campaign_name)
 
     async def submit_campaign(
         self,
@@ -46,40 +46,38 @@ class CampaignService:
         campaign_definition: CampaignDefinition,
     ) -> None:
         """Submit a new campaign for execution."""
-        campaign_id = campaign_definition.id
+        campaign_name = campaign_definition.name
         experiment_type = campaign_definition.experiment_type
 
         self._validate_experiment_type(experiment_type)
 
         async with self._campaign_submission_lock:
-            if campaign_id in self._submitted_campaigns:
-                log.warning(f"Campaign '{campaign_id}' is already submitted. Ignoring new submission.")
+            if campaign_name in self._submitted_campaigns:
+                log.warning(f"Campaign '{campaign_name}' is already submitted. Ignoring new submission.")
                 return
 
             campaign_executor = self._campaign_executor_factory.create(campaign_definition)
 
             try:
                 await campaign_executor.start_campaign(db)
-                self._submitted_campaigns[campaign_id] = campaign_executor
+                self._submitted_campaigns[campaign_name] = campaign_executor
             except EosCampaignExecutionError:
-                log.error(f"Failed to submit campaign '{campaign_id}': {traceback.format_exc()}")
-                self._submitted_campaigns.pop(campaign_id, None)
+                log.error(f"Failed to submit campaign '{campaign_name}': {traceback.format_exc()}")
+                self._submitted_campaigns.pop(campaign_name, None)
                 raise
 
-            log.info(f"Submitted campaign '{campaign_id}'.")
-
-    async def cancel_campaign(self, campaign_id: str) -> None:
+    async def cancel_campaign(self, campaign_name: str) -> None:
         """Cancel a campaign that is currently being executed."""
-        if campaign_id in self._submitted_campaigns:
-            await self._campaign_cancellation_queue.put(campaign_id)
-            log.info(f"Queued campaign '{campaign_id}' for cancellation.")
+        if campaign_name in self._submitted_campaigns:
+            await self._campaign_cancellation_queue.put(campaign_name)
+            log.info(f"Queued campaign '{campaign_name}' for cancellation.")
 
     async def fail_running_campaigns(self, db: AsyncDbSession) -> None:
         """Fail all running campaigns."""
         running_campaigns = await self._campaign_manager.get_campaigns(db, status=CampaignStatus.RUNNING.value)
 
         for campaign in running_campaigns:
-            await self._campaign_manager.fail_campaign(db, campaign.id)
+            await self._campaign_manager.fail_campaign(db, campaign.name)
 
         if running_campaigns:
             log.warning(
@@ -98,57 +96,60 @@ class CampaignService:
         )
 
         results = []
-        for campaign_id, executor in sorted_campaigns.items():
-            result = await self._process_campaign(campaign_id, executor)
+        for campaign_name, executor in sorted_campaigns.items():
+            result = await self._process_campaign(campaign_name, executor)
             results.append(result)
 
         completed_campaigns: list[str] = []
         failed_campaigns: list[str] = []
 
-        for campaign_id, completed, failed in results:
+        for campaign_name, completed, failed in results:
             if completed:
-                completed_campaigns.append(campaign_id)
+                completed_campaigns.append(campaign_name)
             elif failed:
-                failed_campaigns.append(campaign_id)
+                failed_campaigns.append(campaign_name)
 
-        for campaign_id in completed_campaigns:
-            log.info(f"Completed campaign '{campaign_id}'.")
-            self._submitted_campaigns[campaign_id].cleanup()
-            del self._submitted_campaigns[campaign_id]
+        for campaign_name in completed_campaigns:
+            log.info(f"Completed campaign '{campaign_name}'.")
+            self._submitted_campaigns[campaign_name].cleanup()
+            del self._submitted_campaigns[campaign_name]
 
-        for campaign_id in failed_campaigns:
-            log.error(f"Failed campaign '{campaign_id}'.")
-            self._submitted_campaigns[campaign_id].cleanup()
-            del self._submitted_campaigns[campaign_id]
+        for campaign_name in failed_campaigns:
+            log.error(f"Failed campaign '{campaign_name}'.")
+            self._submitted_campaigns[campaign_name].cleanup()
+            del self._submitted_campaigns[campaign_name]
 
-    async def _process_campaign(self, campaign_id: str, campaign_executor: CampaignExecutor) -> tuple[str, bool, bool]:
+    async def _process_campaign(
+        self, campaign_name: str, campaign_executor: CampaignExecutor
+    ) -> tuple[str, bool, bool]:
         try:
             completed = await campaign_executor.progress_campaign()
-            return campaign_id, completed, False
+            return campaign_name, completed, False
         except EosCampaignExecutionError:
-            log.error(f"Error in campaign '{campaign_id}': {traceback.format_exc()}")
-            return campaign_id, False, True
+            log.error(f"Error in campaign '{campaign_name}': {traceback.format_exc()}")
+            return campaign_name, False, True
 
     async def process_campaign_cancellations(self) -> None:
         """Try to cancel all campaigns that are queued for cancellation."""
-        campaign_ids = []
+        campaign_names = []
         while not self._campaign_cancellation_queue.empty():
-            campaign_ids.append(await self._campaign_cancellation_queue.get())
+            campaign_names.append(await self._campaign_cancellation_queue.get())
 
-        if not campaign_ids:
+        if not campaign_names:
             return
 
-        cancellation_tasks = [self._submitted_campaigns[cmp_id].cancel_campaign() for cmp_id in campaign_ids]
+        cancellation_tasks = [self._submitted_campaigns[cmp_name].cancel_campaign() for cmp_name in campaign_names]
         await asyncio.gather(*cancellation_tasks)
 
-        for campaign_id in campaign_ids:
-            self._submitted_campaigns[campaign_id].cleanup()
-            del self._submitted_campaigns[campaign_id]
+        for campaign_name in campaign_names:
+            self._submitted_campaigns[campaign_name].cleanup()
+            del self._submitted_campaigns[campaign_name]
 
     def _validate_experiment_type(self, experiment_type: str) -> None:
         if experiment_type not in self._configuration_manager.experiments:
-            log.error(f"Cannot submit experiment of type '{experiment_type}' as it does not exist.")
-            raise EosExperimentDoesNotExistError
+            error_msg = f"Cannot submit experiment of type '{experiment_type}' as it does not exist."
+            log.error(error_msg)
+            raise EosExperimentDoesNotExistError(error_msg)
 
     @property
     def submitted_campaigns(self) -> dict[str, CampaignExecutor]:

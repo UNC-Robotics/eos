@@ -1,0 +1,7 @@
+type: Container Usage
+desc: Task that requires a single container input for testing.
+
+input_resources:
+  sample:
+    type: beaker_500
+

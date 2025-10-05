@@ -1,10 +1,11 @@
 type: Magnetic Mixing
 desc: This task involves the use of a magnetic stirrer to blend multiple substances into a homogeneous mixture. Both solid and liquid forms can be mixed to produce a liquid output.
 
-device_types:
-  - magnetic_mixer
+devices:
+  magnetic_mixer:
+    type: magnetic_mixer
 
-input_containers:
+input_resources:
   beaker:
     type: beaker_500
 

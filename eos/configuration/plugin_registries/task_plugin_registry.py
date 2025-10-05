@@ -19,4 +19,5 @@ class TaskPluginRegistry(PluginRegistry[BaseTask, TaskSpecRegistry]):
             exception_class=EosTaskPluginError,
             entity_type=EntityType.TASK,
         )
-        super().__init__(package_manager, config)
+        # Defer loading task plugins; they will be loaded on-demand
+        super().__init__(package_manager, config, initialize=False)

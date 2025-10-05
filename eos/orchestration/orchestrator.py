@@ -8,7 +8,7 @@ from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.eos_config import DatabaseType, EosConfig
-from eos.containers.container_manager import ContainerManager
+from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
@@ -24,8 +24,8 @@ from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.database.file_db_interface import FileDbInterface
 from eos.database.postgresql_db_interface import PostgresqlDbInterface
 from eos.database.sqlite_db_interface import SqliteDbInterface
-from eos.resource_allocation.resource_allocation_manager import (
-    ResourceAllocationManager,
+from eos.allocation.allocation_manager import (
+    AllocationManager,
 )
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.scheduler_factory import SchedulerFactory
@@ -101,15 +101,15 @@ class Orchestrator(metaclass=Singleton):
             await device_manager.cleanup_devices(db)
         di.register(DeviceManager, device_manager)
 
-        container_manager = ContainerManager()
+        resource_manager = ResourceManager()
         async with db_interface.get_async_session() as db:
-            await container_manager.initialize(db)
-        di.register(ContainerManager, container_manager)
+            await resource_manager.initialize(db)
+        di.register(ResourceManager, resource_manager)
 
-        resource_allocation_manager = ResourceAllocationManager()
+        allocation_manager = AllocationManager()
         async with db_interface.get_async_session() as db:
-            await resource_allocation_manager.initialize(db)
-        di.register(ResourceAllocationManager, resource_allocation_manager)
+            await allocation_manager.initialize(db)
+        di.register(AllocationManager, allocation_manager)
 
         task_manager = TaskManager()
         di.register(TaskManager, task_manager)

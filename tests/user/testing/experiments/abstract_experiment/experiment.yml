@@ -5,57 +5,65 @@ labs:
   - abstract_lab
 
 tasks:
-  - id: A
+  - name: A
     type: Noop
     devices:
-      - lab_id: abstract_lab
-        id: D2
+      device_1:
+        lab_name: abstract_lab
+        name: D2
 
-  - id: B
-    type: Noop
-    dependencies: [ "A" ]
-    devices:
-      - lab_id: abstract_lab
-        id: D1
-
-  - id: C
+  - name: B
     type: Noop
     dependencies: [ "A" ]
     devices:
-      - lab_id: abstract_lab
-        id: D3
+      device_1:
+        lab_name: abstract_lab
+        name: D1
 
-  - id: D
+  - name: C
     type: Noop
     dependencies: [ "A" ]
     devices:
-      - lab_id: abstract_lab
-        id: D1
+      device_1:
+        lab_name: abstract_lab
+        name: D3
 
-  - id: E
+  - name: D
+    type: Noop
+    dependencies: [ "A" ]
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D1
+
+  - name: E
     type: Noop
     dependencies: [ "B" ]
     devices:
-      - lab_id: abstract_lab
-        id: D3
+      device_1:
+        lab_name: abstract_lab
+        name: D3
 
-  - id: F
+  - name: F
     type: Noop
     dependencies: [ "C" ]
     devices:
-      - lab_id: abstract_lab
-        id: D2
+      device_1:
+        lab_name: abstract_lab
+        name: D2
 
-  - id: G
+  - name: G
     type: Noop
     dependencies: [ "D", "E", "F" ]
     devices:
-      - lab_id: abstract_lab
-        id: D5
+      device_1:
+        lab_name: abstract_lab
+        name: D5
 
-  - id: H
+  - name: H
     type: Noop
     dependencies: [ "G" ]
     devices:
-      - lab_id: abstract_lab
-        id: D6
+      device_1:
+        lab_name: abstract_lab
+        name: D6

@@ -1,8 +1,9 @@
 type: Fridge Temperature Control
 desc: This task adjusts the temperature of a laboratory refrigerator to a specified target to ensure optimal storage conditions for substances that require precise temperature control.
 
-device_types:
-  - fridge
+devices:
+  fridge:
+    type: fridge
 
 input_parameters:
   target_temperature:

@@ -5,17 +5,17 @@ from tests.fixtures import *
 EXPERIMENT_TYPE = "water_purification"
 
 
-def create_campaign_definition(campaign_id: str, max_experiments: int = 2) -> CampaignDefinition:
+def create_campaign_definition(campaign_name: str, max_experiments: int = 2) -> CampaignDefinition:
     """Helper function to create a non-optimized campaign definition."""
     return CampaignDefinition(
-        id=campaign_id,
+        name=campaign_name,
         experiment_type=EXPERIMENT_TYPE,
         owner="test",
         max_experiments=max_experiments,
         max_concurrent_experiments=1,
         optimize=False,
         optimizer_ip="127.0.0.1",
-        parameters=[{"param1": {"value": 0}}] * max_experiments,
+        experiment_parameters=[{"param1": {"value": 0}}] * max_experiments,
         meta={"test": "metadata"},
     )
 
@@ -27,30 +27,30 @@ class TestCampaignManager:
         await campaign_manager.create_campaign(db, create_campaign_definition("test_campaign"))
 
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert campaign.id == "test_campaign"
-        assert len(campaign.parameters) == 2
+        assert campaign.name == "test_campaign"
+        assert len(campaign.experiment_parameters) == 2
         assert campaign.meta == {"test": "metadata"}
 
     @pytest.mark.asyncio
     async def test_create_campaign_validation_errors(self, db, campaign_manager):
         # Test missing dynamic parameters
-        with pytest.raises(Exception, match="Campaign parameters must be provided"):
+        with pytest.raises(ValueError, match="experiment_parameters or global_parameters must be provided"):
             invalid_definition = CampaignDefinition(
-                id="test_campaign",
+                name="test_campaign",
                 experiment_type=EXPERIMENT_TYPE,
                 owner="test",
                 max_experiments=2,
                 max_concurrent_experiments=1,
                 optimize=False,
                 optimizer_ip="127.0.0.1",
-                parameters=None,
+                experiment_parameters=None,
             )
             await campaign_manager.create_campaign(db, invalid_definition)
 
         # Test incorrect number of dynamic parameters
-        with pytest.raises(ValueError, match="Parameters must be provided for all experiments"):
+        with pytest.raises(ValueError, match="experiment_parameters must be provided for all experiments"):
             invalid_definition = create_campaign_definition("test_campaign", max_experiments=3)
-            invalid_definition.parameters = [{"param1": {"value": 0}}]  # Only one set
+            invalid_definition.experiment_parameters = [{"param1": {"value": 0}}]  # Only one set
             await campaign_manager.create_campaign(db, invalid_definition)
 
     @pytest.mark.asyncio
@@ -83,8 +83,8 @@ class TestCampaignManager:
     @pytest.mark.asyncio
     async def test_get_campaigns_by_status(self, db, campaign_manager):
         # Create and set different statuses for campaigns
-        for campaign_id in ["campaign1", "campaign2", "campaign3"]:
-            await campaign_manager.create_campaign(db, create_campaign_definition(campaign_id))
+        for campaign_name in ["campaign1", "campaign2", "campaign3"]:
+            await campaign_manager.create_campaign(db, create_campaign_definition(campaign_name))
 
         await campaign_manager.start_campaign(db, "campaign1")
         await campaign_manager.start_campaign(db, "campaign2")
@@ -129,17 +129,17 @@ class TestCampaignManager:
         await campaign_manager.add_campaign_experiment(db, "test_campaign", "exp2")
 
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert len(campaign.current_experiment_ids) == 2
-        assert "exp1" in campaign.current_experiment_ids
-        assert "exp2" in campaign.current_experiment_ids
+        assert len(campaign.current_experiment_names) == 2
+        assert "exp1" in campaign.current_experiment_names
+        assert "exp2" in campaign.current_experiment_names
 
         # Test removing single experiment
         await campaign_manager.delete_campaign_experiment(db, "test_campaign", "exp1")
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert len(campaign.current_experiment_ids) == 1
-        assert "exp2" in campaign.current_experiment_ids
+        assert len(campaign.current_experiment_names) == 1
+        assert "exp2" in campaign.current_experiment_names
 
         # Test clearing all experiments
         await campaign_manager.delete_current_campaign_experiments(db, "test_campaign")
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert len(campaign.current_experiment_ids) == 0
+        assert len(campaign.current_experiment_names) == 0

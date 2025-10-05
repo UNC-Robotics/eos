@@ -17,7 +17,7 @@ class EosLabConfigurationError(Exception):
     pass
 
 
-class EosContainerConfigurationError(Exception):
+class EosResourceConfigurationError(Exception):
     pass
 
 

@@ -135,6 +135,8 @@ cython_debug/
 .idea/
 .vscode/
 
+node_modules/
+
 # EOS specific
 /config.yml
 

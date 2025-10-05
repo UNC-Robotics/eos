@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
+from typing import ClassVar
 
 from eos.configuration.constants import (
     LABS_DIR,
@@ -45,3 +47,29 @@ ENTITY_INFO: dict[EntityType, EntityInfo] = {
     EntityType.TASK: EntityInfo(TASKS_DIR, TASK_CONFIG_FILE_NAME, TaskSpecConfig),
     EntityType.DEVICE: EntityInfo(DEVICES_DIR, DEVICE_CONFIG_FILE_NAME, DeviceSpec),
 }
+
+
+@dataclass
+class Package:
+    """
+    A collection of user-defined experiments, labs, devices, tasks, and any code and data.
+    """
+
+    name: str
+    path: Path
+    entity_dirs: dict[EntityType, Path] = field(init=False, repr=False)
+
+    ENTITY_DIR_MAP: ClassVar = {
+        EntityType.EXPERIMENT: EXPERIMENTS_DIR,
+        EntityType.LAB: LABS_DIR,
+        EntityType.DEVICE: DEVICES_DIR,
+        EntityType.TASK: TASKS_DIR,
+    }
+
+    def __post_init__(self):
+        if isinstance(self.path, str):
+            self.path = Path(self.path)
+        self.entity_dirs = {entity_type: self.path / dir_name for entity_type, dir_name in self.ENTITY_DIR_MAP.items()}
+
+    def get_entity_dir(self, entity_type: EntityType) -> Path:
+        return self.entity_dirs[entity_type]

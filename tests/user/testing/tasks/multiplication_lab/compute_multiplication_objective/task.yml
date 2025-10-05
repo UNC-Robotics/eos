@@ -1,8 +1,9 @@
 type: Compute Multiplication Objective
 desc: This task computes the objective for the optimize_multiplication experiment.
 
-device_types:
-  - analyzer
+devices:
+  analyzer:
+    type: analyzer
 
 input_parameters:
   number:

@@ -11,20 +11,18 @@ from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.eos_config import EosConfig
 from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
-from eos.containers.container_manager import ContainerManager
+from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.database.file_db_interface import FileDbInterface
 from eos.database.sqlite_db_interface import SqliteDbInterface
-from eos.resource_allocation.container_allocation_manager import ContainerAllocationManager
-from eos.resource_allocation.device_allocation_manager import DeviceAllocationManager
-from eos.resource_allocation.resource_allocation_manager import (
-    ResourceAllocationManager,
+from eos.allocation.allocation_manager import (
+    AllocationManager,
 )
-from eos.scheduling.cpsat_scheduler import CpSatScheduler
 from eos.scheduling.greedy_scheduler import GreedyScheduler
+from eos.scheduling.cpsat_scheduler import CpSatScheduler
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
@@ -153,11 +151,11 @@ async def clear_db(db_interface):
 
 
 @pytest.fixture
-async def container_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
-    container_manager = ContainerManager(configuration_manager=configuration_manager)
+async def resource_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
+    resource_manager = ResourceManager(configuration_manager=configuration_manager)
     async with db_interface.get_async_session() as db:
-        await container_manager.initialize(db)
-    return container_manager
+        await resource_manager.initialize(db)
+    return resource_manager
 
 
 @pytest.fixture
@@ -175,21 +173,11 @@ async def experiment_manager(setup_lab_experiment, configuration_manager, clear_
 
 
 @pytest.fixture
-async def container_allocation_manager(setup_lab_experiment, configuration_manager, clear_db):
-    return ContainerAllocationManager(configuration_manager)
-
-
-@pytest.fixture
-async def device_allocation_manager(setup_lab_experiment, configuration_manager, clear_db):
-    return DeviceAllocationManager(configuration_manager)
-
-
-@pytest.fixture
-async def resource_allocation_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
-    resource_allocation_manager = ResourceAllocationManager(configuration_manager, db_interface)
+async def allocation_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
+    allocation_manager = AllocationManager(configuration_manager, db_interface)
     async with db_interface.get_async_session() as db:
-        await resource_allocation_manager.initialize(db)
-    return resource_allocation_manager
+        await allocation_manager.initialize(db)
+    return allocation_manager
 
 
 @pytest.fixture
@@ -210,16 +198,16 @@ def task_executor(
     setup_lab_experiment,
     task_manager,
     device_manager,
-    container_manager,
-    resource_allocation_manager,
+    resource_manager,
+    allocation_manager,
     configuration_manager,
     db_interface,
 ):
     return TaskExecutor(
         task_manager,
         device_manager,
-        container_manager,
-        resource_allocation_manager,
+        resource_manager,
+        allocation_manager,
         configuration_manager,
         db_interface,
     )
@@ -242,11 +230,9 @@ def greedy_scheduler(
     experiment_manager,
     task_manager,
     device_manager,
-    resource_allocation_manager,
+    allocation_manager,
 ):
-    return GreedyScheduler(
-        configuration_manager, experiment_manager, task_manager, device_manager, resource_allocation_manager
-    )
+    return GreedyScheduler(configuration_manager, experiment_manager, task_manager, device_manager, allocation_manager)
 
 
 @pytest.fixture
@@ -256,14 +242,14 @@ def cpsat_scheduler(
     experiment_manager,
     task_manager,
     device_manager,
-    resource_allocation_manager,
+    allocation_manager,
 ):
     return CpSatScheduler(
         configuration_manager,
         experiment_manager,
         task_manager,
         device_manager,
-        resource_allocation_manager,
+        allocation_manager,
     )
 
 

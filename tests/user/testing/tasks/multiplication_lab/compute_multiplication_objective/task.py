@@ -6,10 +6,10 @@ class ComputeMultiplicationObjective(BaseTask):
         self,
         devices: BaseTask.DevicesType,
         parameters: BaseTask.ParametersType,
-        containers: BaseTask.ContainersType,
-    ) -> BaseTask.OutputType:
+        resources: BaseTask.ResourcesType,
+    ) -> BaseTask.OutputType | None:
         self.cancel_requested = False
-        analyzer = devices.get_all_by_type("analyzer")[0]
+        analyzer = devices["analyzer"]
 
         number = parameters["number"]
         product = parameters["product"]

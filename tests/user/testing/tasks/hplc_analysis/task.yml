@@ -2,10 +2,11 @@ type: HPLC Analysis
 
 desc: This task performs High-Performance Liquid Chromatography (HPLC) analysis on a sample to separate, identify, and quantify its chemical components.
 
-device_types:
-  - high_performance_liquid_chromatograph
+devices:
+  high_performance_liquid_chromatograph:
+    type: high_performance_liquid_chromatograph
 
-input_containers:
+input_resources:
   vial:
     type: vial
 

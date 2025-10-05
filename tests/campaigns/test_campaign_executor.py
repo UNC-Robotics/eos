@@ -7,8 +7,8 @@ from eos.experiments.exceptions import EosExperimentExecutionError
 from tests.fixtures import *
 
 CAMPAIGN_CONFIG = {
-    "LAB_ID": "multiplication_lab",
-    "CAMPAIGN_ID": "optimize_multiplication_campaign",
+    "LAB_NAME": "multiplication_lab",
+    "CAMPAIGN_NAME": "optimize_multiplication_campaign",
     "EXPERIMENT_TYPE": "optimize_multiplication",
     "OWNER": "test",
     "MAX_EXPERIMENTS": 30,
@@ -22,7 +22,7 @@ CAMPAIGN_CONFIG = {
 def campaign_definition():
     """Create a standard campaign definition for testing."""
     return CampaignDefinition(
-        id=CAMPAIGN_CONFIG["CAMPAIGN_ID"],
+        name=CAMPAIGN_CONFIG["CAMPAIGN_NAME"],
         experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
         owner=CAMPAIGN_CONFIG["OWNER"],
         max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
@@ -55,7 +55,7 @@ def campaign_executor_setup(
 
 @pytest.mark.parametrize(
     "setup_lab_experiment",
-    [(CAMPAIGN_CONFIG["LAB_ID"], CAMPAIGN_CONFIG["EXPERIMENT_TYPE"])],
+    [(CAMPAIGN_CONFIG["LAB_NAME"], CAMPAIGN_CONFIG["EXPERIMENT_TYPE"])],
     indirect=True,
 )
 class TestCampaignExecutor:
@@ -66,9 +66,9 @@ class TestCampaignExecutor:
         async with db_interface.get_async_session() as db:
             await campaign_executor_setup.start_campaign(db)
 
-            campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+            campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
             assert campaign is not None
-            assert campaign.id == CAMPAIGN_CONFIG["CAMPAIGN_ID"]
+            assert campaign.name == CAMPAIGN_CONFIG["CAMPAIGN_NAME"]
             assert campaign.status == CampaignStatus.RUNNING
 
         await campaign_executor_setup.cancel_campaign()
@@ -116,11 +116,11 @@ class TestCampaignExecutor:
         with pytest.raises(EosCampaignExecutionError) as exc_info:
             await campaign_executor_setup.progress_campaign()
 
-            assert f"Error executing campaign '{CAMPAIGN_CONFIG['CAMPAIGN_ID']}'" in str(exc_info.value)
+            assert f"Error executing campaign '{CAMPAIGN_CONFIG['CAMPAIGN_NAME']}'" in str(exc_info.value)
             assert campaign_executor_setup._campaign_status == CampaignStatus.FAILED
 
             async with db_interface.get_async_session() as db:
-                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
                 assert campaign.status == CampaignStatus.FAILED
 
         campaign_executor_setup.cleanup()
@@ -138,7 +138,7 @@ class TestCampaignExecutor:
             await asyncio.sleep(0.01)
 
             async with db_interface.get_async_session() as db:
-                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
             completed_experiments = campaign.experiments_completed
 
     @pytest.mark.slow
@@ -162,14 +162,14 @@ class TestCampaignExecutor:
         )
 
         async with db_interface.get_async_session() as db:
-            initial_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+            initial_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
         initial_samples = ray.get(campaign_executor_setup.optimizer.get_num_samples_reported.remote())
 
         await campaign_executor_setup.cancel_campaign()
         campaign_executor_setup.cleanup()
 
         resume_definition = CampaignDefinition(
-            id=CAMPAIGN_CONFIG["CAMPAIGN_ID"],
+            name=CAMPAIGN_CONFIG["CAMPAIGN_NAME"],
             experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
             owner=CAMPAIGN_CONFIG["OWNER"],
             max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
@@ -187,10 +187,13 @@ class TestCampaignExecutor:
 
         async with db_interface.get_async_session() as db:
             await resumed_executor.start_campaign(db)
-            resumed_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_ID"])
+            resumed_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
 
         assert resumed_campaign.status == CampaignStatus.RUNNING
         assert resumed_campaign.experiments_completed == initial_campaign.experiments_completed
+
+        # Progress campaign once to ensure optimizer is initialized
+        await resumed_executor.progress_campaign()
 
         resumed_samples = ray.get(resumed_executor.optimizer.get_num_samples_reported.remote())
         assert resumed_samples == initial_samples

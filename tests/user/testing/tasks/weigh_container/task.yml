@@ -1,8 +1,9 @@
 type: Weigh Container
 desc: This task involves using an analytical balance to accurately measure the mass of a container.
 
-device_types:
-  - balance
+devices:
+  balance:
+    type: balance
 
 input_parameters:
   minimum_weight:

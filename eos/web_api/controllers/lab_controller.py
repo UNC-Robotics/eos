@@ -12,7 +12,7 @@ class LabTypes(BaseModel):
 
 
 class DeviceReload(BaseModel):
-    device_ids: list[str]
+    device_names: list[str]
 
 
 class LabController(Controller):
@@ -25,10 +25,10 @@ class LabController(Controller):
         """Get labs."""
         return await orchestrator.loading.list_labs()
 
-    @get("/{lab_id:str}/device/{device_id:str}/report")
-    async def get_device_report(self, lab_id: str, device_id: str, orchestrator: Orchestrator) -> dict[str, Any]:
+    @get("/{lab_name:str}/device/{device_name:str}/report")
+    async def get_device_report(self, lab_name: str, device_name: str, orchestrator: Orchestrator) -> dict[str, Any]:
         """Get a report for a specific device."""
-        return await orchestrator.labs.get_device_report(lab_id, device_id)
+        return await orchestrator.labs.get_device_report(lab_name, device_name)
 
     @post("/load")
     async def load_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> Response:
@@ -48,12 +48,12 @@ class LabController(Controller):
         await orchestrator.loading.reload_labs(db, set(data.lab_types))
         return Response(content="OK", status_code=200)
 
-    @put("/{lab_id:str}/devices/reload")
+    @put("/{lab_name:str}/devices/reload")
     async def reload_devices(
-        self, lab_id: str, data: DeviceReload, db: AsyncDbSession, orchestrator: Orchestrator
+        self, lab_name: str, data: DeviceReload, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> Response:
         """Reload specific devices in a lab."""
-        await orchestrator.loading.reload_devices(db, lab_id, data.device_ids)
+        await orchestrator.loading.reload_devices(db, lab_name, data.device_names)
         return Response(content="OK", status_code=200)
 
     @get("/devices")

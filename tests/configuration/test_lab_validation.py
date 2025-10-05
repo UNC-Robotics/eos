@@ -1,6 +1,6 @@
-from eos.configuration.entities.lab import LabContainerConfig
+from eos.configuration.entities.lab import LabResourceConfig
 from eos.configuration.exceptions import EosLabConfigurationError
-from eos.configuration.validation.lab_validator import LabValidator
+from eos.configuration.validation.validators import LabValidator
 from tests.fixtures import *
 
 
@@ -11,28 +11,6 @@ def lab(configuration_manager):
 
 
 class TestLabValidation:
-    def test_device_locations(self, configuration_manager, lab):
-        lab.devices["magnetic_mixer"].location = "invalid_location"
-
-        with pytest.raises(EosLabConfigurationError):
-            LabValidator(
-                configuration_manager._user_dir,
-                lab,
-                configuration_manager.task_specs,
-                configuration_manager.device_specs,
-            ).validate()
-
-    def test_container_locations(self, configuration_manager, lab):
-        lab.containers[0].location = "invalid_location"
-
-        with pytest.raises(EosLabConfigurationError):
-            LabValidator(
-                configuration_manager._user_dir,
-                lab,
-                configuration_manager.task_specs,
-                configuration_manager.device_specs,
-            ).validate()
-
     def test_device_computers(self, configuration_manager, lab):
         lab.devices["magnetic_mixer"].computer = "invalid_computer"
 
@@ -44,50 +22,30 @@ class TestLabValidation:
                 configuration_manager.device_specs,
             ).validate()
 
-    def test_container_non_unique_type(self, configuration_manager, lab):
-        lab.containers.extend(
-            [
-                LabContainerConfig(
-                    type="beaker",
-                    location="substance_shelf",
-                    ids=["a", "b"],
-                ),
-                LabContainerConfig(
-                    type="beaker",
-                    location="substance_shelf",
-                    ids=["c", "d"],
-                ),
-            ]
-        )
+    def test_resources_allow_duplicate_types(self, configuration_manager, lab):
+        # Duplicate types are allowed across different resource IDs
+        lab.resources = {}
+        lab.resources["a"] = LabResourceConfig(type="beaker_500")
+        lab.resources["b"] = LabResourceConfig(type="beaker_500")
 
-        with pytest.raises(EosLabConfigurationError):
-            LabValidator(
-                configuration_manager._user_dir,
-                lab,
-                configuration_manager.task_specs,
-                configuration_manager.device_specs,
-            ).validate()
+        # Should not raise error
+        LabValidator(
+            configuration_manager._user_dir,
+            lab,
+            configuration_manager.task_specs,
+            configuration_manager.device_specs,
+        ).validate()
 
-    def test_container_duplicate_ids(self, configuration_manager, lab):
-        lab.containers.extend(
-            [
-                LabContainerConfig(
-                    type="beaker",
-                    location="substance_shelf",
-                    ids=["a", "b"],
-                ),
-                LabContainerConfig(
-                    type="flask",
-                    location="substance_shelf",
-                    ids=["a", "b"],
-                ),
-            ]
-        )
+    def test_resource_duplicate_names_within_lab_not_possible(self, configuration_manager, lab):
+        # In dict-based resources, duplicate IDs cannot coexist (later assignment overwrites earlier).
+        lab.resources = {}
+        lab.resources["dup"] = LabResourceConfig(type="beaker")
+        lab.resources["dup"] = LabResourceConfig(type="flask")
 
-        with pytest.raises(EosLabConfigurationError):
-            LabValidator(
-                configuration_manager._user_dir,
-                lab,
-                configuration_manager.task_specs,
-                configuration_manager.device_specs,
-            ).validate()
+        # Should not raise due to duplicate IDs within the same lab (dict enforces uniqueness).
+        LabValidator(
+            configuration_manager._user_dir,
+            lab,
+            configuration_manager.task_specs,
+            configuration_manager.device_specs,
+        ).validate()

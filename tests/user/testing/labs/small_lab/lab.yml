@@ -1,131 +1,95 @@
-type: small_lab
+name: small_lab
 desc: A small laboratory for testing
-
-locations:
-  gc_1:
-    desc: Gas Chromatography station 1
-    meta:
-      map_coordinates: { x: 100, y: 32, rotation: 0 }
-      areas:
-        injection_port:
-          desc: Injection port for the gas chromatograph
-
-  gc_2:
-    desc: Gas Chromatography station 2
-    meta:
-      map_coordinates: { x: 110, y: 32, rotation: 0 }
-      areas:
-        injection_port:
-          desc: Injection port for the gas chromatograph
-
-  wafer_station:
-    desc: Wafer processing station
-    meta:
-      map_coordinates: { x: 120, y: 32, rotation: 0 }
-      areas:
-        wafer_stack:
-          desc: Wafer storage
-        cartesian_robot_head:
-          desc: Head of the cartesian robot that holds the wafer
-
-  mixing_station:
-    desc: Station equipped with magnetic mixers for substance blending
-    meta:
-      map_coordinates: { x: 140, y: 32, rotation: 0 }
-
-  substance_shelf:
-    desc: Storage shelf for chemical substances
-    meta:
-      map_coordinates: { x: 50, y: 10, rotation: 0 }
-
-  substance_fridge:
-    desc: Refrigerated storage for temperature-sensitive substances
-    meta:
-      map_coordinates: { x: 60, y: 10, rotation: 0 }
-
-  fetch_charging_station:
-    desc: Charging station for the Fetch mobile manipulation robot
-    meta:
-      map_coordinates: { x: 10, y: 10, rotation: 0 }
 
 devices:
   general_computer:
     desc: General-purpose computer
     type: computer
-    location: gc_1
     computer: eos_computer
 
   magnetic_mixer:
     desc: Mixer for substance blending
     type: magnetic_mixer
-    location: mixing_station
     computer: eos_computer
 
   magnetic_mixer_2:
     desc: Mixer for substance blending
     type: magnetic_mixer
-    location: mixing_station
     computer: eos_computer
 
   evaporator:
     desc: Evaporator for substance purification
     type: evaporator
-    location: mixing_station
     computer: eos_computer
 
   substance_fridge:
     desc: Fridge for storing temperature-sensitive substances
     type: fridge
-    location: substance_fridge
     computer: eos_computer
 
-containers:
-  - type: beaker_250
-    location: substance_shelf
+resource_types:
+  beaker_250:
     meta:
       capacity: 250
-    ids:
-      - ec1ca48cd5d14c0c8cde376476e0d98d
-      - 4d8488982b8e404c83465308f6211c25
-      - 8f55ee53aaf4429392993295476b03bc
-      - d29185534fee42749a9f13932dfcb7f2
-  - type: beaker_350
+  beaker_350:
     meta:
       capacity: 350
-    location: substance_shelf
-    ids:
-      - 257b4bf4f13d40a49b60cb20db6bdb8d
-      - 4803e4639b314026a68e7217c5869567
-      - ab0b94897b1e439e90446994c88f1208
-  - type: beaker_500
-    location: substance_shelf
+  beaker_500:
     meta:
       capacity: 500
-    ids:
-      - 026749f8f40342b38157f9824ae2f512
-      - acf829f859e04fee80d54a1ee918555d
-      - a3b958aea8bd435386cdcbab20a2d3ec
-      - 2fe219d41d55449781338ef45f7f49bc
-  - type: vial_20
-    location: substance_shelf
+  vial_20:
     meta:
       capacity: 20
-    ids:
-      - 84eb17d61e884ffd9d1fdebcbad1532b
-      - daa8748a09ea4e91b32c764fa3e6a3c3
-      - d03d93b6ef114ffba7b5b217362458e4
-      - 51ba54eab0bd4fa08c7ec8dea2d52fa6
-      - e7b25d1ea6844754a55a6c4be2ebbb62
-      - 9c94fcdb276e4909aa0408e287e6986c
-      - b9a14b0e5ee24db0afdc633802698a57
-      - cb895e7a7b814bfab294be9f22a8dc2c
-      - dc8aadece2d64ea59baa1b28d1c62b7b
-      - b1f6cf664cd542e9857314f1470f9efe
-      - 3e128a03dfe44709bf6941032fe42038
-      - efb5ccbaf9b4465c90b1654fac690821
-  - type: flask_250
-    location: substance_shelf
+  flask_250:
     meta:
       capacity: 250
-    ids:
-      - dd4703461198463e980de42a6034f8de
+
+resources:
+  ec1ca48cd5d14c0c8cde376476e0d98d:
+    type: beaker_250
+  4d8488982b8e404c83465308f6211c25:
+    type: beaker_250
+  8f55ee53aaf4429392993295476b03bc:
+    type: beaker_250
+  d29185534fee42749a9f13932dfcb7f2:
+    type: beaker_250
+  257b4bf4f13d40a49b60cb20db6bdb8d:
+    type: beaker_350
+  4803e4639b314026a68e7217c5869567:
+    type: beaker_350
+  ab0b94897b1e439e90446994c88f1208:
+    type: beaker_350
+  026749f8f40342b38157f9824ae2f512:
+    type: beaker_500
+  acf829f859e04fee80d54a1ee918555d:
+    type: beaker_500
+  a3b958aea8bd435386cdcbab20a2d3ec:
+    type: beaker_500
+  2fe219d41d55449781338ef45f7f49bc:
+    type: beaker_500
+  84eb17d61e884ffd9d1fdebcbad1532b:
+    type: vial_20
+  daa8748a09ea4e91b32c764fa3e6a3c3:
+    type: vial_20
+  d03d93b6ef114ffba7b5b217362458e4:
+    type: vial_20
+  51ba54eab0bd4fa08c7ec8dea2d52fa6:
+    type: vial_20
+  e7b25d1ea6844754a55a6c4be2ebbb62:
+    type: vial_20
+  9c94fcdb276e4909aa0408e287e6986c:
+    type: vial_20
+  b9a14b0e5ee24db0afdc633802698a57:
+    type: vial_20
+  cb895e7a7b814bfab294be9f22a8dc2c:
+    type: vial_20
+  dc8aadece2d64ea59baa1b28d1c62b7b:
+    type: vial_20
+  b1f6cf664cd542e9857314f1470f9efe:
+    type: vial_20
+  3e128a03dfe44709bf6941032fe42038:
+    type: vial_20
+  efb5ccbaf9b4465c90b1654fac690821:
+    type: vial_20
+  dd4703461198463e980de42a6034f8de:
+    type: flask_250

@@ -1,10 +1,11 @@
 type: Purification
 desc: This task aims to purify a single substance by separating it from its impurities. The device supports evaporation and simple mixing.
 
-device_types:
-  - evaporator
+devices:
+  evaporator:
+    type: evaporator
 
-input_containers:
+input_resources:
   beaker:
     type: beaker_500
 

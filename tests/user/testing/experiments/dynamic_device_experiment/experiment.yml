@@ -1,0 +1,63 @@
+type: dynamic_device_experiment
+desc: Experiment to test dynamic device allocation
+
+labs:
+  - dynamic_lab
+
+tasks:
+  - name: A
+    type: Noop
+    devices:
+      device_1:
+        allocation_type: dynamic
+        device_type: DT3
+        allowed_labs: [dynamic_lab]
+
+  - name: B
+    type: Noop
+    dependencies: ["A"]
+    devices:
+      device_1:
+        allocation_type: dynamic
+        device_type: DT2
+        allowed_labs: [dynamic_lab]
+
+  - name: C
+    type: Noop
+    dependencies: ["A"]
+    devices:
+      device_1:
+        allocation_type: dynamic
+        device_type: DT3
+        allowed_labs: [dynamic_lab]
+        allowed_devices:
+          - lab_name: dynamic_lab
+            name: DX3B
+
+  - name: D
+    type: Noop
+    dependencies: ["B", "C"]
+    devices:
+      device_1:
+        allocation_type: dynamic
+        device_type: DT5
+        allowed_labs: [dynamic_lab]
+
+  - name: E
+    type: Noop
+    dependencies: ["D"]
+    devices:
+      device_1: C.device_1
+
+  - name: F
+    type: Noop
+    dependencies: ["E"]
+    devices:
+      device_1: E.device_1
+
+  - name: G
+    type: Noop
+    dependencies: ["D", "F"]
+    devices:
+      analyzer: A.device_1
+      processor: D.device_1

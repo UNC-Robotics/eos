@@ -15,7 +15,7 @@ from tests.fixtures import *
 class TestTaskExecutor:
     async def _setup_experiment(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type="water_purification", id="water_purification", owner="test")
+            db, ExperimentDefinition(type="water_purification", name="water_purification", owner="test")
         )
 
     async def _process_until_done(self, task_executor, future, timeout_seconds=10):
@@ -41,12 +41,12 @@ class TestTaskExecutor:
 
         task_config = experiment_graph.get_task_config("mixing")
         task_config.parameters["time"] = 5
-        task_config.devices = [TaskDeviceConfig(lab_id="small_lab", id="magnetic_mixer")]
+        task_config.devices = {"magnetic_mixer": TaskDeviceConfig(lab_name="small_lab", name="magnetic_mixer")}
 
         # Test multiple executions
-        for task_id in ["mixing", "mixing2", "mixing3"]:
+        for task_name in ["mixing", "mixing2", "mixing3"]:
             task_definition = TaskDefinition.from_config(task_config, "water_purification")
-            task_definition.id = task_id
+            task_definition.name = task_name
 
             future = asyncio.create_task(task_executor.request_task_execution(task_definition))
             await self._process_until_done(task_executor, future)
@@ -60,9 +60,9 @@ class TestTaskExecutor:
             await self._setup_experiment(db, experiment_manager)
 
         sleep_config = TaskConfig(
-            id="sleep_task",
+            name="sleep_task",
             type="Sleep",
-            devices=[TaskDeviceConfig(lab_id="small_lab", id="general_computer")],
+            devices={"device_1": TaskDeviceConfig(lab_name="small_lab", name="general_computer")},
             parameters={"time": 5},
         )
         task_definition = TaskDefinition.from_config(sleep_config, "water_purification")
@@ -74,7 +74,7 @@ class TestTaskExecutor:
             await task_executor.process_tasks()
             await asyncio.sleep(0.1)
 
-        await task_executor.cancel_task(task_definition.experiment_id, task_definition.id)
+        await task_executor.cancel_task(task_definition.experiment_name, task_definition.name)
         await self._process_until_done(task_executor, future, timeout_seconds=2)
 
         with pytest.raises(CancelledError):

@@ -40,12 +40,12 @@ class BaseDevice(ABC):
 
     def __init__(
         self,
-        device_id: str,
-        lab_id: str,
+        device_name: str,
+        lab_name: str,
         device_type: str,
     ):
-        self._device_id = device_id
-        self._lab_id = lab_id
+        self._device_name = device_name
+        self._lab_name = lab_name
         self._device_type = device_type
         self._status = DeviceStatus.DISABLED
         self._init_parameters = {}
@@ -61,7 +61,7 @@ class BaseDevice(ABC):
         """
         async with self._lock:
             if self._status != DeviceStatus.DISABLED:
-                raise EosDeviceInitializationError(f"Device {self._device_id} is already initialized.")
+                raise EosDeviceInitializationError(f"Device {self._device_name} is already initialized.")
 
             try:
                 await self._initialize(init_parameters)
@@ -70,7 +70,7 @@ class BaseDevice(ABC):
             except Exception as e:
                 self._status = DeviceStatus.ERROR
                 raise EosDeviceInitializationError(
-                    f"Error initializing device {self._device_id}: {e!s}",
+                    f"Error initializing device {self._device_name}: {e!s}",
                 ) from e
 
     async def cleanup(self) -> None:
@@ -84,7 +84,7 @@ class BaseDevice(ABC):
 
             if self._status == DeviceStatus.BUSY:
                 raise EosDeviceCleanupError(
-                    f"Device {self._device_id} is busy. Cannot perform cleanup.",
+                    f"Device {self._device_name} is busy. Cannot perform cleanup.",
                 )
 
             try:
@@ -92,7 +92,7 @@ class BaseDevice(ABC):
                 self._status = DeviceStatus.DISABLED
             except Exception as e:
                 self._status = DeviceStatus.ERROR
-                raise EosDeviceCleanupError(f"Error cleaning up device {self._device_id}: {e!s}") from e
+                raise EosDeviceCleanupError(f"Error cleaning up device {self._device_name}: {e!s}") from e
 
     async def report(self) -> dict[str, Any]:
         """
@@ -116,15 +116,16 @@ class BaseDevice(ABC):
 
     def get_status(self) -> dict[str, Any]:
         return {
-            "id": self._device_id,
+            "name": self._device_name,
+            "lab_name": self._lab_name,
             "status": self._status,
         }
 
-    def get_id(self) -> str:
-        return self._device_id
+    def get_name(self) -> str:
+        return self._device_name
 
-    def get_lab_id(self) -> str:
-        return self._lab_id
+    def get_lab_name(self) -> str:
+        return self._lab_name
 
     def get_device_type(self) -> str:
         return self._device_type
@@ -133,12 +134,12 @@ class BaseDevice(ABC):
         return self._init_parameters
 
     @property
-    def id(self) -> str:
-        return self._device_id
+    def name(self) -> str:
+        return self._device_name
 
     @property
-    def lab_id(self) -> str:
-        return self._lab_id
+    def lab_name(self) -> str:
+        return self._lab_name
 
     @property
     def device_type(self) -> str:

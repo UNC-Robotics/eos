@@ -6,9 +6,9 @@ class Multiplication(BaseTask):
         self,
         devices: BaseTask.DevicesType,
         parameters: BaseTask.ParametersType,
-        containers: BaseTask.ContainersType,
+        resources: BaseTask.ResourcesType,
     ) -> BaseTask.OutputType:
-        multiplier = devices.get_all_by_type("multiplier")[0]
+        multiplier = devices["multiplier"]
         product = multiplier.multiply(parameters["number"], parameters["factor"])
         output_parameters = {"product": product}
 

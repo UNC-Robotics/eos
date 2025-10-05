@@ -1,0 +1,7 @@
+type: Container Vial Usage
+desc: Task that requires a vial container input for testing.
+
+input_resources:
+  sample:
+    type: vial
+

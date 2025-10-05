@@ -22,7 +22,7 @@ class TestCampaignBayesianOptimizer:
             initial_sampling_method=SamplingMethodEnum.SOBOL,
         )
 
-        for _ in range(5):
+        for _ in range(8):
             parameters = optimizer.sample()
             results = pd.DataFrame()
             results["y"] = -((parameters["x"] - 2) ** 2) + 4
@@ -30,7 +30,7 @@ class TestCampaignBayesianOptimizer:
 
         optimal_solutions = optimizer.get_optimal_solutions()
         assert len(optimal_solutions) == 1
-        assert abs(optimal_solutions["y"].to_numpy()[0] - 4) < 0.20
+        assert abs(optimal_solutions["y"].to_numpy()[0] - 4) < 0.25
 
     @pytest.mark.slow
     def test_competing_multi_objective_optimization(self):

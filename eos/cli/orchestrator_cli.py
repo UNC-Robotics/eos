@@ -207,7 +207,7 @@ def start_orchestrator(
     asyncio.run(run_eos(config))
 
 
-EOS_BANNER = f"""The Experiment Orchestration System, {importlib.metadata.version("eos")}
+EOS_BANNER = f"""Experiment Orchestration System v{importlib.metadata.version("eos")}
  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄
 ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
 ▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀

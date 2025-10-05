@@ -33,16 +33,16 @@ class TaskService:
         self._on_demand_task_executor = on_demand_task_executor
         self._db_interface = db_interface
 
-    async def get_task(self, db: AsyncDbSession, experiment_id: str, task_id: str) -> Task:
+    async def get_task(self, db: AsyncDbSession, experiment_name: str, task_name: str) -> Task:
         """
-        Get a task by its unique identifier.
+        Get a task by its unique name.
 
         :param db: The database session.
-        :param experiment_id: The unique identifier of the experiment.
-        :param task_id: The unique identifier of the task.
+        :param experiment_name: The unique name of the experiment.
+        :param task_name: The unique name of the task.
         :return: The task entity.
         """
-        return await self._task_manager.get_task(db, experiment_id, task_id)
+        return await self._task_manager.get_task(db, experiment_name, task_name)
 
     async def submit_task(
         self,
@@ -59,38 +59,38 @@ class TaskService:
         try:
             await self._on_demand_task_executor.submit_task(db, task_definition)
         except EosTaskExecutionError:
-            log.error(f"Failed to submit task '{task_definition.id}': {traceback.format_exc()}")
+            log.error(f"Failed to submit task '{task_definition.name}': {traceback.format_exc()}")
             raise
 
-    async def cancel_task(self, task_id: str, experiment_id: str | None = None) -> None:
+    async def cancel_task(self, task_name: str, experiment_name: str | None = None) -> None:
         """
         Cancel a task that is currently being executed.
 
-        :param task_id: The unique identifier of the task.
-        :param experiment_id: The unique identifier of the experiment.
+        :param task_name: The unique name of the task.
+        :param experiment_name: The unique name of the experiment.
         """
         try:
-            if experiment_id is None:
-                await self._on_demand_task_executor.cancel_task(task_id)
+            if experiment_name is None:
+                await self._on_demand_task_executor.cancel_task(task_name)
             else:
-                await self._task_executor.cancel_task(experiment_id, task_id)
+                await self._task_executor.cancel_task(experiment_name, task_name)
         except EosTaskCancellationError:
-            log.error(f"Failed to cancel task '{task_id}'.")
+            log.error(f"Failed to cancel task '{task_name}'.")
             raise
 
     async def fail_running_tasks(self, db: AsyncDbSession) -> None:
         """Fail all running tasks."""
         running_tasks = await self._task_manager.get_tasks(db, status=TaskStatus.RUNNING.value)
         for task in running_tasks:
-            await self._task_manager.fail_task(db, task.experiment_id, task.id)
-            log.warning(f"EXP '{task.experiment_id}' - Failed task '{task.id}'.")
+            await self._task_manager.fail_task(db, task.experiment_name, task.name)
+            log.warning(f"EXP '{task.experiment_name}' - Failed task '{task.name}'.")
 
         if running_tasks:
             log.warning("All running tasks have been marked as failed. Please review the state of the system.")
 
     async def get_task_types(self) -> list[str]:
         """Get a list of all task types that are defined in the configuration."""
-        return [task.type for task in self._configuration_manager.task_specs.get_all_specs().values()]
+        return [task.name for task in self._configuration_manager.task_specs.get_all_specs().values()]
 
     async def get_task_spec(self, task_type: str) -> TaskSpecConfig | None:
         """Get the task specification for a given task type."""

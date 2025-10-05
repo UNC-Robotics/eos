@@ -29,24 +29,24 @@ class TaskManager:
 
         log.debug("Task manager initialized.")
 
-    async def _check_task_exists(self, db: AsyncDbSession, experiment_id: str, task_id: str) -> bool:
+    async def _check_task_exists(self, db: AsyncDbSession, experiment_name: str, task_name: str) -> bool:
         """
         Check if a task exists.
 
         :param db: Database session
-        :param experiment_id: The ID of the experiment
-        :param task_id: The ID of the task
+        :param experiment_name: The name of the experiment
+        :param task_name: The name of the task
         :return: True if task exists, False otherwise
         """
         result = await db.execute(
-            select(exists().where(TaskModel.experiment_id == experiment_id, TaskModel.id == task_id))
+            select(exists().where(TaskModel.experiment_name == experiment_name, TaskModel.name == task_name))
         )
         return bool(result.scalar_one_or_none())
 
     async def create_task(self, db: AsyncDbSession, task_definition: TaskDefinition) -> None:
         """Create a new task instance for a specific task type that is associated with an experiment."""
-        if await self._check_task_exists(db, task_definition.experiment_id, task_definition.id):
-            raise EosTaskExistsError(f"Cannot create task '{task_definition.id}' as it already exists.")
+        if await self._check_task_exists(db, task_definition.experiment_name, task_definition.name):
+            raise EosTaskExistsError(f"Cannot create task '{task_definition.name}' as it already exists.")
 
         task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_definition.type)
         if not task_spec:
@@ -54,14 +54,14 @@ class TaskManager:
 
         task = Task.from_definition(task_definition)
         task_model = TaskModel(
-            experiment_id=task.experiment_id,
-            id=task.id,
+            experiment_name=task.experiment_name,
+            name=task.name,
             type=task.type,
-            devices=[device.model_dump() for device in task.devices],
+            devices={k: v.model_dump() for k, v in task.devices.items()},
             input_parameters=task.input_parameters,
-            input_containers={k: v.model_dump() for k, v in (task.input_containers or {}).items()},
+            input_resources={k: v.model_dump() for k, v in (task.input_resources or {}).items()},
             priority=task.priority,
-            resource_allocation_timeout=task.resource_allocation_timeout,
+            allocation_timeout=task.allocation_timeout,
             meta=task.meta,
             status=task.status,
             created_at=task.created_at,
@@ -70,41 +70,43 @@ class TaskManager:
         db.add(task_model)
         await db.flush()
 
-    async def _validate_task_exists(self, db: AsyncDbSession, experiment_id: str, task_id: str) -> None:
+    async def _validate_task_exists(self, db: AsyncDbSession, experiment_name: str, task_name: str) -> None:
         """Check if a task exists."""
-        if not await self._check_task_exists(db, experiment_id, task_id):
-            raise EosTaskStateError(f"Task '{task_id}' in experiment '{experiment_id}' does not exist.")
+        if not await self._check_task_exists(db, experiment_name, task_name):
+            raise EosTaskStateError(f"Task '{task_name}' in experiment '{experiment_name}' does not exist.")
 
-    async def delete_task(self, db: AsyncDbSession, experiment_id: str, task_id: str) -> None:
+    async def delete_task(self, db: AsyncDbSession, experiment_name: str, task_name: str) -> None:
         """Delete an experiment task instance."""
-        await db.execute(delete(TaskModel).where(TaskModel.experiment_id == experiment_id, TaskModel.id == task_id))
-        log.info(f"Deleted task '{task_id}' from experiment '{experiment_id}'.")
+        await db.execute(
+            delete(TaskModel).where(TaskModel.experiment_name == experiment_name, TaskModel.name == task_name)
+        )
+        log.info(f"Deleted task '{task_name}' from experiment '{experiment_name}'.")
 
-    async def start_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
+    async def start_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> None:
         """Update task status to running."""
-        await self._validate_task_exists(db, experiment_id, task_id)
-        await self._set_task_status(db, experiment_id, task_id, TaskStatus.RUNNING)
+        await self._validate_task_exists(db, experiment_name, task_name)
+        await self._set_task_status(db, experiment_name, task_name, TaskStatus.RUNNING)
 
-    async def complete_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
+    async def complete_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> None:
         """Update task status to completed."""
-        await self._validate_task_exists(db, experiment_id, task_id)
-        await self._set_task_status(db, experiment_id, task_id, TaskStatus.COMPLETED)
+        await self._validate_task_exists(db, experiment_name, task_name)
+        await self._set_task_status(db, experiment_name, task_name, TaskStatus.COMPLETED)
 
-    async def fail_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
+    async def fail_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> None:
         """Update task status to failed."""
-        await self._validate_task_exists(db, experiment_id, task_id)
-        await self._set_task_status(db, experiment_id, task_id, TaskStatus.FAILED)
+        await self._validate_task_exists(db, experiment_name, task_name)
+        await self._set_task_status(db, experiment_name, task_name, TaskStatus.FAILED)
 
-    async def cancel_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> None:
+    async def cancel_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> None:
         """Update task status to cancelled."""
-        await self._validate_task_exists(db, experiment_id, task_id)
-        await self._set_task_status(db, experiment_id, task_id, TaskStatus.CANCELLED)
-        log.warning(f"EXP '{experiment_id}' - Cancelled task '{task_id}'.")
+        await self._validate_task_exists(db, experiment_name, task_name)
+        await self._set_task_status(db, experiment_name, task_name, TaskStatus.CANCELLED)
+        log.warning(f"EXP '{experiment_name}' - Cancelled task '{task_name}'.")
 
-    async def get_task(self, db: AsyncDbSession, experiment_id: str | None, task_id: str) -> Task | None:
-        """Get a task by its ID and experiment ID."""
+    async def get_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> Task | None:
+        """Get a task by its name and experiment name."""
         result = await db.execute(
-            select(TaskModel).where(TaskModel.experiment_id == experiment_id, TaskModel.id == task_id)
+            select(TaskModel).where(TaskModel.experiment_name == experiment_name, TaskModel.name == task_name)
         )
         if task_model := result.scalar_one_or_none():
             return Task.model_validate(task_model)
@@ -127,57 +129,59 @@ class TaskManager:
     async def add_task_output(
         self,
         db: AsyncDbSession,
-        experiment_id: str | None,
-        task_id: str,
+        experiment_name: str | None,
+        task_name: str,
         output_parameters: dict[str, Any] | None = None,
-        output_containers: dict[str, Any] | None = None,
+        output_resources: dict[str, Any] | None = None,
         output_file_names: list[str] | None = None,
     ) -> None:
         """Add the output of a task to the database."""
         await db.execute(
             update(TaskModel)
-            .where(TaskModel.experiment_id == experiment_id, TaskModel.id == task_id)
+            .where(TaskModel.experiment_name == experiment_name, TaskModel.name == task_name)
             .values(
                 output_parameters=output_parameters,
-                output_containers={k: v.model_dump() for k, v in (output_containers or {}).items()},
+                output_resources={k: v.model_dump() for k, v in (output_resources or {}).items()},
                 output_file_names=output_file_names,
                 end_time=datetime.now(timezone.utc),
             )
         )
 
-    def _get_task_output_file_path(self, experiment_id: str | None, task_id: str, file_name: str) -> str:
+    def _get_task_output_file_path(self, experiment_name: str | None, task_name: str, file_name: str) -> str:
         """Generate consistent file paths for task outputs."""
-        return f"{experiment_id if experiment_id is not None else 'on_demand'}/{task_id}/{file_name}"
+        return f"{experiment_name if experiment_name is not None else 'on_demand'}/{task_name}/{file_name}"
 
-    def add_task_output_file(self, experiment_id: str | None, task_id: str, file_name: str, file_data: bytes) -> None:
+    def add_task_output_file(
+        self, experiment_name: str | None, task_name: str, file_name: str, file_data: bytes
+    ) -> None:
         """Add a file output from a task to the file database."""
-        path = self._get_task_output_file_path(experiment_id, task_id, file_name)
+        path = self._get_task_output_file_path(experiment_name, task_name, file_name)
         self._file_db_interface.store_file(path, file_data)
 
-    def get_task_output_file(self, experiment_id: str, task_id: str, file_name: str) -> bytes:
+    def get_task_output_file(self, experiment_name: str, task_name: str, file_name: str) -> bytes:
         """Get a file output from a task from the file database."""
-        path = self._get_task_output_file_path(experiment_id, task_id, file_name)
+        path = self._get_task_output_file_path(experiment_name, task_name, file_name)
         return self._file_db_interface.get_file(path)
 
     def stream_task_output_file(
-        self, experiment_id: str, task_id: str, file_name: str, chunk_size: int = 3 * 1024 * 1024
+        self, experiment_name: str, task_name: str, file_name: str, chunk_size: int = 3 * 1024 * 1024
     ) -> AsyncIterable[bytes]:
         """Stream a file output from a task from the file database."""
-        path = self._get_task_output_file_path(experiment_id, task_id, file_name)
+        path = self._get_task_output_file_path(experiment_name, task_name, file_name)
         return self._file_db_interface.stream_file(path, chunk_size)
 
-    def list_task_output_files(self, experiment_id: str, task_id: str) -> list[str]:
+    def list_task_output_files(self, experiment_name: str, task_name: str) -> list[str]:
         """List all file outputs from a task in the file database."""
-        prefix = self._get_task_output_file_path(experiment_id, task_id, "")
+        prefix = self._get_task_output_file_path(experiment_name, task_name, "")
         return self._file_db_interface.list_files(prefix)
 
-    def delete_task_output_file(self, experiment_id: str, task_id: str, file_name: str) -> None:
+    def delete_task_output_file(self, experiment_name: str, task_name: str, file_name: str) -> None:
         """Delete a file output from a task in the file database."""
-        path = self._get_task_output_file_path(experiment_id, task_id, file_name)
+        path = self._get_task_output_file_path(experiment_name, task_name, file_name)
         self._file_db_interface.delete_file(path)
 
     async def _set_task_status(
-        self, db: AsyncDbSession, experiment_id: str, task_id: str, new_status: TaskStatus
+        self, db: AsyncDbSession, experiment_name: str, task_name: str, new_status: TaskStatus
     ) -> None:
         """Update the status of a task."""
         update_fields = {"status": new_status}
@@ -191,6 +195,6 @@ class TaskManager:
 
         await db.execute(
             update(TaskModel)
-            .where(TaskModel.experiment_id == experiment_id, TaskModel.id == task_id)
+            .where(TaskModel.experiment_name == experiment_name, TaskModel.name == task_name)
             .values(**update_fields)
         )

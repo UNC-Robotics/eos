@@ -1,31 +1,23 @@
 import asyncio
 
-from ortools.sat.python import cp_model
-from ortools.sat.sat_parameters_pb2 import SatParameters
-
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.entities.task import DynamicTaskDeviceConfig, TaskConfig, TaskDeviceConfig
 from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
-from eos.resource_allocation.resource_allocation_manager import ResourceAllocationManager
+from eos.allocation.allocation_manager import AllocationManager
 from eos.scheduling.base_scheduler import BaseScheduler
-from eos.scheduling.cpsat_scheduling_model_builder import CpSatSchedulingModelBuilder, OptimizationPass
+from eos.scheduling.cpsat_scheduling_solver import CpSatSchedulingSolver
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.scheduling.exceptions import EosSchedulerRegistrationError, EosSchedulerError
+from eos.scheduling.exceptions import EosSchedulerRegistrationError
 from eos.tasks.task_manager import TaskManager
 from eos.utils.di.di_container import inject
-from eos.utils.timer import Timer
 
 
 class CpSatScheduler(BaseScheduler):
-    """
-    A scheduler that strives for global optimality with regards to minimizing makespan.
-    Uses the CP-SAT solver to compute a global schedule across all registered experiments.
-    The schedule accounts for each task's expected duration, experiment priority, task dependencies, and required
-    resources.
-    """
+    """Global scheduler using CP-SAT with makespan then start-time minimization."""
 
     @inject
     def __init__(
@@ -34,106 +26,70 @@ class CpSatScheduler(BaseScheduler):
         experiment_manager: ExperimentManager,
         task_manager: TaskManager,
         device_manager: DeviceManager,
-        resource_allocation_manager: ResourceAllocationManager,
+        allocation_manager: AllocationManager,
     ):
-        super().__init__(
-            configuration_manager, experiment_manager, task_manager, device_manager, resource_allocation_manager
-        )
+        super().__init__(configuration_manager, experiment_manager, task_manager, device_manager, allocation_manager)
         self._schedule: dict[str, dict[str, int]] = {}
         self._schedule_is_stale = False
-
-        # For each experiment: {task_id: duration}
         self._task_durations: dict[str, dict[str, int]] = {}
-
-        # The current "virtual" time
         self._current_time: int = 0
-
-        self._cpsolver_parameters = SatParameters()
-        self._cpsolver_parameters.max_time_in_seconds = 30.0
-        self._cpsolver_parameters.num_search_workers = 0
-        self._cpsolver_parameters.push_all_tasks_toward_start = True
-        self._cpsolver_parameters.optimize_with_lb_tree_search = True
-        self._cpsolver_parameters.use_objective_lb_search = True
-        self._cpsolver_parameters.use_timetable_edge_finding_in_cumulative = True
-        self._cpsolver_parameters.linearization_level = 2
-        self._cpsolver_parameters.use_hard_precedences_in_cumulative = True
-        self._cpsolver_parameters.use_strong_propagation_in_disjunctive = True
-        self._cpsolver_parameters.use_dynamic_precedence_in_disjunctive = True
+        self._device_assignments: dict[str, dict[str, dict[str, TaskDeviceConfig]]] = {}
+        self._resource_assignments: dict[str, dict[str, dict[str, str]]] = {}
+        self._parameter_overrides: dict[str, float | int | bool] = {}
 
         log.debug("CP-SAT scheduler initialized.")
 
     async def register_experiment(
-        self, experiment_id: str, experiment_type: str, experiment_graph: ExperimentGraph
+        self, experiment_name: str, experiment_type: str, experiment_graph: ExperimentGraph
     ) -> None:
         async with self._lock:
-            await super().register_experiment(experiment_id, experiment_type, experiment_graph)
+            await super().register_experiment(experiment_name, experiment_type, experiment_graph)
 
             self._schedule_is_stale = True
 
-    async def unregister_experiment(self, db: AsyncDbSession, experiment_id: str) -> None:
+    async def unregister_experiment(self, db: AsyncDbSession, experiment_name: str) -> None:
         async with self._lock:
-            await super().unregister_experiment(db, experiment_id)
+            await super().unregister_experiment(db, experiment_name)
 
+            # Remove experiment data
             self._schedule_is_stale = True
+            self._schedule.pop(experiment_name, None)
+            self._device_assignments.pop(experiment_name, None)
+            self._resource_assignments.pop(experiment_name, None)
+            self._task_durations.pop(experiment_name, None)
+
+            # Reset current_time if no experiments remain
             if not self._registered_experiments:
-                self._schedule.clear()
                 self._current_time = 0
 
     async def update_parameters(self, parameters: dict) -> None:
-        """Update the CP-SAT solver parameters.
-
-        This method allows modifying the CP-SAT solver configuration at runtime
-        to tune performance for different workloads.
-
-        :param parameters: Dictionary of parameter names and values to update
-        :type parameters: dict
-
-        :return: None
-
-        Supports any parameter supported by ``ortools.sat.sat_parameters_pb2.SatParameters``
-
-        **Example:**
-
-        .. code-block:: python
-
-            await scheduler.update_solver_parameters({
-                "max_time_in_seconds": 60.0,
-                "num_workers": 4
-            })
-        """
+        """Update cp-sat solver parameters at runtime (e.g., num_search_workers, random_seed)."""
+        # Let base tune caches / invalidation first
+        await super().update_parameters(parameters)
         async with self._lock:
-            for param_name, param_value in parameters.items():
-                if hasattr(self._cpsolver_parameters, param_name):
-                    setattr(self._cpsolver_parameters, param_name, param_value)
-                else:
-                    log.warning(f"Unsupported CP-SAT parameter: {param_name}")
-
-            # Mark the schedule as stale to force recomputation with new parameters
+            self._parameter_overrides.update(parameters)
             self._schedule_is_stale = True
 
     async def _compute_schedule(self, db: AsyncDbSession) -> None:
-        """
-        Build and solve the CP-SAT model in two phases.
-          Phase 1: Minimize the makespan.
-          Phase 2: With the makespan fixed, refine the schedule by minimizing the task start times.
-        """
+        """Solve two-phase model and extract start times and dynamic device choices."""
         completed_by_exp = await self._experiment_manager.get_all_completed_tasks(
             db, list(self._registered_experiments.keys())
         )
         running_by_exp = {
-            exp_id: set(self._allocated_resources.get(exp_id, {}).keys()) for exp_id in self._registered_experiments
+            exp_name: set(self._allocated_resources.get(exp_name, {}).keys())
+            for exp_name in self._registered_experiments
         }
 
         # Build a dictionary mapping experiment IDs to their priority
-        experiment_ids = list(self._registered_experiments.keys())
-        experiment_priority_tasks = [self._experiment_manager.get_experiment(db, exp_id) for exp_id in experiment_ids]
-        experiment_priorities = {
-            exp_id: exp.priority
-            for exp_id, exp in zip(experiment_ids, await asyncio.gather(*experiment_priority_tasks), strict=True)
-        }
+        experiment_names = list(self._registered_experiments.keys())
+        experiment_priorities = await self._get_experiment_priorities(db, experiment_names)
 
-        # Build the CP-SAT model
-        model_builder = CpSatSchedulingModelBuilder(
+        # Gather active devices and resources by type for dynamic allocation
+        eligible_devices_by_type = await self._active_devices_by_type(db)
+        eligible_resources_by_type = self._resources_by_type_with_labs()
+
+        # Create and run the CP-SAT solver
+        solver = CpSatSchedulingSolver(
             experiments=self._registered_experiments,
             task_durations=self._task_durations,
             schedule=self._schedule,
@@ -141,86 +97,46 @@ class CpSatScheduler(BaseScheduler):
             running_by_exp=running_by_exp,
             current_time=self._current_time,
             experiment_priorities=experiment_priorities,
+            eligible_devices_by_type=eligible_devices_by_type,
+            eligible_resources_by_type=eligible_resources_by_type,
+            previous_device_assignments=self._device_assignments,
+            previous_resource_assignments=self._resource_assignments,
+            parameter_overrides=self._parameter_overrides or None,
         )
 
-        solver = cp_model.CpSolver()
-        solver.parameters.CopyFrom(self._cpsolver_parameters)
+        solution = solver.solve()
 
-        # --- Phase 1: Minimize makespan ---
-        with Timer() as timer_phase1:
-            model, task_vars, objective = model_builder.build_model(optimization_pass=OptimizationPass.MAKESPAN)
-            status = solver.Solve(model)
-        time_phase1 = timer_phase1.get_duration("ms")
+        # Update scheduler state with the solution
+        self._schedule = solution.schedule
+        self._device_assignments = solution.device_assignments
+        self._resource_assignments = solution.resource_assignments
 
-        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            raise EosSchedulerError("Could not compute a valid schedule in the makespan optimization pass with CP-SAT.")
+    async def request_tasks(self, db: AsyncDbSession, experiment_name: str) -> list[ScheduledTask]:
+        """Return ready tasks: deps done, scheduled <= now, and resources available."""
+        if experiment_name not in self._registered_experiments:
+            raise EosSchedulerRegistrationError(f"Experiment {experiment_name} is not registered.")
 
-        optimal_makespan = solver.Value(objective)
-
-        # --- Phase 2: Minimize task start times ---
-        with Timer() as timer_phase2:
-            refined_model, refined_task_vars, refined_objective = model_builder.build_model(
-                target_makespan=optimal_makespan,
-                optimization_pass=OptimizationPass.TASK_START_TIMES,
-            )
-            status = solver.Solve(refined_model)
-        time_phase2 = timer_phase2.get_duration("ms")
-
-        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            log.warning("Could not refine schedule in the task start time minimization optimization pass with CP-SAT.")
-
-        # Extract the refined schedule.
-        new_schedule = {
-            exp_id: {
-                task_id: solver.Value(tv.start) for (e_id, task_id), tv in refined_task_vars.items() if e_id == exp_id
-            }
-            for exp_id in self._registered_experiments
-        }
-        self._schedule = new_schedule
-
-        status_str = "optimal" if status == cp_model.OPTIMAL else "feasible"
-        log.info(
-            f"Computed {status_str} schedule (makespan={optimal_makespan - self._current_time}, "
-            f"compute_duration={time_phase1 + time_phase2:.2f} ms):\n{new_schedule}",
+        # DB read outside lock
+        all_completed_by_exp = await self._experiment_manager.get_all_completed_tasks(
+            db, list(self._registered_experiments.keys())
         )
-
-    async def request_tasks(self, db: AsyncDbSession, experiment_id: str) -> list[ScheduledTask]:
-        """
-        Return tasks eligible for execution for a given experiment. Eligibility is determined by:
-          1. Not already completed.
-          2. Dependencies met.
-          3. Scheduled start time is not later than the current time.
-          4. Required resources (devices/containers) are available.
-        """
-        if experiment_id not in self._registered_experiments:
-            raise EosSchedulerRegistrationError(f"Experiment {experiment_id} is not registered.")
+        completed_tasks = all_completed_by_exp.get(experiment_name, set())
 
         async with self._lock:
-            # Retrieve completed tasks for all experiments.
-            all_completed_by_exp = await self._experiment_manager.get_all_completed_tasks(
-                db, list(self._registered_experiments.keys())
-            )
+            # Release allocations for completed tasks under lock (mutates scheduler state)
+            await self._release_completed_allocations(db, all_completed_by_exp)
 
-            # Get completed tasks for the current experiment.
-            completed_tasks = all_completed_by_exp.get(experiment_id, set())
-
-            # Release resources for completed tasks across all experiments.
-            release_tasks = []
-            for exp_id, completed in all_completed_by_exp.items():
-                allocated_tasks = set(self._allocated_resources.get(exp_id, {}))
-                tasks_to_release = completed.intersection(allocated_tasks)
-                for task_id in tasks_to_release:
-                    release_tasks.append(self._release_task_resources(db, exp_id, task_id))
-            await asyncio.gather(*release_tasks)
-
-            # Compute the global current time from all completed tasks across experiments.
+            # Compute the global current time from all completed tasks across experiments
             max_end_time = max(
-                [0]  # Default if no tasks found
+                [0]
                 + [
-                    self._schedule[exp_id][task_id] + self._task_durations[exp_id][task_id]
-                    for exp_id, completed in all_completed_by_exp.items()
-                    for task_id in completed
-                    if task_id in self._schedule[exp_id]
+                    self._schedule[exp_name][task_name] + self._task_durations[exp_name][task_name]
+                    for exp_name, completed in all_completed_by_exp.items()
+                    for task_name in completed
+                    if exp_name in self._schedule
+                    and task_name in self._schedule[exp_name]
+                    and exp_name in self._task_durations
+                    and task_name in self._task_durations[exp_name]
                 ]
             )
 
@@ -230,21 +146,100 @@ class CpSatScheduler(BaseScheduler):
                 await self._compute_schedule(db)
                 self._schedule_is_stale = False
 
-            # Process tasks for the given experiment.
-            _, exp_graph = self._registered_experiments[experiment_id]
+            # Process tasks for the given experiment
+            _, exp_graph = self._registered_experiments[experiment_name]
             all_tasks = exp_graph.get_topologically_sorted_tasks()
 
             scheduled_tasks = []
-            for task_id in all_tasks:
-                if task_id in completed_tasks:
+            for task_name in all_tasks:
+                if task_name in completed_tasks:
                     continue
-                if self._schedule[experiment_id][task_id] > self._current_time:
+                if self._schedule[experiment_name][task_name] > self._current_time:
                     continue
 
                 scheduled_task = await self._check_and_allocate_resources(
-                    db, experiment_id, task_id, completed_tasks, exp_graph
+                    db, experiment_name, task_name, completed_tasks, exp_graph
                 )
                 if scheduled_task:
                     scheduled_tasks.append(scheduled_task)
 
             return scheduled_tasks
+
+    async def _build_assigned_devices(
+        self,
+        db: AsyncDbSession,
+        experiment_name: str,
+        task_config: TaskConfig,
+    ) -> dict[str, TaskDeviceConfig] | None:
+        """Build the dict of assigned devices (dynamic + specific). Returns None if stale."""
+        task_name = task_config.name
+        assigned_devices: dict[str, TaskDeviceConfig] = {}
+
+        # Start with solver-assigned dynamic devices
+        solver_assignments = self._device_assignments.get(experiment_name, {}).get(task_name, {})
+        assigned_devices.update(solver_assignments)
+
+        # Add specific devices from config (may override solver assignments if same name)
+        for device_name, dev in task_config.devices.items():
+            if isinstance(dev, TaskDeviceConfig):
+                assigned_devices[device_name] = dev
+
+        # If the task had dynamic requirements but we don't have an assignment, schedule is stale
+        has_dynamic = any(isinstance(d, DynamicTaskDeviceConfig) for d in task_config.devices.values())
+        if has_dynamic and not self._device_assignments.get(experiment_name, {}).get(task_name):
+            self._schedule_is_stale = True
+            return None
+
+        return assigned_devices
+
+    async def _build_resolved_resources(
+        self,
+        db: AsyncDbSession,
+        experiment_name: str,
+        task_config: TaskConfig,
+    ) -> dict[str, str] | None:
+        """Resolve resources for a task based on solver output.
+
+        Returns a mapping of resource_name -> resource_name, or None if assignments are missing (stale schedule).
+        """
+        task_name = task_config.name
+        # If the task has any dynamic resources but no assignment, mark schedule stale
+        has_dynamic = any(not isinstance(v, str) for v in task_config.resources.values())
+        assigned = self._resource_assignments.get(experiment_name, {}).get(task_name)
+        if has_dynamic and not assigned:
+            self._schedule_is_stale = True
+            return None
+
+        # Merge: prefer solver assignments; fallback to explicit strings from config
+        resolved: dict[str, str] = {}
+        if assigned:
+            resolved.update(assigned)
+        for name, value in task_config.resources.items():
+            if isinstance(value, str):
+                resolved.setdefault(name, value)
+        return resolved
+
+    async def _check_resources_available(
+        self,
+        db: AsyncDbSession,
+        experiment_name: str,
+        task_config: TaskConfig,
+        assigned_devices: dict[str, TaskDeviceConfig],
+    ) -> bool:
+        """Check if all required devices and resources are available. Returns False if unavailable."""
+        if assigned_devices:
+            checks = [
+                self._check_device_available(db, task_config, experiment_name, dev) for dev in assigned_devices.values()
+            ]
+            if not all(await asyncio.gather(*checks)):
+                return False
+
+        if task_config.resources:
+            resource_checks = [
+                self._check_resource_available(db, task_config, experiment_name, resource_name)
+                for resource_name in task_config.resources.values()
+            ]
+            if not all(await asyncio.gather(*resource_checks)):
+                return False
+
+        return True

@@ -45,7 +45,7 @@ class LabService:
             filtered_devices = {
                 name: device
                 for name, device in lab.devices.items()
-                if not task_device_types or device.type in task_device_types
+                if not task_device_types or device.name in task_device_types
             }
 
             if filtered_devices:
@@ -53,14 +53,14 @@ class LabService:
 
         return lab_devices
 
-    async def get_device_report(self, lab_id: str, device_id: str) -> dict:
+    async def get_device_report(self, lab_name: str, device_name: str) -> dict:
         """Get a report for a specific device."""
         try:
-            device_actor = self._device_manager.get_device_actor(lab_id, device_id)
+            device_actor = self._device_manager.get_device_actor(lab_name, device_name)
             return await device_actor.report.remote()
         except Exception:
             log.error(
-                f"Failed to get device report for lab '{lab_id}' and device '{device_id}': {traceback.format_exc()}"
+                f"Failed to get device report for lab '{lab_name}' and device '{device_name}': {traceback.format_exc()}"
             )
             raise
 

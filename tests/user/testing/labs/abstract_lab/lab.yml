@@ -1,4 +1,4 @@
-type: abstract_lab
+name: abstract_lab
 desc: An abstract laboratory with abstract devices for testing
 
 devices:
