@@ -31,7 +31,7 @@ Below is an example:
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qNEI
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
     from bofire.data_models.enum import SamplingMethodEnum
     from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
     from bofire.data_models.objectives.identity import MinimizeObjective
@@ -43,19 +43,23 @@ Below is an example:
     def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
         constructor_args = {
             "inputs": [
-                ContinuousInput(key="dispense_colors.cyan_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.magenta_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.yellow_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.black_volume", bounds=(0, 5)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 15)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(10, 500)),
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
             ],
             "outputs": [
                 ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
             ],
             "constraints": [],
-            "acquisition_function": qNEI(),
-            "num_initial_samples": 50,
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 25,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 
@@ -122,12 +126,12 @@ Below is an example of a custom optimizer implementation that randomly samples p
         def __init__(self, parameters: list[Parameter], metrics: list[Metric]):
             self.parameters = parameters
             self.metrics = metrics
-            self.results = []
+            self.results: list[dict] = []
 
         def sample(self, num_experiments: int = 1) -> pd.DataFrame:
             samples = []
             for _ in range(num_experiments):
-                sample = {param.name: random.uniform(param.lower_bound, param.upper_bound) for param in self.parameters}
+                sample = {p.name: random.uniform(p.lower_bound, p.upper_bound) for p in self.parameters}
                 samples.append(sample)
             return pd.DataFrame(samples)
 
@@ -138,40 +142,43 @@ Below is an example of a custom optimizer implementation that randomly samples p
         def get_optimal_solutions(self) -> pd.DataFrame:
             if not self.results:
                 return pd.DataFrame(
-                    columns=[param.name for param in self.parameters] + [metric.name for metric in self.metrics]
+                    columns=[p.name for p in self.parameters] + [m.name for m in self.metrics]
                 )
-
             df = pd.DataFrame(self.results)
             optimal_solutions = []
-
-            for metric in self.metrics:
-                if metric.objective == ObjectiveType.MINIMIZE:
-                    optimal = df.loc[df[metric.name].idxmin()]
+            for m in self.metrics:
+                if m.objective == ObjectiveType.MINIMIZE:
+                    optimal = df.loc[df[m.name].idxmin()]
                 else:
-                    optimal = df.loc[df[metric.name].idxmax()]
+                    optimal = df.loc[df[m.name].idxmax()]
                 optimal_solutions.append(optimal)
-
             return pd.DataFrame(optimal_solutions)
 
         def get_input_names(self) -> list[str]:
-            return [param.name for param in self.parameters]
+            return [p.name for p in self.parameters]
 
         def get_output_names(self) -> list[str]:
-            return [metric.name for metric in self.metrics]
+            return [m.name for m in self.metrics]
+
+        def get_num_samples_reported(self) -> int:
+            return len(self.results)
 
     def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
         constructor_args = {
             "parameters": [
-                Parameter(name="dispense_colors.cyan_volume", lower_bound=0, upper_bound=5),
-                Parameter(name="dispense_colors.magenta_volume", lower_bound=0, upper_bound=5),
-                Parameter(name="dispense_colors.yellow_volume", lower_bound=0, upper_bound=5),
-                Parameter(name="dispense_colors.black_volume", lower_bound=0, upper_bound=5),
-                Parameter(name="mix_colors.mixing_time", lower_bound=1, upper_bound=15),
-                Parameter(name="mix_colors.mixing_speed", lower_bound=10, upper_bound=500),
+                Parameter(name="mix_colors.cyan_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.cyan_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.magenta_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.magenta_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.yellow_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.yellow_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.black_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.black_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.mixing_time", lower_bound=1, upper_bound=45),
+                Parameter(name="mix_colors.mixing_speed", lower_bound=100, upper_bound=200),
             ],
             "metrics": [
                 Metric(name="score_color.loss", objective=ObjectiveType.MINIMIZE),
             ],
         }
-
         return constructor_args, RandomSamplingOptimizer

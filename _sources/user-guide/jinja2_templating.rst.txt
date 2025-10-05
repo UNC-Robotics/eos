@@ -30,13 +30,16 @@ In the example below, the variable ``max_volume`` is set to 300 and used to defi
 
     {% set max_volume = 300 %}
     ...
-    containers:
-      - type: beaker
+    resource_types:
+      beaker:
         meta:
           capacity: {{ max_volume }}
-        ids:
-          - beaker 1
-          - beaker 2
+
+    resources:
+      {% for name in ["c_a", "c_b"] %}
+      {{ name }}:
+        type: beaker
+      {% endfor %}
 
 Arithmetic
 ----------
@@ -65,8 +68,8 @@ In the example below, the task "mix_colors" is only included if the variable ``m
 
     tasks:
       {% if mix_colors %}
-      - id: mix_colors
-        type: Color Mixing
+      - name: mix_colors
+        type: Mix Colors
         desc: Mix the colors in the container
         # ... rest of the task definition
       {% endif %}
@@ -80,15 +83,16 @@ In the example below, a loop is used to generate container IDs with a common pre
 
 .. code-block:: yaml+jinja
 
-    containers:
-      - type: beaker
-        location: container_storage
+    resource_types:
+      beaker:
         meta:
           capacity: 300
-        ids:
-          {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g'] %}
-          - c_{{ letter }}
-          {% endfor %}
+
+    resources:
+      {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g'] %}
+      c_{{ letter }}:
+        type: beaker
+      {% endfor %}
 
 Macros
 ------
@@ -100,36 +104,16 @@ In the example below, the ``create_containers`` macro is used to easily create c
 
 .. code-block:: yaml+jinja
 
-    {% macro create_containers(type, location, capacity, id_prefix, count) %}
-    - type: {{ type }}
-      location: {{ location }}
-      meta:
-        capacity: {{ capacity }}
-      ids:
-        {% for i in range(count) %}
-        - {{ id_prefix }}{{ i }}
-        {% endfor %}
-    {% endmacro %}
+    {% macro create_resources(res_type, capacity, id_prefix, count) -%}
+    resource_types:
+      {{ res_type }}:
+        meta:
+          capacity: {{ capacity }}
+    resources:
+      {%- for i in range(count) %}
+      {{ id_prefix }}{{ i }}:
+        type: {{ res_type }}
+      {%- endfor %}
+    {%- endmacro %}
 
-    containers:
-      {{ create_containers('beaker', 'container_storage', 300, 'c_', 5) }}
-
-Include Files
--------------
-Jinja2 allows you to include YAML from other files.
-In the below example, a template experiment is included in an ``experiment.yml`` file.
-We specify the values for the Jinja2 variables of the template experiment:
-
-:bdg-primary:`experiment.yml`
-
-.. code-block:: yaml+jinja
-
-    {% set experiment_type = 'color_mixing_1' %}
-    {% set container = 'c_a' %}
-    {% set color_mixer = 'color_mixer_1' %}
-    {% set color_analyzer = 'color_analyzer_1' %}
-    {% set target_color = '[53, 29, 64]' %}
-    {% include 'color_lab/eos_examples/common/template_experiment.yml' %}
-
-In EOS, the Jinja2 context is the `user` directory (or the directory containing packages).
-This means YAML files from different EOS packages can be included.
+    {{ create_resources('beaker', 300, 'c_', 5) }}

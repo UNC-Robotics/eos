@@ -61,7 +61,7 @@ Below is a example implementation of a magnetic mixer device:
 
     from typing import Any
 
-    from eos.containers.entities.container import Container
+    from eos.resources.entities.resource import Resource
     from eos.devices.base_device import BaseDevice
     from user.eos_examples.color_lab.common.device_client import DeviceClient
 
@@ -77,7 +77,7 @@ Below is a example implementation of a magnetic mixer device:
         async def _report(self) -> dict[str, Any]:
             return {}
 
-        def mix(self, container: Container, mixing_time: int, mixing_speed: int) -> Container:
+        def mix(self, container: Resource, mixing_time: int, mixing_speed: int) -> Resource:
             result = self.client.send_command("mix", {"mixing_time": mixing_time, "mixing_speed": mixing_speed})
             if result:
                 container.meta["mixing_time"] = mixing_time

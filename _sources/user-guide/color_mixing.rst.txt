@@ -13,30 +13,28 @@ Installation
 ------------
 1. Clone the `eos-examples` repository inside the EOS user directory:
 
-    .. code-block:: bash
+.. code-block:: bash
 
-        cd eos/user
-        git clone https://github.com/UNC-Robotics/eos-examples eos_examples
+    cd eos/user
+    git clone https://github.com/UNC-Robotics/eos-examples eos_examples
 
 2. Install the package's dependencies in the EOS venv:
 
-   .. code-block:: bash
+.. code-block:: bash
 
-       uv pip install -r user/eos_examples/color_lab/pyproject.toml
+   uv pip install -r user/eos_examples/color_lab/pyproject.toml
 
 3. Load the package in EOS:
 
-   Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
+Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
 
-      .. code-block:: yaml
+.. code-block:: yaml
 
-          user_dir: ./user
-          labs:
-            - color_lab
-          experiments:
-            - color_mixing_1
-            - color_mixing_2
-            - color_mixing_3
+  user_dir: ./user
+  labs:
+    - color_lab
+  experiments:
+    - color_mixing
 
 Sample Usage
 ------------
@@ -52,14 +50,19 @@ You can submit a request to run a campaign through the REST API with `curl` as f
     curl -X POST http://localhost:8070/api/campaigns \
          -H "Content-Type: application/json" \
          -d '{
-              "id": "color_mixing",
-              "experiment_type": "color_mixing_1",
+              "name": "color_mixing",
+              "experiment_type": "color_mixing",
               "owner": "name",
               "priority": 0,
-              "max_experiments": 10,
-              "max_concurrent_experiments": 1,
+              "max_experiments": 100,
+              "max_concurrent_experiments": 3,
               "optimize": true,
-              "optimizer_ip": "127.0.0.1"
+              "optimizer_ip": "127.0.0.1",
+              "global_parameters": {
+                "score_color": {
+                    "target_color": [47, 181, 49]
+                }
+              }
         }'
 
 .. note::
@@ -98,12 +101,12 @@ This is the Python code for the color analyzer device:
 
     from typing import Any
 
-    from eos.containers.entities.container import Container
+    from eos.resources.entities.resource import Resource
     from eos.devices.base_device import BaseDevice
     from user.eos_examples.color_lab.common.device_client import DeviceClient
 
 
-    class ColorAnalyzerDevice(BaseDevice):
+    class ColorAnalyzer(BaseDevice):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
             port = int(init_parameters["port"])
             self.client = DeviceClient(port)
@@ -115,7 +118,7 @@ This is the Python code for the color analyzer device:
         async def _report(self) -> dict[str, Any]:
             return {}
 
-        def analyze(self, container: Container) -> tuple[Container, tuple[int, int, int]]:
+        def analyze(self, container: Resource) -> tuple[Resource, tuple[int, int, int]]:
             rgb = self.client.send_command("analyze", {})
             return container, rgb
 
@@ -127,10 +130,8 @@ So often the device implementation simply uses the existing driver.
 In some cases, the device implementation may include a full driver implementation.
 
 The device implementation initializes a client that connects to the device driver over a socket.
-The device implements one function called `analyze`, which accepts a container and returns the container and the average
+The device implements one function called ``analyze``, which accepts a beaker resource and returns the resource and the average
 RGB value of the fluid color from the fluid simulation.
-The container isn't actually used here as its state is stored in the fluid simulation, but we indicatively include it as
-a parameter.
 
 The device YAML file for the color analyzer device is:
 
@@ -144,24 +145,21 @@ The device YAML file for the color analyzer device is:
     init_parameters:
       port: 5002
 
-The main thing to notice is that it accepts an initialization parameter called ``port``, which is used to connect to the
-device driver over a socket.
-
 Tasks
 -----
 The package contains the following tasks:
 
-* **Move container**: Moves a container from one device to another using the robot arm.
-* **Retrieve container**: Retrieves a container from storage and moves it to the color mixer using the robot arm.
-* **Color mixing**: Dispenses and mixes colors using a color mixer (fluid simulation).
+* **Retrieve container**: Retrieves a beaker from storage and moves it to a color mixer using the robot arm.
+* **Mix colors**: Dispenses and mixes colors using a color mixer (fluid simulation).
+* **Move container to analyzer**: Moves the beaker from the color mixer to a color analyzer using the robot arm.
 * **Analyze color**: Analyzes the color of the fluid using a color analyzer (fluid simulation).
 * **Score color**: Calculates a loss function taking into account how close the mixed color is to the target color and
   how much color ingredients were used.
-* **Empty container**: Empties a container with the robot arm.
-* **Clean container**: Cleans a container with the cleaning station.
-* **Store container**: Stores a container in storage with the robot arm.
+* **Empty container**: Empties a beaker with the robot arm.
+* **Clean container**: Cleans a beaker with the cleaning station.
+* **Store container**: Stores a beaker in storage with the robot arm.
 
-This is the Python code the "Analyze color" task:
+This is the Python code for the "Analyze color" task:
 
 :bdg-primary:`task.py`
 
@@ -175,11 +173,11 @@ This is the Python code the "Analyze color" task:
             self,
             devices: BaseTask.DevicesType,
             parameters: BaseTask.ParametersType,
-            containers: BaseTask.ContainersType,
+            resources: BaseTask.ResourcesType,
         ) -> BaseTask.OutputType:
-            color_analyzer = devices.get_all_by_type("color_analyzer")[0]
+            color_analyzer = devices["color_analyzer"]
 
-            containers["beaker"], rgb = color_analyzer.analyze(containers["beaker"])
+            resources["beaker"], rgb = color_analyzer.analyze(resources["beaker"])
 
             output_parameters = {
                 "red": rgb[0],
@@ -187,11 +185,11 @@ This is the Python code the "Analyze color" task:
                 "blue": rgb[2],
             }
 
-            return output_parameters, containers, None
+            return output_parameters, resources, None
 
-The task implementation is straightforward. We first get a reference to the color analyzer device (there is only one allocated
-to the the task). Then, we call the `analyze` function from the color analyzer device we saw earlier. Finally, we construct
-and return the dict of output parameters and the containers.
+The task implementation is straightforward. We first get a reference to the color analyzer device.
+Then, we call the ``analyze`` function from the color analyzer device we saw earlier. Finally, we construct
+and return the dict of output parameters and the resources.
 
 The task YAML file is the following:
 
@@ -202,10 +200,11 @@ The task YAML file is the following:
     type: Analyze Color
     desc: Analyze the color of a solution
 
-    device_types:
-      - color_analyzer
+    devices:
+      color_analyzer:
+        type: color_analyzer
 
-    input_containers:
+    input_resources:
       beaker:
         type: beaker
 
@@ -227,59 +226,22 @@ Laboratory
 ----------
 The laboratory YAML definition is shown below.
 
-We first define locations for every device.
-The locations have special meaning for the robot arm device, but they are not used for anything else.
-In general, locations in EOS are useful for registering the physical locations of devices and sample
-containers in the laboratory.
-For example, this is important for a mobile manipulation robot which will have to navigate around the lab to pick up and
-drop off containers.
+We define the devices we discussed earlier.
+Note that we define three color mixers and three color analyzers so the laboratory can support up to three simultaneous color mixing experiments.
 
-Next, we define the devices we discussed earlier.
-Note, however, that we define three color mixers and three color analyzers.
-The intention is that the laboratory can support up to three simultaneous color mixing experiments.
-Each color mixer + color analyzer pair require a dedicated fluid simulation.
-
-Finally, we define the containers.
-We define five beakers with a capacity of 300 mL.
+We also define the resource types and the actual resources (beakers) with their initial locations.
 
 :bdg-primary:`lab.yml`
 
 .. code-block:: yaml
 
-   type: color_lab
-   desc: A laboratory for color analysis and mixing
-
-    locations:
-      color_experiment_benchtop:
-        desc: Benchtop for color experiments
-      container_storage:
-        desc: Storage unit for containers
-      color_mixer_1:
-        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
-      color_mixer_2:
-        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
-      color_mixer_3:
-        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
-      color_analyzer_1:
-        desc: Analyzer for color solutions
-      color_analyzer_2:
-        desc: Analyzer for color solutions
-      color_analyzer_3:
-        desc: Analyzer for color solutions
-      cleaning_station:
-        desc: Station for cleaning containers
+    name: color_lab
+    desc: A laboratory for color analysis and mixing
 
     devices:
-      cleaning_station:
-        desc: Station for cleaning containers
-        type: cleaning_station
-        location: cleaning_station
-        computer: eos_computer
-
       robot_arm:
         desc: Robotic arm for moving containers
         type: robot_arm
-        location: color_experiment_benchtop
         computer: eos_computer
 
         init_parameters:
@@ -294,125 +256,159 @@ We define five beakers with a capacity of 300 mL.
             - cleaning_station
             - emptying_location
 
+      cleaning_station:
+        desc: Station for cleaning containers
+        type: cleaning_station
+        computer: eos_computer
+
+        meta:
+          location: cleaning_station
+
       color_mixer_1:
         desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
         type: color_mixer
-        location: color_mixer_1
         computer: eos_computer
 
         init_parameters:
           port: 5004
 
+        meta:
+          location: color_mixer_1
+
       color_mixer_2:
         desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
         type: color_mixer
-        location: color_mixer_2
         computer: eos_computer
 
         init_parameters:
           port: 5006
 
+        meta:
+          location: color_mixer_2
+
       color_mixer_3:
         desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
         type: color_mixer
-        location: color_mixer_3
         computer: eos_computer
 
         init_parameters:
           port: 5008
 
+        meta:
+          location: color_mixer_3
+
       color_analyzer_1:
         desc: Analyzer for color solutions
         type: color_analyzer
-        location: color_analyzer_1
         computer: eos_computer
 
         init_parameters:
           port: 5003
 
+        meta:
+          location: color_analyzer_1
+
       color_analyzer_2:
         desc: Analyzer for color solutions
         type: color_analyzer
-        location: color_analyzer_2
         computer: eos_computer
 
         init_parameters:
           port: 5005
 
+        meta:
+          location: color_analyzer_2
+
       color_analyzer_3:
         desc: Analyzer for color solutions
         type: color_analyzer
-        location: color_analyzer_3
         computer: eos_computer
 
         init_parameters:
           port: 5007
 
-    containers:
-      - type: beaker
-        location: container_storage
+        meta:
+          location: color_analyzer_3
+
+
+    resource_types:
+      beaker:
         meta:
           capacity: 300
-        ids:
-          - c_a
-          - c_b
-          - c_c
-          - c_d
-          - c_e
+
+    resources:
+      c_a:
+        type: beaker
+        meta:
+          location: container_storage
+      c_b:
+        type: beaker
+        meta:
+          location: container_storage
+      c_c:
+        type: beaker
+        meta:
+          location: container_storage
+      c_d:
+        type: beaker
+        meta:
+          location: container_storage
+      c_e:
+        type: beaker
+        meta:
+          location: container_storage
 
 Experiment
 ----------
 The color mixing experiment is a linear sequence of the following tasks:
 
-#. **retrieve_container**: Get a container from storage and move it to the color mixer.
-#. **mix_colors**: Iteratively dispense and mix the colors in the container.
-#. **move_container_to_analyzer**: Move the container from the color mixer to the color analyzer.
-#. **analyze_color**: Analyze the color of the solution in the container and output the RGB values.
+#. **retrieve_container**: Get a beaker from storage and move it to a color mixer.
+#. **mix_colors**: Iteratively dispense and mix the colors in the beaker.
+#. **move_container_to_analyzer**: Move the beaker from the color mixer to a color analyzer.
+#. **analyze_color**: Analyze the color of the solution in the beaker and output the RGB values.
 #. **score_color**: Score the color (compute the loss function) based on the RGB values.
-#. **empty_container**: Empty the container and move it to the cleaning station.
-#. **clean_container**: Clean the container by rinsing it with distilled water.
-#. **store_container**: Store the container back in the storage.
+#. **empty_container**: Empty the beaker and move it to the cleaning station.
+#. **clean_container**: Clean the beaker by rinsing it with distilled water.
+#. **store_container**: Store the beaker back in the storage.
 
-In this example, we want to be able to run 3 simultaneous color mixing experiments, each using a separate pair of color
-mixer and color analyzer devices.
-In addition, each experiment uses a dedicated container.
-Each of the 3 experiments has a different target color.
-Ultimately, we set up 3 campaigns, one for each experiment, and we have 3 optimizers.
-To reduce duplication, we define a Jinja2 templated experiment which we then include and modify for each of the three
-experiments.
+The YAML definition of the experiment is shown below:
 
-The YAML definition for the template experiment is shown below:
-
-:bdg-primary:`template_experiment.yml`
+:bdg-primary:`experiment.yml`
 
 .. code-block:: yaml
 
-    type: {{ experiment_type }}
+    type: color_mixing
     desc: Experiment to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
 
     tasks:
-      - id: retrieve_container
+      - name: retrieve_container
         type: Retrieve Container
         desc: Get a container from storage and move it to the color dispenser
+        duration: 5
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-        containers:
-          beaker: {{ container }}
-        parameters:
-          target_location: {{ color_mixer }}
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer:
+            allocation_type: dynamic
+            device_type: color_mixer
+            allowed_labs: [color_lab]
+        resources:
+          beaker:
+            allocation_type: dynamic
+            resource_type: beaker
         dependencies: []
 
-      - id: mix_colors
-        type: Color Mixing
-        desc: Iteratively dispense and mix the colors in the container
+      - name: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
+        duration: 20
         devices:
-          - lab_id: color_lab
-            id: {{ color_mixer }}
-        containers:
+          color_mixer: retrieve_container.color_mixer
+        resources:
           beaker: retrieve_container.beaker
         parameters:
           cyan_volume: eos_dynamic
@@ -423,97 +419,152 @@ The YAML definition for the template experiment is shown below:
           yellow_strength: eos_dynamic
           black_volume: eos_dynamic
           black_strength: eos_dynamic
-
           mixing_time: eos_dynamic
           mixing_speed: eos_dynamic
         dependencies: [retrieve_container]
 
-      - id: move_container_to_analyzer
-        type: Move Container
-        desc: Move the container from the color mixer to the color analyzer
+      - name: move_container_to_analyzer
+        type: Move Container to Analyzer
+        desc: Move the container to the color analyzer
+        duration: 5
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-          - lab_id: color_lab
-            id: {{ color_mixer }}
-        containers:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer: mix_colors.color_mixer
+          color_analyzer:
+            allocation_type: dynamic
+            device_type: color_analyzer
+            allowed_labs: [color_lab]
+        resources:
           beaker: mix_colors.beaker
-        parameters:
-          target_location: {{ color_mixer }}
         dependencies: [mix_colors]
 
-      - id: analyze_color
+      - name: analyze_color
         type: Analyze Color
         desc: Analyze the color of the solution in the container and output the RGB values
+        duration: 2
         devices:
-          - lab_id: color_lab
-            id: {{ color_analyzer }}
-        containers:
+          color_analyzer: move_container_to_analyzer.color_analyzer
+        resources:
           beaker: move_container_to_analyzer.beaker
         dependencies: [move_container_to_analyzer]
 
-      - id: score_color
+      - name: score_color
         type: Score Color
         desc: Score the color based on the RGB values
+        duration: 1
         parameters:
           red: analyze_color.red
           green: analyze_color.green
           blue: analyze_color.blue
           total_color_volume: mix_colors.total_color_volume
-          max_total_color_volume: 300.0 # based on container capacity
-          target_color: {{ target_color }}
+          max_total_color_volume: 300.0
+          target_color: eos_dynamic
         dependencies: [analyze_color]
 
-      - id: empty_container
+      - name: empty_container
         type: Empty Container
         desc: Empty the container and move it to the cleaning station
+        duration: 5
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-          - lab_id: color_lab
-            id: cleaning_station
-        containers:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          cleaning_station:
+            allocation_type: dynamic
+            device_type: cleaning_station
+            allowed_labs: [color_lab]
+        resources:
           beaker: analyze_color.beaker
         parameters:
           emptying_location: emptying_location
-          target_location: cleaning_station
         dependencies: [analyze_color]
 
-      - id: clean_container
+      - name: clean_container
         type: Clean Container
         desc: Clean the container by rinsing it with distilled water
+        duration: 5
         devices:
-          - lab_id: color_lab
-            id: cleaning_station
-        containers:
+          cleaning_station: empty_container.cleaning_station
+        resources:
           beaker: empty_container.beaker
         parameters:
           duration: 2
         dependencies: [empty_container]
 
-      - id: store_container
+      - name: store_container
         type: Store Container
         desc: Store the container back in the container storage
+        duration: 5
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-        containers:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+        resources:
           beaker: clean_container.beaker
         parameters:
           storage_location: container_storage
         dependencies: [clean_container]
 
-Below is the YAML definition of the first experiment:
+Dynamic Parameters and Optimization
+-----------------------------------
+Dynamic parameters are specified using the special value ``eos_dynamic`` in the experiment.
+For campaigns with optimization (``optimize: true``), EOS uses the experiment's optimizer to propose values for the input dynamic parameters.
+Some dynamic parameters may still need to be provided by the user. In this experiment, ``score_color.target_color`` must be provided.
+Provide it via ``global_parameters`` or ``experiment_parameters`` in the campaign submission as shown above.
 
-:bdg-primary:`experiment.yml`
+The optimizer used for this experiment is defined in ``optimizer.py`` adjacent to the experiment YAML and uses Bayesian optimization to minimize ``score_color.loss``.
 
-.. code-block:: yaml+jinja
+References Between Tasks
+------------------------
+EOS experiments commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing experiment demonstrates each kind of reference.
 
-    {% set experiment_type = 'color_mixing_1' %}
-    {% set container = 'c_a' %}
-    {% set color_mixer = 'color_mixer_1' %}
-    {% set color_analyzer = 'color_analyzer_1' %}
-    {% set target_color = '[53, 29, 64]' %}
-    {% include 'eos_examples/color_lab/experiments/color_mixing/template_experiment.yml' %}
+**Device references**: reuse the same physical device across tasks by referencing a named device handle from a prior task.
 
-We specify the experiment type, the container to use, the color mixer and analyzer to use, and the target color.
+Example:
+
+.. code-block:: yaml
+
+    - name: mix_colors
+      devices:
+        color_mixer: retrieve_container.color_mixer
+
+    - name: analyze_color
+      devices:
+        color_analyzer: move_container_to_analyzer.color_analyzer
+
+In the first snippet, the mix_colors task uses the exact color_mixer allocated during retrieve_container. In the second, analyze_color uses the color_analyzer allocated during move_container_to_analyzer.
+
+**Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
+
+Example:
+
+.. code-block:: yaml
+
+    - name: mix_colors
+      resources:
+        beaker: retrieve_container.beaker
+
+    - name: analyze_color
+      resources:
+        beaker: move_container_to_analyzer.beaker
+
+The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then moved by the robot and reused by analyze_color.
+
+**Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
+
+Example:
+
+.. code-block:: yaml
+
+    - name: score_color
+      parameters:
+        red: analyze_color.red
+        green: analyze_color.green
+        blue: analyze_color.blue
+        total_color_volume: mix_colors.total_color_volume
+        max_total_color_volume: 300.0
+        target_color: eos_dynamic
+
+The score_color task consumes the RGB outputs from analyze_color and the total color volume from mix_colors.

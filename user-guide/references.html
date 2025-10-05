@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>User Guide &#8212; EOS - Experiment Orchestration System</title>
+    <title>References &#8212; EOS - Experiment Orchestration System</title>
   
   
   
@@ -47,11 +47,11 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/references';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installation" href="installation.html" />
-    <link rel="prev" title="The Experiment Orchestration System (EOS)" href="../index.html" />
+    <link rel="next" title="Experiments" href="experiments.html" />
+    <link rel="prev" title="Tasks" href="tasks.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -139,7 +139,7 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item current active">
-  <a class="nav-link nav-internal" href="#">
+  <a class="nav-link nav-internal" href="index.html">
     User Guide
   </a>
 </li>
@@ -187,6 +187,10 @@
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -214,7 +218,7 @@
   <ul class="bd-navbar-elements navbar-nav">
     
 <li class="nav-item current active">
-  <a class="nav-link nav-internal" href="#">
+  <a class="nav-link nav-internal" href="index.html">
     User Guide
   </a>
 </li>
@@ -253,13 +257,13 @@
 <li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="devices.html">Devices</a></li>
 <li class="toctree-l1"><a class="reference internal" href="resources.html">Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
-<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">References</a></li>
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
@@ -316,7 +320,10 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">User Guide</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">References</span></li>
   </ul>
 </nav>
 </div>
@@ -333,164 +340,85 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="user-guide">
-<h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h1>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+  <section id="references">
+<h1>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h1>
+<p>References connect tasks in an EOS experiment. They let downstream tasks reuse:
+- Devices allocated upstream (device references)
+- Physical items used upstream (resource references)
+- Output values produced upstream (parameter references)</p>
+<p>You write references directly under devices, resources, or parameters in each task’s YAML.</p>
+<section id="quick-syntax">
+<h2>Quick syntax<a class="headerlink" href="#quick-syntax" title="Link to this heading">#</a></h2>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#install-uv">1. Install uv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#install-eos">2. Install EOS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#configure-eos">3. Configure EOS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#launch-external-services">4. Launch External Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#start-eos">5. Start EOS</a></li>
-</ul>
+<li><p>Device reference (reuse an allocated device):
+devices:</p>
+<blockquote>
+<div><p>&lt;alias&gt;: &lt;upstream_task&gt;.&lt;alias&gt;</p>
+</div></blockquote>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="infrastructure_setup.html#key-requirements">Key Requirements</a></li>
-</ul>
+<li><p>Resource reference (pass the same physical item):
+resources:</p>
+<blockquote>
+<div><p>&lt;alias&gt;: &lt;upstream_task&gt;.&lt;alias&gt;</p>
+</div></blockquote>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="multi_computer_setup.html#main-eos-computer">Main EOS Computer</a></li>
-<li class="toctree-l2"><a class="reference internal" href="multi_computer_setup.html#worker-computers">Worker Computers</a></li>
-</ul>
+<li><p>Parameter reference (consume an output value):
+parameters:</p>
+<blockquote>
+<div><p>&lt;param_name&gt;: &lt;upstream_task&gt;.&lt;output_name&gt;</p>
+</div></blockquote>
 </li>
 </ul>
+</section>
+<section id="minimal-example">
+<h2>Minimal example<a class="headerlink" href="#minimal-example" title="Link to this heading">#</a></h2>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
+<span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">robot_arm</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
+<span class="w">    </span><span class="nt">color_mixer</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
+<span class="w">      </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
+<span class="w">      </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
+<span class="w">      </span><span class="nt">resource_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
+<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
+<span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">color_mixer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.color_mixer</span><span class="w">          </span><span class="c1"># device reference</span>
+<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.beaker</span><span class="w">                    </span><span class="c1"># resource reference</span>
+<span class="w">  </span><span class="nt">parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">cyan_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
+<span class="w">    </span><span class="nt">mixing_time</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
+<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">retrieve_container</span><span class="p p-Indicator">]</span>
+
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
+<span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">color_analyzer</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
+<span class="w">      </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
+<span class="w">      </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.beaker</span><span class="w">                            </span><span class="c1"># keep same beaker</span>
+<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mix_colors</span><span class="p p-Indicator">]</span>
+
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color</span>
+<span class="w">  </span><span class="nt">parameters</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">red</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.red</span><span class="w">                               </span><span class="c1"># output parameter references</span>
+<span class="w">    </span><span class="nt">green</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.green</span>
+<span class="w">    </span><span class="nt">blue</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.blue</span>
+<span class="w">    </span><span class="nt">total_color_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.total_color_volume</span>
+<span class="w">    </span><span class="nt">max_total_color_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300.0</span>
+<span class="w">    </span><span class="nt">target_color</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
+<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">analyze_color</span><span class="p p-Indicator">]</span>
+</pre></div>
 </div>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="packages.html#create-a-package">Create a Package</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="devices.html">Devices</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="devices.html#device-implementation">Device Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="devices.html#yaml-file-device-yml">YAML File (device.yml)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="devices.html#python-file-device-py">Python File (device.py)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="resources.html">Resources</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#defining-resources-in-laboratories">Defining resources in laboratories</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="resources.html#notes">Notes</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#declaring-resources-in-task-specifications">Declaring resources in task specifications</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#assigning-resources-in-experiments">Assigning resources in experiments</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#experimentlevel-resource-metadata-optional">Experiment‑level resource metadata (optional)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#allocation-and-exclusivity">Allocation and exclusivity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#when-to-model-as-a-resource">When to model as a resource</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="laboratories.html#laboratory-implementation">Laboratory Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="laboratories.html#computers-optional">Computers (Optional)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="laboratories.html#devices-required">Devices (Required)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="laboratories.html#resources-optional">Resources (Optional)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="tasks.html#parameters">Parameters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tasks.html#resources">Resources</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tasks.html#files">Files</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tasks.html#task-implementation">Task Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="tasks.html#yaml-file-task-yml">YAML File (task.yml)</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#parameter-specification">Parameter Specification</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#integer">Integer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#float">Float</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#string">String</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#boolean">Boolean</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#choice">Choice</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#list">List</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tasks.html#dictionary">Dictionary</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="tasks.html#python-file-task-py">Python File (task.py)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="references.html">References</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="references.html#quick-syntax">Quick syntax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="references.html#minimal-example">Minimal example</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="experiments.html#experiment-implementation">Experiment Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="experiments.html#yaml-file-experiment-yml">YAML File (experiment.yml)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="experiments.html#optimizer-file-optimizer-py">Optimizer File (optimizer.py)</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="campaigns.html#optimization-setup-analyze-and-design-phases">Optimization Setup (Analyze and Design Phases)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="campaigns.html#automation-setup-make-and-test-phases">Automation Setup (Make and Test Phases)</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="optimizers.html#distributed-execution">Distributed Execution</a></li>
-<li class="toctree-l2"><a class="reference internal" href="optimizers.html#optimizer-implementation">Optimizer Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="optimizers.html#input-and-output-parameter-naming">Input and Output Parameter Naming</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="optimizers.html#example-custom-optimizer">Example Custom Optimizer</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#choosing-a-scheduler">Choosing a scheduler</a></li>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#task-durations">Task durations</a></li>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#device-and-resource-allocation">Device and resource allocation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#task-groups">Task groups</a></li>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#comparion-table">Comparion table</a></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="rest_api.html#device-rpc">Device RPC</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rest_api.html#documentation">Documentation</a></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="jinja2_templating.html">Jinja2 Templating</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="jinja2_templating.html#variables">Variables</a></li>
-<li class="toctree-l2"><a class="reference internal" href="jinja2_templating.html#arithmetic">Arithmetic</a></li>
-<li class="toctree-l2"><a class="reference internal" href="jinja2_templating.html#conditionals">Conditionals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="jinja2_templating.html#loops">Loops</a></li>
-<li class="toctree-l2"><a class="reference internal" href="jinja2_templating.html#macros">Macros</a></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="toctree-wrapper compound">
-<p aria-level="2" class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="color_mixing.html">Color Mixing</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#sample-usage">Sample Usage</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#package-structure">Package Structure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#devices">Devices</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#tasks">Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#laboratory">Laboratory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#experiment">Experiment</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#dynamic-parameters-and-optimization">Dynamic Parameters and Optimization</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#references-between-tasks">References Between Tasks</a></li>
-</ul>
-</li>
-</ul>
-</div>
+</section>
 </section>
 
 
@@ -504,20 +432,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../index.html"
+       href="tasks.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">The Experiment Orchestration System (EOS)</p>
+        <p class="prev-next-title">Tasks</p>
       </div>
     </a>
     <a class="right-next"
-       href="installation.html"
+       href="experiments.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Installation</p>
+        <p class="prev-next-title">Experiments</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -527,6 +455,25 @@
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-syntax">Quick syntax</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#minimal-example">Minimal example</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>

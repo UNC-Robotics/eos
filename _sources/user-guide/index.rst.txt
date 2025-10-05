@@ -13,8 +13,10 @@ User Guide
 
     packages
     devices
+    resources
     laboratories
     tasks
+    references
     experiments
     campaigns
     optimizers

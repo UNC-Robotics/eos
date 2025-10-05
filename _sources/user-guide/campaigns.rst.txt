@@ -20,17 +20,18 @@ This is natively supported by EOS through a built-in Bayesian optimizer that int
 It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.
 
 Let's look at the color mixing experiment to see how a campaign with optimization can be set up.
-There are six dynamic parameters, which are the inputs of the optimization problem:
+There are ten dynamic parameters, all defined on the "mix_colors" task:
 
 .. code-block:: yaml
 
-    # In the "dispense_colors" task
     cyan_volume: eos_dynamic
+    cyan_strength: eos_dynamic
     magenta_volume: eos_dynamic
+    magenta_strength: eos_dynamic
     yellow_volume: eos_dynamic
+    yellow_strength: eos_dynamic
     black_volume: eos_dynamic
-
-    # In the "mix_colors" task
+    black_strength: eos_dynamic
     mixing_time: eos_dynamic
     mixing_speed: eos_dynamic
 
@@ -72,7 +73,7 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qNEI
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
     from bofire.data_models.enum import SamplingMethodEnum
     from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
     from bofire.data_models.objectives.identity import MinimizeObjective
@@ -84,19 +85,23 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
     def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
         constructor_args = {
             "inputs": [
-                ContinuousInput(key="dispense_colors.cyan_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.magenta_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.yellow_volume", bounds=(0, 5)),
-                ContinuousInput(key="dispense_colors.black_volume", bounds=(0, 5)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 15)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(10, 500)),
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
             ],
             "outputs": [
                 ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
             ],
             "constraints": [],
-            "acquisition_function": qNEI(),
-            "num_initial_samples": 50,
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 25,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 

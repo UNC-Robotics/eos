@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=4514dd13"></script>
+    <script src="../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -260,8 +260,10 @@
 <ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="devices.html">Devices</a></li>
+<li class="toctree-l1"><a class="reference internal" href="resources.html">Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
@@ -365,13 +367,16 @@ In the example below, the variable <code class="docutils literal notranslate"><s
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">max_volume</span> <span class="o">=</span> <span class="m">300</span> <span class="cp">%}</span>
 <span class="nn">...</span>
-<span class="nt">containers</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
+<span class="nt">resource_types</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">beaker</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">max_volume</span> <span class="cp">}}</span>
-<span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker 1</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker 2</span>
+
+<span class="nt">resources</span><span class="p">:</span>
+<span class="w">  </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">name</span> <span class="k">in</span> <span class="o">[</span><span class="s2">&quot;c_a&quot;</span><span class="o">,</span> <span class="s2">&quot;c_b&quot;</span><span class="o">]</span> <span class="cp">%}</span>
+<span class="w">  </span><span class="cp">{{</span> <span class="nv">name</span> <span class="cp">}}</span><span class="p p-Indicator">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
+<span class="w">  </span><span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
 </pre></div>
 </div>
 </section>
@@ -396,8 +401,8 @@ In the example below, the task “mix_colors” is only included if the variable
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="cp">{%</span> <span class="k">if</span> <span class="nv">mix_colors</span> <span class="cp">%}</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Color Mixing</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix Colors</span>
 <span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix the colors in the container</span>
 <span class="w">    </span><span class="c1"># ... rest of the task definition</span>
 <span class="w">  </span><span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
@@ -409,15 +414,16 @@ In the example below, the task “mix_colors” is only included if the variable
 <p>Jinja2 allows you to use loops to generate repetitive content.
 In the example below, a loop is used to generate container IDs with a common prefix and a letter (e.g., <cite>c_a</cite>, <cite>c_b</cite>, <cite>c_c</cite>, etc.):</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
-<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">containers</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
-<span class="w">    </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">container_storage</span>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">resource_types</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">beaker</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300</span>
-<span class="w">    </span><span class="nt">ids</span><span class="p">:</span>
-<span class="w">      </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">letter</span> <span class="k">in</span> <span class="o">[</span><span class="s1">&#39;a&#39;</span><span class="o">,</span> <span class="s1">&#39;b&#39;</span><span class="o">,</span> <span class="s1">&#39;c&#39;</span><span class="o">,</span> <span class="s1">&#39;d&#39;</span><span class="o">,</span> <span class="s1">&#39;e&#39;</span><span class="o">,</span> <span class="s1">&#39;f&#39;</span><span class="o">,</span> <span class="s1">&#39;g&#39;</span><span class="o">]</span> <span class="cp">%}</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">c_</span><span class="cp">{{</span> <span class="nv">letter</span> <span class="cp">}}</span>
-<span class="w">      </span><span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+
+<span class="nt">resources</span><span class="p">:</span>
+<span class="w">  </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">letter</span> <span class="k">in</span> <span class="o">[</span><span class="s1">&#39;a&#39;</span><span class="o">,</span> <span class="s1">&#39;b&#39;</span><span class="o">,</span> <span class="s1">&#39;c&#39;</span><span class="o">,</span> <span class="s1">&#39;d&#39;</span><span class="o">,</span> <span class="s1">&#39;e&#39;</span><span class="o">,</span> <span class="s1">&#39;f&#39;</span><span class="o">,</span> <span class="s1">&#39;g&#39;</span><span class="o">]</span> <span class="cp">%}</span>
+<span class="w">  </span><span class="nt">c_</span><span class="cp">{{</span> <span class="nv">letter</span> <span class="cp">}}</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker</span>
+<span class="w">  </span><span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
 </pre></div>
 </div>
 </section>
@@ -427,38 +433,21 @@ In the example below, a loop is used to generate container IDs with a common pre
 In the example below, the <code class="docutils literal notranslate"><span class="pre">create_containers</span></code> macro is used to easily create containers with a prefix and a number
 (e.g., <cite>c_0</cite>, <cite>c_1</cite>, <cite>c_2</cite>, etc.):</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
-<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">create_containers</span><span class="o">(</span><span class="nv">type</span><span class="o">,</span> <span class="nv">location</span><span class="o">,</span> <span class="nv">capacity</span><span class="o">,</span> <span class="nv">id_prefix</span><span class="o">,</span> <span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">type</span> <span class="cp">}}</span>
-<span class="w">  </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">location</span> <span class="cp">}}</span>
-<span class="w">  </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">capacity</span> <span class="cp">}}</span>
-<span class="w">  </span><span class="nt">ids</span><span class="p">:</span>
-<span class="w">    </span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">i</span> <span class="k">in</span> <span class="nv">range</span><span class="o">(</span><span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
-<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">id_prefix</span> <span class="cp">}}{{</span> <span class="nv">i</span> <span class="cp">}}</span>
-<span class="w">    </span><span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
-<span class="cp">{%</span> <span class="k">endmacro</span> <span class="cp">%}</span>
+<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">create_resources</span><span class="o">(</span><span class="nv">res_type</span><span class="o">,</span> <span class="nv">capacity</span><span class="o">,</span> <span class="nv">id_prefix</span><span class="o">,</span> <span class="nv">count</span><span class="o">)</span> -<span class="cp">%}</span>
+<span class="nt">resource_types</span><span class="p">:</span>
+<span class="w">  </span><span class="cp">{{</span> <span class="nv">res_type</span> <span class="cp">}}</span><span class="p p-Indicator">:</span>
+<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">capacity</span> <span class="cp">}}</span>
+<span class="nt">resources</span><span class="p">:</span>
+<span class="w">  </span><span class="cp">{%</span>- <span class="k">for</span> <span class="nv">i</span> <span class="k">in</span> <span class="nv">range</span><span class="o">(</span><span class="nv">count</span><span class="o">)</span> <span class="cp">%}</span>
+<span class="w">  </span><span class="cp">{{</span> <span class="nv">id_prefix</span> <span class="cp">}}{{</span> <span class="nv">i</span> <span class="cp">}}</span><span class="p p-Indicator">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="cp">{{</span> <span class="nv">res_type</span> <span class="cp">}}</span>
+<span class="w">  </span><span class="cp">{%</span>- <span class="k">endfor</span> <span class="cp">%}</span>
+<span class="cp">{%</span>- <span class="k">endmacro</span> <span class="cp">%}</span>
 
-<span class="nt">containers</span><span class="p">:</span>
-<span class="w">  </span><span class="cp">{{</span> <span class="nv">create_containers</span><span class="o">(</span><span class="s1">&#39;beaker&#39;</span><span class="o">,</span> <span class="s1">&#39;container_storage&#39;</span><span class="o">,</span> <span class="m">300</span><span class="o">,</span> <span class="s1">&#39;c_&#39;</span><span class="o">,</span> <span class="m">5</span><span class="o">)</span> <span class="cp">}}</span>
+<span class="cp">{{</span> <span class="nv">create_resources</span><span class="o">(</span><span class="s1">&#39;beaker&#39;</span><span class="o">,</span> <span class="m">300</span><span class="o">,</span> <span class="s1">&#39;c_&#39;</span><span class="o">,</span> <span class="m">5</span><span class="o">)</span> <span class="cp">}}</span>
 </pre></div>
 </div>
-</section>
-<section id="include-files">
-<h2>Include Files<a class="headerlink" href="#include-files" title="Link to this heading">#</a></h2>
-<p>Jinja2 allows you to include YAML from other files.
-In the below example, a template experiment is included in an <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> file.
-We specify the values for the Jinja2 variables of the template experiment:</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
-<div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">experiment_type</span> <span class="o">=</span> <span class="s1">&#39;color_mixing_1&#39;</span> <span class="cp">%}</span>
-<span class="cp">{%</span> <span class="k">set</span> <span class="nv">container</span> <span class="o">=</span> <span class="s1">&#39;c_a&#39;</span> <span class="cp">%}</span>
-<span class="cp">{%</span> <span class="k">set</span> <span class="nv">color_mixer</span> <span class="o">=</span> <span class="s1">&#39;color_mixer_1&#39;</span> <span class="cp">%}</span>
-<span class="cp">{%</span> <span class="k">set</span> <span class="nv">color_analyzer</span> <span class="o">=</span> <span class="s1">&#39;color_analyzer_1&#39;</span> <span class="cp">%}</span>
-<span class="cp">{%</span> <span class="k">set</span> <span class="nv">target_color</span> <span class="o">=</span> <span class="s1">&#39;[53, 29, 64]&#39;</span> <span class="cp">%}</span>
-<span class="cp">{%</span> <span class="k">include</span> <span class="s1">&#39;color_lab/eos_examples/common/template_experiment.yml&#39;</span> <span class="cp">%}</span>
-</pre></div>
-</div>
-<p>In EOS, the Jinja2 context is the <cite>user</cite> directory (or the directory containing packages).
-This means YAML files from different EOS packages can be included.</p>
 </section>
 </section>
 
@@ -514,7 +503,6 @@ This means YAML files from different EOS packages can be included.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditionals">Conditionals</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#loops">Loops</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#macros">Macros</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#include-files">Include Files</a></li>
 </ul>
   </nav></div>
 

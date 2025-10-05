@@ -1,6 +1,6 @@
 Laboratories
 ============
-Laboratories are the space in which devices and containers exist and where tasks, experiments, and campaigns
+Laboratories are the space in which devices and resources exist and where tasks, experiments, and campaigns
 of experiments take place.
 
 A laboratory in EOS is a collection of:
@@ -8,7 +8,7 @@ A laboratory in EOS is a collection of:
 * Locations (e.g., physical stations around the lab)
 * Computers (e.g., devices capable of controlling equipment)
 * Devices (e.g., equipment/apparatuses in the laboratory)
-* Containers (e.g., vessels for holding samples)
+* Resources (e.g., containers for holding samples, reagents, lab location, consumables, etc.)
 
 .. figure:: ../_static/img/laboratory.png
    :alt: Contents of a laboratory
@@ -18,7 +18,7 @@ Laboratory Implementation
 -------------------------
 * Laboratories are implemented in the `laboratories` subdirectory inside an EOS package
 * Each laboratory has its own subfolder (e.g., laboratories/color_lab)
-* The laboratory is defined in a YAML file named ``laboratory.yml``.
+* The laboratory is defined in a YAML file named ``lab.yml``.
 
 Below is an example laboratory YAML file for a solar cell fabrication lab:
 
@@ -26,26 +26,8 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 
 .. code-block:: yaml
 
-    type: solar_cell_fabrication_lab
+    name: solar_cell_fabrication_lab
     desc: A laboratory for fabricating and characterizing perovskite solar cells
-
-    locations:
-      glovebox:
-        desc: Nitrogen-filled glovebox
-        meta:
-            map_coordinates:
-                x: 10
-                y: 20
-                theta: 0
-      fume_hood:
-        desc: Fume hood for solution preparation and coating
-      annealing_station:
-        desc: Hotplate for thermal annealing
-      evaporation_chamber:
-        desc: Thermal evaporation chamber for electrode deposition
-      characterization_room:
-        desc: Room for solar cell performance testing
-
     computers:
       xrd_computer:
         desc: XRD system control and data analysis
@@ -61,44 +43,56 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
       spin_coater:
         desc: Spin coater for depositing perovskite and transport layers
         type: spin_coater
-        location: glovebox
         computer: eos_computer
+
+        meta:
+          location: glovebox
 
       uv_ozone_cleaner:
         desc: UV-Ozone cleaner for substrate treatment
         type: uv_ozone_cleaner
-        location: fume_hood
         computer: eos_computer
+
+        meta:
+          location: fume_hood
 
       thermal_evaporator:
         desc: Thermal evaporator for metal electrode deposition
         type: thermal_evaporator
-        location: evaporation_chamber
         computer: eos_computer
+
         init_parameters:
           max_temperature: 1000C
           materials: [Au, Ag, Al]
 
+        meta:
+          location: evaporation_chamber
+
       solar_simulator:
         desc: Solar simulator for J-V curve measurements
         type: solar_simulator
-        location: characterization_room
         computer: solar_sim_computer
+
         init_parameters:
           spectrum: AM1.5G
           intensity: 100mW/cm2
 
+        meta:
+          location: characterization_room
+
       xrd_system:
         desc: X-ray diffractometer for crystal structure analysis
         type: xrd
-        location: characterization_room
         computer: xrd_computer
+
+        meta:
+          location: characterization_room
 
       mobile_robot:
         desc: Mobile manipulation robot for automated sample transfer
         type: mobile_robot
-        location: characterization_room
         computer: robot_computer
+
         init_parameters:
           locations:
             - glovebox
@@ -107,57 +101,58 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
             - evaporation_chamber
             - characterization_room
 
-    containers:
-      - type: vial
-        location: glovebox
         meta:
-          solvent: 20 #ml
-        ids:
-          - precursor_vial_1
-          - precursor_vial_2
-          - precursor_vial_3
+          location: characterization_room
 
-      - type: petri_dish
-        location: glovebox
+    resource_types:
+      vial:
         meta:
-          capacity: 100 #ml
-        ids:
-          - substrate_dish_1
-          - substrate_dish_2
+          capacity: 20  # ml
 
-      - type: crucible
-        location: evaporation_chamber
+      petri_dish:
         meta:
-          capacity: 5 #ml
-        ids:
-          - au_crucible
-          - ag_crucible
+          capacity: 100  # ml
 
-Locations (Optional)
-""""""""""""""""""""
-Locations are physical stations around the lab where devices and containers are placed.
-They are defined in the ``locations`` section of the laboratory YAML file.
-You can define meta for each location, such as map coordinates for a mobile robot.
-Defining locations is optional.
-
-.. code-block:: yaml
-
-    locations:
-      glovebox:
-        desc: Nitrogen-filled glovebox
+      crucible:
         meta:
-            map_coordinates:
-                x: 10
-                y: 20
-                theta: 0
-      fume_hood:
-        desc: Fume hood for solution preparation and coating
-      annealing_station:
-        desc: Hotplate for thermal annealing
-      evaporation_chamber:
-        desc: Thermal evaporation chamber for electrode deposition
-      characterization_room:
-        desc: Room for solar cell performance testing
+          capacity: 5  # ml
+
+    resources:
+      precursor_vial_1:
+        type: vial
+        meta:
+          location: glovebox
+
+      precursor_vial_2:
+        type: vial
+        meta:
+          location: glovebox
+
+      precursor_vial_3:
+        type: vial
+        meta:
+          location: glovebox
+
+      substrate_dish_1:
+        type: petri_dish
+        meta:
+          location: glovebox
+
+      substrate_dish_2:
+        type: petri_dish
+        meta:
+          location: glovebox
+
+      au_crucible:
+        type: crucible
+        meta:
+          location: evaporation_chamber
+
+      ag_crucible:
+        type: crucible
+        meta:
+          location: evaporation_chamber
+
 
 Computers (Optional)
 """"""""""""""""""""
@@ -229,44 +224,50 @@ If not "eos_computer", the computer must be defined in the "computers" section.
 **init_parameters** (optional): Parameters required to initialize the device.
 These parameters are defined in the device specification and can be overridden here.
 
-Containers (Optional)
-"""""""""""""""""""""
-Containers are vessels for holding samples and are how samples go around the lab (e.g., for batch processing).
-They are defined in the ``containers`` section of the laboratory YAML file.
+Resources (Optional)
+""""""""""""""""""""
+Resources represent anything that tasks should exclusively allocate, such as containers (vessels for holding samples),
+lab locations that can only be occupied by one container, reagents, or other consumables.
+
+Resources are defined using two sections in the laboratory YAML file:
+
+1. **resource_types**: Templates that define the properties of a resource type
+2. **resources**: Individual resource instances with unique names
 
 .. code-block:: yaml
 
-    containers:
-      - type: vial
-        location: glovebox
+    resource_types:
+      vial:
         meta:
-          capacity: 20 #ml
-        ids:
-          - precursor_vial_1
-          - precursor_vial_2
-          - precursor_vial_3
+          capacity: 20  # ml
 
-      - type: petri_dish
-        location: glovebox
+      petri_dish:
         meta:
-          capacity: 100 #ml
-        ids:
-          - substrate_dish_1
-          - substrate_dish_2
+          capacity: 100  # ml
 
-      - type: crucible
-        location: evaporation_chamber
+    resources:
+      precursor_vial_1:
+        type: vial
         meta:
-          capacity: 5 #ml
-        ids:
-          - au_crucible
-          - ag_crucible
+          location: glovebox
 
-**type**: Every container must have a type, which can be used to group together containers of the same type.
+      precursor_vial_2:
+        type: vial
+        meta:
+          location: glovebox
 
-**location** (optional): The location where the container starts out at.
+      substrate_dish_1:
+        type: petri_dish
+        meta:
+          location: glovebox
 
-**meta** (optional): Any additional information about the container, such as its capacity or contained sample.
+**Resource Types**:
 
-**ids**: A list of unique identifiers for each container.
-These are used to identify and refer to specific containers.
+* Define templates with shared properties for resources of the same type
+* **meta** (optional): Default metadata for all resources of this type (e.g., capacity)
+
+**Resources**:
+
+* Each resource has a unique name (e.g., ``precursor_vial_1``)
+* **type**: The resource type (must match a defined ``resource_type``)
+* **meta** (optional): Instance-specific metadata, which overrides or extends the resource type's meta (e.g., current location)

@@ -2,7 +2,7 @@ Experiments
 ===========
 Experiments are a set of tasks that are executed in a specific order.
 Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of an experiment can pass parameters and containers to each other using EOS' reference system.
+Tasks part of an experiment can pass parameters, devices, and resources to each other using EOS' reference system.
 Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
 denoting them as dynamic parameters.
 Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
@@ -15,10 +15,10 @@ for the dynamic parameters across repeated experiments to optimize some objectiv
 Above is an example of a possible experiment that could be implemented with EOS.
 There is a series of tasks, each requiring one or more devices.
 In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
-form of parameters and containers passed between tasks.
+form of parameters, devices, and resources passed between tasks.
 For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
 may be output from the "Dispense Solutions" task.
-Tasks can reference input/output parameters and containers from other tasks.
+Tasks can reference input/output parameters, devices, and resources from other tasks.
 
 Experiment Implementation
 -------------------------
@@ -29,7 +29,7 @@ Experiment Implementation
 YAML File (experiment.yml)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 Defines the experiment.
-Specifies the experiment type, labs, container initialization (optional), and tasks
+Specifies the experiment type, labs, and tasks
 
 Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:
 
@@ -44,25 +44,25 @@ Below is an example experiment YAML file for an experiment to optimize parameter
       - color_lab
 
     tasks:
-      - id: retrieve_container
-        type: Retrieve Container
-        desc: Get a container from storage and move it to the color dispenser
+      - name: retrieve_container
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-        containers:
-          beaker: c_a
-        parameters:
-          target_location: color_mixer_1
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer:
+            allocation_type: dynamic
+            device_type: color_mixer
+            allowed_labs: [color_lab]
+        resources:
+          beaker:
+            allocation_type: dynamic
+            resource_type: beaker
         dependencies: []
 
-      - id: mix_colors
-        type: Mix Colors
-        desc: Mix the colors in the container
+      - name: mix_colors
         devices:
-          - lab_id: color_lab
-            id: color_mixer_1
-        containers:
+          color_mixer: retrieve_container.color_mixer
+        resources:
           beaker: retrieve_container.beaker
         parameters:
           cyan_volume: eos_dynamic
@@ -77,76 +77,67 @@ Below is an example experiment YAML file for an experiment to optimize parameter
           mixing_speed: eos_dynamic
         dependencies: [retrieve_container]
 
-      - id: move_container_to_analyzer
-        type: Move Container
-        desc: Move the container to the color analyzer
+      - name: move_container_to_analyzer
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-          - lab_id: color_lab
-            id: color_mixer_1
-        containers:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer: mix_colors.color_mixer
+          color_analyzer:
+            allocation_type: dynamic
+            device_type: color_analyzer
+            allowed_labs: [color_lab]
+        resources:
           beaker: mix_colors.beaker
-        parameters:
-          target_location: color_mixer_1
         dependencies: [mix_colors]
 
-      - id: analyze_color
-        type: Analyze Color
-        desc: Analyze the color of the solution in the container and output the RGB values
+      - name: analyze_color
         devices:
-          - lab_id: color_lab
-            id: color_analyzer_1
-        containers:
+          color_analyzer: move_container_to_analyzer.color_analyzer
+        resources:
           beaker: move_container_to_analyzer.beaker
         dependencies: [move_container_to_analyzer]
 
-      - id: score_color
-        type: Score Color
-        desc: Score the color based on the RGB values
+      - name: score_color
         parameters:
           red: analyze_color.red
           green: analyze_color.green
           blue: analyze_color.blue
           total_color_volume: mix_colors.total_color_volume
           max_total_color_volume: 300.0
-          target_color: [53, 29, 64]
+          target_color: eos_dynamic
         dependencies: [analyze_color]
 
-      - id: empty_container
-        type: Empty Container
-        desc: Empty the container and move it to the cleaning station
+      - name: empty_container
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-          - lab_id: color_lab
-            id: cleaning_station
-        containers:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          cleaning_station:
+            allocation_type: dynamic
+            device_type: cleaning_station
+            allowed_labs: [color_lab]
+        resources:
           beaker: analyze_color.beaker
         parameters:
           emptying_location: emptying_location
-          target_location: cleaning_station
         dependencies: [analyze_color]
 
-      - id: clean_container
-        type: Clean Container
-        desc: Clean the container by rinsing it with distilled water
+      - name: clean_container
         devices:
-          - lab_id: color_lab
-            id: cleaning_station
-        containers:
+          cleaning_station: empty_container.cleaning_station
+        resources:
           beaker: empty_container.beaker
         parameters:
           duration: 2
         dependencies: [empty_container]
 
-      - id: store_container
-        type: Store Container
-        desc: Store the container back in the container storage
+      - name: store_container
         devices:
-          - lab_id: color_lab
-            id: robot_arm
-        containers:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+        resources:
           beaker: clean_container.beaker
         parameters:
           storage_location: container_storage
@@ -171,36 +162,58 @@ Now let's look at the first task in the experiment:
 
 .. code-block:: yaml
 
-    - id: retrieve_container
-      type: Retrieve Container
-      desc: Get a container from storage and move it to the color dispenser
+    - name: retrieve_container
       devices:
-        - lab_id: color_lab
-          id: robot_arm
-      containers:
-        beaker: c_a
-      parameters:
-        target_location: color_mixer_1
+        robot_arm:
+          lab_name: color_lab
+          name: robot_arm
+        color_mixer:
+          allocation_type: dynamic
+          device_type: color_mixer
+          allowed_labs: [color_lab]
+      resources:
+        beaker:
+          allocation_type: dynamic
+          resource_type: beaker
       dependencies: []
 
-The first task is named ``retrieve_container`` and is of type `Retrieve Container`.
-This task uses the robot arm to get a container from storage.
-The task requires the robot arm device.
-There is a parameter ``target_location`` that is set to ``color_mixer_1``, denoting where to move the container
-after retrieving it.
-This task has no dependencies as it is the first task in the experiment.
+The first task is named ``retrieve_container``.
+This task demonstrates several key concepts:
+
+**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_mixer``).
+These names are used by the task implementation to access the device.
+
+**Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
+
+.. code-block:: yaml
+
+    robot_arm:
+      lab_name: color_lab
+      name: robot_arm
+
+This tells EOS to use the specific robot arm device from the color_lab.
+
+**Dynamic Device Allocation**: The ``color_mixer`` uses dynamic allocation:
+
+.. code-block:: yaml
+
+    color_mixer:
+      allocation_type: dynamic
+      device_type: color_mixer
+      allowed_labs: [color_lab]
+
+The scheduler will automatically select an available ``color_mixer`` device from ``color_lab`` when this task is ready to execute.
+
+**Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
 
 Let's look at the next task:
 
 .. code-block:: yaml
 
-    - id: mix_colors
-      type: Mix Colors
-      desc: Mix the colors in the container
+    - name: mix_colors
       devices:
-        - lab_id: color_lab
-          id: {{ color_mixer }}
-      containers:
+        color_mixer: retrieve_container.color_mixer
+      resources:
         beaker: retrieve_container.beaker
       parameters:
         cyan_volume: eos_dynamic
@@ -215,15 +228,29 @@ Let's look at the next task:
         mixing_speed: eos_dynamic
       dependencies: [retrieve_container]
 
-This task takes the container from the ``retrieve_container`` task, dispenses colors, and mixes them.
-The task has an input container called "beaker" which references the output container named "beaker" from the
-``retrieve_container`` task.
-If we look at the ``task.yml`` file of the task `Retrieve Container` we would see that a container named "beaker" is
-defined in ``output_containers``.
-There are also parameters for CMYK volumes and strengths, mixing time, and mixing speed.
-All these parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters,
-instructing the system that these parameters must be specified either by the user or an optimizer before an experiment
-can be executed.
+This task demonstrates **device and resource references**:
+
+**Device Reference**: ``color_mixer: retrieve_container.color_mixer`` tells EOS that this task must use the same color_mixer device
+that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same mixer where it was placed.
+
+**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
+
+**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
+These must be specified either by the user or an optimizer before an experiment can be executed.
+
+The ``analyze_color`` task shows another device reference:
+
+.. code-block:: yaml
+
+    - name: analyze_color
+      devices:
+        color_analyzer: move_container_to_analyzer.color_analyzer
+      resources:
+        beaker: move_container_to_analyzer.beaker
+      dependencies: [move_container_to_analyzer]
+
+Here, ``color_analyzer`` references the dynamically allocated analyzer from the ``move_container_to_analyzer`` task,
+ensuring the analysis happens at the same analyzer where the beaker was moved.
 
 Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

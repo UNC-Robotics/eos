@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=4514dd13"></script>
+    <script src="../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -50,7 +50,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/devices';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Laboratories" href="laboratories.html" />
+    <link rel="next" title="Resources" href="resources.html" />
     <link rel="prev" title="Packages" href="packages.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -260,8 +260,10 @@
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Devices</a></li>
+<li class="toctree-l1"><a class="reference internal" href="resources.html">Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
@@ -394,7 +396,7 @@ Remember that a device in EOS is a persistent process.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">eos.containers.entities.container</span><span class="w"> </span><span class="kn">import</span> <span class="n">Container</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.resources.entities.resource</span><span class="w"> </span><span class="kn">import</span> <span class="n">Resource</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">user.eos_examples.color_lab.common.device_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceClient</span>
 
@@ -410,7 +412,7 @@ Remember that a device in EOS is a persistent process.</p>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_report</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{}</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">mix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container</span><span class="p">:</span> <span class="n">Container</span><span class="p">,</span> <span class="n">mixing_time</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">mixing_speed</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Container</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">container</span><span class="p">:</span> <span class="n">Resource</span><span class="p">,</span> <span class="n">mixing_time</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">mixing_speed</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Resource</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">send_command</span><span class="p">(</span><span class="s2">&quot;mix&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;mixing_time&quot;</span><span class="p">:</span> <span class="n">mixing_time</span><span class="p">,</span> <span class="s2">&quot;mixing_speed&quot;</span><span class="p">:</span> <span class="n">mixing_speed</span><span class="p">})</span>
         <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
             <span class="n">container</span><span class="o">.</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;mixing_time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mixing_time</span>
@@ -471,11 +473,11 @@ The <code class="docutils literal notranslate"><span class="pre">mix</span></cod
       </div>
     </a>
     <a class="right-next"
-       href="laboratories.html"
+       href="resources.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Laboratories</p>
+        <p class="prev-next-title">Resources</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
