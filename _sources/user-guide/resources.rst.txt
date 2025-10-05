@@ -53,7 +53,7 @@ Notes
 - Instance ``meta`` overrides any defaults from the corresponding ``resource_types`` entry.
 
 Declaring resources in task specifications
------------------------------------------
+------------------------------------------
 Tasks declare the resource types they require in ``task.yml``. EOS validates that experiments provide matching resource instances (by name) or a dynamic request for a resource of the required type.
 
 :bdg-primary:`task.yml`
@@ -122,7 +122,7 @@ In an experiment’s tasks, assign either specific resource names or request res
    Dynamic resource requests select a single matching resource instance.
 
 Experiment‑level resource metadata (optional)
---------------------------------------------
+---------------------------------------------
 You may attach experiment‑specific metadata to resources used in that experiment via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
 
 :bdg-primary:`experiment.yml`

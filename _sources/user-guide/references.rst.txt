@@ -2,7 +2,9 @@ References
 ==========
 References connect tasks in an EOS experiment. They let downstream tasks reuse:
 - Devices allocated upstream (device references)
+
 - Physical items used upstream (resource references)
+
 - Output values produced upstream (parameter references)
 
 You write references directly under devices, resources, or parameters in each task’s YAML.
@@ -11,14 +13,17 @@ You write references directly under devices, resources, or parameters in each ta
 Quick syntax
 ------------
 - Device reference (reuse an allocated device):
+
   devices:
     <alias>: <upstream_task>.<alias>
 
 - Resource reference (pass the same physical item):
+
   resources:
     <alias>: <upstream_task>.<alias>
 
 - Parameter reference (consume an output value):
+
   parameters:
     <param_name>: <upstream_task>.<output_name>
 

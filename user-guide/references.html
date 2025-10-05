@@ -343,30 +343,32 @@
   <section id="references">
 <h1>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h1>
 <p>References connect tasks in an EOS experiment. They let downstream tasks reuse:
-- Devices allocated upstream (device references)
-- Physical items used upstream (resource references)
-- Output values produced upstream (parameter references)</p>
+- Devices allocated upstream (device references)</p>
+<ul class="simple">
+<li><p>Physical items used upstream (resource references)</p></li>
+<li><p>Output values produced upstream (parameter references)</p></li>
+</ul>
 <p>You write references directly under devices, resources, or parameters in each task’s YAML.</p>
 <section id="quick-syntax">
 <h2>Quick syntax<a class="headerlink" href="#quick-syntax" title="Link to this heading">#</a></h2>
 <ul>
-<li><p>Device reference (reuse an allocated device):
-devices:</p>
-<blockquote>
-<div><p>&lt;alias&gt;: &lt;upstream_task&gt;.&lt;alias&gt;</p>
-</div></blockquote>
+<li><p>Device reference (reuse an allocated device):</p>
+<dl class="simple">
+<dt>devices:</dt><dd><p>&lt;alias&gt;: &lt;upstream_task&gt;.&lt;alias&gt;</p>
+</dd>
+</dl>
 </li>
-<li><p>Resource reference (pass the same physical item):
-resources:</p>
-<blockquote>
-<div><p>&lt;alias&gt;: &lt;upstream_task&gt;.&lt;alias&gt;</p>
-</div></blockquote>
+<li><p>Resource reference (pass the same physical item):</p>
+<dl class="simple">
+<dt>resources:</dt><dd><p>&lt;alias&gt;: &lt;upstream_task&gt;.&lt;alias&gt;</p>
+</dd>
+</dl>
 </li>
-<li><p>Parameter reference (consume an output value):
-parameters:</p>
-<blockquote>
-<div><p>&lt;param_name&gt;: &lt;upstream_task&gt;.&lt;output_name&gt;</p>
-</div></blockquote>
+<li><p>Parameter reference (consume an output value):</p>
+<dl class="simple">
+<dt>parameters:</dt><dd><p>&lt;param_name&gt;: &lt;upstream_task&gt;.&lt;output_name&gt;</p>
+</dd>
+</dl>
 </li>
 </ul>
 </section>
