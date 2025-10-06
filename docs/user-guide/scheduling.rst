@@ -4,7 +4,7 @@ EOS schedules experiments, meaning it determines *when* and *on which resources*
 Two scheduling policies are provided:
 
 - **Greedy**: starts tasks as soon as requirements are met (dependencies, devices/resources).
-- **CP-SAT**: computes a global schedule that respects requirements **and** minimizes overall completion time,
+- **CP-SAT**: computes a global schedule that respects requirements and minimizes overall completion time,
   using each task’s expected duration.
 
 Choosing a scheduler
@@ -99,7 +99,7 @@ Both schedulers support **specific** and **dynamic** devices and resources for t
 
 **How schedulers choose**
 
-- **Greedy**: picks the **first available** eligible devices/resources at request time.
+- **Greedy**: load balances between available eligible devices/resources at request time.
 - **CP-SAT**: chooses devices/resources as part of a **global schedule** to reduce conflicts and overall time.
 
 Task groups
@@ -110,18 +110,18 @@ For workflows that must run some tasks **back-to-back** without gaps (e.g., a ti
 .. code-block:: yaml
 
     tasks:
-      - id: prep_sample
+      - name: prep_sample
         type: Prep Sample
         duration: 120
         group: sample_run_42
 
-      - id: incubate
+      - name: incubate
         type: Incubate
         duration: 600
         group: sample_run_42
         dependencies: [prep_sample]
 
-      - id: readout
+      - name: readout
         type: Readout
         duration: 90
         group: sample_run_42
