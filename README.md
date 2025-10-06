@@ -69,3 +69,18 @@ EOS requires PostgreSQL and MinIO for data and file storage. These can be run wi
 5. **Start EOS**
    ```shell
    eos start
+
+## Citation
+If you use EOS for your work, please cite:
+```bibtex
+@inproceedings{Angelopoulos2025_EOS,
+  title = {The {{Experiment Orchestration System}} ({{EOS}}): {{Comprehensive Foundation}} for {{Laboratory Automation}}},
+  shorttitle = {The {{Experiment Orchestration System}} ({{EOS}})},
+  booktitle = {2025 {{IEEE International Conference}} on {{Robotics}} and {{Automation}} ({{ICRA}})},
+  author = {Angelopoulos, Angelos and Baykal, Cem and Kandel, Jade and Verber, Matthew and Cahoon, James F. and Alterovitz, Ron},
+  year = {2025},
+  month = may,
+  pages = {15900--15906},
+  doi = {10.1109/ICRA55743.2025.11128578},
+}
+```
