@@ -57,6 +57,14 @@ optimizer_worker = [
     "pandas==2.3.1",
 ]
 
+sila2 = [
+    "sila2>=0.7",
+    "protobuf>=6.32",
+    "grpcio-tools>=1.75",
+    "black",
+    "isort",
+]
+
 dev = [
     "aiosqlite",
     "ruff",
