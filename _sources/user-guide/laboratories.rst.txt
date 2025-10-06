@@ -5,14 +5,9 @@ of experiments take place.
 
 A laboratory in EOS is a collection of:
 
-* Locations (e.g., physical stations around the lab)
 * Computers (e.g., devices capable of controlling equipment)
 * Devices (e.g., equipment/apparatuses in the laboratory)
 * Resources (e.g., containers for holding samples, reagents, lab location, consumables, etc.)
-
-.. figure:: ../_static/img/laboratory.png
-   :alt: Contents of a laboratory
-   :align: center
 
 Laboratory Implementation
 -------------------------
