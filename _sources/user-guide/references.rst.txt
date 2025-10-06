@@ -1,6 +1,7 @@
 References
 ==========
 References connect tasks in an EOS experiment. They let downstream tasks reuse:
+
 - Devices allocated upstream (device references)
 
 - Physical items used upstream (resource references)
