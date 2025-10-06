@@ -23,6 +23,7 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 
     name: solar_cell_fabrication_lab
     desc: A laboratory for fabricating and characterizing perovskite solar cells
+
     computers:
       xrd_computer:
         desc: XRD system control and data analysis
