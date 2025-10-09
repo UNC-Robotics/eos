@@ -17,9 +17,9 @@ class SilaDeviceMixin:
         name: str,
         server_class: type,
         port: int = 0,
-        bind_ip: str | None = None,
+        bind_ip: str = "0.0.0.0",  # noqa: S104
         advertise_ip: str | None = None,
-        insecure: bool | None = None,
+        insecure: bool = True,
     ) -> None:
         """
         Register a SiLA server to run on this device.
@@ -27,9 +27,9 @@ class SilaDeviceMixin:
         :param name: Unique identifier for this server
         :param server_class: The generated SiLA Server class
         :param port: Port to bind (0 = auto-assign a free port)
-        :param bind_ip: IP to bind on (None = use default from init_parameters)
+        :param bind_ip: IP to bind on (default: "0.0.0.0" for all interfaces)
         :param advertise_ip: IP clients should connect to (None = auto-detect)
-        :param insecure: Use insecure connections (None = use default from init_parameters)
+        :param insecure: Use insecure connections (default: True for development)
         """
         if not hasattr(self, "_sila_manager") or self._sila_manager is None:
             self._sila_manager = SilaServerManager()
@@ -43,26 +43,55 @@ class SilaDeviceMixin:
             insecure=insecure,
         )
 
-    async def sila_start_all(self, init_parameters: dict[str, Any] | None = None) -> None:
+    def sila_add_server_connection(
+        self,
+        name: str,
+        address: str,
+        port: int,
+        insecure: bool = True,
+        root_certs: str | None = None,
+        private_key: str | None = None,
+        cert_chain: str | None = None,
+    ) -> None:
         """
-        Start all registered SiLA servers.
+        Register an external SiLA server connection.
 
-        :param init_parameters: Device init params (can contain sila_bind_ip, sila_insecure, etc.)
+        :param name: Unique identifier for this connection
+        :param address: Server address to connect to
+        :param port: Server port to connect to
+        :param insecure: Use insecure connections
+        :param root_certs: Path to root certificates for TLS
+        :param private_key: Path to private key for TLS
+        :param cert_chain: Path to certificate chain for TLS
         """
+        if not hasattr(self, "_sila_manager") or self._sila_manager is None:
+            self._sila_manager = SilaServerManager()
+
+        self._sila_manager.add_connection(
+            name=name,
+            address=address,
+            port=port,
+            insecure=insecure,
+            root_certs=root_certs,
+            private_key=private_key,
+            cert_chain=cert_chain,
+        )
+
+    async def sila_start_all(self) -> None:
+        """Start all registered SiLA servers concurrently."""
         manager = getattr(self, "_sila_manager", None)
         if manager:
-            await manager.start_all(init_parameters)
+            await manager.start_all()
 
-    async def sila_start_server(self, name: str, init_parameters: dict[str, Any] | None = None) -> None:
+    async def sila_start_server(self, name: str) -> None:
         """
         Start a specific SiLA server by name.
 
         :param name: Name of the server to start
-        :param init_parameters: Optional device init params
         """
         manager = getattr(self, "_sila_manager", None)
         if manager:
-            await manager.start_server(name, init_parameters)
+            await manager.start_server(name)
 
     async def sila_stop_all(self) -> None:
         """Stop all SiLA servers."""
@@ -82,12 +111,12 @@ class SilaDeviceMixin:
 
     def get_sila_endpoint(self, server_name: str | None = None) -> dict[str, Any]:
         """
-        Get SiLA server endpoint for connecting clients.
+        Get SiLA server/connection endpoint for connecting clients.
 
-        :param server_name: Name of the server (optional for single-server devices)
+        :param server_name: Name of the server or connection (optional for single-server devices)
         :return: Dictionary with 'address', 'port', 'insecure' keys
-        :raises RuntimeError: If no SiLA servers are configured
-        :raises ValueError: If server_name is required but not provided, or server doesn't exist
+        :raises RuntimeError: If no SiLA servers/connections are configured
+        :raises ValueError: If server_name is required but not provided, or server/connection doesn't exist
         """
         manager = getattr(self, "_sila_manager", None)
         if not manager:
@@ -105,9 +134,9 @@ class SilaDeviceMixin:
 
     def get_all_sila_endpoints(self) -> dict[str, dict[str, Any]]:
         """
-        Get connection endpoints for all SiLA servers on this device.
+        Get connection endpoints for all SiLA servers and connections on this device.
 
-        :return: Dictionary mapping server names to their endpoint info
+        :return: Dictionary mapping server/connection names to their endpoint info
         """
         manager = getattr(self, "_sila_manager", None)
         if not manager:
@@ -116,9 +145,9 @@ class SilaDeviceMixin:
 
     def list_sila_servers(self) -> list[str]:
         """
-        List names of all SiLA servers registered on this device.
+        List names of all SiLA servers and connections registered on this device.
 
-        :return: List of server names
+        :return: List of server and connection names
         """
         manager = getattr(self, "_sila_manager", None)
         if not manager:
@@ -129,7 +158,7 @@ class SilaDeviceMixin:
         """
         Get SiLA status for device reporting.
 
-        :return: Dictionary with 'sila_servers' key containing server status info
+        :return: Dictionary with 'sila_servers' key containing status of hosted servers and external connections
         """
         manager = getattr(self, "_sila_manager", None)
         if not manager:

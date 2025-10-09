@@ -95,23 +95,78 @@ class SilaServerInstance:
             return s.getsockname()[1]
 
 
+class SilaServerConnection:
+    """Represents a connection to an external SiLA server."""
+
+    def __init__(
+        self,
+        name: str,
+        address: str,
+        port: int,
+        insecure: bool = True,
+        root_certs: str | None = None,
+        private_key: str | None = None,
+        cert_chain: str | None = None,
+    ):
+        """
+        Initialize external SiLA server connection.
+
+        :param name: Unique identifier for this connection
+        :param address: Server address to connect to
+        :param port: Server port to connect to
+        :param insecure: Use insecure connections
+        :param root_certs: Path to root certificates for TLS
+        :param private_key: Path to private key for TLS
+        :param cert_chain: Path to certificate chain for TLS
+        """
+        self.name = name
+        self._address = address
+        self._port = port
+        self._insecure = insecure
+        self._root_certs = root_certs
+        self._private_key = private_key
+        self._cert_chain = cert_chain
+
+    def get_endpoint(self) -> dict[str, Any]:
+        """Get connection endpoint information."""
+        endpoint: dict[str, Any] = {
+            "address": self._address,
+            "port": self._port,
+            "insecure": self._insecure,
+        }
+        if self._root_certs:
+            endpoint["root_certs"] = self._root_certs
+        if self._private_key:
+            endpoint["private_key"] = self._private_key
+        if self._cert_chain:
+            endpoint["cert_chain"] = self._cert_chain
+        return endpoint
+
+    def get_status(self) -> dict[str, Any]:
+        """Get current connection status."""
+        return {
+            "name": self.name,
+            "address": self._address,
+            "port": self._port,
+            "type": "external",
+        }
+
+
 class SilaServerManager:
-    """Manages multiple SiLA server instances within an EOS device."""
+    """Manages multiple SiLA server instances and external connections within an EOS device."""
 
     def __init__(self):
         self._servers: dict[str, SilaServerInstance] = {}
-        self._default_bind_ip = "0.0.0.0"  # noqa: S104
-        self._default_advertise_ip: str | None = None
-        self._default_insecure = True
+        self._connections: dict[str, SilaServerConnection] = {}
 
     def add_server(
         self,
         name: str,
         server_class: type,
         port: int = 0,
-        bind_ip: str | None = None,
+        bind_ip: str = "0.0.0.0",  # noqa: S104
         advertise_ip: str | None = None,
-        insecure: bool | None = None,
+        insecure: bool = True,
     ) -> None:
         """
         Register a SiLA server.
@@ -119,9 +174,9 @@ class SilaServerManager:
         :param name: Unique identifier for this server
         :param server_class: The generated SiLA Server class
         :param port: Port to bind (0 = auto-assign a free port)
-        :param bind_ip: IP to bind on (None = use default from init_parameters)
+        :param bind_ip: IP to bind on (default: "0.0.0.0" for all interfaces)
         :param advertise_ip: IP clients should connect to (None = auto-detect)
-        :param insecure: Use insecure connections (None = use default from init_parameters)
+        :param insecure: Use insecure connections (default: True for development)
         """
         if name in self._servers:
             raise ValueError(f"SiLA server '{name}' already registered")
@@ -129,36 +184,60 @@ class SilaServerManager:
         instance = SilaServerInstance(
             name=name,
             server_class=server_class,
-            bind_ip=bind_ip or self._default_bind_ip,
+            bind_ip=bind_ip,
             port=port,
-            insecure=insecure if insecure is not None else self._default_insecure,
-            advertise_ip=advertise_ip or self._default_advertise_ip,
+            insecure=insecure,
+            advertise_ip=advertise_ip,
         )
         self._servers[name] = instance
 
-    async def start_all(self, init_parameters: dict[str, Any] | None = None) -> None:
+    def add_connection(
+        self,
+        name: str,
+        address: str,
+        port: int,
+        insecure: bool = True,
+        root_certs: str | None = None,
+        private_key: str | None = None,
+        cert_chain: str | None = None,
+    ) -> None:
         """
-        Start all registered SiLA servers concurrently.
+        Register an external SiLA server connection.
 
-        :param init_parameters: Device init params (can contain sila_bind_ip, sila_insecure, etc.)
+        :param name: Unique identifier for this connection
+        :param address: Server address to connect to
+        :param port: Server port to connect to
+        :param insecure: Use insecure connections
+        :param root_certs: Path to root certificates for TLS
+        :param private_key: Path to private key for TLS
+        :param cert_chain: Path to certificate chain for TLS
         """
-        if init_parameters:
-            self._apply_init_parameters(init_parameters)
+        if name in self._connections or name in self._servers:
+            raise ValueError(f"SiLA server or connection '{name}' already registered")
 
+        connection = SilaServerConnection(
+            name=name,
+            address=address,
+            port=port,
+            insecure=insecure,
+            root_certs=root_certs,
+            private_key=private_key,
+            cert_chain=cert_chain,
+        )
+        self._connections[name] = connection
+
+    async def start_all(self) -> None:
+        """Start all registered SiLA servers concurrently."""
         await asyncio.gather(*[server.start() for server in self._servers.values()])
 
-    async def start_server(self, name: str, init_parameters: dict[str, Any] | None = None) -> None:
+    async def start_server(self, name: str) -> None:
         """
         Start a specific SiLA server by name.
 
         :param name: Name of the server to start
-        :param init_parameters: Device init params (can contain sila_bind_ip, sila_insecure, etc.)
         """
         if name not in self._servers:
             raise ValueError(f"SiLA server '{name}' not registered")
-
-        if init_parameters:
-            self._apply_init_parameters(init_parameters)
 
         await self._servers[name].start()
 
@@ -179,33 +258,34 @@ class SilaServerManager:
 
     def get_endpoint(self, name: str) -> dict[str, Any]:
         """
-        Get connection endpoint for a specific server.
+        Get connection endpoint for a specific server or connection.
 
-        :param name: Name of the server
+        :param name: Name of the server or connection
         :return: Dictionary with 'address', 'port', 'insecure' keys
         """
-        if name not in self._servers:
-            raise ValueError(f"SiLA server '{name}' not registered")
-
-        return self._servers[name].get_endpoint()
+        if name in self._servers:
+            return self._servers[name].get_endpoint()
+        if name in self._connections:
+            return self._connections[name].get_endpoint()
+        raise ValueError(f"SiLA server or connection '{name}' not registered")
 
     def get_all_endpoints(self) -> dict[str, dict[str, Any]]:
-        """Get connection endpoints for all registered servers."""
-        return {name: server.get_endpoint() for name, server in self._servers.items()}
+        """Get connection endpoints for all registered servers and connections."""
+        endpoints = {}
+        endpoints.update({name: server.get_endpoint() for name, server in self._servers.items()})
+        endpoints.update({name: conn.get_endpoint() for name, conn in self._connections.items()})
+        return endpoints
 
     def get_status(self) -> dict[str, Any]:
-        """Get status of all servers."""
+        """Get status of all servers and connections."""
+        hosted = {name: server.get_status() for name, server in self._servers.items()}
+        external = {name: conn.get_status() for name, conn in self._connections.items()}
         return {
-            "servers": {name: server.get_status() for name, server in self._servers.items()},
-            "count": len(self._servers),
+            "hosted_servers": hosted,
+            "external_connections": external,
+            "count": len(self._servers) + len(self._connections),
         }
 
     def list_servers(self) -> list[str]:
-        """Get names of all registered servers."""
-        return list(self._servers.keys())
-
-    def _apply_init_parameters(self, init_parameters: dict[str, Any]) -> None:
-        self._default_bind_ip = str(init_parameters.get("sila_bind_ip", self._default_bind_ip))
-        self._default_insecure = bool(init_parameters.get("sila_insecure", self._default_insecure))
-        if "sila_advertise_ip" in init_parameters:
-            self._default_advertise_ip = init_parameters["sila_advertise_ip"]
+        """Get names of all registered servers and connections."""
+        return list(self._servers.keys()) + list(self._connections.keys())
