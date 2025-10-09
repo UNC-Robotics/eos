@@ -597,15 +597,17 @@ The function takes three arguments:</p>
 Devices are accessed by name (e.g., <code class="docutils literal notranslate"><span class="pre">devices[&quot;mixer&quot;]</span></code>).
 The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
 the device implementation.</p></li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">parameters</span></code>: A dictionary of the input parameters.</dt><dd><p>Keys are the parameter names and values are the parameter values.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">resources</span></code>: A dictionary of the input resources.</dt><dd><p>Keys are the resource names and values are <code class="docutils literal notranslate"><span class="pre">Resource</span></code> objects.</p>
+</dd>
+</dl>
+</li>
 </ol>
-<blockquote>
-<div><ol class="arabic simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code>: A dictionary of the input parameters.
-Keys are the parameter names and values are the parameter values.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">resources</span></code>: A dictionary of the input resources.
-Keys are the resource names and values are <code class="docutils literal notranslate"><span class="pre">Resource</span></code> objects.</p></li>
-</ol>
-</div></blockquote>
 </section>
 </section>
 </section>
