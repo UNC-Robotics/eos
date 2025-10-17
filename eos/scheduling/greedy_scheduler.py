@@ -36,9 +36,9 @@ class GreedyScheduler(BaseScheduler):
     ):
         super().__init__(configuration_manager, experiment_manager, task_manager, device_manager, allocation_manager)
         # Track device assignments for device reference resolution
-        self._scheduled_device_assignments: dict[str, dict[str, dict[str, TaskDeviceConfig]]] = (
-            {}
-        )  # exp_name -> task_name -> device_name -> TaskDeviceConfig
+        self._scheduled_device_assignments: dict[
+            str, dict[str, dict[str, TaskDeviceConfig]]
+        ] = {}  # exp_name -> task_name -> device_name -> TaskDeviceConfig
         log.debug("Greedy scheduler initialized.")
 
     async def request_tasks(self, db: AsyncDbSession, experiment_name: str) -> list[ScheduledTask]:
@@ -124,7 +124,6 @@ class GreedyScheduler(BaseScheduler):
                     and ref_task_name in self._scheduled_device_assignments[experiment_name]
                     and ref_device_name in self._scheduled_device_assignments[experiment_name][ref_task_name]
                 ):
-
                     resolved_device = self._scheduled_device_assignments[experiment_name][ref_task_name][
                         ref_device_name
                     ]

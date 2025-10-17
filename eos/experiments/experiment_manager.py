@@ -85,7 +85,7 @@ class ExperimentManager:
                 and_(TaskModel.experiment_name == experiment_name, TaskModel.status == TaskStatus.RUNNING)
             )
         )
-        return {task_name for task_name, in result.all()}
+        return {task_name for (task_name,) in result.all()}
 
     async def get_completed_tasks(self, db: AsyncDbSession, experiment_name: str) -> set[str]:
         """Get the set of completed task names for an experiment."""
@@ -94,7 +94,7 @@ class ExperimentManager:
                 and_(TaskModel.experiment_name == experiment_name, TaskModel.status == TaskStatus.COMPLETED)
             )
         )
-        return {task_name for task_name, in result.all()}
+        return {task_name for (task_name,) in result.all()}
 
     async def get_all_completed_tasks(self, db: AsyncDbSession, experiment_names: list[str]) -> dict[str, set[str]]:
         """
