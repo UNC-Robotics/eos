@@ -74,6 +74,7 @@ class SilaServerInstance:
             raise RuntimeError(f"SiLA server '{self.name}' not started")
 
         return {
+            "connection_type": "manual",
             "address": self._advertise_ip,
             "port": self._port,
             "insecure": self._insecure,
@@ -101,8 +102,14 @@ class SilaServerConnection:
     def __init__(
         self,
         name: str,
-        address: str,
-        port: int,
+        # Manual connection parameters
+        address: str | None = None,
+        port: int | None = None,
+        # Discovery parameters
+        server_name: str | None = None,
+        server_uuid: str | None = None,
+        timeout: float = 0,
+        # Common parameters
         insecure: bool = True,
         root_certs: str | None = None,
         private_key: str | None = None,
@@ -111,17 +118,54 @@ class SilaServerConnection:
         """
         Initialize external SiLA server connection.
 
-        :param name: Unique identifier for this connection
-        :param address: Server address to connect to
-        :param port: Server port to connect to
-        :param insecure: Use insecure connections
-        :param root_certs: Path to root certificates for TLS
-        :param private_key: Path to private key for TLS
-        :param cert_chain: Path to certificate chain for TLS
+        Use either manual connection (address + port) OR discovery (server_name and/or server_uuid).
+
+        Manual connection:
+            :param address: Server address to connect to
+            :param port: Server port to connect to
+
+        Discovery:
+            :param server_name: Server name for discovery
+            :param server_uuid: Server UUID for discovery (optional)
+            :param timeout: Discovery timeout in seconds (default: 0 = no timeout)
+
+        Common:
+            :param name: Unique identifier for this connection
+            :param insecure: Use insecure connections
+            :param root_certs: Path to root certificates for TLS
+            :param private_key: Path to private key for TLS
+            :param cert_chain: Path to certificate chain for TLS
+
+        :raises ValueError: If neither manual nor discovery parameters provided, or if both provided
         """
         self.name = name
+
+        # Validate connection type
+        has_manual = address is not None and port is not None
+        has_discovery = server_name is not None or server_uuid is not None
+
+        if not has_manual and not has_discovery:
+            raise ValueError(
+                "Must provide either manual connection (address + port) or discovery (server_name and/or server_uuid)"
+            )
+        if has_manual and has_discovery:
+            raise ValueError(
+                "Cannot specify both manual connection (address + port) and discovery (server_name/server_uuid)"
+            )
+
+        # Store connection type and parameters
+        self._connection_type = "manual" if has_manual else "discovery"
+
+        # Manual connection fields
         self._address = address
         self._port = port
+
+        # Discovery fields
+        self._server_name = server_name
+        self._server_uuid = server_uuid
+        self._timeout = timeout
+
+        # Common fields
         self._insecure = insecure
         self._root_certs = root_certs
         self._private_key = private_key
@@ -130,26 +174,47 @@ class SilaServerConnection:
     def get_endpoint(self) -> dict[str, Any]:
         """Get connection endpoint information."""
         endpoint: dict[str, Any] = {
-            "address": self._address,
-            "port": self._port,
+            "connection_type": self._connection_type,
             "insecure": self._insecure,
         }
+
+        if self._connection_type == "manual":
+            endpoint["address"] = self._address
+            endpoint["port"] = self._port
+        else:  # discovery
+            if self._server_name:
+                endpoint["server_name"] = self._server_name
+            if self._server_uuid:
+                endpoint["server_uuid"] = self._server_uuid
+            endpoint["timeout"] = self._timeout
+
         if self._root_certs:
             endpoint["root_certs"] = self._root_certs
         if self._private_key:
             endpoint["private_key"] = self._private_key
         if self._cert_chain:
             endpoint["cert_chain"] = self._cert_chain
+
         return endpoint
 
     def get_status(self) -> dict[str, Any]:
         """Get current connection status."""
-        return {
+        status: dict[str, Any] = {
             "name": self.name,
-            "address": self._address,
-            "port": self._port,
             "type": "external",
+            "connection_type": self._connection_type,
         }
+
+        if self._connection_type == "manual":
+            status["address"] = self._address
+            status["port"] = self._port
+        else:  # discovery
+            if self._server_name:
+                status["server_name"] = self._server_name
+            if self._server_uuid:
+                status["server_uuid"] = self._server_uuid
+
+        return status
 
 
 class SilaServerManager:
@@ -194,8 +259,14 @@ class SilaServerManager:
     def add_connection(
         self,
         name: str,
-        address: str,
-        port: int,
+        # Manual connection parameters
+        address: str | None = None,
+        port: int | None = None,
+        # Discovery parameters
+        server_name: str | None = None,
+        server_uuid: str | None = None,
+        timeout: float = 0,
+        # Common parameters
         insecure: bool = True,
         root_certs: str | None = None,
         private_key: str | None = None,
@@ -204,13 +275,23 @@ class SilaServerManager:
         """
         Register an external SiLA server connection.
 
-        :param name: Unique identifier for this connection
-        :param address: Server address to connect to
-        :param port: Server port to connect to
-        :param insecure: Use insecure connections
-        :param root_certs: Path to root certificates for TLS
-        :param private_key: Path to private key for TLS
-        :param cert_chain: Path to certificate chain for TLS
+        Use either manual connection (address + port) OR discovery (server_name and/or server_uuid).
+
+        Manual connection:
+            :param address: Server address to connect to
+            :param port: Server port to connect to
+
+        Discovery:
+            :param server_name: Server name for discovery
+            :param server_uuid: Server UUID for discovery (optional)
+            :param timeout: Discovery timeout in seconds (default: 0 = no timeout)
+
+        Common:
+            :param name: Unique identifier for this connection
+            :param insecure: Use insecure connections
+            :param root_certs: Path to root certificates for TLS
+            :param private_key: Path to private key for TLS
+            :param cert_chain: Path to certificate chain for TLS
         """
         if name in self._connections or name in self._servers:
             raise ValueError(f"SiLA server or connection '{name}' already registered")
@@ -219,6 +300,9 @@ class SilaServerManager:
             name=name,
             address=address,
             port=port,
+            server_name=server_name,
+            server_uuid=server_uuid,
+            timeout=timeout,
             insecure=insecure,
             root_certs=root_certs,
             private_key=private_key,

@@ -46,8 +46,14 @@ class SilaDeviceMixin:
     def sila_add_server_connection(
         self,
         name: str,
-        address: str,
-        port: int,
+        # Manual connection parameters
+        address: str | None = None,
+        port: int | None = None,
+        # Discovery parameters
+        server_name: str | None = None,
+        server_uuid: str | None = None,
+        timeout: float = 0,
+        # Common parameters
         insecure: bool = True,
         root_certs: str | None = None,
         private_key: str | None = None,
@@ -56,13 +62,23 @@ class SilaDeviceMixin:
         """
         Register an external SiLA server connection.
 
-        :param name: Unique identifier for this connection
-        :param address: Server address to connect to
-        :param port: Server port to connect to
-        :param insecure: Use insecure connections
-        :param root_certs: Path to root certificates for TLS
-        :param private_key: Path to private key for TLS
-        :param cert_chain: Path to certificate chain for TLS
+        Use either manual connection (address + port) OR discovery (server_name and/or server_uuid).
+
+        Manual connection:
+            :param address: Server address to connect to
+            :param port: Server port to connect to
+
+        Discovery:
+            :param server_name: Server name for discovery
+            :param server_uuid: Server UUID for discovery (optional)
+            :param timeout: Discovery timeout in seconds (default: 0 = no timeout)
+
+        Common:
+            :param name: Unique identifier for this connection
+            :param insecure: Use insecure connections
+            :param root_certs: Path to root certificates for TLS
+            :param private_key: Path to private key for TLS
+            :param cert_chain: Path to certificate chain for TLS
         """
         if not hasattr(self, "_sila_manager") or self._sila_manager is None:
             self._sila_manager = SilaServerManager()
@@ -71,6 +87,9 @@ class SilaDeviceMixin:
             name=name,
             address=address,
             port=port,
+            server_name=server_name,
+            server_uuid=server_uuid,
+            timeout=timeout,
             insecure=insecure,
             root_certs=root_certs,
             private_key=private_key,
