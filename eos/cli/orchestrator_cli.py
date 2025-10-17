@@ -1,8 +1,8 @@
 import asyncio
 import contextlib
-import functools
 import os
 import signal
+import sys
 from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from typing import Annotated, TYPE_CHECKING
@@ -51,14 +51,36 @@ async def handle_shutdown(
             shutdown_initiated = True
             raise GracefulExit()
 
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, functools.partial(signal_handler))
+    is_windows = sys.platform == "win32"
+    signals_to_handle = [signal.SIGINT]
+    if not is_windows:
+        signals_to_handle.append(signal.SIGTERM)
+
+    original_handlers = {}
+
+    if is_windows:
+
+        def windows_signal_handler(sig, frame) -> None:
+            loop.call_soon_threadsafe(signal_handler)
+
+        for sig in signals_to_handle:
+            original_handlers[sig] = signal.signal(sig, windows_signal_handler)
+    else:
+        for sig in signals_to_handle:
+            loop.add_signal_handler(sig, signal_handler)
 
     try:
         yield
     except GracefulExit:
         pass
     finally:
+        if is_windows:
+            for sig, handler in original_handlers.items():
+                signal.signal(sig, handler)
+        else:
+            for sig in signals_to_handle:
+                loop.remove_signal_handler(sig)
+
         log.info("Shutting down the web API...")
         web_api_server.should_exit = True
         await web_api_server.shutdown()
