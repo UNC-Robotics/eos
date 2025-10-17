@@ -1,5 +1,3 @@
-import traceback
-
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.exceptions import EosConfigurationError
 from eos.resources.resource_manager import ResourceManager
@@ -37,27 +35,19 @@ class LoadingService:
     async def load_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
         """Load one or more labs into the orchestrator."""
         async with self._loading_lock:
-            try:
-                self._configuration_manager.load_labs(labs)
-                await self._device_manager.update_devices(db, loaded_labs=labs)
-                await self._resource_manager.update_resources(db, loaded_labs=labs)
-            except Exception:
-                log.error(f"Error loading labs {labs}: {traceback.format_exc()}")
-                raise
+            self._configuration_manager.load_labs(labs)
+            await self._device_manager.update_devices(db, loaded_labs=labs)
+            await self._resource_manager.update_resources(db, loaded_labs=labs)
 
     async def unload_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
         """Unload one or more labs from the orchestrator."""
-        try:
-            for lab_name in labs:
-                await self._check_lab_usage(db, lab_name)
+        for lab_name in labs:
+            await self._check_lab_usage(db, lab_name)
 
-            async with self._loading_lock:
-                self._configuration_manager.unload_labs(labs)
-                await self._device_manager.update_devices(db, unloaded_labs=labs)
-                await self._resource_manager.update_resources(db, unloaded_labs=labs)
-        except Exception:
-            log.error(f"Error unloading labs {labs}: {traceback.format_exc()}")
-            raise
+        async with self._loading_lock:
+            self._configuration_manager.unload_labs(labs)
+            await self._device_manager.update_devices(db, unloaded_labs=labs)
+            await self._resource_manager.update_resources(db, unloaded_labs=labs)
 
     async def reload_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """Reload one or more labs in the orchestrator with updated device plugin code."""
@@ -98,20 +88,16 @@ class LoadingService:
 
     async def reload_devices(self, db: AsyncDbSession, lab_name: str, device_names: list[str]) -> None:
         """Reload specific devices within a lab."""
-        try:
-            async with self._loading_lock:
-                # Verify lab is loaded
-                if lab_name not in self._configuration_manager.labs:
-                    log.error(f"Cannot reload devices in lab '{lab_name}' as the lab is not loaded.")
-                    raise EosConfigurationError(f"Lab '{lab_name}' is not loaded")
+        async with self._loading_lock:
+            # Verify lab is loaded
+            if lab_name not in self._configuration_manager.labs:
+                log.error(f"Cannot reload devices in lab '{lab_name}' as the lab is not loaded.")
+                raise EosConfigurationError(f"Lab '{lab_name}' is not loaded")
 
-                # Check if any experiments or tasks are using the devices
-                await self._check_device_usage(db, lab_name, device_names)
+            # Check if any experiments or tasks are using the devices
+            await self._check_device_usage(db, lab_name, device_names)
 
-                await self._device_manager.reload_devices(db, lab_name, device_names)
-        except Exception:
-            log.error(f"Error reloading devices in lab '{lab_name}': {traceback.format_exc()}")
-            raise
+            await self._device_manager.reload_devices(db, lab_name, device_names)
 
     def _get_experiments_for_labs(self, lab_types: set[str]) -> set[str]:
         """Get experiments that depend on the specified labs."""
@@ -130,35 +116,23 @@ class LoadingService:
         if not experiment_types:
             return
 
-        try:
-            self._configuration_manager.load_experiments(experiment_types)
-        except Exception:
-            log.error(f"Error loading experiments: {traceback.format_exc()}")
-            raise
+        self._configuration_manager.load_experiments(experiment_types)
 
     async def unload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Unload one or more experiments from the orchestrator."""
-        try:
-            for experiment_type in experiment_types:
-                await self._check_experiment_usage(db, experiment_type)
+        for experiment_type in experiment_types:
+            await self._check_experiment_usage(db, experiment_type)
 
-            self._configuration_manager.unload_experiments(experiment_types)
-        except Exception:
-            log.error(f"Error unloading experiments: {traceback.format_exc()}")
-            raise
+        self._configuration_manager.unload_experiments(experiment_types)
 
     async def reload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Reload one or more experiments in the orchestrator."""
         async with self._loading_lock:
-            try:
-                for experiment_type in experiment_types:
-                    await self._check_experiment_usage(db, experiment_type)
+            for experiment_type in experiment_types:
+                await self._check_experiment_usage(db, experiment_type)
 
-                self._configuration_manager.unload_experiments(experiment_types)
-                self._configuration_manager.load_experiments(experiment_types)
-            except Exception:
-                log.error(f"Error reloading experiments: {traceback.format_exc()}")
-                raise
+            self._configuration_manager.unload_experiments(experiment_types)
+            self._configuration_manager.load_experiments(experiment_types)
 
     async def list_experiments(self) -> dict[str, bool]:
         """Return a dictionary of experiment types and a boolean indicating whether they are loaded."""
@@ -167,16 +141,12 @@ class LoadingService:
     async def reload_task_plugins(self, db: AsyncDbSession, task_types: set[str]) -> None:
         """Reload one or more task plugins in the orchestrator."""
         async with self._loading_lock:
-            try:
-                for task_type in task_types:
-                    await self._check_task_usage(db, task_type)
+            for task_type in task_types:
+                await self._check_task_usage(db, task_type)
 
-                for task_type in task_types:
-                    self._configuration_manager.tasks.reload_plugin(task_type)
-                    log.info(f"Reloaded task '{task_type}'")
-            except Exception:
-                log.error(f"Error reloading tasks: {traceback.format_exc()}")
-                raise
+            for task_type in task_types:
+                self._configuration_manager.tasks.reload_plugin(task_type)
+                log.info(f"Reloaded task '{task_type}'")
 
     async def _check_tasks_using_devices(
         self, db: AsyncDbSession, lab_name: str, device_names: list[str] | None = None

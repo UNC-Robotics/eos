@@ -350,8 +350,6 @@ class DeviceManager:
             await self._device_actor_handles[device_actor_name].initialize.remote(initialization_parameters)
             log.info(f"Created device actor '{device_actor_name}'.")
         except Exception as e:
-            log.error(f"Failed to create device actor '{device_actor_name}': {e}")
-
             self._cleanup_failed_actor(device_actor_name)
 
             batch_error(
