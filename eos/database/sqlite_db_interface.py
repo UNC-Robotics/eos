@@ -4,6 +4,8 @@ from pathlib import Path
 import sqlite3
 from sqlite3 import Connection
 
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 
@@ -68,6 +70,18 @@ class SqliteDbInterface(AbstractSqlDbInterface):
         if self._is_in_memory:
             return "sqlite+aiosqlite:///:memory:"
         return f"sqlite+aiosqlite:///{self._get_db_path()}"
+
+    def _create_async_engine(self) -> AsyncEngine:
+        """Create asynchronous database engine."""
+        return create_async_engine(
+            self.build_async_db_url(),
+            echo=self._db_config.echo,
+            pool_pre_ping=True,
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 30,
+            },
+        )
 
     async def _create_database(self) -> None:
         if not self._is_in_memory:

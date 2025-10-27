@@ -135,6 +135,7 @@ cython_debug/
 .idea/
 .vscode/
 
+.next/
 node_modules/
 
 # EOS specific

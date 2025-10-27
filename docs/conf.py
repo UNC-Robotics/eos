@@ -48,6 +48,18 @@ html_theme_options = {
     "show_toc_level": 1,
     "pygments_light_style": "default",
     "pygments_dark_style": "github-dark",
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/UNC-Robotics/eos",
+            "icon": "fa-brands fa-github",
+        },
+        {
+            "name": "LLM-friendly docs",
+            "url": "llms.txt",
+            "icon": "fa-solid fa-robot",
+        },
+    ],
 }
 
 html_context = {"default_mode": "auto"}

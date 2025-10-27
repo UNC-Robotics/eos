@@ -1,6 +1,10 @@
 import asyncio
+import os
 
 import pytest
+
+# Suppress Ray GPU override warning
+os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
 
 
 @pytest.fixture(scope="session")

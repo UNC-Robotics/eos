@@ -267,7 +267,7 @@ The function takes three arguments:
    Devices are accessed by name (e.g., ``devices["mixer"]``).
    The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
    the device implementation.
- #. ``parameters``: A dictionary of the input parameters.
+#. ``parameters``: A dictionary of the input parameters.
     Keys are the parameter names and values are the parameter values.
- #. ``resources``: A dictionary of the input resources.
+#. ``resources``: A dictionary of the input resources.
     Keys are the resource names and values are ``Resource`` objects.

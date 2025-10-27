@@ -70,8 +70,7 @@ class PluginRegistry(Generic[T, S]):
                 f"Failed to load plugin implementation for '{type_name}': {lazy_init_error}"
             ) from lazy_init_error
         raise self._config.exception_class(
-            f"Plugin implementation for '{type_name}' not found. "
-            f"Ensure the plugin exists and is properly registered."
+            f"Plugin implementation for '{type_name}' not found. Ensure the plugin exists and is properly registered."
         )
 
     def reload_plugin(self, type_name: str) -> None:

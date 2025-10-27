@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Any
-import traceback
 
 from eos.resources.entities.resource import Resource
 from eos.utils.ray_utils import RayActorWrapper
@@ -40,9 +39,7 @@ class BaseTask(ABC):
 
             return output_parameters, output_resources, output_files
         except Exception as e:
-            raise EosTaskExecutionError(
-                f"Error executing task {self._task_name}: {e!s}\n{traceback.format_exc()}"
-            ) from e
+            raise EosTaskExecutionError(f"Error executing task {self._task_name}: {e!s}") from e
 
     @abstractmethod
     async def _execute(

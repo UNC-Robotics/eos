@@ -123,9 +123,10 @@ class CampaignExecutor:
             self._campaign_definition.optimizer_ip,
         )
 
-        self._optimizer_input_names, self._optimizer_output_names = (
-            await self._campaign_optimizer_manager.get_input_and_output_names(self._campaign_name)
-        )
+        (
+            self._optimizer_input_names,
+            self._optimizer_output_names,
+        ) = await self._campaign_optimizer_manager.get_input_and_output_names(self._campaign_name)
 
     async def _ensure_optimizer_initialized(self, db: AsyncDbSession) -> None:
         """Ensure the optimizer is initialized and state is restored if needed."""

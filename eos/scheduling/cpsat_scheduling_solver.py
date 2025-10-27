@@ -97,12 +97,12 @@ class CpSatSchedulingSolver:
         self._dynamic_resource_choice_vars: dict[
             tuple[str, str], list[tuple[str, list[tuple[tuple[str, str], cp_model.IntVar]]]]
         ] = {}
-        self._device_references: dict[tuple[str, str], list[tuple[str, str, str]]] = (
-            {}
-        )  # (exp, task) -> [(device_name, ref_task, ref_device)]
-        self._resource_references: dict[tuple[str, str], list[tuple[str, str, str]]] = (
-            {}
-        )  # (exp, task) -> [(resource_name, ref_task, ref_resource)]
+        self._device_references: dict[
+            tuple[str, str], list[tuple[str, str, str]]
+        ] = {}  # (exp, task) -> [(device_name, ref_task, ref_device)]
+        self._resource_references: dict[
+            tuple[str, str], list[tuple[str, str, str]]
+        ] = {}  # (exp, task) -> [(resource_name, ref_task, ref_resource)]
         self._resource_intervals: dict[str, list[cp_model.IntervalVar]] = {}
         self._horizon: int = 0
         self._makespan: cp_model.IntVar | None = None
