@@ -173,7 +173,14 @@ class SilaClientContext:
 
     @staticmethod
     @asynccontextmanager
-    async def connect(device, client_class: type[T], server_name: str | None = None, lock_timeout: int = 60) -> T:
+    async def connect(
+        device,
+        client_class: type[T],
+        server_name: str | None = None,
+        lock_timeout: int = 60,
+        lock_retry_delay: float = 0.5,
+        lock_max_retries: int = 120,
+    ) -> T:
         """
         Connect to SiLA server and yield client.
 
@@ -187,6 +194,8 @@ class SilaClientContext:
         :param server_name: Name of specific server (optional for single-server devices)
         :param lock_timeout: Lock timeout in seconds for LockController (default: 60),
             only applies if LockController is used
+        :param lock_retry_delay: Delay between lock retry attempts in seconds (default: 0.5)
+        :param lock_max_retries: Maximum lock retry attempts (default: 120, ~60s total)
         :return: Connected SiLA client instance
         """
         if hasattr(device, "_sila_manager") or server_name:
@@ -201,7 +210,7 @@ class SilaClientContext:
 
         # Auto-lock if lock_timeout is specified
         if lock_timeout is not None and hasattr(client, "lock"):
-            client.lock(lock_timeout)
+            client.lock(lock_timeout, lock_retry_delay, lock_max_retries)
 
         try:
             yield client

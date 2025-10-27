@@ -66,6 +66,7 @@ Both schedulers support **specific** and **dynamic** devices and resources for t
 - *Dynamic device* - tasks request "any device of type X," optionally with constraints (allowed labs/devices).
 
 .. code-block:: yaml
+
     # Specific device
     devices:
       color_analyzer:
