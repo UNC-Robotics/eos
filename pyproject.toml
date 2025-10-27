@@ -100,6 +100,7 @@ eos_format = "scripts.dev.format:main"
 eos_docs_build = "scripts.dev.docs_build:main"
 eos_docs_build_gh = "scripts.dev.docs_build_gh:main"
 eos_docs_serve = "scripts.dev.docs_serve:main"
+eos_generate_llms_txt = "scripts.dev.generate_llms_txt:main"
 
 [tool.pytest.ini_options]
 testpaths = [
