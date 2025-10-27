@@ -30,6 +30,7 @@ User Guide
 .. toctree::
     :caption: Advanced
 
+    sila2_integration
     jinja2_templating
 
 .. toctree::

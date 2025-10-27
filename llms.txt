@@ -1,0 +1,2985 @@
+# EOS - Experiment Orchestration System Documentation
+
+# File: index.rst
+================================================================================
+
+The Experiment Orchestration System (EOS)
+=========================================
+
+EOS is a comprehensive software framework and runtime for laboratory automation, designed
+to serve as the foundation for one or more automated or self-driving labs (SDLs).
+
+EOS provides:
+
+* A common framework to implement laboratory automation
+* A plugin system for defining labs, devices, experiments, tasks, and optimizers
+* A package system for sharing and reusing code and resources across the community
+* Extensive static and dynamic validation of experiments, task parameters, and more
+* A runtime for executing tasks, experiments, and experiment campaigns
+* A central authoritative orchestrator that can communicate with and control multiple devices
+* Distributed task execution and optimization using the Ray framework
+* Built-in Bayesian experiment parameter optimization
+* Optimized task scheduling
+* Device and sample container allocation system to prevent conflicts
+* Result aggregation such as automatic output file storage
+
+.. figure:: _static/img/eos-features.png
+   :alt: Major features of EOS
+   :align: center
+
+.. toctree::
+   :caption: User Guide
+   :maxdepth: 2
+
+   user-guide/index
+
+# File: user-guide/index.rst
+================================================================================
+
+User Guide
+==========
+
+.. toctree::
+   :caption: Getting Started
+
+   installation
+   infrastructure_setup
+   multi_computer_setup
+
+.. toctree::
+    :caption: Concepts
+
+    packages
+    devices
+    resources
+    laboratories
+    tasks
+    references
+    experiments
+    campaigns
+    optimizers
+    scheduling
+
+.. toctree::
+    :caption: Interfaces
+
+    rest_api
+
+.. toctree::
+    :caption: Advanced
+
+    sila2_integration
+    jinja2_templating
+
+.. toctree::
+    :caption: Examples
+
+    color_mixing
+
+# File: user-guide/campaigns.rst
+================================================================================
+
+Campaigns
+=========
+A campaign in EOS is an experiment that is executed multiple times in sequence.
+The parameters of the experiments usually differ.
+A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
+Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.
+
+The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
+EOS has built-in support for running campaigns of an experiment.
+In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.
+
+.. figure:: ../_static/img/dmta-loop.png
+   :alt: The DMTA Loop
+   :align: center
+
+Optimization Setup (Analyze and Design Phases)
+----------------------------------------------
+Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of experiments over time.
+This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
+It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.
+
+Let's look at the color mixing experiment to see how a campaign with optimization can be set up.
+There are ten dynamic parameters, all defined on the "mix_colors" task:
+
+.. code-block:: yaml
+
+    cyan_volume: eos_dynamic
+    cyan_strength: eos_dynamic
+    magenta_volume: eos_dynamic
+    magenta_strength: eos_dynamic
+    yellow_volume: eos_dynamic
+    yellow_strength: eos_dynamic
+    black_volume: eos_dynamic
+    black_strength: eos_dynamic
+    mixing_time: eos_dynamic
+    mixing_speed: eos_dynamic
+
+Looking at the task specification of the ``score_color`` task, we also see that there is an output parameter called "loss".
+
+:bdg-primary:`task.yml`
+
+.. code-block:: yaml
+
+    type: Score Color
+    desc: Score a color based on how close it is to an expected color
+
+    input_parameters:
+      red:
+        type: int
+        unit: n/a
+        desc: The red component of the color
+      green:
+        type: int
+        unit: n/a
+        desc: The green component of the color
+      blue:
+        type: int
+        unit: n/a
+        desc: The blue component of the color
+
+    output_parameters:
+      loss:
+        type: float
+        unit: n/a
+        desc: Total loss of the color compared to the expected color
+
+Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
+mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
+
+This setup is also summarized in the ``optimizer.py`` file adjacent to ``experiment.yml``.
+
+:bdg-primary:`optimizer.py`
+
+.. code-block:: python
+
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
+    from bofire.data_models.enum import SamplingMethodEnum
+    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.objectives.identity import MinimizeObjective
+
+    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
+    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+
+
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
+        constructor_args = {
+            "inputs": [
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
+            ],
+            "outputs": [
+                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+            ],
+            "constraints": [],
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 25,
+            "initial_sampling_method": SamplingMethodEnum.SOBOL,
+        }
+
+        return constructor_args, BayesianSequentialOptimizer
+
+The ``eos_create_campaign_optimizer`` function is used to create the optimizer for the campaign.
+We can see that the inputs are composed of all the dynamic parameters in the experiment and the output is the "loss"
+output parameter from the "score_color" task.
+The objective of the optimizer (and the campaign) is to minimize this loss.
+
+More about optimizers can be found in the Optimizers section.
+
+Automation Setup (Make and Test Phases)
+---------------------------------------
+Execution of the automation is managed by EOS.
+The tasks and devices must be implemented by the user.
+Careful setup of the experiment is required to ensure that a campaign can be executed autonomously.
+
+Some guidelines:
+
+* Each experiment should be standalone and should not depend on previous experiments.
+* Each experiment should leave the laboratory in a state that allows the next experiment to be executed.
+* Dependencies between tasks should be minimized.
+  A task should have a dependency on another task only if it is necessary.
+* Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
+  For example, if a robot transfer task takes a container from device A to device B, then the robot arm and both devices
+  A and B should be required devices for the task.
+* Branches and loops are not supported.
+  If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
+  several steps in the experiment.
+
+# File: user-guide/color_mixing.rst
+================================================================================
+
+Color Mixing
+============
+This example demonstrates how EOS can be used to implement a virtual color mixing experiment.
+In this experiment, we mix CMYK ingredient colors to produce a target color.
+By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
+secondary objective of minimizing the amount of color ingredients used.
+To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
+Color mixing is simulated using real-time fluid simulation running in a web browser.
+
+The example is implemented in an EOS package called **color_lab**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
+
+Installation
+------------
+1. Clone the `eos-examples` repository inside the EOS user directory:
+
+.. code-block:: bash
+
+    cd eos/user
+    git clone https://github.com/UNC-Robotics/eos-examples eos_examples
+
+2. Install the package's dependencies in the EOS venv:
+
+.. code-block:: bash
+
+   uv pip install -r user/eos_examples/color_lab/pyproject.toml
+
+3. Load the package in EOS:
+
+Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
+
+.. code-block:: yaml
+
+  user_dir: ./user
+  labs:
+    - color_lab
+  experiments:
+    - color_mixing
+
+Sample Usage
+------------
+1. ``cd`` into the ``eos`` directory
+2. Run ``python3 user/eos_examples/color_lab/device_drivers.py`` to start the fluid simulation and simulated device drivers.
+3. Start EOS.
+4. Submit tasks, experiments, or campaigns through the REST API.
+
+You can submit a request to run a campaign through the REST API with `curl` as follows:
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8070/api/campaigns \
+         -H "Content-Type: application/json" \
+         -d '{
+              "name": "color_mixing",
+              "experiment_type": "color_mixing",
+              "owner": "name",
+              "priority": 0,
+              "max_experiments": 100,
+              "max_concurrent_experiments": 3,
+              "optimize": true,
+              "optimizer_ip": "127.0.0.1",
+              "global_parameters": {
+                "score_color": {
+                    "target_color": [47, 181, 49]
+                }
+              }
+        }'
+
+.. note::
+
+    Do not minimize the fluid simulation browser windows while the campaign is running as the simulation may pause running.
+
+Package Structure
+-----------------
+The top-level structure of the ``color_lab`` package is as follows:
+
+.. code-block:: text
+
+    color_lab/
+    ├── common/ <-- contains shared code
+    ├── devices/ <-- contains the device implementations
+    ├── experiments/ <-- contains the color mixing experiment definitions
+    ├── tasks/ <-- contains the task definitions
+    ├── fluid_simulation/ <-- contains the source code for the fluid simulation web app
+    └── device_drivers.py <-- a script for starting the fluid simulation and socket servers for the devices
+
+
+Devices
+-------
+The package contains the following device implementations:
+
+* **Color mixer**: Sends commands to the fluid simulation to dispense and mix colors.
+* **Color analyzer**: Queries the fluid simulation to get the average fluid color.
+* **Robot arm**: Moves sample containers between other devices.
+* **Cleaning station**: Cleans sample containers (by erasing their stored metadata).
+
+This is the Python code for the color analyzer device:
+
+:bdg-primary:`device.py`
+
+.. code-block:: python
+
+    from typing import Any
+
+    from eos.resources.entities.resource import Resource
+    from eos.devices.base_device import BaseDevice
+    from user.eos_examples.color_lab.common.device_client import DeviceClient
+
+
+    class ColorAnalyzer(BaseDevice):
+        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+            port = int(init_parameters["port"])
+            self.client = DeviceClient(port)
+            self.client.open_connection()
+
+        async def _cleanup(self) -> None:
+            self.client.close_connection()
+
+        async def _report(self) -> dict[str, Any]:
+            return {}
+
+        def analyze(self, container: Resource) -> tuple[Resource, tuple[int, int, int]]:
+            rgb = self.client.send_command("analyze", {})
+            return container, rgb
+
+You will notice that there is little code here.
+In fact, the device implementation communicates with another process over a socket.
+This is a common pattern when integrating devices in the laboratory, as device drivers are usually provided by a 3rd
+party, such as the device manufacturer.
+So often the device implementation simply uses the existing driver.
+In some cases, the device implementation may include a full driver implementation.
+
+The device implementation initializes a client that connects to the device driver over a socket.
+The device implements one function called ``analyze``, which accepts a beaker resource and returns the resource and the average
+RGB value of the fluid color from the fluid simulation.
+
+The device YAML file for the color analyzer device is:
+
+:bdg-primary:`device.yml`
+
+.. code-block:: yaml
+
+    type: color_analyzer
+    desc: Analyzes the RGB value of a color mixture
+
+    init_parameters:
+      port: 5002
+
+Tasks
+-----
+The package contains the following tasks:
+
+* **Retrieve container**: Retrieves a beaker from storage and moves it to a color mixer using the robot arm.
+* **Mix colors**: Dispenses and mixes colors using a color mixer (fluid simulation).
+* **Move container to analyzer**: Moves the beaker from the color mixer to a color analyzer using the robot arm.
+* **Analyze color**: Analyzes the color of the fluid using a color analyzer (fluid simulation).
+* **Score color**: Calculates a loss function taking into account how close the mixed color is to the target color and
+  how much color ingredients were used.
+* **Empty container**: Empties a beaker with the robot arm.
+* **Clean container**: Cleans a beaker with the cleaning station.
+* **Store container**: Stores a beaker in storage with the robot arm.
+
+This is the Python code for the "Analyze color" task:
+
+:bdg-primary:`task.py`
+
+.. code-block:: python
+
+    from eos.tasks.base_task import BaseTask
+
+
+    class AnalyzeColor(BaseTask):
+        async def _execute(
+            self,
+            devices: BaseTask.DevicesType,
+            parameters: BaseTask.ParametersType,
+            resources: BaseTask.ResourcesType,
+        ) -> BaseTask.OutputType:
+            color_analyzer = devices["color_analyzer"]
+
+            resources["beaker"], rgb = color_analyzer.analyze(resources["beaker"])
+
+            output_parameters = {
+                "red": rgb[0],
+                "green": rgb[1],
+                "blue": rgb[2],
+            }
+
+            return output_parameters, resources, None
+
+The task implementation is straightforward. We first get a reference to the color analyzer device.
+Then, we call the ``analyze`` function from the color analyzer device we saw earlier. Finally, we construct
+and return the dict of output parameters and the resources.
+
+The task YAML file is the following:
+
+:bdg-primary:`task.yml`
+
+.. code-block:: yaml
+
+    type: Analyze Color
+    desc: Analyze the color of a solution
+
+    devices:
+      color_analyzer:
+        type: color_analyzer
+
+    input_resources:
+      beaker:
+        type: beaker
+
+    output_parameters:
+      red:
+        type: int
+        unit: n/a
+        desc: The red component of the color
+      green:
+        type: int
+        unit: n/a
+        desc: The green component of the color
+      blue:
+        type: int
+        unit: n/a
+        desc: The blue component of the color
+
+Laboratory
+----------
+The laboratory YAML definition is shown below.
+
+We define the devices we discussed earlier.
+Note that we define three color mixers and three color analyzers so the laboratory can support up to three simultaneous color mixing experiments.
+
+We also define the resource types and the actual resources (beakers) with their initial locations.
+
+:bdg-primary:`lab.yml`
+
+.. code-block:: yaml
+
+    name: color_lab
+    desc: A laboratory for color analysis and mixing
+
+    devices:
+      robot_arm:
+        desc: Robotic arm for moving containers
+        type: robot_arm
+        computer: eos_computer
+
+        init_parameters:
+          locations:
+            - container_storage
+            - color_mixer_1
+            - color_mixer_2
+            - color_mixer_3
+            - color_analyzer_1
+            - color_analyzer_2
+            - color_analyzer_3
+            - cleaning_station
+            - emptying_location
+
+      cleaning_station:
+        desc: Station for cleaning containers
+        type: cleaning_station
+        computer: eos_computer
+
+        meta:
+          location: cleaning_station
+
+      color_mixer_1:
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        type: color_mixer
+        computer: eos_computer
+
+        init_parameters:
+          port: 5004
+
+        meta:
+          location: color_mixer_1
+
+      color_mixer_2:
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        type: color_mixer
+        computer: eos_computer
+
+        init_parameters:
+          port: 5006
+
+        meta:
+          location: color_mixer_2
+
+      color_mixer_3:
+        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
+        type: color_mixer
+        computer: eos_computer
+
+        init_parameters:
+          port: 5008
+
+        meta:
+          location: color_mixer_3
+
+      color_analyzer_1:
+        desc: Analyzer for color solutions
+        type: color_analyzer
+        computer: eos_computer
+
+        init_parameters:
+          port: 5003
+
+        meta:
+          location: color_analyzer_1
+
+      color_analyzer_2:
+        desc: Analyzer for color solutions
+        type: color_analyzer
+        computer: eos_computer
+
+        init_parameters:
+          port: 5005
+
+        meta:
+          location: color_analyzer_2
+
+      color_analyzer_3:
+        desc: Analyzer for color solutions
+        type: color_analyzer
+        computer: eos_computer
+
+        init_parameters:
+          port: 5007
+
+        meta:
+          location: color_analyzer_3
+
+
+    resource_types:
+      beaker:
+        meta:
+          capacity: 300
+
+    resources:
+      c_a:
+        type: beaker
+        meta:
+          location: container_storage
+      c_b:
+        type: beaker
+        meta:
+          location: container_storage
+      c_c:
+        type: beaker
+        meta:
+          location: container_storage
+      c_d:
+        type: beaker
+        meta:
+          location: container_storage
+      c_e:
+        type: beaker
+        meta:
+          location: container_storage
+
+Experiment
+----------
+The color mixing experiment is a linear sequence of the following tasks:
+
+#. **retrieve_container**: Get a beaker from storage and move it to a color mixer.
+#. **mix_colors**: Iteratively dispense and mix the colors in the beaker.
+#. **move_container_to_analyzer**: Move the beaker from the color mixer to a color analyzer.
+#. **analyze_color**: Analyze the color of the solution in the beaker and output the RGB values.
+#. **score_color**: Score the color (compute the loss function) based on the RGB values.
+#. **empty_container**: Empty the beaker and move it to the cleaning station.
+#. **clean_container**: Clean the beaker by rinsing it with distilled water.
+#. **store_container**: Store the beaker back in the storage.
+
+The YAML definition of the experiment is shown below:
+
+:bdg-primary:`experiment.yml`
+
+.. code-block:: yaml
+
+    type: color_mixing
+    desc: Experiment to find optimal parameters to synthesize a desired color
+
+    labs:
+      - color_lab
+
+    tasks:
+      - name: retrieve_container
+        type: Retrieve Container
+        desc: Get a container from storage and move it to the color dispenser
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer:
+            allocation_type: dynamic
+            device_type: color_mixer
+            allowed_labs: [color_lab]
+        resources:
+          beaker:
+            allocation_type: dynamic
+            resource_type: beaker
+        dependencies: []
+
+      - name: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
+        duration: 20
+        devices:
+          color_mixer: retrieve_container.color_mixer
+        resources:
+          beaker: retrieve_container.beaker
+        parameters:
+          cyan_volume: eos_dynamic
+          cyan_strength: eos_dynamic
+          magenta_volume: eos_dynamic
+          magenta_strength: eos_dynamic
+          yellow_volume: eos_dynamic
+          yellow_strength: eos_dynamic
+          black_volume: eos_dynamic
+          black_strength: eos_dynamic
+          mixing_time: eos_dynamic
+          mixing_speed: eos_dynamic
+        dependencies: [retrieve_container]
+
+      - name: move_container_to_analyzer
+        type: Move Container to Analyzer
+        desc: Move the container to the color analyzer
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer: mix_colors.color_mixer
+          color_analyzer:
+            allocation_type: dynamic
+            device_type: color_analyzer
+            allowed_labs: [color_lab]
+        resources:
+          beaker: mix_colors.beaker
+        dependencies: [mix_colors]
+
+      - name: analyze_color
+        type: Analyze Color
+        desc: Analyze the color of the solution in the container and output the RGB values
+        duration: 2
+        devices:
+          color_analyzer: move_container_to_analyzer.color_analyzer
+        resources:
+          beaker: move_container_to_analyzer.beaker
+        dependencies: [move_container_to_analyzer]
+
+      - name: score_color
+        type: Score Color
+        desc: Score the color based on the RGB values
+        duration: 1
+        parameters:
+          red: analyze_color.red
+          green: analyze_color.green
+          blue: analyze_color.blue
+          total_color_volume: mix_colors.total_color_volume
+          max_total_color_volume: 300.0
+          target_color: eos_dynamic
+        dependencies: [analyze_color]
+
+      - name: empty_container
+        type: Empty Container
+        desc: Empty the container and move it to the cleaning station
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          cleaning_station:
+            allocation_type: dynamic
+            device_type: cleaning_station
+            allowed_labs: [color_lab]
+        resources:
+          beaker: analyze_color.beaker
+        parameters:
+          emptying_location: emptying_location
+        dependencies: [analyze_color]
+
+      - name: clean_container
+        type: Clean Container
+        desc: Clean the container by rinsing it with distilled water
+        duration: 5
+        devices:
+          cleaning_station: empty_container.cleaning_station
+        resources:
+          beaker: empty_container.beaker
+        parameters:
+          duration: 2
+        dependencies: [empty_container]
+
+      - name: store_container
+        type: Store Container
+        desc: Store the container back in the container storage
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+        resources:
+          beaker: clean_container.beaker
+        parameters:
+          storage_location: container_storage
+        dependencies: [clean_container]
+
+Dynamic Parameters and Optimization
+-----------------------------------
+Dynamic parameters are specified using the special value ``eos_dynamic`` in the experiment.
+For campaigns with optimization (``optimize: true``), EOS uses the experiment's optimizer to propose values for the input dynamic parameters.
+Some dynamic parameters may still need to be provided by the user. In this experiment, ``score_color.target_color`` must be provided.
+Provide it via ``global_parameters`` or ``experiment_parameters`` in the campaign submission as shown above.
+
+The optimizer used for this experiment is defined in ``optimizer.py`` adjacent to the experiment YAML and uses Bayesian optimization to minimize ``score_color.loss``.
+
+References Between Tasks
+------------------------
+EOS experiments commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing experiment demonstrates each kind of reference.
+
+**Device references**: reuse the same physical device across tasks by referencing a named device handle from a prior task.
+
+Example:
+
+.. code-block:: yaml
+
+    - name: mix_colors
+      devices:
+        color_mixer: retrieve_container.color_mixer
+
+    - name: analyze_color
+      devices:
+        color_analyzer: move_container_to_analyzer.color_analyzer
+
+In the first snippet, the mix_colors task uses the exact color_mixer allocated during retrieve_container. In the second, analyze_color uses the color_analyzer allocated during move_container_to_analyzer.
+
+**Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
+
+Example:
+
+.. code-block:: yaml
+
+    - name: mix_colors
+      resources:
+        beaker: retrieve_container.beaker
+
+    - name: analyze_color
+      resources:
+        beaker: move_container_to_analyzer.beaker
+
+The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then moved by the robot and reused by analyze_color.
+
+**Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
+
+Example:
+
+.. code-block:: yaml
+
+    - name: score_color
+      parameters:
+        red: analyze_color.red
+        green: analyze_color.green
+        blue: analyze_color.blue
+        total_color_volume: mix_colors.total_color_volume
+        max_total_color_volume: 300.0
+        target_color: eos_dynamic
+
+The score_color task consumes the RGB outputs from analyze_color and the total color volume from mix_colors.
+
+# File: user-guide/devices.rst
+================================================================================
+
+Devices
+=======
+In EOS, a device is an abstraction for a physical or virtual apparatus.
+A device is used by one or more tasks to run some processes.
+Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
+This process is usually implemented as a server and tasks call various functions from it.
+For example, there could be a device called "magnetic mixer", which communicates with a physical magnetic mixer via
+serial and provides functions such as ``start``, ``stop``, ``set_time`` and ``set_speed``.
+
+.. figure:: ../_static/img/tasks-devices.png
+   :alt: EOS Tasks and Devices
+   :align: center
+
+In the figure above, we illustrate an example of devices and a task that uses these devices.
+The task in this example is Gas Chromatography (GC) sampling, which is implemented with a GC and a mobile manipulation
+robot for automating the sample injection with a syringe.
+Both the GC and the robot are physical devices, and each has a device implementation in EOS, which runs as a persistent
+process.
+Then, the GC Sampling task uses both of the EOS devices to automate the sample injection process.
+
+Most often, an EOS device will represent a physical device in the lab.
+But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
+throughout one or more experiments.
+This could be an AI module that records inputs given to it.
+Remember that a device in EOS is a persistent process.
+
+Device Implementation
+---------------------
+* Devices are implemented in the `devices` subdirectory inside an EOS package
+* Each device has its own subfolder (e.g., devices/magnetic_mixer)
+* There are two key files per device: ``device.yml`` and ``device.py``
+
+YAML File (device.yml)
+~~~~~~~~~~~~~~~~~~~~~~
+* Specifies the device type, desc, and initialization parameters
+* The same implementation can be used for multiple devices of the same type
+* Initialization parameters can be overridden in laboratory definition
+
+Below is an example device YAML file for a magnetic mixer:
+
+:bdg-primary:`device.yml`
+
+.. code-block:: yaml
+
+    type: magnetic_mixer
+    desc: Magnetic mixer for mixing the contents of a container
+
+    init_parameters:
+      port: 5004
+
+Python File (device.py)
+~~~~~~~~~~~~~~~~~~~~~~~
+* Implements device functionality
+* All devices implementations must inherit from ``BaseDevice``
+
+Below is a example implementation of a magnetic mixer device:
+
+:bdg-primary:`device.py`
+
+.. code-block:: python
+
+    from typing import Any
+
+    from eos.resources.entities.resource import Resource
+    from eos.devices.base_device import BaseDevice
+    from user.eos_examples.color_lab.common.device_client import DeviceClient
+
+    class MagneticMixer(BaseDevice):
+        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+            port = int(init_parameters["port"])
+            self.client = DeviceClient(port)
+            self.client.open_connection()
+
+        async def _cleanup(self) -> None:
+            self.client.close_connection()
+
+        async def _report(self) -> dict[str, Any]:
+            return {}
+
+        def mix(self, container: Resource, mixing_time: int, mixing_speed: int) -> Resource:
+            result = self.client.send_command("mix", {"mixing_time": mixing_time, "mixing_speed": mixing_speed})
+            if result:
+                container.meta["mixing_time"] = mixing_time
+                container.meta["mixing_speed"] = mixing_speed
+
+            return container
+
+Let's walk through this example code:
+
+There are functions required in every device implementation:
+
+#. **_initialize**
+
+   * Called when device process is created
+   * Should set up necessary resources (e.g., serial connections)
+
+#. **_cleanup**
+
+   * Called when the device process is terminated
+   * Should clean up any resources created by the device process (e.g., serial connections)
+
+#. **_report**
+
+   * Should return any data needed to determine the state of the device (e.g., status and feedback)
+
+The magnetic mixer device also has the function ``mix`` for implementing the mixing operation.
+This function will be called by a task to mix the contents of a container.
+The ``mix`` function:
+
+* Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer
+* Updates container metadata with mixing details
+
+# File: user-guide/experiments.rst
+================================================================================
+
+Experiments
+===========
+Experiments are a set of tasks that are executed in a specific order.
+Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
+Tasks part of an experiment can pass parameters, devices, and resources to each other using EOS' reference system.
+Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
+denoting them as dynamic parameters.
+Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
+for the dynamic parameters across repeated experiments to optimize some objectives.
+
+.. figure:: ../_static/img/experiment-graph.png
+   :alt: Example experiment graph
+   :align: center
+
+Above is an example of a possible experiment that could be implemented with EOS.
+There is a series of tasks, each requiring one or more devices.
+In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
+form of parameters, devices, and resources passed between tasks.
+For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
+may be output from the "Dispense Solutions" task.
+Tasks can reference input/output parameters, devices, and resources from other tasks.
+
+Experiment Implementation
+-------------------------
+* Experiments are implemented in the `experiments` subdirectory inside an EOS package
+* Each experiment has its own subfolder (e.g., experiments/optimize_yield)
+* There are two key files per experiment: ``experiment.yml`` and ``optimizer.py`` (for running campaigns with optimization)
+
+YAML File (experiment.yml)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+Defines the experiment.
+Specifies the experiment type, labs, and tasks
+
+Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:
+
+:bdg-primary:`experiment.yml`
+
+.. code-block:: yaml
+
+    type: color_mixing
+    desc: Experiment to find optimal parameters to synthesize a desired color
+
+    labs:
+      - color_lab
+
+    tasks:
+      - name: retrieve_container
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer:
+            allocation_type: dynamic
+            device_type: color_mixer
+            allowed_labs: [color_lab]
+        resources:
+          beaker:
+            allocation_type: dynamic
+            resource_type: beaker
+        dependencies: []
+
+      - name: mix_colors
+        devices:
+          color_mixer: retrieve_container.color_mixer
+        resources:
+          beaker: retrieve_container.beaker
+        parameters:
+          cyan_volume: eos_dynamic
+          cyan_strength: eos_dynamic
+          magenta_volume: eos_dynamic
+          magenta_strength: eos_dynamic
+          yellow_volume: eos_dynamic
+          yellow_strength: eos_dynamic
+          black_volume: eos_dynamic
+          black_strength: eos_dynamic
+          mixing_time: eos_dynamic
+          mixing_speed: eos_dynamic
+        dependencies: [retrieve_container]
+
+      - name: move_container_to_analyzer
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_mixer: mix_colors.color_mixer
+          color_analyzer:
+            allocation_type: dynamic
+            device_type: color_analyzer
+            allowed_labs: [color_lab]
+        resources:
+          beaker: mix_colors.beaker
+        dependencies: [mix_colors]
+
+      - name: analyze_color
+        devices:
+          color_analyzer: move_container_to_analyzer.color_analyzer
+        resources:
+          beaker: move_container_to_analyzer.beaker
+        dependencies: [move_container_to_analyzer]
+
+      - name: score_color
+        parameters:
+          red: analyze_color.red
+          green: analyze_color.green
+          blue: analyze_color.blue
+          total_color_volume: mix_colors.total_color_volume
+          max_total_color_volume: 300.0
+          target_color: eos_dynamic
+        dependencies: [analyze_color]
+
+      - name: empty_container
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          cleaning_station:
+            allocation_type: dynamic
+            device_type: cleaning_station
+            allowed_labs: [color_lab]
+        resources:
+          beaker: analyze_color.beaker
+        parameters:
+          emptying_location: emptying_location
+        dependencies: [analyze_color]
+
+      - name: clean_container
+        devices:
+          cleaning_station: empty_container.cleaning_station
+        resources:
+          beaker: empty_container.beaker
+        parameters:
+          duration: 2
+        dependencies: [empty_container]
+
+      - name: store_container
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+        resources:
+          beaker: clean_container.beaker
+        parameters:
+          storage_location: container_storage
+        dependencies: [clean_container]
+
+Let's dissect this file:
+
+.. code-block:: yaml
+
+    type: color_mixing
+    desc: Experiment to find optimal parameters to synthesize a desired color
+
+    labs:
+      - color_lab
+
+Every experiment has a type.
+The type is used to identify the class of experiment.
+When an experiment is running then there are instances of the experiment with different IDs.
+Each experiment also requires one or more labs.
+
+Now let's look at the first task in the experiment:
+
+.. code-block:: yaml
+
+    - name: retrieve_container
+      devices:
+        robot_arm:
+          lab_name: color_lab
+          name: robot_arm
+        color_mixer:
+          allocation_type: dynamic
+          device_type: color_mixer
+          allowed_labs: [color_lab]
+      resources:
+        beaker:
+          allocation_type: dynamic
+          resource_type: beaker
+      dependencies: []
+
+The first task is named ``retrieve_container``.
+This task demonstrates several key concepts:
+
+**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_mixer``).
+These names are used by the task implementation to access the device.
+
+**Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
+
+.. code-block:: yaml
+
+    robot_arm:
+      lab_name: color_lab
+      name: robot_arm
+
+This tells EOS to use the specific robot arm device from the color_lab.
+
+**Dynamic Device Allocation**: The ``color_mixer`` uses dynamic allocation:
+
+.. code-block:: yaml
+
+    color_mixer:
+      allocation_type: dynamic
+      device_type: color_mixer
+      allowed_labs: [color_lab]
+
+The scheduler will automatically select an available ``color_mixer`` device from ``color_lab`` when this task is ready to execute.
+
+**Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
+
+Let's look at the next task:
+
+.. code-block:: yaml
+
+    - name: mix_colors
+      devices:
+        color_mixer: retrieve_container.color_mixer
+      resources:
+        beaker: retrieve_container.beaker
+      parameters:
+        cyan_volume: eos_dynamic
+        cyan_strength: eos_dynamic
+        magenta_volume: eos_dynamic
+        magenta_strength: eos_dynamic
+        yellow_volume: eos_dynamic
+        yellow_strength: eos_dynamic
+        black_volume: eos_dynamic
+        black_strength: eos_dynamic
+        mixing_time: eos_dynamic
+        mixing_speed: eos_dynamic
+      dependencies: [retrieve_container]
+
+This task demonstrates **device and resource references**:
+
+**Device Reference**: ``color_mixer: retrieve_container.color_mixer`` tells EOS that this task must use the same color_mixer device
+that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same mixer where it was placed.
+
+**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
+
+**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
+These must be specified either by the user or an optimizer before an experiment can be executed.
+
+The ``analyze_color`` task shows another device reference:
+
+.. code-block:: yaml
+
+    - name: analyze_color
+      devices:
+        color_analyzer: move_container_to_analyzer.color_analyzer
+      resources:
+        beaker: move_container_to_analyzer.beaker
+      dependencies: [move_container_to_analyzer]
+
+Here, ``color_analyzer`` references the dynamically allocated analyzer from the ``move_container_to_analyzer`` task,
+ensuring the analysis happens at the same analyzer where the beaker was moved.
+
+Optimizer File (optimizer.py)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.
+
+As an example, below is the optimizer file for the color mixing experiment:
+
+:bdg-primary:`optimizer.py`
+
+.. code-block:: python
+
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
+    from bofire.data_models.enum import SamplingMethodEnum
+    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.objectives.identity import MinimizeObjective
+
+    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
+    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+
+
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
+        constructor_args = {
+            "inputs": [
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
+            ],
+            "outputs": [
+                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+            ],
+            "constraints": [],
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 50,
+            "initial_sampling_method": SamplingMethodEnum.SOBOL,
+        }
+
+        return constructor_args, BayesianSequentialOptimizer
+
+The ``optimizer.py`` file is optional and only required for running experiment campaigns with optimization managed by EOS.
+
+# File: user-guide/infrastructure_setup.rst
+================================================================================
+
+Infrastructure Setup
+====================
+
+EOS requires setting up a network infrastructure to securely access laboratory devices and computers, which are defined
+in a :doc:`laboratory YAML file <laboratories>`.
+
+Key Requirements
+----------------
+
+#. Use an isolated or properly firewalled LAN to prevent unauthorized access
+#. Place all controlled laboratory computers in the same LAN and assign them static IP addresses
+#. Configure firewalls to allow bi-directional network access on all ports between EOS and laboratory computers
+#. Adjust power management settings to prevent computer hibernation during long automation runs
+
+.. figure:: ../_static/img/lab-lan.png
+   :alt: Example LAN setup for EOS
+   :scale: 75%
+   :align: center
+# File: user-guide/installation.rst
+================================================================================
+
+Installation
+============
+
+EOS should be installed on a central laboratory computer that is easily accessible.
+
+.. note::
+    EOS requires bi-directional network access to any computers used for automation.
+
+    Using an isolated laboratory network for security and performance is strongly recommended.
+    See :doc:`infrastructure setup <infrastructure_setup>` for details.
+
+EOS requires PostgreSQL and MinIO for data and file storage. We provide a Docker Compose file to set up these services.
+
+1. Install uv
+^^^^^^^^^^^^^
+
+uv manages dependencies for EOS.
+
+.. tab-set::
+
+    .. tab-item:: Linux/Mac
+
+        .. code-block:: shell
+
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+
+    .. tab-item:: Windows
+
+        .. code-block:: shell
+
+            powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+2. Install EOS
+^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    # Clone repository
+    git clone https://github.com/UNC-Robotics/eos
+    cd eos
+
+    # Create and activate virtual environment
+    uv venv
+    source .venv/bin/activate
+
+    # Install dependencies
+    uv sync
+
+3. Configure EOS
+^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    # Set environment variables
+    cp .env.example .env
+    # Edit .env file and provide values
+
+    # Configure EOS
+    cp config.example.yml config.yml
+    # Edit config.yml and provide values
+
+4. Launch External Services
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    # Start external services (PostgreSQL and MinIO)
+    docker compose up -d
+
+5. Start EOS
+^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    eos start
+
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
+package. You can modify this in the configuration file.
+
+# File: user-guide/jinja2_templating.rst
+================================================================================
+
+Jinja2 Templating
+=================
+The YAML files used to define labs, devices, experiments, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
+templating.
+This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
+macros, and more.
+Jinja2 templates are evaluated with Python, so some expressions are the same as in Python.
+
+.. note::
+    Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
+
+Jinja is useful for defining templates.
+For example, an experiment template can be defined with placeholders and variables
+that when specified lead to different variations of the experiment.
+This is particularly useful for altering the task sequence of an experiment while loading it.
+
+.. note::
+    Experiment templating is useful if EOS dynamic parameters and references do not suffice.
+
+Below are some useful Jinja2 features:
+
+Variables
+---------
+Jinja2 allows setting and reading variables in the YAML file.
+In the example below, the variable ``max_volume`` is set to 300 and used to define the capacity of two beakers:
+
+:bdg-primary:`lab.yml`
+
+.. code-block:: yaml+jinja
+
+    {% set max_volume = 300 %}
+    ...
+    resource_types:
+      beaker:
+        meta:
+          capacity: {{ max_volume }}
+
+    resources:
+      {% for name in ["c_a", "c_b"] %}
+      {{ name }}:
+        type: beaker
+      {% endfor %}
+
+Arithmetic
+----------
+You can perform arithmetic within Jinja2 expressions.
+In the example below, the volumes of cyan, magenta, and yellow colorants are calculated based on a total color volume:
+
+:bdg-primary:`task.yml`
+
+.. code-block:: yaml+jinja
+
+    {% set total_color_volume = 100 %}
+    ...
+    parameters:
+      cyan_volume: {{ total_color_volume * 0.6 }}
+      magenta_volume: {{ total_color_volume * 0.3 }}
+      yellow_volume: {{ total_color_volume * 0.1 }}
+
+Conditionals
+------------
+You can use if statements to include or exclude content based on conditions.
+In the example below, the task "mix_colors" is only included if the variable ``mix_colors`` is set to ``True``:
+
+:bdg-primary:`experiment.yml`
+
+.. code-block:: yaml+jinja
+
+    tasks:
+      {% if mix_colors %}
+      - name: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
+        # ... rest of the task definition
+      {% endif %}
+
+Loops
+-----
+Jinja2 allows you to use loops to generate repetitive content.
+In the example below, a loop is used to generate container IDs with a common prefix and a letter (e.g., `c_a`, `c_b`, `c_c`, etc.):
+
+:bdg-primary:`lab.yml`
+
+.. code-block:: yaml+jinja
+
+    resource_types:
+      beaker:
+        meta:
+          capacity: 300
+
+    resources:
+      {% for letter in ['a', 'b', 'c', 'd', 'e', 'f', 'g'] %}
+      c_{{ letter }}:
+        type: beaker
+      {% endfor %}
+
+Macros
+------
+Jinja2 macros allow you to define reusable blocks of content.
+In the example below, the ``create_containers`` macro is used to easily create containers with a prefix and a number
+(e.g., `c_0`, `c_1`, `c_2`, etc.):
+
+:bdg-primary:`lab.yml`
+
+.. code-block:: yaml+jinja
+
+    {% macro create_resources(res_type, capacity, id_prefix, count) -%}
+    resource_types:
+      {{ res_type }}:
+        meta:
+          capacity: {{ capacity }}
+    resources:
+      {%- for i in range(count) %}
+      {{ id_prefix }}{{ i }}:
+        type: {{ res_type }}
+      {%- endfor %}
+    {%- endmacro %}
+
+    {{ create_resources('beaker', 300, 'c_', 5) }}
+
+# File: user-guide/laboratories.rst
+================================================================================
+
+Laboratories
+============
+Laboratories are the space in which devices and resources exist and where tasks, experiments, and campaigns
+of experiments take place.
+
+A laboratory in EOS is a collection of:
+
+* Computers (e.g., devices capable of controlling equipment)
+* Devices (e.g., equipment/apparatuses in the laboratory)
+* Resources (e.g., containers for holding samples, reagents, lab location, consumables, etc.)
+
+Laboratory Implementation
+-------------------------
+* Laboratories are implemented in the `laboratories` subdirectory inside an EOS package
+* Each laboratory has its own subfolder (e.g., laboratories/color_lab)
+* The laboratory is defined in a YAML file named ``lab.yml``.
+
+Below is an example laboratory YAML file for a solar cell fabrication lab:
+
+:bdg-primary:`lab.yml`
+
+.. code-block:: yaml
+
+    name: solar_cell_fabrication_lab
+    desc: A laboratory for fabricating and characterizing perovskite solar cells
+
+    computers:
+      xrd_computer:
+        desc: XRD system control and data analysis
+        ip: 192.168.1.101
+      solar_sim_computer:
+        desc: Solar simulator control and J-V measurements
+        ip: 192.168.1.102
+      robot_computer:
+        desc: Mobile manipulation robot control
+        ip: 192.168.1.103
+
+    devices:
+      spin_coater:
+        desc: Spin coater for depositing perovskite and transport layers
+        type: spin_coater
+        computer: eos_computer
+
+        meta:
+          location: glovebox
+
+      uv_ozone_cleaner:
+        desc: UV-Ozone cleaner for substrate treatment
+        type: uv_ozone_cleaner
+        computer: eos_computer
+
+        meta:
+          location: fume_hood
+
+      thermal_evaporator:
+        desc: Thermal evaporator for metal electrode deposition
+        type: thermal_evaporator
+        computer: eos_computer
+
+        init_parameters:
+          max_temperature: 1000C
+          materials: [Au, Ag, Al]
+
+        meta:
+          location: evaporation_chamber
+
+      solar_simulator:
+        desc: Solar simulator for J-V curve measurements
+        type: solar_simulator
+        computer: solar_sim_computer
+
+        init_parameters:
+          spectrum: AM1.5G
+          intensity: 100mW/cm2
+
+        meta:
+          location: characterization_room
+
+      xrd_system:
+        desc: X-ray diffractometer for crystal structure analysis
+        type: xrd
+        computer: xrd_computer
+
+        meta:
+          location: characterization_room
+
+      mobile_robot:
+        desc: Mobile manipulation robot for automated sample transfer
+        type: mobile_robot
+        computer: robot_computer
+
+        init_parameters:
+          locations:
+            - glovebox
+            - fume_hood
+            - annealing_station
+            - evaporation_chamber
+            - characterization_room
+
+        meta:
+          location: characterization_room
+
+    resource_types:
+      vial:
+        meta:
+          capacity: 20  # ml
+
+      petri_dish:
+        meta:
+          capacity: 100  # ml
+
+      crucible:
+        meta:
+          capacity: 5  # ml
+
+    resources:
+      precursor_vial_1:
+        type: vial
+        meta:
+          location: glovebox
+
+      precursor_vial_2:
+        type: vial
+        meta:
+          location: glovebox
+
+      precursor_vial_3:
+        type: vial
+        meta:
+          location: glovebox
+
+      substrate_dish_1:
+        type: petri_dish
+        meta:
+          location: glovebox
+
+      substrate_dish_2:
+        type: petri_dish
+        meta:
+          location: glovebox
+
+      au_crucible:
+        type: crucible
+        meta:
+          location: evaporation_chamber
+
+      ag_crucible:
+        type: crucible
+        meta:
+          location: evaporation_chamber
+
+
+Computers (Optional)
+""""""""""""""""""""
+Computers control devices and host EOS devices.
+Each computer that is required to interface with one or more devices must be defined in this section.
+The IP address of each computer must be specified.
+
+There is always a computer in each lab called **eos_computer** that has the IP "127.0.0.1".
+This computer is the computer that runs the EOS orchestrator, and can be thought of as the "central" computer.
+No other computer named "eos_computer" is allowed, and no other computer can have the IP "127.0.0.1".
+The "computers" section need not be defined unless additional computers are required (e.g., if not all devices are
+connected to eos_computer).
+
+.. figure:: ../_static/img/eos-computers.png
+   :alt: EOS computers
+   :align: center
+
+.. code-block:: yaml
+
+    computers:
+      xrd_computer:
+        desc: XRD system control and data analysis
+        ip: 192.168.1.101
+      solar_sim_computer:
+        desc: Solar simulator control and J-V measurements
+        ip: 192.168.1.102
+      robot_computer:
+        desc: Mobile manipulation robot control
+        ip: 192.168.1.103
+
+Devices (Required)
+""""""""""""""""""
+Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
+Each device must have a unique name inside the lab and must be defined in the ``devices`` section of the laboratory YAML file.
+
+.. code-block:: yaml
+
+    devices:
+      spin_coater:
+        desc: Spin coater for depositing perovskite and transport layers
+        type: spin_coater
+        location: glovebox
+        computer: eos_computer
+
+      uv_ozone_cleaner:
+        desc: UV-Ozone cleaner for substrate treatment
+        type: uv_ozone_cleaner
+        location: fume_hood
+        computer: eos_computer
+
+      thermal_evaporator:
+        desc: Thermal evaporator for metal electrode deposition
+        type: thermal_evaporator
+        location: evaporation_chamber
+        computer: eos_computer
+        init_parameters:
+          max_temperature: 1000C
+          materials: [Au, Ag, Al]
+
+**type**: Every device must have a type, which matches a device specification (e.g., defined in the ``devices`` subdirectory
+of an EOS package).
+There can be multiple devices with different names of the same type.
+
+**location** (optional): The location where the device is at.
+
+**computer**: The computer that controls the device.
+If not "eos_computer", the computer must be defined in the "computers" section.
+
+**init_parameters** (optional): Parameters required to initialize the device.
+These parameters are defined in the device specification and can be overridden here.
+
+Resources (Optional)
+""""""""""""""""""""
+Resources represent anything that tasks should exclusively allocate, such as containers (vessels for holding samples),
+lab locations that can only be occupied by one container, reagents, or other consumables.
+
+Resources are defined using two sections in the laboratory YAML file:
+
+1. **resource_types**: Templates that define the properties of a resource type
+2. **resources**: Individual resource instances with unique names
+
+.. code-block:: yaml
+
+    resource_types:
+      vial:
+        meta:
+          capacity: 20  # ml
+
+      petri_dish:
+        meta:
+          capacity: 100  # ml
+
+    resources:
+      precursor_vial_1:
+        type: vial
+        meta:
+          location: glovebox
+
+      precursor_vial_2:
+        type: vial
+        meta:
+          location: glovebox
+
+      substrate_dish_1:
+        type: petri_dish
+        meta:
+          location: glovebox
+
+**Resource Types**:
+
+* Define templates with shared properties for resources of the same type
+* **meta** (optional): Default metadata for all resources of this type (e.g., capacity)
+
+**Resources**:
+
+* Each resource has a unique name (e.g., ``precursor_vial_1``)
+* **type**: The resource type (must match a defined ``resource_type``)
+* **meta** (optional): Instance-specific metadata, which overrides or extends the resource type's meta (e.g., current location)
+
+# File: user-guide/multi_computer_setup.rst
+================================================================================
+
+Multi-Computer Lab Setup
+========================
+
+EOS can orchestrate experiments across multiple computers, using Ray for distributed communication.
+One main computer runs the EOS orchestrator as the head node, while additional computers join as worker nodes.
+
+Main EOS Computer
+-----------------
+
+1. Start Ray head node:
+
+   .. code-block:: shell
+
+       eos ray head
+
+2. Start EOS orchestrator:
+
+   .. code-block:: shell
+
+       eos start
+
+Worker Computers
+----------------
+
+1. Install dependencies:
+
+   .. code-block:: shell
+
+       # Install uv
+       curl -LsSf https://astral.sh/uv/install.sh | sh
+
+       # Clone EOS repository
+       git clone https://github.com/UNC-Robotics/eos
+       cd eos
+
+       # Create and activate virtual environment
+       uv venv
+       source .venv/bin/activate
+
+       # Install EOS worker dependencies
+       python3 scripts/install_worker.py
+
+       # Or, install worker dependencies + dependencies for running EOS campaign optimizers
+       python3 scripts/install_worker.py --optimizer
+
+2. Connect to cluster:
+
+   .. code-block:: shell
+
+       eos ray worker -a <head-node-ip>:6379
+
+# File: user-guide/optimizers.rst
+================================================================================
+
+Optimizers
+==========
+Optimizers are key to building an autonomous laboratory.
+In EOS, optimizers give intelligence to experiment campaigns by optimizing task parameters to achieve objectives over time.
+Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous experiments.
+One of the most common sequential optimization methods is **Bayesian optimization**, and is especially useful for
+optimizing expensive-to-evaluate black box functions.
+
+.. figure:: ../_static/img/optimize-experiment-loop.png
+   :alt: Optimization and experiment loop
+   :align: center
+
+EOS has a built-in Bayesian optimizer powered by `BoFire <https://experimental-design.github.io/bofire/>`_
+(based on `BoTorch <https://botorch.org/>`_).
+This optimizer supports both constrained single-objective and multi-objective Bayesian optimization.
+It offers several different surrogate models, including Gaussian Processes (GPs) and Multi-Layer Perceptrons (MLPs),
+along with various acquisition functions.
+
+Distributed Execution
+---------------------
+EOS optimizers are created in a dedicated Ray actor process.
+This actor process can be created in any computer with an active Ray worker.
+This can enable running the optimizer on a more capable computer than the one running the EOS orchestrator.
+
+Optimizer Implementation
+------------------------
+EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``experiment.yml`` in an EOS package.
+Below is an example:
+
+:bdg-primary:`optimizer.py`
+
+.. code-block:: python
+
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
+    from bofire.data_models.enum import SamplingMethodEnum
+    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.objectives.identity import MinimizeObjective
+
+    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
+    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+
+
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
+        constructor_args = {
+            "inputs": [
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
+            ],
+            "outputs": [
+                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+            ],
+            "constraints": [],
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 25,
+            "initial_sampling_method": SamplingMethodEnum.SOBOL,
+        }
+
+        return constructor_args, BayesianSequentialOptimizer
+
+Each ``optimizer.py`` file must contain the function ``eos_create_campaign_optimizer``.
+This function must return:
+
+#. The constructor arguments to make an optimizer class instance
+#. The class type of the optimizer
+
+In this example, we use EOS' built-in Bayesian optimizer.
+However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
+the class type from ``eos_create_campaign_optimizer``.
+
+.. note::
+    All optimizers must inherit from the class ``AbstractSequentialOptimizer`` under the ``eos.optimization`` module.
+
+Input and Output Parameter Naming
+"""""""""""""""""""""""""""""""""
+The names of input and output parameters must reference task parameters.
+The EOS reference format must be used:
+
+**TASK.PARAMETER_NAME**
+
+This is necessary for EOS to be able to associate the optimizer with the experiment tasks and to forward parameter values
+where needed.
+
+Example Custom Optimizer
+------------------------
+Below is an example of a custom optimizer implementation that randomly samples parameters for the same color mixing problem:
+
+:bdg-primary:`optimizer.py`
+
+.. code-block:: python
+
+    import random
+    from dataclasses import dataclass
+    from enum import Enum
+    import pandas as pd
+
+    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+
+
+    class ObjectiveType(Enum):
+        MINIMIZE = 1
+        MAXIMIZE = 2
+
+
+    @dataclass
+    class Parameter:
+        name: str
+        lower_bound: float
+        upper_bound: float
+
+
+    @dataclass
+    class Metric:
+        name: str
+        objective: ObjectiveType
+
+
+    class RandomSamplingOptimizer(AbstractSequentialOptimizer):
+        def __init__(self, parameters: list[Parameter], metrics: list[Metric]):
+            self.parameters = parameters
+            self.metrics = metrics
+            self.results: list[dict] = []
+
+        def sample(self, num_experiments: int = 1) -> pd.DataFrame:
+            samples = []
+            for _ in range(num_experiments):
+                sample = {p.name: random.uniform(p.lower_bound, p.upper_bound) for p in self.parameters}
+                samples.append(sample)
+            return pd.DataFrame(samples)
+
+        def report(self, inputs_df: pd.DataFrame, outputs_df: pd.DataFrame) -> None:
+            for _, row in pd.concat([inputs_df, outputs_df], axis=1).iterrows():
+                self.results.append(row.to_dict())
+
+        def get_optimal_solutions(self) -> pd.DataFrame:
+            if not self.results:
+                return pd.DataFrame(
+                    columns=[p.name for p in self.parameters] + [m.name for m in self.metrics]
+                )
+            df = pd.DataFrame(self.results)
+            optimal_solutions = []
+            for m in self.metrics:
+                if m.objective == ObjectiveType.MINIMIZE:
+                    optimal = df.loc[df[m.name].idxmin()]
+                else:
+                    optimal = df.loc[df[m.name].idxmax()]
+                optimal_solutions.append(optimal)
+            return pd.DataFrame(optimal_solutions)
+
+        def get_input_names(self) -> list[str]:
+            return [p.name for p in self.parameters]
+
+        def get_output_names(self) -> list[str]:
+            return [m.name for m in self.metrics]
+
+        def get_num_samples_reported(self) -> int:
+            return len(self.results)
+
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
+        constructor_args = {
+            "parameters": [
+                Parameter(name="mix_colors.cyan_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.cyan_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.magenta_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.magenta_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.yellow_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.yellow_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.black_volume", lower_bound=0, upper_bound=25),
+                Parameter(name="mix_colors.black_strength", lower_bound=2, upper_bound=100),
+                Parameter(name="mix_colors.mixing_time", lower_bound=1, upper_bound=45),
+                Parameter(name="mix_colors.mixing_speed", lower_bound=100, upper_bound=200),
+            ],
+            "metrics": [
+                Metric(name="score_color.loss", objective=ObjectiveType.MINIMIZE),
+            ],
+        }
+        return constructor_args, RandomSamplingOptimizer
+# File: user-guide/packages.rst
+================================================================================
+
+Packages
+========
+Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
+Each package is essentially a folder.
+These packages can contain laboratory, device, task, and experiment definitions, code, and data, allowing reuse and
+sharing.
+For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
+another package may only contain experiments that run on a specific lab.
+
+.. figure:: ../_static/img/package.png
+   :alt: EOS package
+   :align: center
+
+Using a package is as simple as placing it in a directory that EOS loads packages from.
+By default, this directory is called `user` and is located in the root of the EOS repository.
+
+Below is the directory tree of an example EOS package called "color_lab".
+It contains a laboratory called "color_lab", the "color_mixing" experiment, and
+various devices and tasks. The package also contains a device client under `common`,
+and a README file.
+
+.. figure:: ../_static/img/example-package-tree.png
+   :alt: Example package directory tree
+   :scale: 50%
+   :align: center
+
+Create a Package
+----------------
+.. code-block:: shell
+
+   eos pkg create my_package
+
+This command is a shortcut to create a new package with all subdirectories.
+Feel free to delete subdirectories you don't expect to use.
+
+# File: user-guide/references.rst
+================================================================================
+
+References
+==========
+References connect tasks in an EOS experiment. They let downstream tasks reuse:
+
+- Devices allocated upstream (device references)
+
+- Physical items used upstream (resource references)
+
+- Output values produced upstream (parameter references)
+
+You write references directly under devices, resources, or parameters in each task’s YAML.
+
+
+Quick syntax
+------------
+- Device reference (reuse an allocated device):
+
+  devices:
+    <alias>: <upstream_task>.<alias>
+
+- Resource reference (pass the same physical item):
+
+  resources:
+    <alias>: <upstream_task>.<alias>
+
+- Parameter reference (consume an output value):
+
+  parameters:
+    <param_name>: <upstream_task>.<output_name>
+
+
+Minimal example
+---------------
+.. code-block:: yaml
+
+  - name: retrieve_container
+    devices:
+      robot_arm:
+        lab_name: color_lab
+        name: robot_arm
+      color_mixer:
+        allocation_type: dynamic
+        device_type: color_mixer
+        allowed_labs: [color_lab]
+    resources:
+      beaker:
+        allocation_type: dynamic
+        resource_type: beaker
+    dependencies: []
+
+  - name: mix_colors
+    devices:
+      color_mixer: retrieve_container.color_mixer          # device reference
+    resources:
+      beaker: retrieve_container.beaker                    # resource reference
+    parameters:
+      cyan_volume: eos_dynamic
+      mixing_time: eos_dynamic
+    dependencies: [retrieve_container]
+
+  - name: analyze_color
+    devices:
+      color_analyzer:
+        allocation_type: dynamic
+        device_type: color_analyzer
+        allowed_labs: [color_lab]
+    resources:
+      beaker: mix_colors.beaker                            # keep same beaker
+    dependencies: [mix_colors]
+
+  - name: score_color
+    parameters:
+      red: analyze_color.red                               # output parameter references
+      green: analyze_color.green
+      blue: analyze_color.blue
+      total_color_volume: mix_colors.total_color_volume
+      max_total_color_volume: 300.0
+      target_color: eos_dynamic
+    dependencies: [analyze_color]
+
+# File: user-guide/resources.rst
+================================================================================
+
+Resources
+=========
+Resources in EOS represent anything that requires exclusive allocation during task execution but does not need its own long‑running process like a device. They cover labware and shared objects such as beakers, vials, tip racks, pipettes, holders, fixtures, bench slots, fridge locations, etc. If multiple tasks could contend for the same physical thing, model it as a resource.
+
+- Use a device when you need a persistent process with methods (e.g., a mixer, GC, robot).
+- Use a resource when you only need exclusive use of something for a task.
+
+Defining resources in laboratories
+----------------------------------
+Resources are defined per laboratory in ``lab.yml`` using two sections:
+
+- ``resource_types``: declares reusable types and their default metadata (e.g., capacity, geometry).
+- ``resources``: declares concrete, globally unique resource instances of a given type.
+
+:bdg-primary:`lab.yml`
+
+.. code-block:: yaml
+
+    name: small_lab
+    desc: A small laboratory
+
+    devices:
+      magnetic_mixer:
+        type: magnetic_mixer
+        computer: eos_computer
+
+    resource_types:
+      beaker_500:
+        meta:
+          capacity_ml: 500
+      p200_tips:
+        meta:
+          count: 96
+      bench_slot:
+        meta:
+          footprint: 127x85
+
+    resources:
+      BEAKER_A:
+        type: beaker_500
+        meta:
+          location: shelf_1
+      BEAKER_B:
+        type: beaker_500
+      TIPS_RACK_1:
+        type: p200_tips
+      SLOT_1:
+        type: bench_slot
+
+Notes
+"""""
+- Resource names must be globally unique across all labs; EOS enforces this at load time.
+- Instance ``meta`` overrides any defaults from the corresponding ``resource_types`` entry.
+
+Declaring resources in task specifications
+------------------------------------------
+Tasks declare the resource types they require in ``task.yml``. EOS validates that experiments provide matching resource instances (by name) or a dynamic request for a resource of the required type.
+
+:bdg-primary:`task.yml`
+
+.. code-block:: yaml
+
+    type: Magnetic Mixing
+    desc: Mix contents in a beaker
+
+    device_types:
+      - magnetic_mixer
+
+    input_resources:
+      beaker:
+        type: beaker_500
+
+    # Optional: if not specified, output_resources default to input_resources
+    # output_resources:
+    #   beaker:
+    #     type: beaker_500
+
+Assigning resources in experiments
+----------------------------------
+In an experiment’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
+
+:bdg-primary:`experiment.yml`
+
+.. code-block:: yaml
+
+    type: dynamic_resource_experiment
+    desc: Demonstrate resource assignment
+    labs: [small_lab]
+
+    tasks:
+      - name: prepare
+        type: Magnetic Mixing
+        duration: 60
+        devices:
+          mixer:
+            lab_name: small_lab
+            name: magnetic_mixer
+        # Specific resource by name
+        resources:
+          beaker: BEAKER_A
+
+      - name: process_batch
+        type: Magnetic Mixing
+        duration: 120
+        # Dynamically allocate a beaker of the required type
+        resources:
+          beaker:
+            allocation_type: dynamic
+            resource_type: beaker_500
+        dependencies: [prepare]
+
+      - name: analyze
+        type: Magnetic Mixing
+        duration: 30
+        # Reuse the same instance selected for 'process_batch'
+        # (when a task outputs a resource, it can be referenced by name)
+        resources:
+          beaker: process_batch.beaker
+        dependencies: [process_batch]
+
+.. tip::
+   Dynamic resource requests select a single matching resource instance.
+
+Experiment‑level resource metadata (optional)
+---------------------------------------------
+You may attach experiment‑specific metadata to resources used in that experiment via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
+
+:bdg-primary:`experiment.yml`
+
+.. code-block:: yaml
+
+    type: water_purification
+    desc: Evaporate sample in a beaker
+    labs: [small_lab]
+
+    resources:
+      BEAKER_A:
+        meta:
+          substance: salt_water
+
+    tasks:
+      - name: mixing
+        type: Magnetic Mixing
+        resources:
+          beaker: BEAKER_A
+
+Allocation and exclusivity
+--------------------------
+- EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.
+- Specific assignments must name an existing resource instance defined in one of the experiment’s labs.
+- Dynamic assignments select from the pool of eligible instances by ``resource_type``.
+- Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.
+
+When to model as a resource
+---------------------------
+- Labware: beakers, vials, flasks, tip racks, plates.
+- Fixtures/locations: bench or instrument slots, holders, storage positions.
+- Tools without stateful control loops: manual pipettes, clamps, lids.
+
+Choose a device instead when the object exposes actions and status via a process (e.g., start/stop/move, sensors, drivers).
+
+# File: user-guide/rest_api.rst
+================================================================================
+
+REST API
+========
+EOS has a REST API to control the orchestrator.
+Example functions include:
+
+* Submit tasks, experiments, and campaigns, as well as cancel them
+* Load, unload, and reload experiments and laboratories
+* Get the status of tasks, experiments, and campaigns
+* Download task output files
+
+.. warning::
+
+    Be careful about who accesses the REST API.
+    The REST API currently has no authentication.
+
+    Only use it internally in its current state.
+    If you need to make it accessible over the web use a VPN and set up a firewall.
+
+    EOS will likely have control over expensive (and potentially dangerous) hardware and unchecked REST API access could
+    have severe consequences.
+
+
+Device RPC
+----------
+EOS provides an RPC endpoint to call device functions directly through the REST API.
+
+**Endpoint:** ``POST /api/rpc/{lab_id}/{device_id}/{function_name}``
+
+**Usage:**
+
+.. code-block:: bash
+
+    curl -X POST "http://localhost:8070/api/rpc/my_lab/pipette/aspirate" \
+         -H "Content-Type: application/json" \
+         -d '{"volume": 50, "location": "A1"}'
+
+**Parameters:**
+
+* ``lab_id``: The laboratory ID
+* ``device_id``: The device ID within the lab
+* ``function_name``: The name of the device function to call
+* Request body: JSON object containing function parameters
+
+The endpoint will dynamically call the specified function on the device actor with the provided parameters and return the result.
+
+.. warning::
+
+    Direct device control bypasses EOS validation, resource allocation, and scheduling.
+
+Documentation
+-------------
+The REST API is documented using `OpenAPI <https://swagger.io/specification/>`_ and can be accessed at:
+
+.. code-block:: bash
+
+    http://localhost:8070/docs
+
+or whatever host and port you have configured for the REST API server.
+
+# File: user-guide/scheduling.rst
+================================================================================
+
+Scheduling
+==========
+EOS schedules experiments, meaning it determines *when* and *on which resources* tasks run.
+Two scheduling policies are provided:
+
+- **Greedy**: starts tasks as soon as requirements are met (dependencies, devices/resources).
+- **CP-SAT**: computes a global schedule that respects requirements and minimizes overall completion time,
+  using each task’s expected duration.
+
+Choosing a scheduler
+--------------------
+Select the scheduler in ``config.yml``:
+
+:bdg-primary:`config.yml`
+
+.. code-block:: yaml
+
+    # ...
+    scheduler:
+      type: greedy   # or: cpsat
+
+**Guidance**
+
+- Use **Greedy** for immediacy and simplicity (small/medium runs, low contention, "start ASAP" behavior).
+- Use **CP-SAT** for globally optimized scheduling (many tasks/experiments, shared resources, priorities, strict sequencing).
+
+The greedy scheduler can achieve higher throughput than CP-SAT in graphs where task durations are highly variable.
+
+.. note::
+   CP-SAT is CPU-intensive for large graphs. It benefits significantly from multiple CPU cores.
+
+Task durations
+--------------
+CP-SAT requires task durations. Each task in an ``experiment.yml`` must provide an expected duration in **seconds**.
+If omitted, tasks default to **1 second**.
+
+:bdg-primary:`experiment.yml`
+
+.. code-block:: yaml
+
+    # ...
+    tasks:
+      - name: analyze_color
+        type: Analyze Color
+        desc: Determine the RGB value of a solution in a container
+        duration: 5 # seconds
+        devices:
+          color_analyzer:
+            lab_name: color_lab
+            name: color_analyzer
+        resources:
+          beaker: beaker_A
+        dependencies: [move_container_to_analyzer]
+
+.. tip::
+   Provide **realistic** average durations for CP-SAT. Better estimates -> better global schedules (fewer conflicts,
+   shorter makespan).
+
+Device and resource allocation
+------------------------------
+Both schedulers support **specific** and **dynamic** devices and resources for tasks.
+
+**Devices**
+
+- *Specific device* - tasks request specific devices with a lab_name/name identifier.
+- *Dynamic device* - tasks request "any device of type X," optionally with constraints (allowed labs/devices).
+
+.. code-block:: yaml
+
+    # Specific device
+    devices:
+      color_analyzer:
+        lab_name: color_lab
+        name: color_analyzer
+
+    # Dynamic device (one device is selected)
+    devices:
+      color_analyzer:
+        allocation_type: dynamic
+        device_type: color_analyzer
+        allowed_labs: [color_lab]
+
+**Resources**
+
+- *Specific resource* - tasks request specific resources by name.
+- *Dynamic resource* - tasks request resources by **type** (one resource is selected).
+
+.. code-block:: yaml
+
+    # Specific resources
+    resources:
+      beaker: beaker_A
+      buffer: buffer_01
+
+    # Dynamic resource (one resource is selected)
+    resources:
+      tips:
+        allocation_type: dynamic
+        resource_type: p200_tips
+
+**How schedulers choose**
+
+- **Greedy**: load balances between available eligible devices/resources at request time.
+- **CP-SAT**: chooses devices/resources as part of a **global schedule** to reduce conflicts and overall time.
+
+Task groups
+--------------
+For workflows that must run some tasks **back-to-back** without gaps (e.g., a tightly coupled sequence), assign the same
+``group`` label to consecutive tasks.
+
+.. code-block:: yaml
+
+    tasks:
+      - name: prep_sample
+        type: Prep Sample
+        duration: 120
+        group: sample_run_42
+
+      - name: incubate
+        type: Incubate
+        duration: 600
+        group: sample_run_42
+        dependencies: [prep_sample]
+
+      - name: readout
+        type: Readout
+        duration: 90
+        group: sample_run_42
+        dependencies: [incubate]
+
+.. note::
+   The greedy scheduler does not support task groups.
+
+Comparion table
+---------------
+.. list-table::
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * - Capability
+     - Greedy Scheduler
+     - CP-SAT Scheduler
+   * - Decision scope
+     - ✅ Per-task, on demand
+     - ✅ Global schedule across experiments
+   * - Optimization goal
+     - ✅ Start tasks ASAP
+     - ✅ Minimize experiment durations
+   * - Task groups
+     - ❌ Not supported
+     - ✅ Supported
+   * - Task durations
+     - ❌ Not supported
+     - ✅ Supported and required
+   * - Dynamic device allocation
+     - ✅ First available from eligible pool
+     - ✅ Optimized choices to reduce conflicts
+   * - Dynamic resource allocation
+     - ✅ First available from eligible pool
+     - ✅ Optimized choices to reduce conflicts
+   * - Experiment priorities
+     - ❌ Only for tie-breaks
+     - ✅ Shapes overall completion order
+   * - Multi-experiment optimization
+     - ❌ Per experiment
+     - ✅ Joint scheduling of all experiments
+   * - Tuning / parameters
+     - ❌ None
+     - ✅ Solver knobs (time limit, workers, seed)
+   * - Computational complexity
+     - Low
+     - High
+
+# File: user-guide/sila2_integration.rst
+================================================================================
+
+SiLA 2 Integration
+==================
+
+EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_, enabling easier integration with
+SiLA-compliant instruments.
+
+Overview
+--------
+
+The SiLA integration allows you to:
+
+* Host SiLA servers inside EOS devices
+* Connect to external SiLA servers (manual or with autodiscovery)
+* Call SiLA servers from tasks with automatic connection management
+* Use LockController for exclusive device access (automatic)
+
+Setup
+-----
+Install the SiLA 2 Python package and supporting packages:
+
+.. code-block:: bash
+
+    uv sync --group sila2
+
+Hosting SiLA Servers
+--------------------
+
+Host SiLA servers inside EOS devices using ``SilaDeviceMixin``:
+
+:bdg-primary:`device.py`
+
+.. code-block:: python
+
+    from eos.devices.base_device import BaseDevice
+    from eos.integrations.sila import SilaDeviceMixin
+    from your_package.sila import Server as YourSilaServer
+
+    class YourDevice(BaseDevice, SilaDeviceMixin):
+        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+            self.sila_add_server(
+                name="server",
+                server_class=YourSilaServer,
+                port=init_parameters.get("sila_port", 0),  # 0 = auto-assign
+                insecure=init_parameters.get("sila_insecure", True),
+            )
+            await self.sila_start_all()
+
+        async def _cleanup(self) -> None:
+            await self.sila_stop_all()
+
+        async def _report(self) -> dict[str, Any]:
+            return {**self.sila_get_status()}
+
+:bdg-primary:`device.yml`
+
+.. code-block:: yaml
+
+    type: your_device
+    desc: Device that hosts a SiLA server
+
+    init_parameters:
+      sila_port: 0
+      sila_insecure: true
+
+Connecting to External SiLA Servers
+-----------------------------------
+
+Manual Connection
+~~~~~~~~~~~~~~~~~
+
+Connect to a server at a known address:
+
+.. code-block:: python
+
+    self.sila_add_server_connection(
+        name="external",
+        address="192.168.1.100",
+        port=50051,
+        insecure=True,
+    )
+
+Autodiscovery
+~~~~~~~~~~~~~
+
+Use SiLA autodiscovery to find servers on the network:
+
+.. code-block:: python
+
+    self.sila_add_server_connection(
+        name="discovered",
+        server_name="YourSilaServer",
+        timeout=5.0,
+        insecure=True,
+    )
+
+Using Servers from Tasks
+-------------------------
+
+Connect to SiLA servers using ``SilaClientContext``:
+
+:bdg-primary:`task.py`
+
+.. code-block:: python
+
+    from eos.tasks.base_task import BaseTask
+    from eos.integrations.sila import SilaClientContext
+    from your_package.sila import Client as YourSilaClient
+
+    class YourTask(BaseTask):
+        async def _execute(self, devices, parameters, resources):
+            device = devices["your_device"]
+
+            async with SilaClientContext.connect(device, YourSilaClient) as client:
+                # Call commands
+                response = client.YourFeature.YourCommand(Parameter=value)
+
+                # Access properties
+                property_value = client.YourFeature.YourProperty.get()
+
+                return {"result": response.Result}, None, None
+
+For devices with multiple servers, specify the server name:
+
+.. code-block:: python
+
+    async with SilaClientContext.connect(device, Client, "server_name") as client:
+        ...
+
+Long-Lived Connections
+~~~~~~~~~~~~~~~~~~~~~~
+
+For connections that need to persist beyond a single context, use ``create_client()``:
+
+.. code-block:: python
+
+    # Create client without automatic closing
+    client = await SilaClientContext.create_client(device, YourSilaClient)
+
+    # Manually lock if needed
+    client.lock(timeout=300)
+
+    # Use the client
+    response = client.Feature.Command()
+
+    # Manually unlock and close when done
+    client.unlock()
+    client.close()
+
+
+Calling Servers from Device Code
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also call SiLA servers from within an EOS device:
+
+.. code-block:: python
+
+    from eos.devices.base_device import BaseDevice
+    from eos.integrations.sila import SilaDeviceMixin, SilaClientContext
+    from your_package.sila import Client as YourSilaClient
+
+    class YourDevice(BaseDevice, SilaDeviceMixin):
+        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+            # Connect to external SiLA server
+            self.sila_add_server_connection(
+                name="external",
+                server_name="ExternalServer",
+                insecure=True,
+            )
+
+            # Call the server during initialization
+            async with SilaClientContext.connect(self, YourSilaClient) as client:
+                self._initial_value = client.Feature.Property.get()
+
+LockController Support
+----------------------
+
+EOS automatically handles LockController when present:
+
+* **Auto-detection**: Checks if server has LockController
+* **Auto-locking**: Locks with unique UUID (default 60s)
+* **Metadata injection**: Adds lock identifier to all calls
+* **Auto-retry**: Waits up to 60s if locked
+* **Auto-unlock**: Releases on context exit
+
+Default Behavior
+~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # Automatically locked for 60 seconds
+    async with SilaClientContext.connect(device, Client) as client:
+        response = client.Feature.Command()
+
+Custom Timeout
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # Lock for 120 seconds
+    async with SilaClientContext.connect(device, Client, lock_timeout=120) as client:
+        ...
+
+Custom Retry Behavior
+~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # Wait up to 30 seconds (60 retries × 0.5s) for lock
+    async with SilaClientContext.connect(
+        device, Client,
+        lock_timeout=120,
+        lock_retry_delay=0.5,
+        lock_max_retries=60
+    ) as client:
+        ...
+
+Disable Auto-Locking
+~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    # No automatic locking
+    async with SilaClientContext.connect(device, Client, lock_timeout=None) as client:
+        ...
+
+Manual Lock Control
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    async with SilaClientContext.connect(device, Client, lock_timeout=None) as client:
+        client.lock(timeout=90)  # Lock with auto-generated UUID
+        response = client.Feature.Command()
+        client.unlock()
+# File: user-guide/tasks.rst
+================================================================================
+
+Tasks
+=====
+A task in EOS encapsulates an operation and can be thought of as a function.
+Tasks are the elementary building block in EOS.
+A task is ephemeral, meaning it is created, executed, and terminated.
+A task takes some inputs and returns some outputs, and may use one or more devices.
+
+There are two kinds of inputs: **parameters** and **resources**.
+
+#. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are passed to the task.
+#. **Resources**: Laboratory resources such as containers (vessels that may contain samples), reagents, or other consumables.
+
+There are three kinds of outputs: **parameters**, **resources**, and **files**.
+
+#. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are returned by the task.
+#. **Resources**: Laboratory resources such as containers, reagents, or consumables.
+#. **Files**: Raw data or reports generated by the task, such as output files from analysis.
+
+.. figure:: ../_static/img/task-inputs-outputs.png
+   :alt: EOS Task Inputs and Outputs
+   :align: center
+
+Parameters
+----------
+Parameters are values that are input to a task or output from a task.
+Every parameter has a specific data type.
+EOS supports the following parameter types:
+
+* **int**: An int number.
+  Equivalent to Python's ``int``
+* **float**: A float number.
+  Equivalent to Python's ``float``
+* **str**: A str (series of text characters).
+  Equivalent to Python's ``str``
+* **bool**: A true/false value.
+  Equivalent to Python's ``bool``
+* **choice**: A value that must be one of a set of predefined choices.
+  The choices can be any type.
+* **list**: A list of values of a specific type.
+  Equivalent to Python's ``list``.
+* **dict**: A dict of key-value pairs.
+  Equivalent to Python's ``dict``.
+
+Tasks can have multiple parameters of different types.
+EOS will ensure that the parameters passed to a task are of the correct type and have values that meet their constraints.
+
+Resources
+---------
+Resources in EOS represent anything that tasks should exclusively allocate (other than devices).
+This can include sample containers (like beakers or vials), locations in the lab that can only be occupied by one container,
+reagents, or any other laboratory asset that requires exclusive access.
+
+Resources are referenced by a unique **resource name**.
+Every resource in EOS must have a name, and these are specified in the laboratory definition under the ``resources`` section.
+Resources are treated as *global* objects and can move across labs.
+However, every resource must have a "home" lab from which it originates.
+
+To pass a resource to a task or return a resource from a task, its name is used (or a reference to another task's resource).
+Every task may accept specific types of resources, such as ``beaker``, ``vial``, or custom types.
+Multiple different resources can be passed to a task.
+Users define resource types in the laboratory definition using ``resource_types``, which act as templates.
+Individual resource instances are then created under ``resources`` with a specified type.
+EOS will ensure that only resource types that are compatible with the task are passed to it.
+
+Files
+-----
+Files may be generated by a task and EOS will store them in an object storage (MinIO).
+Output files can be used to record raw data for future reference, and can be downloaded by the user.
+
+.. note::
+    Files cannot currently be passed as inputs to tasks via the EOS runtime and its object storage.
+    This is planned to be supported in the future.
+    It is still possible to pass them using an external object storage (e.g., MinIO), but this has to be implemented and
+    managed manually.
+
+Task Implementation
+-------------------
+* Tasks are implemented in the `tasks` subdirectory inside an EOS package
+* Each task has its own subfolder (e.g., tasks/magnetic_mixing)
+* There are two key files per task: ``task.yml`` and ``task.py``
+
+YAML File (task.yml)
+~~~~~~~~~~~~~~~~~~~~
+* Specifies the task type, description, devices, and input/output parameters and resources
+* Acts as the interface contract (spec) for the task
+* This contract is used to validate tasks, and EOS enforces the contract statically and dynamically during execution
+* Useful as documentation for the task
+
+Below is an example task YAML file for a GC analysis task for GCs made by SRI Instruments:
+
+:bdg-primary:`task.yml`
+
+.. code-block:: yaml
+
+    type: SRI GC Analysis
+    desc: Perform gas chromatography (GC) analysis on a sample.
+
+    devices:
+      gc:
+        type: sri_gas_chromatograph
+
+    input_parameters:
+      analysis_time:
+        type: int
+        unit: seconds
+        value: 480
+        desc: How long to run the GC analysis
+
+    output_parameters:
+      known_substances:
+        type: dict
+        desc: Peaks and peak areas of identified substances
+      unknown_substances:
+        type: dict
+        desc: Peaks and peak areas of substances that could not be identified
+
+The task specification makes clear that:
+
+* The task is of type "SRI GC Analysis"
+* The task requires a device named ``gc`` of type ``sri_gas_chromatograph``.
+  EOS will enforce this requirement and the device will be accessible in the task implementation via ``devices["gc"]``.
+* The task takes an input int parameter ``analysis_time`` in seconds.
+  It has a default value of 480, making this an optional parameter.
+* The task outputs two dictionaries: ``known_substances`` and ``unknown_substances``.
+
+Parameter Specification
+"""""""""""""""""""""""
+Parameters are defined in the ``input_parameters`` and ``output_parameters`` sections of the task YAML file.
+
+Below are examples and descriptions for each parameter type:
+
+Integer
+"""""""
+.. code-block:: yaml
+
+    sample_rate:
+      type: int
+      desc: The number of samples per second
+      value: 44100
+      unit: Hz
+      min: 8000
+      max: 192000
+
+Integers must have a unit (can be n/a) and can also have a minimum and maximum value.
+
+Float
+"""""
+.. code-block:: yaml
+
+    threshold_voltage:
+      type: float
+      desc: The voltage threshold for signal detection
+      value: 2.5
+      unit: volts
+      min: 0.0
+      max: 5.0
+
+Decimals must have a unit (can be n/a) and can also have a minimum and maximum value.
+
+String
+""""""
+.. code-block:: yaml
+
+    file_prefix:
+      type: str
+      desc: Prefix for output file names
+      value: "experiment_"
+
+Boolean
+"""""""
+.. code-block:: yaml
+
+    auto_calibrate:
+      type: bool
+      desc: Whether to perform auto-calibration before analysis
+      value: true
+
+Booleans are true/false values.
+
+Choice
+""""""
+.. code-block:: yaml
+
+    column_type:
+      type: choice
+      desc: HPLC column type
+      value: "C18"
+      choices:
+        - "C18"
+        - "C8"
+        - "HILIC"
+        - "Phenyl-Hexyl"
+        - "Amino"
+
+Choice parameters take one of the specified choices.
+
+List
+""""
+.. code-block:: yaml
+
+    channel_gains:
+      type: list
+      desc: Gain values for each input channel
+      value: [1.0, 1.2, 0.8, 1.1]
+      element_type: float
+      length: 4
+      min: [0.5, 0.5, 0.5, 0.5]
+      max: [2.0, 2.0, 2.0, 2.0]
+
+List parameters are a sequence of values of a specific type.
+They can have a specific length and minimum and maximum per-element values.
+
+Dictionary
+""""""""""
+.. code-block:: yaml
+
+    buffer_composition:
+      type: dict
+      desc: Composition of a buffer solution
+      value:
+        pH: 7.4
+        base: "Tris"
+        concentration: 50
+        unit: "mM"
+        additives:
+          NaCl: 150
+          KCl: 2.7
+          CaCl2: 1.0
+        temperature: 25
+
+Dictionaries are key-value pairs. The values can be any type.
+
+Python File (task.py)
+~~~~~~~~~~~~~~~~~~~~~~
+* Implements the task
+* All task implementations must inherit from ``BaseTask``
+
+:bdg-primary:`task.py`
+
+.. code-block:: python
+
+    from eos.tasks.base_task import BaseTask
+
+
+    class MagneticMixing(BaseTask):
+        async def _execute(
+            self,
+            devices: BaseTask.DevicesType,
+            parameters: BaseTask.ParametersType,
+            resources: BaseTask.ResourcesType,
+        ) -> BaseTask.OutputType:
+            magnetic_mixer = devices["mixer"]
+            mixing_time = parameters["mixing_time"]
+            mixing_speed = parameters["mixing_speed"]
+
+            resources["beaker"] = magnetic_mixer.mix(resources["beaker"], mixing_time, mixing_speed)
+
+            return None, resources, None
+
+Let's walk through this example code:
+
+``_execute`` is the only required function in a task implementation.
+It is called by EOS to execute a task.
+The function takes three arguments:
+
+#. ``devices``: A dictionary of devices assigned to the task.
+   Devices are accessed by name (e.g., ``devices["mixer"]``).
+   The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
+   the device implementation.
+#. ``parameters``: A dictionary of the input parameters.
+    Keys are the parameter names and values are the parameter values.
+#. ``resources``: A dictionary of the input resources.
+    Keys are the resource names and values are ``Resource`` objects.
+
