@@ -108,6 +108,7 @@ class OrchestratorHzConfig(BaseModel):
 
 class EosConfig(BaseSettings):
     user_dir: Path = Field(default=Path("./user"))
+    packages: set[str] = Field(default_factory=set)
     labs: set[str] = Field(default_factory=set)
     experiments: set[str] = Field(default_factory=set)
 

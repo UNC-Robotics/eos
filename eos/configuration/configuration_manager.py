@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 from eos.configuration.exceptions import (
     EosConfigurationError,
     EosDevicePluginError,
+    EosTaskPluginError,
 )
 from eos.configuration.packages.entities import EntityType
 from eos.configuration.packages.package_manager import PackageManager
@@ -32,9 +33,9 @@ class ConfigurationManager:
     It also invokes the validation of the loaded configurations.
     """
 
-    def __init__(self, user_dir: str):
+    def __init__(self, user_dir: str, allowed_packages: set[str] | None = None):
         self._user_dir = user_dir
-        self.package_manager = PackageManager(user_dir)
+        self.package_manager = PackageManager(user_dir, allowed_packages)
 
         task_configs, task_dirs_to_task_types = self.package_manager.read_task_configs()
         self.task_specs = TaskSpecRegistry(task_configs, task_dirs_to_task_types)
@@ -48,6 +49,9 @@ class ConfigurationManager:
         self.experiments: dict[str, ExperimentConfig] = {}
 
         self.campaign_optimizers = CampaignOptimizerPluginRegistry(self.package_manager)
+
+        # Initialize task plugins at startup to catch syntax/import errors early
+        self._initialize_task_plugins()
 
         log.debug("Configuration manager initialized")
 
@@ -229,6 +233,25 @@ class ConfigurationManager:
         for experiment_name in experiments_to_remove:
             self.unload_experiment(experiment_name)
             log.debug(f"Unloaded experiment '{experiment_name}' as it was associated with lab(s) {lab_names}")
+
+    def _initialize_task_plugins(self) -> None:
+        """Initialize all task plugins at startup to catch syntax and import errors early.
+        This eagerly loads all task implementations, making errors visible immediately.
+        """
+        # Get all task types from the task spec registry
+        all_task_types = set(self.task_specs.get_all_specs().keys())
+
+        # Filter to only task types that haven't been loaded yet
+        new_task_types = all_task_types - set(self.tasks.plugin_types.keys())
+
+        if not new_task_types:
+            return  # No new tasks to initialize
+
+        try:
+            self.tasks.initialize_for_types(new_task_types)
+        except EosTaskPluginError as e:
+            log.error(f"Failed to initialize task plugins: {e}")
+            raise
 
     def _initialize_device_plugins(self) -> None:
         """Initialize the device plugins for all devices used in the loaded labs.

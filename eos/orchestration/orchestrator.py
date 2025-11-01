@@ -47,6 +47,7 @@ class Orchestrator(metaclass=Singleton):
         config: EosConfig,
     ):
         self._user_dir = config.user_dir
+        self._packages = config.packages
         self._scheduler_config = config.scheduler
         self._db_config = config.db
         self._file_db_config = config.file_db
@@ -75,7 +76,7 @@ class Orchestrator(metaclass=Singleton):
         di = get_di_container()
 
         # Configuration ###########################################
-        configuration_manager = ConfigurationManager(self._user_dir)
+        configuration_manager = ConfigurationManager(self._user_dir, self._packages if self._packages else None)
         di.register(ConfigurationManager, configuration_manager)
 
         # Persistence #############################################

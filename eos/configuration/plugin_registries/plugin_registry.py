@@ -239,6 +239,9 @@ class PluginRegistry(Generic[T, S]):
             except Exception as e:
                 errors.append((f"Error loading plugin '{type_name}': {e}", self._config.exception_class))
 
+        # Raise any batched errors from _load_single_plugin calls
+        raise_batched_errors(root_exception_type=self._config.exception_class)
+
         if errors:
             combined = "\n".join(f"{msg} ({exc.__name__})" for msg, exc in errors)
             raise self._config.exception_class(combined)

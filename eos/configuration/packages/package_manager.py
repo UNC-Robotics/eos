@@ -20,19 +20,32 @@ class PackageManager:
     Manages packages and entity configurations within the user directory.
     """
 
-    def __init__(self, user_dir: str):
+    def __init__(self, user_dir: str, allowed_packages: set[str] | None = None):
         self._user_dir = Path(user_dir)
         self._entity_indices: dict[EntityType, dict[str, EntityLocationInfo]] = defaultdict(dict)
 
         self._packages: dict[str, Package] = {}
         self._discover_packages()
 
+        # Filter packages if allowed_packages is specified and non-empty
+        if allowed_packages:
+            ignored_packages = [name for name in self._packages if name not in allowed_packages]
+            self._packages = {name: pkg for name, pkg in self._packages.items() if name in allowed_packages}
+            if ignored_packages:
+                log.info(f"Ignoring packages: {', '.join(ignored_packages)}")
+
         # Validate packages
         if not self._packages:
+            if allowed_packages:
+                allowed_list = ", ".join(allowed_packages)
+                raise EosMissingConfigurationError(
+                    f"No valid packages found in the user directory '{self._user_dir}' "
+                    f"matching allowed packages: {allowed_list}"
+                )
             raise EosMissingConfigurationError(f"No valid packages found in the user directory '{self._user_dir}'")
 
         self._build_entity_indices(self._packages)
-        log.info(f"Found packages: {', '.join(self._packages.keys())}")
+        log.info(f"Loaded packages: {', '.join(self._packages.keys())}")
 
         log.debug("Package manager initialized")
 
