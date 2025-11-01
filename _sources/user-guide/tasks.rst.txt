@@ -5,12 +5,12 @@ Tasks are the elementary building block in EOS.
 A task is ephemeral, meaning it is created, executed, and terminated.
 A task takes some inputs and returns some outputs, and may use one or more devices.
 
-There are two kinds of inputs: **parameters** and **resources**.
+There are two kinds of inputs:
 
 #. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are passed to the task.
 #. **Resources**: Laboratory resources such as containers (vessels that may contain samples), reagents, or other consumables.
 
-There are three kinds of outputs: **parameters**, **resources**, and **files**.
+There are three kinds of outputs:
 
 #. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are returned by the task.
 #. **Resources**: Laboratory resources such as containers, reagents, or consumables.
