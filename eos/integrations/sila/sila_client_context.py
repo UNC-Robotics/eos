@@ -30,6 +30,10 @@ class _SilaFeatureWrapper:
         if callable(attr):
 
             def wrapped_call(*args, **kwargs) -> Any:
+                # Skip metadata injection for metadata calls (identified by get_affected_calls attribute)
+                if hasattr(attr, "get_affected_calls"):
+                    return attr(*args, **kwargs)
+
                 if "metadata" in kwargs:
                     # Append to existing metadata
                     kwargs["metadata"] = list(kwargs["metadata"]) + self._lock_metadata
