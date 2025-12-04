@@ -60,7 +60,6 @@ class _SilaLockedClient:
         """
         self._client = client
         self._lock_identifier: str | None = None
-        self._locked = False
 
     def lock(self, timeout: int = 60, retry_delay: float = 0.5, max_retries: int = 120) -> None:
         """
@@ -72,7 +71,7 @@ class _SilaLockedClient:
         :param retry_delay: Delay between retry attempts in seconds (default: 0.5)
         :param max_retries: Maximum number of retry attempts (default: 120, ~60s total)
         """
-        if self._locked:
+        if self._client.LockController.IsLocked.get():
             return  # Already locked
 
         self._lock_identifier = str(uuid.uuid4())
@@ -81,7 +80,6 @@ class _SilaLockedClient:
         for attempt in range(max_retries):
             try:
                 self._client.LockController.LockServer(LockIdentifier=self._lock_identifier, Timeout=timeout)
-                self._locked = True
                 return
             except Exception as e:
                 # Check if it's a ServerAlreadyLocked error and retry if attempts remain
@@ -93,13 +91,12 @@ class _SilaLockedClient:
 
     def unlock(self) -> None:
         """Unlock the server if currently locked."""
-        if not self._locked:
+        if not self._client.LockController.IsLocked.get():
             return  # Not locked
 
         try:
             self._client.LockController.UnlockServer(LockIdentifier=self._lock_identifier)
         finally:
-            self._locked = False
             self._lock_identifier = None
 
     def close(self) -> None:
@@ -120,7 +117,7 @@ class _SilaLockedClient:
             return attr
 
         # Wrap features to inject lock metadata if locked
-        if self._locked:
+        if self._client.LockController.IsLocked.get():
             lock_metadata = [self._client.LockController.LockIdentifier(self._lock_identifier)]
             return _SilaFeatureWrapper(attr, lock_metadata)
 
