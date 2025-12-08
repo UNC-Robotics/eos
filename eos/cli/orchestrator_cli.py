@@ -105,13 +105,32 @@ async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
 
     async with orchestrator.db_interface.get_async_session() as db:
         await orchestrator.loading.load_labs(db, config.labs)
-
-    await orchestrator.loading.load_experiments(config.experiments)
+        await orchestrator.loading.load_experiments(db, config.experiments)
 
     return orchestrator
 
 
-def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicorn.Server":
+class _UvicornServerNoSignals:
+    """Uvicorn Server wrapper that disables uvicorn's signal handling.
+
+    Uvicorn's default serve() uses signal.signal() which overrides asyncio handlers,
+    and then re-raises captured signals via signal.raise_signal() on exit. This can
+    trigger asyncio.run()'s internal handler which cancels the main task during cleanup.
+    By calling _serve() directly, we bypass this signal handling entirely.
+    """
+
+    def __init__(self, server: "uvicorn.Server") -> None:
+        self._server = server
+
+    def __getattr__(self, name: str):
+        return getattr(self._server, name)
+
+    async def serve(self, sockets=None) -> None:
+        """Run the server without installing signal handlers."""
+        await self._server._serve(sockets)
+
+
+def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> _UvicornServerNoSignals:
     """Set up the web API server."""
     from litestar import Litestar, Router
     from litestar import Controller
@@ -123,7 +142,9 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
     from eos.web_api.controllers.campaign_controller import CampaignController
     from eos.web_api.controllers.experiment_controller import ExperimentController
     from eos.web_api.controllers.file_controller import FileController
+    from eos.web_api.controllers.health_controller import HealthController
     from eos.web_api.controllers.lab_controller import LabController
+    from eos.web_api.controllers.refresh_controller import RefreshController
     from eos.web_api.controllers.rpc_controller import RPCController
     from eos.web_api.controllers.task_controller import TaskController
     from eos.web_api.dependencies import get_common_dependencies
@@ -139,7 +160,9 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
         CampaignController,
         ExperimentController,
         FileController,
+        HealthController,
         LabController,
+        RefreshController,
         RPCController,
         TaskController,
     ]
@@ -174,12 +197,12 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
 
     uv_config = uvicorn.Config(web_api_app, host=config.host, port=config.port, log_level="critical")
 
-    return uvicorn.Server(uv_config)
+    return _UvicornServerNoSignals(uvicorn.Server(uv_config))
 
 
 @asynccontextmanager
 async def handle_shutdown(
-    orchestrator: "Orchestrator", web_api_server: "uvicorn.Server"
+    orchestrator: "Orchestrator", web_api_server: _UvicornServerNoSignals
 ) -> AsyncIterator[asyncio.Event]:
     """Context manager for graceful shutdown handling via signals."""
     loop = asyncio.get_running_loop()
@@ -224,13 +247,24 @@ async def run_eos(config: EosConfig) -> None:
 
         # Create all main tasks
         tasks = [
-            asyncio.create_task(orchestrator.spin(config.orchestrator_hz.min, config.orchestrator_hz.max)),
+            asyncio.create_task(
+                orchestrator.spin(config.orchestrator_hz.rate, config.orchestrator_hz.maintenance_interval)
+            ),
             asyncio.create_task(web_api_server.serve()),
             asyncio.create_task(wait_for_shutdown()),
         ]
 
         # Run until any task completes (typically the shutdown monitor on Ctrl+C)
         done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+        # Log any exceptions from completed tasks
+        for task in done:
+            try:
+                exc = task.exception()
+                if exc is not None:
+                    log.error(f"Task failed with exception: {exc}")
+            except asyncio.CancelledError:
+                pass
 
         # Cancel any still-running tasks
         for task in pending:

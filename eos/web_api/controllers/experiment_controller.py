@@ -1,6 +1,6 @@
 from typing import Any
 
-from litestar import get, post, put, Controller, Response
+from litestar import get, post, Controller
 from pydantic import BaseModel
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
@@ -25,16 +25,25 @@ class ExperimentController(Controller):
     @post("/")
     async def submit_experiment(
         self, data: ExperimentDefinition, db: AsyncDbSession, orchestrator: Orchestrator
-    ) -> Response:
+    ) -> dict[str, str]:
         """Submit a new experiment for execution."""
         await orchestrator.experiments.submit_experiment(db, data)
-        return Response(content="Submitted", status_code=201)
+        return {"message": "Experiment submitted"}
 
     @post("/{experiment_name:str}/cancel")
-    async def cancel_experiment(self, experiment_name: str, orchestrator: Orchestrator) -> Response:
-        """Cancel a running experiment."""
-        await orchestrator.experiments.cancel_experiment(experiment_name)
-        return Response(content="Cancellation request submitted.", status_code=202)
+    async def cancel_experiment(self, experiment_name: str, orchestrator: Orchestrator) -> dict[str, str]:
+        """Cancel a running experiment (standalone or part of a campaign)."""
+        # First try to cancel as a standalone experiment
+        if experiment_name in orchestrator.experiments.submitted_experiments:
+            await orchestrator.experiments.cancel_experiment(experiment_name)
+            return {"message": "Experiment cancellation requested"}
+
+        # Try to cancel as a campaign experiment (queues for cancellation in campaign's main loop)
+        queued = await orchestrator.campaigns.cancel_campaign_experiment(experiment_name)
+        if queued:
+            return {"message": "Campaign experiment cancellation queued"}
+
+        raise APIError(status_code=404, detail=f"Experiment '{experiment_name}' not found in running experiments")
 
     @get("/{experiment_name:str}")
     async def get_experiment(self, experiment_name: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Experiment:
@@ -52,26 +61,28 @@ class ExperimentController(Controller):
         return await orchestrator.loading.list_experiments()
 
     @post("/load")
-    async def load_experiments(self, data: ExperimentTypes, orchestrator: Orchestrator) -> Response:
+    async def load_experiments(
+        self, data: ExperimentTypes, db: AsyncDbSession, orchestrator: Orchestrator
+    ) -> dict[str, str]:
         """Load experiment configurations."""
-        await orchestrator.loading.load_experiments(set(data.experiment_types))
-        return Response(content="OK", status_code=200)
+        await orchestrator.loading.load_experiments(db, set(data.experiment_types))
+        return {"message": "Experiment configurations loaded"}
 
     @post("/unload")
     async def unload_experiments(
         self, data: ExperimentTypes, db: AsyncDbSession, orchestrator: Orchestrator
-    ) -> Response:
+    ) -> dict[str, str]:
         """Unload experiment configurations."""
         await orchestrator.loading.unload_experiments(db, set(data.experiment_types))
-        return Response(content="OK", status_code=200)
+        return {"message": "Experiment configurations unloaded"}
 
-    @put("/reload")
+    @post("/reload")
     async def reload_experiments(
         self, data: ExperimentTypes, db: AsyncDbSession, orchestrator: Orchestrator
-    ) -> Response:
+    ) -> dict[str, str]:
         """Reload experiment configurations."""
         await orchestrator.loading.reload_experiments(db, set(data.experiment_types))
-        return Response(content="OK", status_code=200)
+        return {"message": "Experiment configurations reloaded"}
 
     @get("/{experiment_type:str}/dynamic_params_template")
     async def get_dynamic_params_template(self, experiment_type: str, orchestrator: Orchestrator) -> dict[str, Any]:

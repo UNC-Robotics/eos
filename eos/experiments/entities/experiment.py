@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_serializer
-from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum, Integer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum, Integer, ForeignKey
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -34,18 +34,19 @@ class ExperimentDefinition(BaseModel):
 
     resume: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Experiment(ExperimentDefinition):
     """The state of an experiment in the system."""
 
+    campaign: str | None = None
+
     status: ExperimentStatus = ExperimentStatus.CREATED
 
     start_time: datetime | None = None
     end_time: datetime | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
 
     @field_serializer("status")
     def status_enum_to_string(self, v: ExperimentStatus) -> str:
@@ -63,10 +64,11 @@ class ExperimentModel(Base):
     __tablename__ = "experiments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    type: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    owner: Mapped[str] = mapped_column(String, nullable=False)
+    owner: Mapped[str] = mapped_column(String(255), nullable=False)
+    campaign: Mapped[str | None] = mapped_column(String(255), ForeignKey("campaigns.name"), nullable=True, index=True)
 
     priority: Mapped[int] = mapped_column(nullable=False, default=0)
 
@@ -76,11 +78,11 @@ class ExperimentModel(Base):
     resume: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     status: Mapped[ExperimentStatus] = mapped_column(
-        sa_Enum(ExperimentStatus), nullable=False, default=ExperimentStatus.CREATED
+        sa_Enum(ExperimentStatus), nullable=False, default=ExperimentStatus.CREATED, index=True
     )
 
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=datetime.now(timezone.utc)
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )

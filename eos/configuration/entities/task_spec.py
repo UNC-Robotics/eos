@@ -1,7 +1,7 @@
 from typing import Any, Annotated
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing_extensions import Self
+from typing import Self
 
 from eos.configuration.entities.task_parameters import (
     TaskParameterFactory,

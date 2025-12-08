@@ -104,7 +104,8 @@ class CpSatScheduler(BaseScheduler):
             parameter_overrides=self._parameter_overrides or None,
         )
 
-        solution = solver.solve()
+        loop = asyncio.get_running_loop()
+        solution = await loop.run_in_executor(None, solver.solve)
 
         # Update scheduler state with the solution
         self._schedule = solution.schedule

@@ -43,7 +43,7 @@ class TestTaskManager:
             await task_manager.create_task(db, task_def)
 
     @pytest.mark.asyncio
-    async def test_delete_task(self, db, task_manager):
+    async def test_delete_task(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
             db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
@@ -129,7 +129,7 @@ class TestTaskManager:
             await task_manager.complete_task(db, EXPERIMENT_TYPE, "nonexistent_task")
 
     @pytest.mark.asyncio
-    async def test_add_task_output(self, db, task_manager):
+    async def test_add_task_output(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
             db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )

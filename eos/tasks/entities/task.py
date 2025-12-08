@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 from sqlalchemy import String, ForeignKey, JSON, Integer, Enum as sa_Enum, DateTime, Index
 from sqlalchemy.ext.mutable import MutableList, MutableDict
 from sqlalchemy.orm import Mapped, mapped_column
@@ -83,8 +83,7 @@ class TaskDefinition(BaseModel):
             dependencies=[],
         )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class Task(TaskDefinition):
@@ -97,10 +96,9 @@ class Task(TaskDefinition):
 
     start_time: datetime | None = None
     end_time: datetime | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_serializer("status")
     def status_enum_to_string(self, v: TaskStatus) -> str:
@@ -119,12 +117,12 @@ class TaskModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    name: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     experiment_name: Mapped[str | None] = mapped_column(
-        String, ForeignKey("experiments.name", ondelete="CASCADE"), nullable=True
+        String(255), ForeignKey("experiments.name", ondelete="CASCADE"), nullable=True
     )
 
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String(255), nullable=False)
 
     devices: Mapped[dict[str, dict]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
 
@@ -140,12 +138,14 @@ class TaskModel(Base):
 
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
 
-    status: Mapped[TaskStatus] = mapped_column(sa_Enum(TaskStatus), nullable=False, default=TaskStatus.CREATED)
+    status: Mapped[TaskStatus] = mapped_column(
+        sa_Enum(TaskStatus), nullable=False, default=TaskStatus.CREATED, index=True
+    )
 
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=datetime.now(timezone.utc)
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
     __table_args__ = (

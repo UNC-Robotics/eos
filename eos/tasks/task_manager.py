@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterable
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from sqlalchemy import select, update, delete, exists
@@ -143,7 +143,7 @@ class TaskManager:
                 output_parameters=output_parameters,
                 output_resources={k: v.model_dump() for k, v in (output_resources or {}).items()},
                 output_file_names=output_file_names,
-                end_time=datetime.now(timezone.utc),
+                end_time=datetime.now(UTC),
             )
         )
 
@@ -185,7 +185,7 @@ class TaskManager:
     ) -> None:
         """Update the status of a task."""
         update_fields = {"status": new_status}
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if new_status == TaskStatus.RUNNING:
             update_fields["start_time"] = now

@@ -199,6 +199,16 @@ class PackageManager:
             for entity_path in entity_dir.rglob(config_file_name):
                 relative_path = entity_path.relative_to(entity_dir).parent
                 entity_name = relative_path.name
+
+                # Check for duplicate directory names across packages
+                existing_location = self._entity_indices[entity_type].get(entity_name)
+                if existing_location and existing_location.package_name != package.name:
+                    raise EosConfigurationError(
+                        f"Duplicate {entity_type.name.lower()} directory name '{entity_name}' found in packages "
+                        f"'{existing_location.package_name}' and '{package.name}'. "
+                        f"Directory names for {entity_type.name.lower()}s must be unique across all packages."
+                    )
+
                 self._entity_indices[entity_type][entity_name] = EntityLocationInfo(package.name, str(relative_path))
 
     def _get_entity_location(self, entity_name: str, entity_type: EntityType) -> EntityLocationInfo:

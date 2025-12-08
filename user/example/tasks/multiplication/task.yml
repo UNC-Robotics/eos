@@ -16,6 +16,10 @@ input_parameters:
     desc: The factor to multiply the number by.
 
 output_parameters:
+  in_number:
+    type: int
+    unit: none
+    desc: The number to multiply that was given as input.
   product:
     type: int
     unit: none

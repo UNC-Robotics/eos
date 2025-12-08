@@ -14,6 +14,7 @@ from eos.configuration.spec_registries.device_spec_registry import DeviceSpecReg
 from eos.configuration.spec_registries.task_spec_registry import (
     TaskSpecRegistry,
 )
+from eos.configuration.spec_sync import SpecSync
 from eos.configuration.validation.validators import (
     ExperimentValidator,
     LabValidator,
@@ -49,6 +50,8 @@ class ConfigurationManager:
         self.experiments: dict[str, ExperimentConfig] = {}
 
         self.campaign_optimizers = CampaignOptimizerPluginRegistry(self.package_manager)
+
+        self.spec_sync = SpecSync(self.package_manager, self.task_specs, self.device_specs)
 
         # Initialize task plugins at startup to catch syntax/import errors early
         self._initialize_task_plugins()

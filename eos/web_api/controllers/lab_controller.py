@@ -1,6 +1,6 @@
 from typing import Any
 
-from litestar import get, put, Controller, post, Response
+from litestar import get, post, Controller
 from pydantic import BaseModel
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
@@ -31,30 +31,30 @@ class LabController(Controller):
         return await orchestrator.labs.get_device_report(lab_name, device_name)
 
     @post("/load")
-    async def load_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> Response:
+    async def load_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Load lab configurations."""
         await orchestrator.loading.load_labs(db, set(data.lab_types))
-        return Response(content="OK", status_code=200)
+        return {"message": "Lab configurations loaded"}
 
     @post("/unload")
-    async def unload_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> Response:
+    async def unload_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Unload lab configurations."""
         await orchestrator.loading.unload_labs(db, set(data.lab_types))
-        return Response(content="OK", status_code=200)
+        return {"message": "Lab configurations unloaded"}
 
-    @put("/reload")
-    async def reload_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> Response:
+    @post("/reload")
+    async def reload_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Reload lab configurations."""
         await orchestrator.loading.reload_labs(db, set(data.lab_types))
-        return Response(content="OK", status_code=200)
+        return {"message": "Lab configurations reloaded"}
 
-    @put("/{lab_name:str}/devices/reload")
+    @post("/{lab_name:str}/devices/reload")
     async def reload_devices(
         self, lab_name: str, data: DeviceReload, db: AsyncDbSession, orchestrator: Orchestrator
-    ) -> Response:
+    ) -> dict[str, str]:
         """Reload specific devices in a lab."""
         await orchestrator.loading.reload_devices(db, lab_name, data.device_names)
-        return Response(content="OK", status_code=200)
+        return {"message": "Devices reloaded"}
 
     @get("/devices")
     async def get_lab_devices(

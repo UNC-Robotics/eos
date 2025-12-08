@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.11.0"
+version = "0.12.0"
 description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -22,20 +22,20 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "ray[default]==2.51.1",
+    "ray[default]==2.52.1",
     "typer==0.20.0",
     "rich==14.2.0",
     "PyYAML==6.0.3",
     "jinja2==3.1.6",
-    "pydantic==2.12.3",
-    "pydantic-settings==2.11.0",
-    "networkx==3.5.0",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.12.0",
+    "networkx==3.6.0",
     "sqlalchemy==2.0.44",
-    "alembic==1.17.0",
-    "psycopg[binary]==3.2.9",
-    "asyncpg==0.30.0",
+    "alembic==1.17.2",
+    "psycopg[binary]==3.3.1",
+    "asyncpg==0.31.0",
     "minio==7.2.18",
-    "bofire[optimization]==0.2.1",
+    "bofire[optimization]==0.3.0",
     "pandas==2.3.3",
     "ortools<=9.12",
     "litestar[standard]==2.18.0",
@@ -43,17 +43,17 @@ dependencies = [
 
 [dependency-groups]
 worker = [
-    "ray[default]==2.51.1",
+    "ray[default]==2.52.1",
     "typer==0.20.0",
     "rich==14.2.0",
-    "pydantic==2.12.3",
-    "pydantic-settings==2.11.0",
+    "pydantic==2.12.5",
+    "pydantic-settings==2.12.0",
     "sqlalchemy==2.0.44",
-    "alembic==1.17.0",
+    "alembic==1.17.2",
 ]
 optimizer_worker = [
     { include-group = "worker" },
-    "bofire[optimization]==0.2.1",
+    "bofire[optimization]==0.3.0",
     "pandas==2.3.3",
 ]
 
@@ -120,7 +120,7 @@ include = [
 exclude = [
     "eos/database/_migrations/versions/"
 ]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 
 lint.mccabe.max-complexity = 14

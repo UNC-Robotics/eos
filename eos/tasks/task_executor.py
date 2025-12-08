@@ -21,6 +21,7 @@ from eos.allocation.entities.allocation_request import (
 )
 from eos.allocation.exceptions import EosAllocationRequestError
 from eos.allocation.allocation_manager import AllocationManager
+from eos.orchestration.work_signal import WorkSignal
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.tasks.base_task import BaseTask
 from eos.tasks.entities.task import TaskStatus, TaskDefinition
@@ -69,6 +70,7 @@ class TaskExecutor:
         allocation_manager: AllocationManager,
         configuration_manager: ConfigurationManager,
         db_interface: AbstractSqlDbInterface,
+        work_signal: WorkSignal,
     ):
         self._task_manager = task_manager
         self._device_manager = device_manager
@@ -76,6 +78,7 @@ class TaskExecutor:
         self._allocation_manager = allocation_manager
         self._configuration_manager = configuration_manager
         self._db_interface = db_interface
+        self._work_signal = work_signal
 
         self._task_plugin_registry = configuration_manager.tasks
         self._task_validator = TaskValidator(configuration_manager)
@@ -108,6 +111,7 @@ class TaskExecutor:
             self._pending_tasks[context.task_key] = context
             self._task_futures[context.task_key] = future
 
+        self._work_signal.signal()
         return await future
 
     async def cancel_task(self, experiment_name: str | None, task_name: str) -> None:
@@ -152,9 +156,17 @@ class TaskExecutor:
             if not tasks_to_process:
                 return
 
-            await asyncio.gather(
+            results = await asyncio.gather(
                 *(self._process_single_task(context) for context in tasks_to_process), return_exceptions=True
             )
+
+            # Log any exceptions that occurred during task processing
+            for context, result in zip(tasks_to_process, results, strict=True):
+                if isinstance(result, Exception):
+                    log.error(
+                        f"Error processing task '{context.task_name}' for experiment "
+                        f"'{context.experiment_name}': {result}"
+                    )
 
     async def _process_single_task(self, context: TaskExecutionContext) -> None:
         """
@@ -276,8 +288,12 @@ class TaskExecutor:
     async def _make_task_allocations(self, db: AsyncDbSession, context: TaskExecutionContext) -> None:
         """Allocate devices and resources for task execution."""
         allocation_request = self._create_allocation_request(context.task_definition)
+
+        def on_allocated(req: ActiveAllocationRequest) -> None:
+            context.active_allocation_request.status = req.status
+
         context.active_allocation_request = await self._allocation_manager.request_allocations(
-            db, allocation_request, lambda req: None
+            db, allocation_request, on_allocated
         )
 
     async def _handle_task_failure(self, db: AsyncDbSession, context: TaskExecutionContext, error: Exception) -> None:
@@ -401,6 +417,32 @@ class TaskExecutor:
             request.add_allocation(resource.name, "", AllocationType.RESOURCE)
 
         return request
+
+    async def process_new_tasks(self) -> None:
+        """Process only tasks that haven't started execution yet.
+
+        Called after experiment/campaign scheduling to execute newly scheduled
+        tasks in the same cycle, avoiding a round-trip delay.
+        """
+        async with self._lock:
+            new_tasks = [ctx for ctx in self._pending_tasks.values() if not ctx.execution_started]
+            if not new_tasks:
+                return
+
+            async with self._db_interface.get_async_session() as db:
+                await self._allocation_manager.process_requests(db)
+
+            results = await asyncio.gather(
+                *(self._process_single_task(context) for context in new_tasks), return_exceptions=True
+            )
+
+            # Log any exceptions that occurred during task processing
+            for context, result in zip(new_tasks, results, strict=True):
+                if isinstance(result, Exception):
+                    log.error(
+                        f"Error processing new task '{context.task_name}' for experiment "
+                        f"'{context.experiment_name}': {result}"
+                    )
 
     @property
     def has_work(self) -> bool:

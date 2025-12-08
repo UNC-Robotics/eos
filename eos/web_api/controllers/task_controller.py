@@ -1,6 +1,6 @@
 from typing import Any
 
-from litestar import get, post, Controller, Response
+from litestar import get, post, Controller
 from pydantic import BaseModel
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
@@ -33,16 +33,18 @@ class TaskController(Controller):
         return task
 
     @post("/")
-    async def submit_task(self, data: TaskDefinition, db: AsyncDbSession, orchestrator: Orchestrator) -> Response:
+    async def submit_task(self, data: TaskDefinition, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Submit a new task for execution."""
         await orchestrator.tasks.submit_task(db, data)
-        return Response(content="Submitted", status_code=201)
+        return {"message": "Task submitted"}
 
     @post("/{task_name:str}/cancel")
-    async def cancel_task(self, task_name: str, orchestrator: Orchestrator) -> Response:
-        """Cancel a running task."""
-        await orchestrator.tasks.cancel_task(task_name)
-        return Response(content="Cancellation request submitted.", status_code=202)
+    async def cancel_task(
+        self, task_name: str, orchestrator: Orchestrator, experiment_name: str | None = None
+    ) -> dict[str, str]:
+        """Cancel a running task. For experiment tasks, provide the experiment_name query parameter."""
+        await orchestrator.tasks.cancel_task(task_name, experiment_name)
+        return {"message": "Task cancellation requested"}
 
     @get("/types")
     async def get_task_types(self, orchestrator: Orchestrator) -> TaskTypesResponse:
@@ -56,12 +58,12 @@ class TaskController(Controller):
         task_spec = await orchestrator.tasks.get_task_spec(task_type)
         if not task_spec:
             raise APIError(status_code=404, detail=f"Task type '{task_type}' not found")
-        return task_spec
+        return task_spec.model_dump()
 
     @post("/reload")
     async def reload_tasks(
         self, data: ReloadTaskPluginsRequest, db: AsyncDbSession, orchestrator: Orchestrator
-    ) -> Response:
+    ) -> dict[str, str]:
         """Reload specified task plugins."""
         await orchestrator.loading.reload_task_plugins(db, set(data.task_types))
-        return Response(content="OK", status_code=200)
+        return {"message": "Task plugins reloaded"}

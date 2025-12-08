@@ -10,6 +10,7 @@ from eos.experiments.experiment_executor_factory import ExperimentExecutorFactor
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.orchestration.exceptions import EosExperimentDoesNotExistError
+from eos.orchestration.work_signal import WorkSignal
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.experiments.experiment_executor import ExperimentExecutor
 from eos.utils.di.di_container import inject
@@ -28,11 +29,13 @@ class ExperimentService:
         experiment_manager: ExperimentManager,
         experiment_executor_factory: ExperimentExecutorFactory,
         db_interface: AbstractSqlDbInterface,
+        work_signal: WorkSignal,
     ):
         self._configuration_manager = configuration_manager
         self._experiment_manager = experiment_manager
         self._experiment_executor_factory = experiment_executor_factory
         self._db_interface = db_interface
+        self._work_signal = work_signal
 
         self._experiment_submission_lock = asyncio.Lock()
         self._submitted_experiments: dict[str, ExperimentExecutor] = {}
@@ -63,6 +66,7 @@ class ExperimentService:
             try:
                 await experiment_executor.start_experiment(db)
                 self._submitted_experiments[experiment_name] = experiment_executor
+                self._work_signal.signal()
             except EosExperimentExecutionError:
                 log.error(f"Failed to submit experiment '{experiment_name}': {traceback.format_exc()}")
                 self._submitted_experiments.pop(experiment_name, None)
@@ -135,6 +139,9 @@ class ExperimentService:
                 except EosExperimentExecutionError:
                     log.error(f"Error in experiment '{experiment_name}': {traceback.format_exc()}")
                     failed_experiments.append(experiment_name)
+                except Exception:
+                    log.error(f"Unexpected error in experiment '{experiment_name}': {traceback.format_exc()}")
+                    failed_experiments.append(experiment_name)
 
         # Clean up completed and failed experiments
         for experiment_name in completed_experiments:
@@ -163,13 +170,14 @@ class ExperimentService:
         log.warning(f"Attempting to cancel experiments: {experiment_names}")
 
         async def cancel(exp_name: str) -> None:
-            async with self._db_interface.get_async_session() as db:
-                await self._submitted_experiments[exp_name].cancel_experiment(db)
+            await self._submitted_experiments[exp_name].cancel_experiment()
 
         cancellation_tasks = [cancel(exp_name) for exp_name in experiment_names]
-        await asyncio.gather(*cancellation_tasks)
+        results = await asyncio.gather(*cancellation_tasks, return_exceptions=True)
 
-        for exp_name in experiment_names:
+        for exp_name, result in zip(experiment_names, results, strict=True):
+            if isinstance(result, Exception):
+                log.error(f"Error cancelling experiment '{exp_name}': {result}")
             del self._submitted_experiments[exp_name]
 
         log.warning(f"Cancelled experiments: {experiment_names}")

@@ -90,7 +90,7 @@ class TaskService:
 
     async def get_task_types(self) -> list[str]:
         """Get a list of all task types that are defined in the configuration."""
-        return [task.name for task in self._configuration_manager.task_specs.get_all_specs().values()]
+        return [task.type for task in self._configuration_manager.task_specs.get_all_specs().values()]
 
     async def get_task_spec(self, task_type: str) -> TaskSpecConfig | None:
         """Get the task specification for a given task type."""

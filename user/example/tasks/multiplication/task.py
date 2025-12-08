@@ -10,6 +10,6 @@ class Multiplication(BaseTask):
     ) -> BaseTask.OutputType:
         multiplier = devices["multiplier"]
         product = multiplier.multiply(parameters["number"], parameters["factor"])
-        output_parameters = {"product": product}
+        output_parameters = {"in_number": parameters["number"], "product": product}
 
         return output_parameters, None, None

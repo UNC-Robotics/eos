@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 from sqlite3 import Connection
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from eos.logging.logger import log
@@ -45,6 +46,7 @@ class SqliteDbInterface(AbstractSqlDbInterface):
         if not self._is_in_memory:
             conn.execute("PRAGMA journal_mode=WAL")
 
+        conn.execute("PRAGMA foreign_keys=ON")  # Enable FK constraint enforcement including cascades
         conn.execute("PRAGMA synchronous=NORMAL")  # Balance between safety and speed
         conn.execute("PRAGMA cache_size=-64000")  # 64MB cache size
         conn.execute("PRAGMA busy_timeout=60000")  # 60 second busy timeout
@@ -73,7 +75,7 @@ class SqliteDbInterface(AbstractSqlDbInterface):
 
     def _create_async_engine(self) -> AsyncEngine:
         """Create asynchronous database engine."""
-        return create_async_engine(
+        engine = create_async_engine(
             self.build_async_db_url(),
             echo=self._db_config.echo,
             pool_pre_ping=True,
@@ -82,6 +84,19 @@ class SqliteDbInterface(AbstractSqlDbInterface):
                 "timeout": 30,
             },
         )
+
+        @event.listens_for(engine.sync_engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+            cursor = dbapi_connection.cursor()
+            if not self._is_in_memory:
+                cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA cache_size=-64000")
+            cursor.execute("PRAGMA busy_timeout=60000")
+            cursor.close()
+
+        return engine
 
     async def _create_database(self) -> None:
         if not self._is_in_memory:

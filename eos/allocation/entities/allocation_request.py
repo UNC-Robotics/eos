@@ -1,13 +1,13 @@
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from enum import Enum
-from typing import Any
 
-from pydantic import BaseModel, field_serializer, Field
-from sqlalchemy import String, JSON, Enum as sa_Enum, Integer, DateTime, ForeignKey
-from sqlalchemy.ext.mutable import MutableList
-from sqlalchemy.orm import mapped_column, Mapped
+from pydantic import BaseModel, ConfigDict, field_serializer, Field
+from sqlalchemy import String, Enum as sa_Enum, Integer, DateTime, ForeignKey
+from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from eos.database.abstract_sql_db_interface import Base
+from eos.allocation.entities.allocation_request_device import AllocationRequestDeviceModel
+from eos.allocation.entities.allocation_request_resource import AllocationRequestResourceModel
 
 
 class AllocationType(Enum):
@@ -52,8 +52,7 @@ class AllocationRequest(BaseModel):
             if not (a.name == item_name and a.lab_name == lab_name and a.allocation_type == allocation_type)
         ]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AllocationRequestStatus(Enum):
@@ -78,14 +77,13 @@ class ActiveAllocationRequest(BaseModel):
 
     status: AllocationRequestStatus = AllocationRequestStatus.PENDING
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_serializer("status")
     def status_enum_to_string(self, v: AllocationRequestStatus) -> str:
         return v.value
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AllocationRequestModel(Base):
@@ -95,21 +93,35 @@ class AllocationRequestModel(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    requester: Mapped[str] = mapped_column(String, nullable=False)
-    experiment_name: Mapped[str | None] = mapped_column(String, ForeignKey("experiments.name"), nullable=True)
+    requester: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    experiment_name: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("experiments.name"), nullable=True, index=True
+    )
 
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     timeout: Mapped[int] = mapped_column(Integer, nullable=False, default=600)
 
-    reason: Mapped[str | None] = mapped_column(String, nullable=True)
-
-    allocations: Mapped[list[dict[str, Any]]] = mapped_column(MutableList.as_mutable(JSON), nullable=False, default=[])
+    reason: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     status: Mapped[AllocationRequestStatus] = mapped_column(
-        sa_Enum(AllocationRequestStatus), nullable=False, default=AllocationRequestStatus.PENDING
+        sa_Enum(AllocationRequestStatus), nullable=False, default=AllocationRequestStatus.PENDING, index=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(tz=timezone.utc)
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(tz=UTC)
     )
     allocated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships to allocation request items
+    devices: Mapped[list[AllocationRequestDeviceModel]] = relationship(
+        "AllocationRequestDeviceModel",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+    resources: Mapped[list[AllocationRequestResourceModel]] = relationship(
+        "AllocationRequestResourceModel",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )

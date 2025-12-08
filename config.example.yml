@@ -8,7 +8,3 @@ log_level: INFO
 
 scheduler:
   type: greedy
-
-orchestrator_hz:
-  min: 0.5 # The minimum processing rate of the orchestrator.
-  max: 10  # The maximum processing rate of the orchestrator.

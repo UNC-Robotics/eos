@@ -121,25 +121,25 @@ class TestCampaignManager:
         assert campaign.end_time is not None
 
     @pytest.mark.asyncio
-    async def test_campaign_experiments(self, db, campaign_manager):
+    async def test_campaign_experiments(self, db, campaign_manager, experiment_manager):
         await campaign_manager.create_campaign(db, create_campaign_definition("test_campaign"))
 
-        # Test adding experiments
-        await campaign_manager.add_campaign_experiment(db, "test_campaign", "exp1")
-        await campaign_manager.add_campaign_experiment(db, "test_campaign", "exp2")
+        # Create experiments linked to the campaign
+        from eos.experiments.entities.experiment import ExperimentDefinition
 
-        campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert len(campaign.current_experiment_names) == 2
-        assert "exp1" in campaign.current_experiment_names
-        assert "exp2" in campaign.current_experiment_names
+        exp1_def = ExperimentDefinition(name="exp1", type=EXPERIMENT_TYPE, owner="test")
+        exp2_def = ExperimentDefinition(name="exp2", type=EXPERIMENT_TYPE, owner="test")
 
-        # Test removing single experiment
-        await campaign_manager.delete_campaign_experiment(db, "test_campaign", "exp1")
-        campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert len(campaign.current_experiment_names) == 1
-        assert "exp2" in campaign.current_experiment_names
+        await experiment_manager.create_experiment(db, exp1_def, campaign="test_campaign")
+        await experiment_manager.create_experiment(db, exp2_def, campaign="test_campaign")
 
-        # Test clearing all experiments
-        await campaign_manager.delete_current_campaign_experiments(db, "test_campaign")
-        campaign = await campaign_manager.get_campaign(db, "test_campaign")
-        assert len(campaign.current_experiment_names) == 0
+        # Verify experiments are linked to the campaign
+        experiment_names = await campaign_manager.get_campaign_experiment_names(db, "test_campaign")
+        assert len(experiment_names) == 2
+        assert "exp1" in experiment_names
+        assert "exp2" in experiment_names
+
+        # Test deleting non-completed experiments
+        await campaign_manager.delete_non_completed_campaign_experiments(db, "test_campaign")
+        experiment_names = await campaign_manager.get_campaign_experiment_names(db, "test_campaign")
+        assert len(experiment_names) == 0

@@ -33,11 +33,13 @@ class ExperimentExecutor:
         task_executor: TaskExecutor,
         scheduler: AbstractScheduler,
         db_interface: AbstractSqlDbInterface,
+        campaign: str | None = None,
     ):
         self._experiment_definition = experiment_definition
         self._experiment_name = experiment_definition.name
         self._experiment_type = experiment_definition.type
         self._experiment_graph = experiment_graph
+        self._campaign = campaign
 
         self._experiment_manager = experiment_manager
         self._task_manager = task_manager
@@ -52,24 +54,43 @@ class ExperimentExecutor:
 
     async def start_experiment(self, db: AsyncDbSession) -> None:
         """Start the experiment and register the executor with the scheduler."""
-        experiment = await self._experiment_manager.get_experiment(db, self._experiment_name)
-        if experiment:
-            await self._handle_existing_experiment(db, experiment)
-        else:
-            await self._create_new_experiment(db)
+        experiment_created = False
+        try:
+            experiment = await self._experiment_manager.get_experiment(db, self._experiment_name)
+            if experiment:
+                experiment_created = True  # Already exists
+                await self._handle_existing_experiment(db, experiment)
+            else:
+                await self._create_new_experiment(db)
+                experiment_created = True
 
-        await self._scheduler.register_experiment(
-            experiment_name=self._experiment_name,
-            experiment_type=self._experiment_type,
-            experiment_graph=self._experiment_graph,
-        )
+            await self._scheduler.register_experiment(
+                experiment_name=self._experiment_name,
+                experiment_type=self._experiment_type,
+                experiment_graph=self._experiment_graph,
+            )
 
-        await self._experiment_manager.start_experiment(db, self._experiment_name)
-        self._experiment_status = ExperimentStatus.RUNNING
+            await self._experiment_manager.start_experiment(db, self._experiment_name)
+            self._experiment_status = ExperimentStatus.RUNNING
 
-        log.info(
-            f"{'Resumed' if self._experiment_definition.resume else 'Started'} experiment '{self._experiment_name}'."
-        )
+            action = "Resumed" if self._experiment_definition.resume else "Started"
+            log.info(f"{action} experiment '{self._experiment_name}'.")
+        except EosExperimentExecutionError:
+            if experiment_created:
+                try:
+                    await self._experiment_manager.fail_experiment(db, self._experiment_name)
+                    self._experiment_status = ExperimentStatus.FAILED
+                except Exception as fail_err:
+                    log.error(f"Failed to mark experiment '{self._experiment_name}' as failed: {fail_err}")
+            raise
+        except Exception as e:
+            if experiment_created:
+                try:
+                    await self._experiment_manager.fail_experiment(db, self._experiment_name)
+                    self._experiment_status = ExperimentStatus.FAILED
+                except Exception as fail_err:
+                    log.error(f"Failed to mark experiment '{self._experiment_name}' as failed: {fail_err}")
+            raise EosExperimentExecutionError(f"Failed to start experiment '{self._experiment_name}'") from e
 
     async def _handle_existing_experiment(self, db: AsyncDbSession, experiment: Experiment) -> None:
         """Handle cases when the experiment already exists."""
@@ -144,7 +165,7 @@ class ExperimentExecutor:
         """
         parameters = self._experiment_definition.parameters or {}
         self._validate_parameters(parameters)
-        await self._experiment_manager.create_experiment(db, self._experiment_definition)
+        await self._experiment_manager.create_experiment(db, self._experiment_definition, campaign=self._campaign)
 
     async def _cancel_running_tasks(self) -> None:
         """Cancel all running tasks in the experiment."""
@@ -159,7 +180,7 @@ class ExperimentExecutor:
             raise EosExperimentExecutionError(
                 f"Error cancelling tasks of experiment {self._experiment_name}. Some tasks may not have been cancelled."
             ) from e
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise EosExperimentExecutionError(
                 f"Timeout while cancelling experiment {self._experiment_name}. Some tasks may not have been cancelled."
             ) from e

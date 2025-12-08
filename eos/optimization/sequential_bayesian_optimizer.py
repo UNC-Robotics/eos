@@ -15,6 +15,7 @@ from bofire.data_models.objectives.identity import MaximizeObjective, MinimizeOb
 from bofire.data_models.objectives.target import CloseToTargetObjective
 from bofire.data_models.strategies.predictives.mobo import MoboStrategy
 from bofire.data_models.strategies.predictives.sobo import SoboStrategy
+from bofire.data_models.surrogates.api import BotorchSurrogates
 from pandas import Series
 
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
@@ -37,6 +38,7 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
         acquisition_function: AcquisitionFunction,
         num_initial_samples: int,
         initial_sampling_method: SamplingMethodEnum = SamplingMethodEnum.SOBOL,
+        surrogate_specs: BotorchSurrogates | None = None,
     ):
         self._acquisition_function: AcquisitionFunction = acquisition_function
         self._num_initial_samples: int = num_initial_samples
@@ -53,10 +55,15 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
         self._initial_samples_df: pd.DataFrame | None = None
         self._num_samples_reported: int = 0
 
+        strategy_kwargs = {
+            "domain": self._domain,
+            "acquisition_function": acquisition_function,
+        }
+        if surrogate_specs is not None:
+            strategy_kwargs["surrogate_specs"] = surrogate_specs
+
         self._optimizer_data_model = (
-            SoboStrategy(domain=self._domain, acquisition_function=acquisition_function)
-            if len(outputs) == 1
-            else MoboStrategy(domain=self._domain, acquisition_function=acquisition_function)
+            SoboStrategy(**strategy_kwargs) if len(outputs) == 1 else MoboStrategy(**strategy_kwargs)
         )
         self._optimizer = strategies.map(data_model=self._optimizer_data_model)
 

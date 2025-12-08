@@ -102,8 +102,8 @@ class SchedulerConfig(BaseModel):
 class OrchestratorHzConfig(BaseModel):
     """Configuration for the orchestrator loop rate."""
 
-    min: float = 0.5
-    max: float = 10
+    rate: float = 10
+    maintenance_interval: float = 60.0
 
 
 class EosConfig(BaseSettings):

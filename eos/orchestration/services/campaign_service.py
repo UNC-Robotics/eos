@@ -9,6 +9,7 @@ from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.orchestration.exceptions import EosExperimentDoesNotExistError
+from eos.orchestration.work_signal import WorkSignal
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.utils.di.di_container import inject
 
@@ -26,11 +27,13 @@ class CampaignService:
         campaign_manager: CampaignManager,
         campaign_executor_factory: CampaignExecutorFactory,
         db_interface: AbstractSqlDbInterface,
+        work_signal: WorkSignal,
     ):
         self._configuration_manager = configuration_manager
         self._campaign_manager = campaign_manager
         self._campaign_executor_factory = campaign_executor_factory
         self._db_interface = db_interface
+        self._work_signal = work_signal
 
         self._campaign_submission_lock = asyncio.Lock()
         self._submitted_campaigns: dict[str, CampaignExecutor] = {}
@@ -61,6 +64,7 @@ class CampaignService:
             try:
                 await campaign_executor.start_campaign(db)
                 self._submitted_campaigns[campaign_name] = campaign_executor
+                self._work_signal.signal()
             except EosCampaignExecutionError:
                 log.error(f"Failed to submit campaign '{campaign_name}': {traceback.format_exc()}")
                 self._submitted_campaigns.pop(campaign_name, None)
@@ -71,6 +75,19 @@ class CampaignService:
         if campaign_name in self._submitted_campaigns:
             await self._campaign_cancellation_queue.put(campaign_name)
             log.info(f"Queued campaign '{campaign_name}' for cancellation.")
+
+    async def cancel_campaign_experiment(self, experiment_name: str) -> bool:
+        """
+        Queue a specific experiment that belongs to a campaign for cancellation.
+        The actual cancellation will be processed in the campaign's main loop.
+
+        :param experiment_name: The name of the experiment to cancel.
+        :return: True if the experiment was found and queued, False if not found.
+        """
+        for campaign_executor in self._submitted_campaigns.values():
+            if campaign_executor.queue_experiment_cancellation(experiment_name):
+                return True
+        return False
 
     async def fail_running_campaigns(self, db: AsyncDbSession) -> None:
         """Fail all running campaigns."""
@@ -128,6 +145,9 @@ class CampaignService:
         except EosCampaignExecutionError:
             log.error(f"Error in campaign '{campaign_name}': {traceback.format_exc()}")
             return campaign_name, False, True
+        except Exception:
+            log.error(f"Unexpected error in campaign '{campaign_name}': {traceback.format_exc()}")
+            return campaign_name, False, True
 
     async def process_campaign_cancellations(self) -> None:
         """Try to cancel all campaigns that are queued for cancellation."""
@@ -139,9 +159,11 @@ class CampaignService:
             return
 
         cancellation_tasks = [self._submitted_campaigns[cmp_name].cancel_campaign() for cmp_name in campaign_names]
-        await asyncio.gather(*cancellation_tasks)
+        results = await asyncio.gather(*cancellation_tasks, return_exceptions=True)
 
-        for campaign_name in campaign_names:
+        for campaign_name, result in zip(campaign_names, results, strict=True):
+            if isinstance(result, Exception):
+                log.error(f"Error cancelling campaign '{campaign_name}': {result}")
             self._submitted_campaigns[campaign_name].cleanup()
             del self._submitted_campaigns[campaign_name]
 

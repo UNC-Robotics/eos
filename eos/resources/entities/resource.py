@@ -1,8 +1,8 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from sqlalchemy import String, JSON, Integer
+from sqlalchemy import String, JSON
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -14,10 +14,10 @@ class Resource(BaseModel):
 
     name: str
     type: str
+    lab: str | None = None
     meta: dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ResourceModel(Base):
@@ -25,8 +25,8 @@ class ResourceModel(Base):
 
     __tablename__ = "resources"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
 
-    name: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String(255), nullable=False)
+    lab: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})

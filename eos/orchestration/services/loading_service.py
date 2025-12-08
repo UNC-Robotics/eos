@@ -38,6 +38,7 @@ class LoadingService:
             self._configuration_manager.load_labs(labs)
             await self._device_manager.update_devices(db, loaded_labs=labs)
             await self._resource_manager.update_resources(db, loaded_labs=labs)
+            await self._configuration_manager.spec_sync.mark_labs_loaded(db, labs, True)
 
     async def unload_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
         """Unload one or more labs from the orchestrator."""
@@ -48,6 +49,7 @@ class LoadingService:
             self._configuration_manager.unload_labs(labs)
             await self._device_manager.update_devices(db, unloaded_labs=labs)
             await self._resource_manager.update_resources(db, unloaded_labs=labs)
+            await self._configuration_manager.spec_sync.mark_labs_loaded(db, labs, False)
 
     async def reload_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """Reload one or more labs in the orchestrator with updated device plugin code."""
@@ -81,7 +83,7 @@ class LoadingService:
                 await self._resource_manager.update_resources(db, loaded_labs=lab_types)
 
                 # Finally, reload any dependent experiments
-                await self.load_experiments(experiments_to_reload)
+                await self.load_experiments(db, experiments_to_reload)
             except Exception as e:
                 log.error(f"Error reloading labs {lab_types}: {e}")
                 raise
@@ -111,12 +113,13 @@ class LoadingService:
         """Return a dictionary of lab types and a boolean indicating whether they are loaded."""
         return self._configuration_manager.get_loaded_labs()
 
-    async def load_experiments(self, experiment_types: set[str]) -> None:
+    async def load_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Load one or more experiments into the orchestrator."""
         if not experiment_types:
             return
 
         self._configuration_manager.load_experiments(experiment_types)
+        await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, True)
 
     async def unload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Unload one or more experiments from the orchestrator."""
@@ -124,6 +127,7 @@ class LoadingService:
             await self._check_experiment_usage(db, experiment_type)
 
         self._configuration_manager.unload_experiments(experiment_types)
+        await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, False)
 
     async def reload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Reload one or more experiments in the orchestrator."""
@@ -132,11 +136,53 @@ class LoadingService:
                 await self._check_experiment_usage(db, experiment_type)
 
             self._configuration_manager.unload_experiments(experiment_types)
+            await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, False)
             self._configuration_manager.load_experiments(experiment_types)
+            await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, True)
 
     async def list_experiments(self) -> dict[str, bool]:
         """Return a dictionary of experiment types and a boolean indicating whether they are loaded."""
         return self._configuration_manager.get_loaded_experiments()
+
+    async def refresh_packages(self, db: AsyncDbSession) -> int:
+        """
+        Re-discover packages from the filesystem and sync specifications to the database.
+        This allows the system to detect new or deleted entities (labs, experiments, tasks, devices).
+
+        :param db: Database session
+        :return: Number of packages discovered
+        """
+        async with self._loading_lock:
+            log.info("Starting package refresh...")
+
+            # Get the package manager
+            package_manager = self._configuration_manager.package_manager
+
+            # Re-discover packages from the filesystem
+            package_manager._discover_packages()
+            package_manager._build_entity_indices(package_manager._packages)
+
+            package_count = len(package_manager.get_all_packages())
+            log.info(f"Discovered {package_count} package(s)")
+
+            # Re-read task and device configs to update registries
+            task_configs, task_dirs_to_task_types = package_manager.read_task_configs()
+            self._configuration_manager.tasks._specs = task_configs
+            self._configuration_manager.tasks._dir_to_type = task_dirs_to_task_types
+
+            device_configs, device_dirs_to_device_types = package_manager.read_device_configs()
+            self._configuration_manager.devices._specs = device_configs
+            self._configuration_manager.devices._dir_to_type = device_dirs_to_device_types
+
+            # Sync all specifications to the database
+            await self._configuration_manager.spec_sync.sync_all_specs(db)
+
+            # Clean up specifications for deleted entities
+            await self._configuration_manager.spec_sync.cleanup_deleted_specs(db)
+
+            log.info("Package refresh completed successfully")
+
+            return package_count
 
     async def reload_task_plugins(self, db: AsyncDbSession, task_types: set[str]) -> None:
         """Reload one or more task plugins in the orchestrator."""

@@ -10,7 +10,7 @@ from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.campaigns.entities.campaign import CampaignStatus, Campaign, CampaignDefinition
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.experiments.entities.experiment import ExperimentStatus, ExperimentDefinition
-from eos.experiments.exceptions import EosExperimentCancellationError, EosExperimentExecutionError
+from eos.experiments.exceptions import EosExperimentCancellationError
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
@@ -51,6 +51,7 @@ class CampaignExecutor:
         self._experiment_type = campaign_definition.experiment_type
         self._campaign_status: CampaignStatus | None = None
         self._experiment_executors: dict[str, ExperimentExecutor] = {}
+        self._pending_experiment_cancellations: set[str] = set()
 
         # Optimizer state
         self._optimizer: ActorHandle | None = None
@@ -104,12 +105,54 @@ class CampaignExecutor:
 
     async def _resume_campaign(self, db: AsyncDbSession) -> None:
         """Resume an existing campaign by restoring its state."""
-        await self._campaign_manager.delete_current_campaign_experiments(db, self._campaign_name)
+        # Update campaign definition in DB with any changed parameters from the new submission
+        await self._campaign_manager.update_campaign_definition(db, self._campaign_definition)
+
+        await self._campaign_manager.delete_non_completed_campaign_experiments(db, self._campaign_name)
+        await self._sync_experiments_completed_counter(db)
 
         if self._campaign_definition.optimize:
             self._optimizer_state = OptimizerState.NEEDS_RESTORATION
 
         log.info(f"Campaign '{self._campaign_name}' resumed")
+
+    async def _sync_experiments_completed_counter(self, db: AsyncDbSession) -> None:
+        """
+        Sync experiments_completed counter with count of COMPLETED experiments.
+
+        This ensures the campaign accurately tracks progress toward max_experiments,
+        where only truly completed experiments count (not cancelled/failed).
+        """
+        completed_count = len(
+            await self._campaign_manager.get_campaign_experiment_names(
+                db, self._campaign_name, status=ExperimentStatus.COMPLETED
+            )
+        )
+
+        campaign = await self._campaign_manager.get_campaign(db, self._campaign_name)
+        if campaign and completed_count != campaign.experiments_completed:
+            await self._campaign_manager.set_experiments_completed(db, self._campaign_name, completed_count)
+
+    async def _get_next_experiment_number(self, db: AsyncDbSession) -> int:
+        """
+        Get the next experiment number by finding max existing + 1.
+
+        This is separate from experiments_completed to handle gaps in numbering
+        (e.g., if exp_5 was cancelled but exp_6, exp_7, exp_8 exist).
+        """
+        all_experiment_names = await self._campaign_manager.get_campaign_experiment_names(db, self._campaign_name)
+
+        max_exp_num = 0
+        prefix = f"{self._campaign_name}_exp_"
+        for name in all_experiment_names:
+            if name.startswith(prefix):
+                try:
+                    exp_num = int(name[len(prefix) :])
+                    max_exp_num = max(max_exp_num, exp_num)
+                except ValueError:
+                    pass
+
+        return max_exp_num + 1
 
     async def _initialize_optimizer(self) -> None:
         """Initialize the campaign optimizer if not already initialized."""
@@ -150,12 +193,18 @@ class CampaignExecutor:
             if self._campaign_status != CampaignStatus.RUNNING:
                 return self._campaign_status == CampaignStatus.CANCELLED
 
+            # Process any pending experiment cancellations first
+            await self._process_experiment_cancellations()
+
             # Progress existing experiments
             await self._progress_experiments()
 
             async with self._db_interface.get_async_session() as db:
                 # Check campaign completion
                 campaign = await self._campaign_manager.get_campaign(db, self._campaign_name)
+                if not campaign:
+                    raise EosCampaignExecutionError(f"Campaign '{self._campaign_name}' not found in database")
+
                 if self._is_campaign_completed(campaign):
                     await self._complete_campaign(db)
                     return True
@@ -164,9 +213,9 @@ class CampaignExecutor:
                 await self._create_experiments(db, campaign)
                 return False
 
-        except EosExperimentExecutionError as e:
+        except Exception as e:
             await self._handle_campaign_failure(e)
-            return False
+            raise
 
     async def _progress_experiments(self) -> None:
         """Progress all running experiments and process completed ones."""
@@ -188,7 +237,6 @@ class CampaignExecutor:
         """Clean up completed experiments and update campaign state."""
         async with self._db_interface.get_async_session() as db:
             for exp_name in completed_experiments:
-                await self._campaign_manager.delete_campaign_experiment(db, self._campaign_name, exp_name)
                 await self._campaign_manager.increment_iteration(db, self._campaign_name)
                 del self._experiment_executors[exp_name]
 
@@ -219,7 +267,7 @@ class CampaignExecutor:
         for exp_name, executor in self._experiment_executors.items():
             try:
                 await asyncio.wait_for(executor.cancel_experiment(), timeout=15)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 failed_cancellations.append((exp_name, "timeout"))
                 log.warning(f"CMP '{self._campaign_name}' - Timeout while cancelling experiment '{exp_name}'")
             except EosExperimentCancellationError as e:
@@ -233,6 +281,47 @@ class CampaignExecutor:
                 f"experiments:\n{failed_details}"
             )
 
+    def queue_experiment_cancellation(self, experiment_name: str) -> bool:
+        """
+        Queue an experiment for cancellation. The actual cancellation will be processed
+        in the main campaign loop to avoid concurrent dictionary modification.
+
+        :param experiment_name: The name of the experiment to cancel.
+        :return: True if the experiment was found and queued, False if not found.
+        """
+        if experiment_name not in self._experiment_executors:
+            return False
+
+        self._pending_experiment_cancellations.add(experiment_name)
+        log.info(f"CMP '{self._campaign_name}' - Queued experiment '{experiment_name}' for cancellation")
+        return True
+
+    async def _process_experiment_cancellations(self) -> None:
+        """Process any pending experiment cancellations."""
+        if not self._pending_experiment_cancellations:
+            return
+
+        to_cancel = list(self._pending_experiment_cancellations)
+        self._pending_experiment_cancellations.clear()
+
+        for experiment_name in to_cancel:
+            if experiment_name not in self._experiment_executors:
+                continue
+
+            executor = self._experiment_executors[experiment_name]
+            try:
+                await asyncio.wait_for(executor.cancel_experiment(), timeout=15)
+                del self._experiment_executors[experiment_name]
+                log.warning(f"CMP '{self._campaign_name}' - Cancelled experiment '{experiment_name}'")
+            except TimeoutError:
+                log.warning(f"CMP '{self._campaign_name}' - Timeout while cancelling experiment '{experiment_name}'")
+            except EosExperimentCancellationError as e:
+                log.warning(f"CMP '{self._campaign_name}' - Error cancelling experiment '{experiment_name}': {e}")
+            except Exception as e:
+                log.error(
+                    f"CMP '{self._campaign_name}' - Unexpected error cancelling experiment '{experiment_name}': {e}"
+                )
+
     def cleanup(self) -> None:
         """Clean up resources when campaign executor is no longer needed."""
         if self._campaign_definition.optimize:
@@ -240,10 +329,14 @@ class CampaignExecutor:
 
     async def _create_experiments(self, db: AsyncDbSession, campaign: Campaign) -> None:
         """Create new experiments up to the maximum allowed concurrent experiments."""
-        while self._can_create_more_experiments(campaign):
-            iteration = campaign.experiments_completed + len(self._experiment_executors)
-            experiment_name = f"{self._campaign_name}_exp_{iteration + 1}"
+        # Get next experiment number (handles gaps from cancelled experiments)
+        next_exp_num = await self._get_next_experiment_number(db)
 
+        while self._can_create_more_experiments(campaign):
+            experiment_name = f"{self._campaign_name}_exp_{next_exp_num}"
+            next_exp_num += 1
+
+            iteration = campaign.experiments_completed + len(self._experiment_executors)
             parameters = await self._get_experiment_parameters(db, iteration)
             await self._create_single_experiment(db, experiment_name, parameters)
 
@@ -254,13 +347,14 @@ class CampaignExecutor:
         experiment_definition = ExperimentDefinition(
             name=experiment_name,
             type=self._experiment_type,
-            owner=self._campaign_name,
+            owner=self._campaign_definition.owner,
             priority=self._campaign_definition.priority,
             parameters=parameters,
         )
 
-        experiment_executor = self._experiment_executor_factory.create(experiment_definition)
-        await self._campaign_manager.add_campaign_experiment(db, self._campaign_name, experiment_name)
+        experiment_executor = self._experiment_executor_factory.create(
+            experiment_definition, campaign=self._campaign_name
+        )
         self._experiment_executors[experiment_name] = experiment_executor
         await experiment_executor.start_experiment(db)
 

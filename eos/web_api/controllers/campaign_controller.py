@@ -1,4 +1,4 @@
-from litestar import get, post, Controller, Response
+from litestar import get, post, Controller
 
 from eos.campaigns.entities.campaign import CampaignDefinition, Campaign
 from eos.database.abstract_sql_db_interface import AsyncDbSession
@@ -24,13 +24,13 @@ class CampaignController(Controller):
     @post("/")
     async def submit_campaign(
         self, data: CampaignDefinition, db: AsyncDbSession, orchestrator: Orchestrator
-    ) -> Response:
+    ) -> dict[str, str]:
         """Submit a new campaign for execution."""
         await orchestrator.campaigns.submit_campaign(db, data)
-        return Response(content="Submitted", status_code=201)
+        return {"message": "Campaign submitted"}
 
     @post("/{campaign_name:str}/cancel")
-    async def cancel_campaign(self, campaign_name: str, orchestrator: Orchestrator) -> Response:
+    async def cancel_campaign(self, campaign_name: str, orchestrator: Orchestrator) -> dict[str, str]:
         """Cancel a running campaign."""
         await orchestrator.campaigns.cancel_campaign(campaign_name)
-        return Response(content="Cancellation request submitted.", status_code=202)
+        return {"message": "Campaign cancellation requested"}

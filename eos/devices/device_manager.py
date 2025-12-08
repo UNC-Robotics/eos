@@ -203,34 +203,34 @@ class DeviceManager:
         devices = [Device.model_validate(device) for device in result.scalars()]
         return [device.get_actor_name() for device in devices]
 
-    async def _cleanup_single_device(self, actor_name: str, timeout: float = 30.0) -> None:
+    async def _cleanup_single_device(self, actor_name: str) -> None:
         """Clean up a single device actor with timeout.
 
         Attempts to gracefully clean up a device actor. If the cleanup
-        doesn't complete within the timeout, forcefully kills the actor.
+        doesn't complete within 30 seconds, forcefully kills the actor.
 
         :param actor_name: The name of the actor to clean up
-        :param timeout: Maximum time in seconds to wait for cleanup before force killing
         """
         if actor_name not in self._device_actor_handles:
             return
 
         actor_handle = self._device_actor_handles[actor_name]
         success = False
+        cleanup_timeout = 30.0
 
         try:
             log.info(f"Cleaning up device actor '{actor_name}'...")
             cleanup_ref = actor_handle.cleanup.remote()
 
             # Wait for cleanup to complete with timeout
-            ready_refs, _ = ray.wait([cleanup_ref], timeout=timeout)
+            ready_refs, _ = ray.wait([cleanup_ref], timeout=cleanup_timeout)
 
             if cleanup_ref in ready_refs:
                 log.info(f"Cleaned up device actor '{actor_name}'")
                 success = True
             else:
                 log.warning(
-                    f"Timed out cleaning up device actor '{actor_name}' after {timeout} seconds, "
+                    f"Timed out cleaning up device actor '{actor_name}' after {cleanup_timeout} seconds, "
                     f"will forcefully kill..."
                 )
         except Exception as e:

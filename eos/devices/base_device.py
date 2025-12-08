@@ -1,5 +1,6 @@
 import asyncio
 import atexit
+import inspect
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any
@@ -152,6 +153,83 @@ class BaseDevice(ABC):
     @property
     def init_parameters(self) -> dict[str, Any]:
         return self._init_parameters
+
+    def get_available_functions(self) -> dict[str, Any]:
+        """
+        Get information about all public methods (functions) available on this device.
+        Returns a dictionary with function names as keys and metadata as values.
+        """
+        functions = {}
+
+        # Get all members of the class
+        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            # Skip private methods (starting with _) and inherited base methods
+            if name.startswith("_"):
+                continue
+
+            # Skip BaseDevice methods that are not device-specific
+            if name in [
+                "initialize",
+                "cleanup",
+                "report",
+                "enable",
+                "disable",
+                "get_status",
+                "get_name",
+                "get_lab_name",
+                "get_device_type",
+                "get_init_parameters",
+                "get_available_functions",
+            ]:
+                continue
+
+            try:
+                sig = inspect.signature(method)
+                params = []
+
+                for param_name, param in sig.parameters.items():
+                    # Skip 'self' parameter and internal Ray parameters
+                    if param_name == "self" or param_name.startswith("_ray_"):
+                        continue
+
+                    # Format type annotation nicely
+                    type_str = "Any"
+                    if param.annotation != inspect.Parameter.empty:
+                        type_obj = param.annotation
+                        if hasattr(type_obj, "__name__"):
+                            type_str = type_obj.__name__
+                        else:
+                            type_str = str(type_obj).replace("typing.", "")
+
+                    param_info = {
+                        "name": param_name,
+                        "type": type_str,
+                        "required": param.default == inspect.Parameter.empty,
+                        "default": str(param.default) if param.default != inspect.Parameter.empty else None,
+                    }
+                    params.append(param_info)
+
+                # Format return type annotation nicely
+                return_type_str = "Any"
+                if sig.return_annotation != inspect.Signature.empty:
+                    return_obj = sig.return_annotation
+                    if hasattr(return_obj, "__name__"):
+                        return_type_str = return_obj.__name__
+                    else:
+                        return_type_str = str(return_obj).replace("typing.", "")
+
+                functions[name] = {
+                    "name": name,
+                    "parameters": params,
+                    "return_type": return_type_str,
+                    "docstring": inspect.getdoc(method) or "",
+                    "is_async": inspect.iscoroutinefunction(method),
+                }
+            except Exception:  # noqa: S112
+                # If we can't inspect the method for any reason, skip it
+                continue
+
+        return functions
 
     @abstractmethod
     async def _initialize(self, initialization_parameters: dict[str, Any]) -> None:

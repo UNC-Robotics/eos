@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from logging import Handler, LogRecord
 from pathlib import Path
 from typing import ClassVar
@@ -23,7 +23,7 @@ class RichConsoleHandler(Handler):
         self.console = Console()
 
     def emit(self, record: LogRecord) -> None:
-        time = datetime.now(tz=timezone.utc).strftime("%m/%d/%Y %H:%M:%S")
+        time = datetime.now().astimezone().strftime("%m/%d/%Y %H:%M:%S")
         level = record.levelname
         filename = Path(record.pathname).name
         line_no = record.lineno

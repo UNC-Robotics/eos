@@ -32,7 +32,7 @@ class ExperimentExecutorFactory:
         self._scheduler = scheduler
         self._db_interface = db_interface
 
-    def create(self, experiment_definition: ExperimentDefinition) -> ExperimentExecutor:
+    def create(self, experiment_definition: ExperimentDefinition, campaign: str | None = None) -> ExperimentExecutor:
         experiment_config = self._configuration_manager.experiments.get(experiment_definition.type)
         experiment_graph = ExperimentGraph(experiment_config)
 
@@ -44,4 +44,5 @@ class ExperimentExecutorFactory:
             task_executor=self._task_executor,
             scheduler=self._scheduler,
             db_interface=self._db_interface,
+            campaign=campaign,
         )

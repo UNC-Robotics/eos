@@ -6,7 +6,7 @@ from ray.actor import ActorHandle
 from sqlalchemy import delete, select
 
 from eos.campaigns.entities.campaign import CampaignSample, CampaignSampleModel
-from eos.campaigns.exceptions import EosCampaignError
+from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.optimization.sequential_optimizer_actor import SequentialOptimizerActor
@@ -46,9 +46,15 @@ class CampaignOptimizerManager:
         :raises RuntimeError: If the actor creation or initialization fails
         :return: The initialized optimizer actor
         """
-        constructor_args, optimizer_type = (
-            self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(experiment_type)
-        )
+        try:
+            constructor_args, optimizer_type = (
+                self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(experiment_type)
+            )
+        except Exception as e:
+            log.error(f"Failed to load optimizer configuration for experiment type '{experiment_type}': {e}")
+            raise EosCampaignExecutionError(
+                f"Failed to load optimizer configuration for experiment type '{experiment_type}': {e}"
+            ) from e
 
         resources = {"eos": 0.01} if computer_ip in ["localhost", "127.0.0.1"] else {f"node:{computer_ip}": 0.01}
 
@@ -149,11 +155,16 @@ class CampaignOptimizerManager:
         result = await db.execute(stmt)
         return [CampaignSample.model_validate(model) for model in result.scalars()]
 
-    async def _validate_optimizer_health(self, actor: ActorHandle, timeout=10.0) -> None:
+    async def _validate_optimizer_health(self, actor: ActorHandle) -> None:
         """Check the health of an actor by calling a method with a timeout."""
         try:
-            await asyncio.wait_for(actor.get_input_names.remote(), timeout=timeout)
-        except asyncio.TimeoutError as e:
+            async with asyncio.timeout(10.0):
+                await actor.get_input_names.remote()
+        except TimeoutError as e:
             ray.kill(actor)
-            log.error(f"Optimizer actor initialization timed out after {timeout} seconds.")
-            raise EosCampaignError("Optimizer actor initialization timed out.") from e
+            log.error("Optimizer actor initialization timed out after 10 seconds.")
+            raise EosCampaignExecutionError("Optimizer actor initialization timed out.") from e
+        except Exception as e:
+            ray.kill(actor)
+            log.error(f"Optimizer actor initialization failed: {e}")
+            raise EosCampaignExecutionError(f"Optimizer actor initialization failed: {e}") from e

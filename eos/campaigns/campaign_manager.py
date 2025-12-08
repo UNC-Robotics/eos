@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from sqlalchemy import select, exists, delete, update
@@ -94,61 +94,71 @@ class CampaignManager:
             .values(experiments_completed=CampaignModel.experiments_completed + 1)
         )
 
-    async def add_campaign_experiment(self, db: AsyncDbSession, campaign_name: str, experiment_name: str) -> None:
-        """Add an experiment to a campaign."""
+    async def set_experiments_completed(self, db: AsyncDbSession, campaign_name: str, count: int) -> None:
+        """Set the experiments_completed count for a campaign."""
         await self._validate_campaign_exists(db, campaign_name)
 
-        result = await db.execute(
-            select(CampaignModel.current_experiment_names).where(CampaignModel.name == campaign_name)
+        await db.execute(
+            update(CampaignModel).where(CampaignModel.name == campaign_name).values(experiments_completed=count)
         )
-        current_experiments = result.scalar_one_or_none() or []
 
-        updated_experiments = [*current_experiments, experiment_name]
+    async def update_campaign_definition(self, db: AsyncDbSession, definition: CampaignDefinition) -> None:
+        """Update the campaign definition fields in the database."""
+        await self._validate_campaign_exists(db, definition.name)
+
         await db.execute(
             update(CampaignModel)
-            .where(CampaignModel.name == campaign_name)
-            .values(current_experiment_names=updated_experiments)
+            .where(CampaignModel.name == definition.name)
+            .values(
+                priority=definition.priority,
+                max_experiments=definition.max_experiments,
+                max_concurrent_experiments=definition.max_concurrent_experiments,
+                optimize=definition.optimize,
+                optimizer_ip=definition.optimizer_ip,
+                global_parameters=definition.global_parameters,
+                experiment_parameters=definition.experiment_parameters,
+                meta=definition.meta,
+            )
         )
 
-    async def delete_campaign_experiment(self, db: AsyncDbSession, campaign_name: str, experiment_name: str) -> None:
-        """Remove an experiment from a campaign."""
+    async def delete_non_completed_campaign_experiments(self, db: AsyncDbSession, campaign_name: str) -> None:
+        """Delete all non-completed experiments from a campaign (for resume)."""
         await self._validate_campaign_exists(db, campaign_name)
 
-        result = await db.execute(
-            select(CampaignModel.current_experiment_names).where(CampaignModel.name == campaign_name)
+        # Get non-completed experiments for this campaign
+        stmt = select(ExperimentModel.name).where(
+            ExperimentModel.campaign == campaign_name,
+            ExperimentModel.status.not_in([ExperimentStatus.COMPLETED]),
         )
-        if current_experiments := result.scalar_one_or_none():
-            updated_experiments = [exp for exp in current_experiments if exp != experiment_name]
-            await db.execute(
-                update(CampaignModel)
-                .where(CampaignModel.name == campaign_name)
-                .values(current_experiment_names=updated_experiments)
-            )
+        result = await db.execute(stmt)
+        experiment_names = [row[0] for row in result.all()]
 
-    async def delete_current_campaign_experiments(self, db: AsyncDbSession, campaign_name: str) -> None:
-        """Delete all current experiments from a campaign."""
-        campaign = await self.get_campaign(db, campaign_name)
-        if not campaign:
-            raise EosCampaignStateError(f"Campaign '{campaign_name}' does not exist.")
-
-        for experiment_name in campaign.current_experiment_names:
+        # Delete tasks and experiments
+        for experiment_name in experiment_names:
             await db.execute(delete(TaskModel).where(TaskModel.experiment_name == experiment_name))
             await db.execute(delete(ExperimentModel).where(ExperimentModel.name == experiment_name))
-
-        await db.execute(
-            update(CampaignModel).where(CampaignModel.name == campaign_name).values(current_experiment_names=[])
-        )
 
     async def get_campaign_experiment_names(
         self, db: AsyncDbSession, campaign_name: str, status: ExperimentStatus | None = None
     ) -> list[str]:
         """Get all experiment names of a campaign with an optional status filter."""
-        stmt = select(ExperimentModel.name).where(ExperimentModel.name.like(f"{campaign_name}%"))
+        stmt = select(ExperimentModel.name).where(ExperimentModel.campaign == campaign_name)
         if status:
             stmt = stmt.where(ExperimentModel.status == status)
 
         result = await db.execute(stmt)
         return [row[0] for row in result.all()]
+
+    async def get_running_campaign_experiment_count(self, db: AsyncDbSession, campaign_name: str) -> int:
+        """Get count of running experiments for a campaign."""
+        from sqlalchemy import func
+
+        stmt = select(func.count()).where(
+            ExperimentModel.campaign == campaign_name,
+            ExperimentModel.status == ExperimentStatus.RUNNING,
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one()
 
     async def set_pareto_solutions(
         self, db: AsyncDbSession, campaign_name: str, pareto_solutions: list[dict[str, Any]]
@@ -166,13 +176,13 @@ class CampaignManager:
 
         update_fields = {"status": new_status}
         if new_status == CampaignStatus.RUNNING:
-            update_fields["start_time"] = datetime.now(timezone.utc)
+            update_fields["start_time"] = datetime.now(UTC)
         elif new_status in [
             CampaignStatus.COMPLETED,
             CampaignStatus.CANCELLED,
             CampaignStatus.FAILED,
         ]:
-            update_fields["end_time"] = datetime.now(timezone.utc)
+            update_fields["end_time"] = datetime.now(UTC)
 
         await db.execute(update(CampaignModel).where(CampaignModel.name == campaign_name).values(**update_fields))
 

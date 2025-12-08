@@ -21,8 +21,12 @@ from eos.database.sqlite_db_interface import SqliteDbInterface
 from eos.allocation.allocation_manager import (
     AllocationManager,
 )
+from eos.allocation.entities.device_allocation import DeviceAllocationModel
+from eos.allocation.entities.resource_allocation import ResourceAllocationModel
+from sqlalchemy import delete
 from eos.scheduling.greedy_scheduler import GreedyScheduler
 from eos.scheduling.cpsat_scheduler import CpSatScheduler
+from eos.orchestration.work_signal import WorkSignal
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
@@ -164,6 +168,7 @@ async def device_manager(setup_lab_experiment, configuration_manager, db, db_int
 
     await device_manager.update_devices(db, loaded_labs=set(configuration_manager.labs.keys()))
     yield device_manager
+    await db.execute(delete(DeviceAllocationModel))
     await device_manager.cleanup_device_actors(db)
 
 
@@ -173,7 +178,9 @@ async def experiment_manager(setup_lab_experiment, configuration_manager, clear_
 
 
 @pytest.fixture
-async def allocation_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
+async def allocation_manager(
+    setup_lab_experiment, configuration_manager, db_interface, device_manager, resource_manager, clear_db
+):
     allocation_manager = AllocationManager(configuration_manager, db_interface)
     async with db_interface.get_async_session() as db:
         await allocation_manager.initialize(db)
@@ -194,6 +201,11 @@ def ray_cluster():
 
 
 @pytest.fixture
+def work_signal():
+    return WorkSignal()
+
+
+@pytest.fixture
 def task_executor(
     setup_lab_experiment,
     task_manager,
@@ -202,6 +214,7 @@ def task_executor(
     allocation_manager,
     configuration_manager,
     db_interface,
+    work_signal,
 ):
     return TaskExecutor(
         task_manager,
@@ -210,6 +223,7 @@ def task_executor(
         allocation_manager,
         configuration_manager,
         db_interface,
+        work_signal,
     )
 
 

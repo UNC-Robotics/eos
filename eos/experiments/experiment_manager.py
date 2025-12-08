@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import Any
 
 from sqlalchemy import exists, select, delete, and_, update
@@ -33,7 +33,9 @@ class ExperimentManager:
         if not await self._check_experiment_exists(db, experiment_name):
             raise EosExperimentStateError(f"Experiment '{experiment_name}' does not exist.")
 
-    async def create_experiment(self, db: AsyncDbSession, definition: ExperimentDefinition) -> None:
+    async def create_experiment(
+        self, db: AsyncDbSession, definition: ExperimentDefinition, campaign: str | None = None
+    ) -> None:
         """Create a new experiment from a definition."""
         if await self._check_experiment_exists(db, definition.name):
             raise EosExperimentStateError(
@@ -45,6 +47,7 @@ class ExperimentManager:
             raise EosExperimentStateError(f"Experiment type '{definition.type}' not found in the configuration.")
 
         experiment = Experiment.from_definition(definition)
+        experiment.campaign = campaign
         experiment_model = ExperimentModel(**experiment.model_dump())
 
         db.add(experiment_model)
@@ -162,13 +165,13 @@ class ExperimentManager:
 
         update_fields = {"status": new_status}
         if new_status == ExperimentStatus.RUNNING:
-            update_fields["start_time"] = datetime.now(timezone.utc)
+            update_fields["start_time"] = datetime.now(UTC)
         elif new_status in [
             ExperimentStatus.COMPLETED,
             ExperimentStatus.CANCELLED,
             ExperimentStatus.FAILED,
         ]:
-            update_fields["end_time"] = datetime.now(timezone.utc)
+            update_fields["end_time"] = datetime.now(UTC)
 
         await db.execute(update(ExperimentModel).where(ExperimentModel.name == experiment_name).values(**update_fields))
 

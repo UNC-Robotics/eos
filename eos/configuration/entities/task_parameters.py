@@ -1,8 +1,8 @@
 from enum import Enum
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, field_validator, model_validator, Field
-from typing_extensions import Self
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
+from typing import Self
 
 from eos.configuration.validation.validation_utils import is_dynamic_parameter
 
@@ -43,8 +43,7 @@ class TaskParameter(BaseModel):
     desc: str | None = None
     value: Any | None = None
 
-    class Config:
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
     @model_validator(mode="after")
     def _validate_type(self) -> Self:

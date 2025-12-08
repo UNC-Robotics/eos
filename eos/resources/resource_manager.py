@@ -207,6 +207,7 @@ class ResourceManager:
         return Resource(
             name=resource_name,
             type=resource_config.type,
+            lab=lab_config.name,
             meta=merged_meta,
         )
 

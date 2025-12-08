@@ -19,6 +19,7 @@ from eos.orchestration.services.lab_service import LabService
 from eos.orchestration.services.loading_service import LoadingService
 from eos.orchestration.services.result_service import ResultService
 from eos.orchestration.services.task_service import TaskService
+from eos.orchestration.work_signal import WorkSignal
 
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.database.file_db_interface import FileDbInterface
@@ -64,6 +65,8 @@ class Orchestrator(metaclass=Singleton):
         self._experiments: ExperimentService | None = None
         self._campaigns: CampaignService | None = None
 
+        self._work_signal: WorkSignal | None = None
+
     async def initialize(self) -> None:
         """
         Prepare the orchestrator. This is required before any other operations can be performed.
@@ -90,11 +93,19 @@ class Orchestrator(metaclass=Singleton):
 
         await db_interface.initialize_database()
 
+        async with db_interface.get_async_session() as db:
+            await configuration_manager.spec_sync.sync_all_specs(db)
+            await configuration_manager.spec_sync.cleanup_deleted_specs(db)
+
         file_db_interface = FileDbInterface(self._file_db_config)
         di.register(FileDbInterface, file_db_interface)
 
         # Ray cluster ############################################
         self._initialize_ray()
+
+        # Work signal for event-driven wake-up
+        self._work_signal = WorkSignal()
+        di.register(WorkSignal, self._work_signal)
 
         # State management ########################################
         device_manager = DeviceManager()
@@ -175,7 +186,7 @@ class Orchestrator(metaclass=Singleton):
         except ConnectionError:
             log.info("Initializing local Ray cluster...")
             ray.init(namespace="eos", resources={"eos": 1000})
-            log.info("Local Ray cluster initialized.")
+            log.info("Initialized local Ray cluster.")
 
     async def terminate(self) -> None:
         """
@@ -193,22 +204,18 @@ class Orchestrator(metaclass=Singleton):
         ray.shutdown()
         self._initialized = False
 
-    async def spin(self, min_rate_hz: float = 0.5, max_rate_hz: float = 10) -> None:
+    async def spin(self, rate_hz: float = 10, maintenance_interval: float = 60.0) -> None:
         """
-        Spin the orchestrator with an adaptive rate up to max_rate_hz.
-        When there is work to process, runs at max_rate_hz for efficient processing.
-        When idle, slows down to 1 Hz to conserve CPU.
+        Event-driven spin with rate limiting when busy.
 
-        :param min_rate_hz: The minimum processing rate in Hz. This is the target rate when idle.
-        :param max_rate_hz: The maximum processing rate in Hz. This is the target rate when work is present.
+        :param rate_hz: Processing rate when work is present.
+        :param maintenance_interval: Timeout for maintenance wake-ups when idle.
         """
-        busy_cycle_time = 1 / max_rate_hz
-        idle_cycle_time = 1 / min_rate_hz
+        cycle_time = 1 / rate_hz
 
         while True:
             start = time.time()
 
-            # Check if there is any work to process
             has_work = (
                 bool(self._experiments.submitted_experiments)
                 or bool(self._campaigns.submitted_campaigns)
@@ -216,26 +223,40 @@ class Orchestrator(metaclass=Singleton):
                 or bool(self._on_demand_task_executor.has_work)
             )
 
-            # Process work
-            await self.spin_once()
+            if not has_work:
+                await self._work_signal.wait(max_wait=maintenance_interval)
+            self._work_signal.clear()
+
+            try:
+                await self.spin_once()
+            except Exception as e:
+                log.error(f"Error in orchestrator spin loop: {e}", exc_info=True)
 
             elapsed = time.time() - start
-            target_cycle_time = busy_cycle_time if has_work else idle_cycle_time
+            has_more_work = (
+                bool(self._experiments.submitted_experiments)
+                or bool(self._campaigns.submitted_campaigns)
+                or bool(self._task_executor.has_work)
+                or bool(self._on_demand_task_executor.has_work)
+            )
 
-            remaining = target_cycle_time - elapsed
-            if remaining > 0:
-                await asyncio.sleep(remaining)
+            if has_more_work and elapsed < cycle_time:
+                await asyncio.sleep(cycle_time - elapsed)
 
     async def spin_once(self) -> None:
         """Process submitted work."""
         await self._experiments.process_experiment_cancellations()
         await self._campaigns.process_campaign_cancellations()
 
+        await self._task_executor.process_tasks()
+
         await self._tasks.process_on_demand_tasks()
+
         await self._experiments.process_experiments()
         await self._campaigns.process_campaigns()
 
-        await self._task_executor.process_tasks()
+        await asyncio.sleep(0)
+        await self._task_executor.process_new_tasks()
 
     async def _fail_running_work(self) -> None:
         """

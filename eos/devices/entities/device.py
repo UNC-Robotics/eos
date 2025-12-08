@@ -1,9 +1,9 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, field_serializer, Field
+from pydantic import BaseModel, ConfigDict, field_serializer, Field
 from ray.actor import ActorHandle
-from sqlalchemy import String, JSON, Enum as sa_Enum, Integer, Index
+from sqlalchemy import String, JSON, Enum as sa_Enum
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -33,9 +33,7 @@ class Device(BaseModel):
     def status_enum_to_string(self, v: DeviceStatus) -> str:
         return v.value
 
-    class Config:
-        arbitrary_types_allowed = True
-        from_attributes = True
+    model_config = ConfigDict(arbitrary_types_allowed=True, from_attributes=True)
 
 
 class DeviceModel(Base):
@@ -43,16 +41,10 @@ class DeviceModel(Base):
 
     __tablename__ = "devices"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lab_name: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
 
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    lab_name: Mapped[str] = mapped_column(String, nullable=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
-    computer: Mapped[str] = mapped_column(String, nullable=False)
+    type: Mapped[str] = mapped_column(String(255), nullable=False)
+    computer: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[DeviceStatus] = mapped_column(sa_Enum(DeviceStatus), nullable=False, default=DeviceStatus.ACTIVE)
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
-
-    __table_args__ = (
-        # Composite unique index for (lab_name, name)
-        Index("idx_lab_name_device_name", "lab_name", "name", unique=True),
-    )
