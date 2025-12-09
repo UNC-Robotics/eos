@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.12.0"
+version = "0.12.1"
 description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [

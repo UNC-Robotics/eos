@@ -152,6 +152,7 @@ class ExperimentExecutor:
             return False
         except Exception as e:
             await self._fail_experiment(db)
+            await db.commit()
             raise EosExperimentExecutionError(f"Error executing experiment '{self._experiment_name}'") from e
 
     async def _resume_experiment(self, db: AsyncDbSession) -> None:
