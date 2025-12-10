@@ -57,7 +57,7 @@ class ExperimentController(Controller):
         return experiment
     
     @get("/{experiment_type:str}/configuration")
-    async def get_experiment(self, experiment_type: str, orchestrator: Orchestrator) -> ExperimentConfig:
+    async def get_experiment_configuration(self, experiment_type: str, orchestrator: Orchestrator) -> ExperimentConfig:
         """Get the configuration of an experiment by its type."""
         experiment_config = await orchestrator.experiments.get_experiment_config_by_type(experiment_type)
         if not experiment_config: 
