@@ -61,7 +61,7 @@ class ExperimentController(Controller):
         """Get the configuration of an experiment by its type."""
         experiment_config = await orchestrator.experiments.get_experiment_config_by_type(experiment_type)
         if not experiment_config: 
-            raise APIError(status_code=404, detail="Experiment not found")
+            raise APIError(status_code=404, detail="Experiment not found or loaded")
 
         return experiment_config
 
