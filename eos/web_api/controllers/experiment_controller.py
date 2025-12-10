@@ -3,6 +3,7 @@ from typing import Any
 from litestar import get, post, Controller
 from pydantic import BaseModel
 
+from eos.configuration.entities.experiment import ExperimentConfig
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.experiments.entities.experiment import ExperimentDefinition, Experiment
 from eos.orchestration.orchestrator import Orchestrator
@@ -54,6 +55,15 @@ class ExperimentController(Controller):
             raise APIError(status_code=404, detail="Experiment not found")
 
         return experiment
+    
+    @get("/{experiment_type:str}/configuration")
+    async def get_experiment(self, experiment_type: str, orchestrator: Orchestrator) -> ExperimentConfig:
+        """Get the configuration of an experiment by its type."""
+        experiment_config = await orchestrator.experiments.get_experiment_config_by_type(experiment_type)
+        if not experiment_config: 
+            raise APIError(status_code=404, detail="Experiment not found")
+
+        return experiment_config
 
     @get("/types")
     async def get_experiment_types(self, orchestrator: Orchestrator) -> dict[str, bool]:

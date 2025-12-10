@@ -3,6 +3,7 @@ import traceback
 from typing import Any
 
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.entities.experiment import ExperimentConfig
 from eos.configuration.validation import validation_utils
 from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentDefinition
 from eos.experiments.exceptions import EosExperimentExecutionError
@@ -40,6 +41,9 @@ class ExperimentService:
         self._experiment_submission_lock = asyncio.Lock()
         self._submitted_experiments: dict[str, ExperimentExecutor] = {}
         self._experiment_cancellation_queue = asyncio.Queue(maxsize=100)
+
+    async def get_experiment_config_by_type(self, experiment_type: str) -> ExperimentConfig | None:
+        return self._experiment_manager._configuration_manager.get_loaded_experiment_by_type(experiment_type)
 
     async def get_experiment(self, db: AsyncDbSession, experiment_name: str) -> Experiment | None:
         """Get an experiment by its unique identifier."""

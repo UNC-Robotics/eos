@@ -21,10 +21,11 @@ from eos.configuration.validation.validators import (
     MultiLabValidator,
 )
 from eos.logging.logger import log
+from eos.configuration.entities.experiment import ExperimentConfig
 
 if TYPE_CHECKING:
     from eos.configuration.entities.lab import LabConfig
-    from eos.configuration.entities.experiment import ExperimentConfig
+
 
 
 class ConfigurationManager:
@@ -146,6 +147,9 @@ class ConfigurationManager:
             all_experiments.update(package_experiments)
 
         return {exp: exp in self.experiments for exp in all_experiments}
+    
+    def get_loaded_experiment_by_type(self, experiment_type: str) -> ExperimentConfig | None:
+        return self.experiments[experiment_type]
 
     def load_experiment(self, experiment_type: str) -> None:
         """
