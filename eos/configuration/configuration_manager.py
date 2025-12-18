@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from eos.configuration.entities.lab import LabConfig
 
 
-
 class ConfigurationManager:
     """
     The configuration manager is responsible for the data-driven configuration layer of EOS.
@@ -147,9 +146,10 @@ class ConfigurationManager:
             all_experiments.update(package_experiments)
 
         return {exp: exp in self.experiments for exp in all_experiments}
-    
+
     def get_loaded_experiment_by_type(self, experiment_type: str) -> ExperimentConfig | None:
-        if experiment_type not in self.experiments: return None
+        if experiment_type not in self.experiments:
+            return None
         return self.experiments[experiment_type]
 
     def load_experiment(self, experiment_type: str) -> None:
