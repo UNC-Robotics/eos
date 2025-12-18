@@ -43,7 +43,7 @@ class ExperimentService:
         self._experiment_cancellation_queue = asyncio.Queue(maxsize=100)
 
     async def get_experiment_config_by_type(self, experiment_type: str) -> ExperimentConfig | None:
-        return self._experiment_manager._configuration_manager.get_loaded_experiment_by_type(experiment_type)
+        return self._configuration_manager.get_loaded_experiment_by_type(experiment_type)
 
     async def get_experiment(self, db: AsyncDbSession, experiment_name: str) -> Experiment | None:
         """Get an experiment by its unique identifier."""
