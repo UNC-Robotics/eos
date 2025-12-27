@@ -1,9 +1,9 @@
 import asyncio
 from typing import Any
 
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
-from eos.configuration.validation import validation_utils
-from eos.experiments.entities.experiment import ExperimentStatus, Experiment, ExperimentDefinition
+from eos.configuration.experiment_graph import ExperimentGraph
+from eos.configuration import validation as validation_utils
+from eos.experiments.entities.experiment import ExperimentStatus, Experiment, ExperimentSubmission
 from eos.experiments.exceptions import (
     EosExperimentExecutionError,
     EosExperimentTaskExecutionError,
@@ -14,7 +14,7 @@ from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.tasks.entities.task import TaskDefinition
+from eos.tasks.entities.task import TaskSubmission
 from eos.tasks.exceptions import EosTaskExecutionError, EosTaskCancellationError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_input_resolver import TaskInputResolver
@@ -26,7 +26,7 @@ class ExperimentExecutor:
 
     def __init__(
         self,
-        experiment_definition: ExperimentDefinition,
+        experiment_submission: ExperimentSubmission,
         experiment_graph: ExperimentGraph,
         experiment_manager: ExperimentManager,
         task_manager: TaskManager,
@@ -35,9 +35,9 @@ class ExperimentExecutor:
         db_interface: AbstractSqlDbInterface,
         campaign: str | None = None,
     ):
-        self._experiment_definition = experiment_definition
-        self._experiment_name = experiment_definition.name
-        self._experiment_type = experiment_definition.type
+        self._experiment_submission = experiment_submission
+        self._experiment_name = experiment_submission.name
+        self._experiment_type = experiment_submission.type
         self._experiment_graph = experiment_graph
         self._campaign = campaign
 
@@ -48,7 +48,7 @@ class ExperimentExecutor:
         self._db_interface = db_interface
         self._task_input_resolver = TaskInputResolver(task_manager, experiment_manager)
 
-        self._current_task_definitions: dict[str, TaskDefinition] = {}
+        self._current_task_submissions: dict[str, TaskSubmission] = {}
         self._task_output_futures: dict[str, asyncio.Task] = {}
         self._experiment_status = None
 
@@ -73,7 +73,7 @@ class ExperimentExecutor:
             await self._experiment_manager.start_experiment(db, self._experiment_name)
             self._experiment_status = ExperimentStatus.RUNNING
 
-            action = "Resumed" if self._experiment_definition.resume else "Started"
+            action = "Resumed" if self._experiment_submission.resume else "Started"
             log.info(f"{action} experiment '{self._experiment_name}'.")
         except EosExperimentExecutionError:
             if experiment_created:
@@ -96,7 +96,7 @@ class ExperimentExecutor:
         """Handle cases when the experiment already exists."""
         self._experiment_status = experiment.status
 
-        if not self._experiment_definition.resume:
+        if not self._experiment_submission.resume:
             if self._experiment_status in (
                 ExperimentStatus.COMPLETED,
                 ExperimentStatus.SUSPENDED,
@@ -164,15 +164,15 @@ class ExperimentExecutor:
         """
         Create a new experiment.
         """
-        parameters = self._experiment_definition.parameters or {}
+        parameters = self._experiment_submission.parameters or {}
         self._validate_parameters(parameters)
-        await self._experiment_manager.create_experiment(db, self._experiment_definition, campaign=self._campaign)
+        await self._experiment_manager.create_experiment(db, self._experiment_submission, campaign=self._campaign)
 
     async def _cancel_running_tasks(self) -> None:
         """Cancel all running tasks in the experiment."""
         cancellation_tasks = [
-            self._task_executor.cancel_task(task_definition.experiment_name, task_definition.name)
-            for task_definition in self._current_task_definitions.values()
+            self._task_executor.cancel_task(task_submission.experiment_name, task_submission.name)
+            for task_submission in self._current_task_submissions.values()
         ]
         try:
             await asyncio.gather(*cancellation_tasks, return_exceptions=True)
@@ -217,31 +217,31 @@ class ExperimentExecutor:
                 ) from e
             finally:
                 del self._task_output_futures[task_name]
-                del self._current_task_definitions[task_name]
+                del self._current_task_submissions[task_name]
 
     async def _execute_tasks(self, db: AsyncDbSession) -> None:
         """Request and execute new tasks from the scheduler."""
         new_scheduled_tasks = await self._scheduler.request_tasks(db, self._experiment_name)
         for scheduled_task in new_scheduled_tasks:
-            if scheduled_task.name not in self._current_task_definitions:
+            if scheduled_task.name not in self._current_task_submissions:
                 await self._execute_task(db, scheduled_task)
 
     async def _execute_task(self, db: AsyncDbSession, scheduled_task: ScheduledTask) -> None:
         """Execute a single task."""
-        task_config = self._experiment_graph.get_task_config(scheduled_task.name)
-        task_config = await self._task_input_resolver.resolve_task_inputs(db, self._experiment_name, task_config)
+        task = self._experiment_graph.get_task(scheduled_task.name)
+        task = await self._task_input_resolver.resolve_task_inputs(db, self._experiment_name, task)
 
         # Use devices and resources from scheduled_task (already allocated by scheduler)
-        task_config.devices = scheduled_task.devices
-        task_config.resources = scheduled_task.resources
+        task.devices = scheduled_task.devices
+        task.resources = scheduled_task.resources
 
-        task_definition = TaskDefinition.from_config(task_config, self._experiment_name)
-        task_definition.priority = self._experiment_definition.priority
+        task_submission = TaskSubmission.from_def(task, self._experiment_name)
+        task_submission.priority = self._experiment_submission.priority
 
         self._task_output_futures[scheduled_task.name] = asyncio.create_task(
-            self._task_executor.request_task_execution(task_definition, scheduled_task)
+            self._task_executor.request_task_execution(task_submission, scheduled_task)
         )
-        self._current_task_definitions[scheduled_task.name] = task_definition
+        self._current_task_submissions[scheduled_task.name] = task_submission
 
     def _validate_parameters(self, parameters: dict[str, dict[str, Any]]) -> None:
         """Validate that all required parameters are provided."""
@@ -260,10 +260,10 @@ class ExperimentExecutor:
         return {
             f"{task_name}.{param_name}"
             for task_name in self._experiment_graph.get_tasks()
-            for param_name, param_value in self._experiment_graph.get_task_config(task_name).parameters.items()
+            for param_name, param_value in self._experiment_graph.get_task(task_name).parameters.items()
             if validation_utils.is_dynamic_parameter(param_value) or param_value is None
         }
 
     @property
-    def experiment_definition(self) -> ExperimentDefinition:
-        return self._experiment_definition
+    def experiment_submission(self) -> ExperimentSubmission:
+        return self._experiment_submission

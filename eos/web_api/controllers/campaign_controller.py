@@ -1,6 +1,6 @@
 from litestar import get, post, Controller
 
-from eos.campaigns.entities.campaign import CampaignDefinition, Campaign
+from eos.campaigns.entities.campaign import CampaignSubmission, Campaign
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
 from eos.web_api.exception_handling import APIError
@@ -23,7 +23,7 @@ class CampaignController(Controller):
 
     @post("/")
     async def submit_campaign(
-        self, data: CampaignDefinition, db: AsyncDbSession, orchestrator: Orchestrator
+        self, data: CampaignSubmission, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> dict[str, str]:
         """Submit a new campaign for execution."""
         await orchestrator.campaigns.submit_campaign(db, data)

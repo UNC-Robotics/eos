@@ -4,7 +4,7 @@ import traceback
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
-from eos.tasks.entities.task import TaskDefinition
+from eos.tasks.entities.task import TaskSubmission
 from eos.tasks.exceptions import EosTaskExecutionError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
@@ -31,19 +31,19 @@ class OnDemandTaskExecutor:
 
         log.debug("On-demand task executor initialized.")
 
-    async def submit_task(self, db: AsyncDbSession, task_definition: TaskDefinition) -> None:
+    async def submit_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> None:
         """Submit an on-demand task for execution."""
-        task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_definition.type)
+        task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_submission.type)
         if not task_spec:
-            raise EosTaskExecutionError(f"Unknown task type '{task_definition.type}'.")
+            raise EosTaskExecutionError(f"Unknown task type '{task_submission.type}'.")
 
-        if await self._task_manager.get_task(db, None, task_definition.name):
-            raise EosTaskExecutionError(f"Cannot submit duplicate on-demand task '{task_definition.name}'.")
+        if await self._task_manager.get_task(db, None, task_submission.name):
+            raise EosTaskExecutionError(f"Cannot submit duplicate on-demand task '{task_submission.name}'.")
 
-        self._task_futures[task_definition.name] = asyncio.create_task(
-            self._task_executor.request_task_execution(task_definition)
+        self._task_futures[task_submission.name] = asyncio.create_task(
+            self._task_executor.request_task_execution(task_submission)
         )
-        log.info(f"Submitted on-demand task '{task_definition.name}'.")
+        log.info(f"Submitted on-demand task '{task_submission.name}'.")
 
     async def cancel_task(self, task_name: str) -> None:
         """Cancel an on-demand task."""

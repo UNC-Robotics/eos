@@ -3,6 +3,7 @@ from functools import partial
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     create_async_engine,
 )
 from eos.logging.logger import log
@@ -27,6 +28,9 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             "pool_size": self._db_config.postgres.pool_size,
             "max_overflow": self._db_config.postgres.max_overflow,
             "pool_timeout": self._db_config.postgres.pool_timeout,
+            "connect_args": {
+                "timeout": self._db_config.postgres.connect_timeout,
+            },
         }
 
     def build_db_url(self, use_system_db: bool = False) -> str:
@@ -57,11 +61,20 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             f"@{self._db_config.postgres.host}:{self._db_config.postgres.port}/{db}"
         )
 
+    def _create_system_engine(self) -> AsyncEngine:
+        """Create an async engine for system database operations."""
+        return create_async_engine(
+            self.build_async_db_url(use_system_db=True),
+            isolation_level="AUTOCOMMIT",
+            connect_args={"timeout": self._db_config.postgres.connect_timeout},
+        )
+
     async def initialize_database(self) -> None:
         """Initialize database by creating it if needed and running migrations.
 
         :raises Exception: If initialization fails
         """
+        log.info(f"Connecting to database at {self._db_config.postgres.host}:{self._db_config.postgres.port}...")
         try:
             exists = await self._database_exists()
             if not exists:
@@ -73,6 +86,7 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             async with self._async_engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
 
+            log.info(f"Connected to database '{self._db_name}'")
         except Exception as e:
             log.error(f"Failed to initialize database: {e!s}")
             raise
@@ -83,7 +97,7 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         :returns: True if database exists, False otherwise
         :rtype: bool
         """
-        system_engine = create_async_engine(self.build_async_db_url(use_system_db=True), isolation_level="AUTOCOMMIT")
+        system_engine = self._create_system_engine()
 
         try:
             async with system_engine.connect() as conn:
@@ -99,7 +113,7 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
 
         :raises Exception: If database creation fails
         """
-        system_engine = create_async_engine(self.build_async_db_url(use_system_db=True), isolation_level="AUTOCOMMIT")
+        system_engine = self._create_system_engine()
 
         try:
             async with system_engine.connect() as conn:
@@ -113,7 +127,7 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
 
         :raises Exception: If database drop fails
         """
-        system_engine = create_async_engine(self.build_async_db_url(use_system_db=True), isolation_level="AUTOCOMMIT")
+        system_engine = self._create_system_engine()
 
         try:
             async with system_engine.connect() as conn:

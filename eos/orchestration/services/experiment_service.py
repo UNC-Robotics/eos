@@ -1,10 +1,8 @@
 import asyncio
 import traceback
-from typing import Any
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.validation import validation_utils
-from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentDefinition
+from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentSubmission
 from eos.experiments.exceptions import EosExperimentExecutionError
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.experiments.experiment_manager import ExperimentManager
@@ -48,11 +46,11 @@ class ExperimentService:
     async def submit_experiment(
         self,
         db: AsyncDbSession,
-        experiment_definition: ExperimentDefinition,
+        experiment_submission: ExperimentSubmission,
     ) -> None:
         """Submit a new experiment for execution. The experiment will be executed asynchronously."""
-        experiment_name = experiment_definition.name
-        experiment_type = experiment_definition.type
+        experiment_name = experiment_submission.name
+        experiment_type = experiment_submission.type
 
         self._validate_experiment_type(experiment_type)
 
@@ -61,7 +59,7 @@ class ExperimentService:
                 log.warning(f"Experiment '{experiment_name}' is already submitted. Ignoring new submission.")
                 return
 
-            experiment_executor = self._experiment_executor_factory.create(experiment_definition)
+            experiment_executor = self._experiment_executor_factory.create(experiment_submission)
 
             try:
                 await experiment_executor.start_experiment(db)
@@ -98,27 +96,6 @@ class ExperimentService:
         """Get a list of all experiment types that are defined in the configuration."""
         return list(self._configuration_manager.experiments.keys())
 
-    async def get_experiment_dynamic_params_template(self, experiment_type: str) -> dict[str, Any]:
-        """
-        Get the dynamic parameters template for a given experiment type.
-
-        :param experiment_type: The type of the experiment.
-        :return: The dynamic parameter template.
-        """
-        experiment_config = self._configuration_manager.experiments[experiment_type]
-        dynamic_parameters = {}
-
-        for task in experiment_config.tasks:
-            task_dynamic_parameters = {
-                name: "PLACEHOLDER"
-                for name, value in task.parameters.items()
-                if validation_utils.is_dynamic_parameter(value)
-            }
-            if task_dynamic_parameters:
-                dynamic_parameters[task.name] = task_dynamic_parameters
-
-        return dynamic_parameters
-
     async def process_experiments(self) -> None:
         """Process experiments in priority order (higher priority first)."""
         if not self._submitted_experiments:
@@ -154,7 +131,7 @@ class ExperimentService:
     def _get_sorted_experiments(self) -> list[tuple[str, ExperimentExecutor]]:
         experiment_priorities = {}
         for exp_name, executor in self._submitted_experiments.items():
-            experiment_priorities[exp_name] = executor.experiment_definition.priority
+            experiment_priorities[exp_name] = executor.experiment_submission.priority
 
         return sorted(self._submitted_experiments.items(), key=lambda x: experiment_priorities[x[0]], reverse=True)
 

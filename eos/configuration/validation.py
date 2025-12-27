@@ -3,76 +3,73 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from eos.configuration.constants import LABS_DIR, EOS_COMPUTER_NAME
-from eos.configuration.entities.experiment import ExperimentConfig
-from eos.configuration.entities.lab import LabConfig, LabResourceConfig
-from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_parameters import TaskParameterType, TaskParameterFactory
-from eos.configuration.entities.task_spec import TaskSpecConfig, TaskSpecResourceConfig
+from eos.configuration.constants import EOS_COMPUTER_NAME, LABS_DIR
+from eos.configuration.entities.experiment_def import ExperimentDef
+from eos.configuration.entities.lab_def import LabDef, ResourceDef
+from eos.configuration.entities.task_def import TaskDef
+from eos.configuration.entities.task_parameters import TaskParameterFactory, TaskParameterType
+from eos.configuration.entities.task_spec_def import TaskSpecDef, ResourceRequirement
 from eos.configuration.exceptions import (
-    EosLabConfigurationError,
+    EosConfigurationError,
     EosExperimentConfigurationError,
+    EosLabConfigurationError,
     EosResourceConfigurationError,
     EosTaskValidationError,
-    EosConfigurationError,
 )
-from eos.configuration.spec_registries.device_spec_registry import DeviceSpecRegistry
-from eos.configuration.spec_registries.task_spec_registry import TaskSpecRegistry
-from eos.configuration.validation import validation_utils
+from eos.configuration.registries import DeviceSpecRegistry, TaskSpecRegistry
+from eos.configuration.utils import (
+    is_dynamic_parameter,
+    is_parameter_reference,
+    is_resource_reference,
+)
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 from eos.utils.di.di_container import inject
 
 
-# ============================================================================
-# Lab Validation
-# ============================================================================
-
-
 class LabValidator:
-    """
-    Validates the configuration of a lab.
-    """
+    """Validates lab configuration."""
 
     @inject
-    def __init__(
-        self, config_dir: str, lab_config: LabConfig, task_specs: TaskSpecRegistry, device_specs: DeviceSpecRegistry
-    ):
-        self._lab_config = lab_config
-        self._lab_config_dir = Path(config_dir) / LABS_DIR / lab_config.name.lower()
+    def __init__(self, config_dir: str, lab: LabDef, task_specs: TaskSpecRegistry, device_specs: DeviceSpecRegistry):
+        self._lab = lab
+        self._lab_dir = Path(config_dir) / LABS_DIR / lab.name.lower()
         self._task_specs = task_specs
         self._device_specs = device_specs
 
     def validate(self) -> None:
+        """Run all lab validation checks."""
         self._validate_lab_folder_name_matches_lab_type()
         self._validate_computers()
         self._validate_devices()
         self._validate_resources()
 
     def _validate_lab_folder_name_matches_lab_type(self) -> None:
-        if self._lab_config_dir.name != self._lab_config.name:
+        """Ensure lab folder name matches the configured lab type."""
+        if self._lab_dir.name != self._lab.name:
             raise EosLabConfigurationError(
-                f"Lab folder name '{self._lab_config_dir.name}' does not match lab type '{self._lab_config.name}'."
+                f"Lab folder name '{self._lab_dir.name}' does not match lab type '{self._lab.name}'."
             )
 
     def _validate_computers(self) -> None:
+        """Validate all computer configurations."""
         self._validate_computer_unique_ips()
         self._validate_eos_computer_not_specified()
 
     def _validate_computer_unique_ips(self) -> None:
+        """Ensure all computers have unique IP addresses."""
         ip_addresses = set()
-
-        for computer_name, computer in self._lab_config.computers.items():
+        for computer_name, computer in self._lab.computers.items():
             if computer.ip in ip_addresses:
                 batch_error(
                     f"Computer '{computer_name}' has a duplicate IP address '{computer.ip}'.",
                     EosLabConfigurationError,
                 )
             ip_addresses.add(computer.ip)
-
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_eos_computer_not_specified(self) -> None:
-        for computer_name, computer in self._lab_config.computers.items():
+        """Ensure reserved computer name and IPs are not used."""
+        for computer_name, computer in self._lab.computers.items():
             if computer_name.lower() == EOS_COMPUTER_NAME:
                 batch_error(
                     "Computer name 'eos_computer' is reserved and cannot be used.",
@@ -86,15 +83,17 @@ class LabValidator:
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_devices(self) -> None:
+        """Validate all device configurations."""
         self._validate_device_types()
         self._validate_devices_have_computers()
         self._validate_device_init_parameters()
 
     def _validate_devices_have_computers(self) -> None:
-        for device_name, device in self._lab_config.devices.items():
+        """Ensure each device references a valid computer."""
+        for device_name, device in self._lab.devices.items():
             if device.computer.lower() == EOS_COMPUTER_NAME:
                 continue
-            if device.computer not in self._lab_config.computers:
+            if device.computer not in self._lab.computers:
                 batch_error(
                     f"Device '{device_name}' has invalid computer '{device.computer}'.",
                     EosLabConfigurationError,
@@ -102,7 +101,8 @@ class LabValidator:
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_device_types(self) -> None:
-        for device_name, device in self._lab_config.devices.items():
+        """Ensure all device types exist in the device spec registry."""
+        for device_name, device in self._lab.devices.items():
             if not self._device_specs.get_spec_by_config(device):
                 batch_error(
                     f"Device type '{device.name}' of device '{device_name}' does not exist.",
@@ -111,65 +111,56 @@ class LabValidator:
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_device_init_parameters(self) -> None:
-        for device_name, device in self._lab_config.devices.items():
+        """Validate device initialization parameters against their specs."""
+        for device_name, device in self._lab.devices.items():
             device_spec = self._device_specs.get_spec_by_config(device)
-
             if device.init_parameters:
                 spec_params = device_spec.init_parameters or {}
                 for param_name in device.init_parameters:
                     if param_name not in spec_params:
                         batch_error(
                             f"Invalid initialization parameter '{param_name}' for device '{device_name}' "
-                            f"of type '{device.name}' in lab type '{self._lab_config.name}'. "
+                            f"of type '{device.name}' in lab type '{self._lab.name}'. "
                             f"Valid parameters are: {', '.join(spec_params.keys())}",
                             EosLabConfigurationError,
                         )
-
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_resources(self) -> None:
-        # Enforce unique type definitions (resource_types) and unique resource names. Multiple resources
-        # may share the same type defined under resource_types.
+        """Validate resource configurations."""
         self._validate_resource_type_definitions_unique()
 
     def _validate_resource_type_definitions_unique(self) -> None:
-        type_names = list(self._lab_config.resource_types.keys())
+        """Ensure resource type definitions are unique."""
+        type_names = list(self._lab.resource_types.keys())
         duplicates = {t for t in type_names if type_names.count(t) > 1}
         if duplicates:
-            duplicate_types_str = ", ".join(sorted(duplicates))
             batch_error(
-                f"Duplicate resource type definitions found: {duplicate_types_str}",
+                f"Duplicate resource type definitions found: {', '.join(sorted(duplicates))}",
                 EosLabConfigurationError,
             )
         raise_batched_errors(EosLabConfigurationError)
 
 
-# ============================================================================
-# Multi-Lab Validation
-# ============================================================================
-
-
 class MultiLabValidator:
-    """
-    Cross-checks all lab configuration.
-    """
+    """Cross-validates multiple lab configurations."""
 
-    def __init__(self, lab_configs: list[LabConfig]):
-        self._lab_configs = lab_configs
+    def __init__(self, labs: list[LabDef]):
+        self._labs = labs
 
     def validate(self) -> None:
+        """Run all multi-lab validation checks."""
         self._validate_computer_ips_globally_unique()
         self._validate_resource_names_globally_unique()
 
     def _validate_computer_ips_globally_unique(self) -> None:
+        """Ensure computer IPs are unique across all labs."""
         computer_ips = defaultdict(list)
-
-        for lab in self._lab_configs:
+        for lab in self._labs:
             for computer in lab.computers.values():
                 computer_ips[computer.ip].append(lab.name)
 
         duplicate_ips = {ip: labs for ip, labs in computer_ips.items() if len(labs) > 1}
-
         if duplicate_ips:
             duplicate_ips_str = "\n  ".join(
                 f"'{ip}': defined in labs {', '.join(labs)}" for ip, labs in duplicate_ips.items()
@@ -179,139 +170,98 @@ class MultiLabValidator:
             )
 
     def _validate_resource_names_globally_unique(self) -> None:
+        """Ensure resource names are unique across all labs."""
         resource_names = defaultdict(list)
-        for lab in self._lab_configs:
+        for lab in self._labs:
             for resource_name in lab.resources:
                 resource_names[resource_name].append(lab.name)
 
-        duplicate_names = {resource_name: labs for resource_name, labs in resource_names.items() if len(labs) > 1}
-
+        duplicate_names = {name: labs for name, labs in resource_names.items() if len(labs) > 1}
         if duplicate_names:
             duplicate_names_str = "\n  ".join(
-                f"'{resource_name}': defined in labs {', '.join(labs)}"
-                for resource_name, labs in duplicate_names.items()
+                f"'{name}': defined in labs {', '.join(labs)}" for name, labs in duplicate_names.items()
             )
             raise EosLabConfigurationError(
                 f"The following resource names are not globally unique:\n  {duplicate_names_str}"
             )
 
 
-# ============================================================================
-# Experiment Resource Registry (Helper)
-# ============================================================================
-
-
 class ExperimentResourceRegistry:
-    """
-    The resource registry stores information about the resources in the labs used by an experiment.
-    This is a helper class used internally by ExperimentValidator.
-    """
+    """Stores resource information for labs used by an experiment."""
 
-    def __init__(self, experiment_config: ExperimentConfig, lab_configs: list[LabConfig]):
-        self._experiment_config = experiment_config
-        self._lab_configs = [lab for lab in lab_configs if lab.name in self._experiment_config.labs]
+    def __init__(self, experiment: ExperimentDef, labs: list[LabDef]):
+        self._labs = [lab for lab in labs if lab.name in experiment.labs]
 
-    def find_resource_by_name(self, resource_name: str) -> LabResourceConfig | None:
-        """
-        Find a resource in the lab by its name.
-        """
-        for lab in self._lab_configs:
+    def find_resource_by_name(self, resource_name: str) -> ResourceDef | None:
+        """Find a resource by name across all labs."""
+        for lab in self._labs:
             if resource_name in lab.resources:
                 return lab.resources[resource_name]
         return None
 
 
-# ============================================================================
-# Experiment Validation
-# ============================================================================
-
-
 class ExperimentValidator:
-    """
-    Validates experiment configuration.
-    """
+    """Validates experiment configuration."""
 
-    def __init__(
-        self,
-        experiment_config: ExperimentConfig,
-        lab_configs: list[LabConfig],
-    ):
-        self._experiment_config = experiment_config
-        self._lab_configs = lab_configs
-        self._resource_registry = ExperimentResourceRegistry(experiment_config, lab_configs)
-        self._task_validator = TaskValidator(experiment_config, lab_configs, self._resource_registry)
+    def __init__(self, experiment: ExperimentDef, labs: list[LabDef]):
+        self._experiment = experiment
+        self._labs = labs
+        self._resource_registry = ExperimentResourceRegistry(experiment, labs)
+        self._task_validator = TaskValidator(experiment, labs, self._resource_registry)
 
     def validate(self) -> None:
+        """Run all experiment validation checks."""
         self._validate_labs()
         self._validate_resources()
         self._task_validator.validate_all_tasks()
 
     def _validate_labs(self) -> None:
-        lab_types = [lab.name for lab in self._lab_configs]
-        invalid_labs = []
-        for lab in self._experiment_config.labs:
-            if lab not in lab_types:
-                invalid_labs.append(lab)
+        """Ensure all required labs exist."""
+        lab_types = [lab.name for lab in self._labs]
+        invalid_labs = [lab for lab in self._experiment.labs if lab not in lab_types]
 
         if invalid_labs:
-            invalid_labs_str = "\n  ".join(invalid_labs)
             raise EosExperimentConfigurationError(
-                f"The following labs required by experiment '{self._experiment_config.type}' do not exist:"
-                f"\n  {invalid_labs_str}"
+                f"The following labs required by experiment '{self._experiment.type}' do not exist:"
+                f"\n  {chr(10).join(invalid_labs)}"
             )
 
     def _validate_resources(self) -> None:
-        if not self._experiment_config.resources:
+        """Ensure all required resources exist."""
+        if not self._experiment.resources:
             return
 
-        for resource_name in self._experiment_config.resources:
-            self._validate_resource_exists(resource_name)
-
-    def _validate_resource_exists(self, resource_name: str) -> None:
-        for lab in self._lab_configs:
-            if resource_name in lab.resources:
-                return
-
-        raise EosResourceConfigurationError(f"Resource '{resource_name}' does not exist.")
-
-
-# ============================================================================
-# Task Validation
-# ============================================================================
+        for resource_name in self._experiment.resources:
+            if not any(resource_name in lab.resources for lab in self._labs):
+                raise EosResourceConfigurationError(f"Resource '{resource_name}' does not exist.")
 
 
 class TaskValidator:
-    """
-    Validates task configurations.
-    """
+    """Validates task configurations."""
 
     def __init__(
         self,
-        experiment_config: ExperimentConfig,
-        lab_configs: list[LabConfig],
+        experiment: ExperimentDef,
+        labs: list[LabDef],
         resource_registry: ExperimentResourceRegistry | None = None,
     ):
-        self._experiment_config = experiment_config
-        self._lab_configs = lab_configs
+        self._experiment = experiment
+        self._labs = labs
         self._task_specs = TaskSpecRegistry()
-        self._resource_registry = resource_registry or ExperimentResourceRegistry(experiment_config, lab_configs)
+        self._resource_registry = resource_registry or ExperimentResourceRegistry(experiment, labs)
 
     def validate_all_tasks(self) -> None:
         """Validate all tasks in the experiment."""
-        for task in self._experiment_config.tasks:
+        for task in self._experiment.tasks:
             self._validate_task(task)
 
-    def _validate_task(self, task: TaskConfig) -> None:
+    def _validate_task(self, task: TaskDef) -> None:
         """Validate a single task's parameters and resources."""
         task_spec = self._task_specs.get_spec_by_config(task)
         self._validate_task_parameters(task, task_spec)
         self._validate_task_resources(task, task_spec)
 
-    # -------------------------------------------------------------------------
-    # Task Parameter Validation
-    # -------------------------------------------------------------------------
-
-    def _validate_task_parameters(self, task: TaskConfig, task_spec: TaskSpecConfig) -> None:
+    def _validate_task_parameters(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         """Validate task parameters including references."""
         if task_spec.input_parameters is None and task.parameters is not None:
             raise EosTaskValidationError(
@@ -321,7 +271,6 @@ class TaskValidator:
         if not task.parameters:
             return
 
-        # Validate each parameter
         for parameter_name in task.parameters:
             self._validate_parameter_in_task_spec(task.name, parameter_name, task_spec)
         raise_batched_errors(root_exception_type=EosTaskValidationError)
@@ -332,10 +281,9 @@ class TaskValidator:
             self._validate_parameter(task.name, parameter_name, parameter, task_spec)
         raise_batched_errors(root_exception_type=EosTaskValidationError)
 
-        # Validate parameter references
         self._validate_parameter_references(task)
 
-    def _validate_parameter_in_task_spec(self, task_name: str, parameter_name: str, task_spec: TaskSpecConfig) -> None:
+    def _validate_parameter_in_task_spec(self, task_name: str, parameter_name: str, task_spec: TaskSpecDef) -> None:
         """Check that the parameter exists in the task specification."""
         if parameter_name not in task_spec.input_parameters:
             batch_error(
@@ -344,19 +292,16 @@ class TaskValidator:
                 EosTaskValidationError,
             )
 
-    def _validate_parameter(
-        self, task_name: str, parameter_name: str, parameter: Any, task_spec: TaskSpecConfig
-    ) -> None:
-        """Validate a parameter according to the task specification."""
-        if validation_utils.is_parameter_reference(parameter) or validation_utils.is_dynamic_parameter(parameter):
+    def _validate_parameter(self, task_name: str, parameter_name: str, parameter: Any, task_spec: TaskSpecDef) -> None:
+        """Validate a parameter, skipping references and dynamic parameters."""
+        if is_parameter_reference(parameter) or is_dynamic_parameter(parameter):
             return
-
         self._validate_parameter_spec(task_name, parameter_name, parameter, task_spec)
 
     def _validate_parameter_spec(
-        self, task_name: str, parameter_name: str, parameter: Any, task_spec: TaskSpecConfig
+        self, task_name: str, parameter_name: str, parameter: Any, task_spec: TaskSpecDef
     ) -> None:
-        """Validate a parameter to make sure it conforms to its task specification."""
+        """Validate a parameter against its task specification."""
         parameter_spec = copy.deepcopy(task_spec.input_parameters[parameter_name])
 
         if not isinstance(parameter, TaskParameterType(parameter_spec.type).python_type):
@@ -379,9 +324,9 @@ class TaskValidator:
             )
 
     def _validate_all_required_parameters_provided(
-        self, task_name: str, parameters: dict[str, Any], task_spec: TaskSpecConfig
+        self, task_name: str, parameters: dict[str, Any], task_spec: TaskSpecDef
     ) -> None:
-        """Validate that all required parameters are provided in the parameter dictionary."""
+        """Ensure all required parameters are provided."""
         required_parameters = [param for param, spec in task_spec.input_parameters.items() if spec.value is None]
         missing_parameters = [param for param in required_parameters if param not in parameters]
 
@@ -390,14 +335,14 @@ class TaskValidator:
                 f"Task '{task_name}' is missing required input parameters: {missing_parameters}"
             )
 
-    def _validate_parameter_references(self, task: TaskConfig) -> None:
+    def _validate_parameter_references(self, task: TaskDef) -> None:
         """Validate all parameter references in a task."""
         for parameter_name, parameter in task.parameters.items():
-            if validation_utils.is_parameter_reference(parameter):
+            if is_parameter_reference(parameter):
                 self._validate_parameter_reference(parameter_name, task)
 
-    def _validate_parameter_reference(self, parameter_name: str, task: TaskConfig) -> None:
-        """Ensure that a parameter reference is valid and conforms to the parameter specification."""
+    def _validate_parameter_reference(self, parameter_name: str, task: TaskDef) -> None:
+        """Validate a parameter reference exists and has matching type."""
         parameter = task.parameters[parameter_name]
         referenced_task_name, referenced_parameter = str(parameter).split(".")
 
@@ -435,12 +380,8 @@ class TaskValidator:
                 f"type '{referenced_parameter_spec.type.value}'."
             )
 
-    # -------------------------------------------------------------------------
-    # Task Resource Validation
-    # -------------------------------------------------------------------------
-
-    def _validate_task_resources(self, task: TaskConfig, task_spec: TaskSpecConfig) -> None:
-        """Validate that a task gets the types and quantities of input resources it requires."""
+    def _validate_task_resources(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
+        """Validate task resources including references."""
         if not task.resources and task_spec.input_resources:
             raise EosTaskValidationError(f"Task '{task.name}' requires input resources but none were provided.")
 
@@ -452,25 +393,21 @@ class TaskValidator:
 
         self._validate_resource_references(task)
 
-    def _validate_input_resource_requirements(self, task: TaskConfig, task_spec: TaskSpecConfig) -> None:
-        """Validate that the input resources of a task meet its requirements in terms of types and quantities."""
+    def _validate_input_resource_requirements(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
+        """Validate resource types and quantities match requirements."""
         required_resources = task_spec.input_resources or {}
         provided_resources = self._get_provided_resources(task)
 
         self._validate_resource_counts(task.name, required_resources, provided_resources)
         self._validate_resource_types(task.name, required_resources, provided_resources)
 
-    def _get_provided_resources(self, task: TaskConfig) -> dict[str, str]:
-        """Get the provided resources, validating their existence if not a reference."""
+    def _get_provided_resources(self, task: TaskDef) -> dict[str, str]:
+        """Get provided resources, validating existence for non-references."""
         provided_resources = {}
         for resource_name, resource_value in task.resources.items():
-            # Dynamic resource request: use requested type for validation
             if not isinstance(resource_value, str):
-                # Expected to have attribute 'resource_type'
                 provided_resources[resource_name] = getattr(resource_value, "resource_type", "reference")
-                continue
-
-            if validation_utils.is_resource_reference(resource_value):
+            elif is_resource_reference(resource_value):
                 provided_resources[resource_name] = "reference"
             else:
                 lab_resource = self._validate_resource_exists(task.name, resource_value)
@@ -478,22 +415,20 @@ class TaskValidator:
                     provided_resources[resource_name] = lab_resource.type
         return provided_resources
 
-    def _validate_resource_exists(self, task_name: str, resource_name: str) -> LabResourceConfig | None:
-        """Validate the existence of a resource in the lab."""
+    def _validate_resource_exists(self, task_name: str, resource_name: str) -> ResourceDef | None:
+        """Validate a resource exists in the lab."""
         resource = self._resource_registry.find_resource_by_name(resource_name)
-
         if not resource:
             batch_error(
                 f"resource '{resource_name}' in task '{task_name}' does not exist in the lab.",
                 EosTaskValidationError,
             )
-
         return resource
 
     def _validate_resource_counts(
-        self, task_name: str, required: dict[str, TaskSpecResourceConfig], provided: dict[str, str]
+        self, task_name: str, required: dict[str, ResourceRequirement], provided: dict[str, str]
     ) -> None:
-        """Validate that the total number of resources matches the requirements."""
+        """Validate resource count matches requirements."""
         if len(provided) != len(required):
             batch_error(
                 f"Task '{task_name}' requires {len(required)} resource(s) but {len(provided)} were provided.",
@@ -501,9 +436,9 @@ class TaskValidator:
             )
 
     def _validate_resource_types(
-        self, task_name: str, required: dict[str, TaskSpecResourceConfig], provided: dict[str, str]
+        self, task_name: str, required: dict[str, ResourceRequirement], provided: dict[str, str]
     ) -> None:
-        """Validate that the types of non-reference resources match the requirements."""
+        """Validate resource types match requirements."""
         for resource_name, resource_spec in required.items():
             if resource_name not in provided:
                 batch_error(
@@ -524,14 +459,14 @@ class TaskValidator:
                     EosTaskValidationError,
                 )
 
-    def _validate_resource_references(self, task: TaskConfig) -> None:
+    def _validate_resource_references(self, task: TaskDef) -> None:
         """Validate all resource references in a task."""
         for resource_name, resource_value in task.resources.items():
-            if isinstance(resource_value, str) and validation_utils.is_resource_reference(resource_value):
+            if isinstance(resource_value, str) and is_resource_reference(resource_value):
                 self._validate_resource_reference(resource_name, resource_value, task)
 
-    def _validate_resource_reference(self, resource_name: str, resource_value: str, task: TaskConfig) -> None:
-        """Ensure that a resource reference is valid and conforms to the resource specification."""
+    def _validate_resource_reference(self, resource_name: str, resource_value: str, task: TaskDef) -> None:
+        """Validate a resource reference exists and has matching type."""
         referenced_task_name, referenced_resource = resource_value.split(".")
 
         referenced_task = self._find_task_by_name(referenced_task_name)
@@ -565,10 +500,6 @@ class TaskValidator:
                 f"resource type '{referenced_resource_spec.type}'."
             )
 
-    # -------------------------------------------------------------------------
-    # Helper Methods
-    # -------------------------------------------------------------------------
-
-    def _find_task_by_name(self, task_name: str) -> TaskConfig | None:
-        """Find a task in the experiment by its name."""
-        return next((task for task in self._experiment_config.tasks if task.name == task_name), None)
+    def _find_task_by_name(self, task_name: str) -> TaskDef | None:
+        """Find a task by name in the experiment."""
+        return next((task for task in self._experiment.tasks if task.name == task_name), None)

@@ -4,7 +4,7 @@ import traceback
 from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
-from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignDefinition
+from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
@@ -46,11 +46,11 @@ class CampaignService:
     async def submit_campaign(
         self,
         db: AsyncDbSession,
-        campaign_definition: CampaignDefinition,
+        campaign_submission: CampaignSubmission,
     ) -> None:
         """Submit a new campaign for execution."""
-        campaign_name = campaign_definition.name
-        experiment_type = campaign_definition.experiment_type
+        campaign_name = campaign_submission.name
+        experiment_type = campaign_submission.experiment_type
 
         self._validate_experiment_type(experiment_type)
 
@@ -59,7 +59,7 @@ class CampaignService:
                 log.warning(f"Campaign '{campaign_name}' is already submitted. Ignoring new submission.")
                 return
 
-            campaign_executor = self._campaign_executor_factory.create(campaign_definition)
+            campaign_executor = self._campaign_executor_factory.create(campaign_submission)
 
             try:
                 await campaign_executor.start_campaign(db)
@@ -109,7 +109,7 @@ class CampaignService:
 
         # Sort campaigns by priority
         sorted_campaigns = dict(
-            sorted(self._submitted_campaigns.items(), key=lambda x: x[1].campaign_definition.priority, reverse=True)
+            sorted(self._submitted_campaigns.items(), key=lambda x: x[1].campaign_submission.priority, reverse=True)
         )
 
         results = []

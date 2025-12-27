@@ -187,38 +187,38 @@ class ResourceManager:
         log.debug(f"Removed resources for labs: {', '.join(lab_names)}")
 
     @staticmethod
-    def _build_resource_from_config(resource_name: str, resource_config, lab_config) -> Resource:
+    def _build_resource(resource_name: str, lab_resource, lab) -> Resource:
         """
         Build a Resource object from configuration, merging type defaults with resource-specific metadata.
 
         :param resource_name: Name of the resource
-        :param resource_config: Resource configuration
-        :param lab_config: Lab configuration containing resource type defaults
+        :param lab_resource: Resource from lab configuration
+        :param lab: Lab containing resource type defaults
         :return: Configured Resource object
         """
         # Merge resource type default metadata with resource-specific metadata
         resource_type_meta = {}
-        if resource_config.type in lab_config.resource_types:
-            resource_type_meta = lab_config.resource_types[resource_config.type].meta.copy()
+        if lab_resource.type in lab.resource_types:
+            resource_type_meta = lab.resource_types[lab_resource.type].meta.copy()
 
         # Resource-specific metadata overrides type defaults
-        merged_meta = {**resource_type_meta, **resource_config.meta}
+        merged_meta = {**resource_type_meta, **lab_resource.meta}
 
         return Resource(
             name=resource_name,
-            type=resource_config.type,
-            lab=lab_config.name,
+            type=lab_resource.type,
+            lab=lab.name,
             meta=merged_meta,
         )
 
     async def _create_resources_for_lab(self, db: AsyncDbSession, lab_name: str) -> None:
         """Create resources for a loaded lab."""
-        lab_config = self._configuration_manager.labs[lab_name]
+        lab = self._configuration_manager.labs[lab_name]
         resources_to_add = []
 
-        for resource_name, resource_config in lab_config.resources.items():
+        for resource_name, lab_resource in lab.resources.items():
             if not await self._check_resource_exists(db, resource_name):
-                resource = self._build_resource_from_config(resource_name, resource_config, lab_config)
+                resource = self._build_resource(resource_name, lab_resource, lab)
                 resources_to_add.append(ResourceModel(**resource.model_dump()))
 
         if resources_to_add:
@@ -230,9 +230,9 @@ class ResourceManager:
         """Create resources from the lab configuration."""
         resources_to_add = []
 
-        for _lab_name, lab_config in self._configuration_manager.labs.items():
-            for resource_name, resource_config in lab_config.resources.items():
-                resource = self._build_resource_from_config(resource_name, resource_config, lab_config)
+        for _lab_name, lab in self._configuration_manager.labs.items():
+            for resource_name, lab_resource in lab.resources.items():
+                resource = self._build_resource(resource_name, lab_resource, lab)
                 resources_to_add.append(ResourceModel(**resource.model_dump()))
 
         if resources_to_add:

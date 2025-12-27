@@ -31,6 +31,7 @@ class PostgresDbConfig(BaseSettings):
     pool_size: int = 5
     max_overflow: int = 10
     pool_timeout: int = 60
+    connect_timeout: int = 10
 
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore", populate_by_name=True)
 

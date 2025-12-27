@@ -1,7 +1,7 @@
 import asyncio
 
 from eos.campaigns.campaign_executor import CampaignExecutor
-from eos.campaigns.entities.campaign import CampaignStatus, CampaignDefinition
+from eos.campaigns.entities.campaign import CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.experiments.exceptions import EosExperimentExecutionError
 from tests.fixtures import *
@@ -19,9 +19,9 @@ CAMPAIGN_CONFIG = {
 
 
 @pytest.fixture
-def campaign_definition():
-    """Create a standard campaign definition for testing."""
-    return CampaignDefinition(
+def campaign_submission():
+    """Create a standard campaign submission for testing."""
+    return CampaignSubmission(
         name=CAMPAIGN_CONFIG["CAMPAIGN_NAME"],
         experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
         owner=CAMPAIGN_CONFIG["OWNER"],
@@ -40,11 +40,11 @@ def campaign_executor_setup(
     task_manager,
     experiment_executor_factory,
     db_interface,
-    campaign_definition,
+    campaign_submission,
 ):
     """Create and configure a campaign executor for testing."""
     return CampaignExecutor(
-        campaign_definition=campaign_definition,
+        campaign_submission=campaign_submission,
         campaign_manager=campaign_manager,
         campaign_optimizer_manager=campaign_optimizer_manager,
         task_manager=task_manager,
@@ -168,7 +168,7 @@ class TestCampaignExecutor:
         await campaign_executor_setup.cancel_campaign()
         campaign_executor_setup.cleanup()
 
-        resume_definition = CampaignDefinition(
+        resume_submission = CampaignSubmission(
             name=CAMPAIGN_CONFIG["CAMPAIGN_NAME"],
             experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
             owner=CAMPAIGN_CONFIG["OWNER"],
@@ -177,7 +177,7 @@ class TestCampaignExecutor:
             resume=True,
         )
         resumed_executor = CampaignExecutor(
-            resume_definition,
+            resume_submission,
             campaign_manager,
             campaign_optimizer_manager,
             task_manager,

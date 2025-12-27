@@ -4,7 +4,7 @@ from typing import Any, ClassVar
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
 from typing import Self
 
-from eos.configuration.validation.validation_utils import is_dynamic_parameter
+from eos.configuration.utils import is_dynamic_parameter
 
 
 class TaskParameterType(str, Enum):

@@ -1,7 +1,7 @@
 import traceback
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.lab import LabDeviceConfig
+from eos.configuration.entities.lab_def import LabDeviceDef
 from eos.devices.device_manager import DeviceManager
 from eos.logging.logger import log
 from eos.utils.di.di_container import inject
@@ -24,7 +24,7 @@ class LabService:
 
     async def get_lab_devices(
         self, lab_types: set[str] | None = None, task_type: str | None = None
-    ) -> dict[str, dict[str, LabDeviceConfig]]:
+    ) -> dict[str, dict[str, LabDeviceDef]]:
         """Get the devices that are available in the given labs or for a specific task type."""
         use_all_labs = not lab_types or not any(lab_type.strip() for lab_type in lab_types)
         effective_lab_types = set(self._configuration_manager.labs.keys()) if use_all_labs else lab_types

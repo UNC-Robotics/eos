@@ -6,7 +6,7 @@ from sqlalchemy import select, exists, delete, update
 from eos.campaigns.entities.campaign import (
     Campaign,
     CampaignStatus,
-    CampaignDefinition,
+    CampaignSubmission,
     CampaignModel,
     CampaignSampleModel,
 )
@@ -40,24 +40,24 @@ class CampaignManager:
         if not await self._check_campaign_exists(db, campaign_name):
             raise EosCampaignStateError(f"Campaign '{campaign_name}' does not exist.")
 
-    async def create_campaign(self, db: AsyncDbSession, definition: CampaignDefinition) -> None:
+    async def create_campaign(self, db: AsyncDbSession, submission: CampaignSubmission) -> None:
         """Create a new campaign."""
-        if await self._check_campaign_exists(db, definition.name):
-            raise EosCampaignStateError(f"Campaign '{definition.name}' already exists.")
+        if await self._check_campaign_exists(db, submission.name):
+            raise EosCampaignStateError(f"Campaign '{submission.name}' already exists.")
 
-        experiment_config = self._configuration_manager.experiments.get(definition.experiment_type)
-        if not experiment_config:
+        experiment = self._configuration_manager.experiments.get(submission.experiment_type)
+        if not experiment:
             raise EosCampaignStateError(
-                f"Experiment type '{definition.experiment_type}' not found in the configuration."
+                f"Experiment type '{submission.experiment_type}' not found in the configuration."
             )
 
-        campaign = Campaign.from_definition(definition)
+        campaign = Campaign.from_submission(submission)
         campaign_model = CampaignModel(**campaign.model_dump())
 
         db.add(campaign_model)
         await db.flush()
 
-        log.info(f"Created campaign '{definition.name}'.")
+        log.info(f"Created campaign '{submission.name}'.")
 
     async def delete_campaign(self, db: AsyncDbSession, campaign_name: str) -> None:
         """Delete a campaign."""
@@ -102,22 +102,22 @@ class CampaignManager:
             update(CampaignModel).where(CampaignModel.name == campaign_name).values(experiments_completed=count)
         )
 
-    async def update_campaign_definition(self, db: AsyncDbSession, definition: CampaignDefinition) -> None:
-        """Update the campaign definition fields in the database."""
-        await self._validate_campaign_exists(db, definition.name)
+    async def update_campaign_submission(self, db: AsyncDbSession, submission: CampaignSubmission) -> None:
+        """Update the campaign submission fields in the database."""
+        await self._validate_campaign_exists(db, submission.name)
 
         await db.execute(
             update(CampaignModel)
-            .where(CampaignModel.name == definition.name)
+            .where(CampaignModel.name == submission.name)
             .values(
-                priority=definition.priority,
-                max_experiments=definition.max_experiments,
-                max_concurrent_experiments=definition.max_concurrent_experiments,
-                optimize=definition.optimize,
-                optimizer_ip=definition.optimizer_ip,
-                global_parameters=definition.global_parameters,
-                experiment_parameters=definition.experiment_parameters,
-                meta=definition.meta,
+                priority=submission.priority,
+                max_experiments=submission.max_experiments,
+                max_concurrent_experiments=submission.max_concurrent_experiments,
+                optimize=submission.optimize,
+                optimizer_ip=submission.optimizer_ip,
+                global_parameters=submission.global_parameters,
+                experiment_parameters=submission.experiment_parameters,
+                meta=submission.meta,
             )
         )
 

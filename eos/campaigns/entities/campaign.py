@@ -10,8 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_valid
 from eos.database.abstract_sql_db_interface import Base
 
 
-class CampaignDefinition(BaseModel):
-    """The definition of a campaign. Used for submission."""
+class CampaignSubmission(BaseModel):
+    """Campaign submitted to the system."""
 
     name: str
     experiment_type: str
@@ -33,7 +33,7 @@ class CampaignDefinition(BaseModel):
     resume: bool = False
 
     @model_validator(mode="after")
-    def validate_parameters(self) -> "CampaignDefinition":
+    def validate_parameters(self) -> "CampaignSubmission":
         if not self.optimize:
             if not self.experiment_parameters and not self.global_parameters:
                 raise ValueError(
@@ -59,7 +59,7 @@ class CampaignStatus(Enum):
     FAILED = "FAILED"
 
 
-class Campaign(CampaignDefinition):
+class Campaign(CampaignSubmission):
     """The state of a campaign in the system."""
 
     status: CampaignStatus = CampaignStatus.CREATED
@@ -77,9 +77,9 @@ class Campaign(CampaignDefinition):
         return v.value
 
     @classmethod
-    def from_definition(cls, definition: CampaignDefinition) -> "Campaign":
-        """Create a Campaign instance from a CampaignDefinition."""
-        return cls(**definition.model_dump())
+    def from_submission(cls, submission: CampaignSubmission) -> "Campaign":
+        """Create a Campaign instance from a CampaignSubmission."""
+        return cls(**submission.model_dump())
 
 
 class CampaignSample(BaseModel):

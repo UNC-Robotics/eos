@@ -10,7 +10,7 @@ from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.eos_config import EosConfig
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
+from eos.configuration.experiment_graph import ExperimentGraph
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
@@ -131,21 +131,21 @@ def setup_lab_experiment(request, configuration_manager):
 
     if lab_name not in configuration_manager.labs:
         configuration_manager.load_lab(lab_name)
-    lab_config = configuration_manager.labs[lab_name]
+    lab = configuration_manager.labs[lab_name]
 
     if experiment_name not in configuration_manager.experiments:
         configuration_manager.load_experiment(experiment_name)
-    experiment_config = configuration_manager.experiments[experiment_name]
+    experiment = configuration_manager.experiments[experiment_name]
 
-    return lab_config, experiment_config
+    return lab, experiment
 
 
 @pytest.fixture
 def experiment_graph(setup_lab_experiment):
-    _, experiment_config = setup_lab_experiment
+    _, experiment = setup_lab_experiment
 
     return ExperimentGraph(
-        experiment_config,
+        experiment,
     )
 
 
@@ -195,7 +195,7 @@ async def task_manager(setup_lab_experiment, configuration_manager, file_db_inte
 @pytest.fixture(scope="session", autouse=True)
 def ray_cluster():
     if not ray.is_initialized():
-        ray.init(namespace="test-eos", resources={"eos": 1000})
+        ray.init(namespace="test-eos", resources={"eos": 1000}, include_dashboard=False)
     yield
     ray.shutdown()
 

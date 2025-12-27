@@ -9,4 +9,4 @@ from eos.allocation.entities.allocation_request_device import AllocationRequestD
 from eos.allocation.entities.allocation_request_resource import AllocationRequestResourceModel
 from eos.allocation.entities.device_allocation import DeviceAllocationModel
 from eos.allocation.entities.resource_allocation import ResourceAllocationModel
-from eos.configuration.entities.specification import SpecificationModel
+from eos.configuration.entities.definition import DefinitionModel

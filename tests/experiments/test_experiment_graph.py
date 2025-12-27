@@ -11,7 +11,7 @@ class TestExperimentGraph:
         task_node = experiment_graph.get_task_node("mixing")
         assert task_node is not None
         assert task_node["node_type"] == "task"
-        assert task_node["task_config"].type == "Magnetic Mixing"
+        assert task_node["task"].type == "Magnetic Mixing"
 
     def test_get_task_spec(self, experiment_graph):
         task_spec = experiment_graph.get_task_spec("mixing")

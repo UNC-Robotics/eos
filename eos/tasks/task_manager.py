@@ -8,7 +8,7 @@ from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.database.file_db_interface import FileDbInterface
-from eos.tasks.entities.task import Task, TaskStatus, TaskDefinition, TaskModel
+from eos.tasks.entities.task import Task, TaskStatus, TaskSubmission, TaskModel
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from eos.utils.di.di_container import inject
 
@@ -43,16 +43,16 @@ class TaskManager:
         )
         return bool(result.scalar_one_or_none())
 
-    async def create_task(self, db: AsyncDbSession, task_definition: TaskDefinition) -> None:
+    async def create_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> None:
         """Create a new task instance for a specific task type that is associated with an experiment."""
-        if await self._check_task_exists(db, task_definition.experiment_name, task_definition.name):
-            raise EosTaskExistsError(f"Cannot create task '{task_definition.name}' as it already exists.")
+        if await self._check_task_exists(db, task_submission.experiment_name, task_submission.name):
+            raise EosTaskExistsError(f"Cannot create task '{task_submission.name}' as it already exists.")
 
-        task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_definition.type)
+        task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_submission.type)
         if not task_spec:
-            raise EosTaskStateError(f"Task type '{task_definition.type}' does not exist.")
+            raise EosTaskStateError(f"Task type '{task_submission.type}' does not exist.")
 
-        task = Task.from_definition(task_definition)
+        task = Task.from_submission(task_submission)
         task_model = TaskModel(
             experiment_name=task.experiment_name,
             name=task.name,

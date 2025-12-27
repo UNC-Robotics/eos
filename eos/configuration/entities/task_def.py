@@ -10,14 +10,14 @@ class DeviceIdentifier(BaseModel):
     name: str
 
 
-class TaskDeviceConfig(BaseModel):
+class DeviceAssignmentDef(BaseModel):
     """Specific device assignment"""
 
     lab_name: str
     name: str
 
 
-class DynamicTaskDeviceConfig(BaseModel):
+class DynamicDeviceAssignmentDef(BaseModel):
     """Dynamic device requirements - selects one or more device by type."""
 
     allocation_type: Literal["dynamic"] = "dynamic"
@@ -28,24 +28,24 @@ class DynamicTaskDeviceConfig(BaseModel):
     allowed_devices: list[DeviceIdentifier] | None = None  # None = any device of the type
 
     @model_validator(mode="after")
-    def validate_constraints(self) -> "DynamicTaskDeviceConfig":
+    def validate_constraints(self) -> "DynamicDeviceAssignmentDef":
         return self
 
 
-class DynamicTaskResourceConfig(BaseModel):
+class DynamicResourceAssignmentDef(BaseModel):
     """Dynamic resource requirements - selects one or more resources by type."""
 
     allocation_type: Literal["dynamic"] = "dynamic"
     resource_type: str
 
     @model_validator(mode="after")
-    def validate_fields(self) -> "DynamicTaskResourceConfig":
+    def validate_fields(self) -> "DynamicResourceAssignmentDef":
         if not self.resource_type or not self.resource_type.strip():
             raise ValueError("Dynamic resource request requires a non-empty 'resource_type'.")
         return self
 
 
-class TaskConfig(BaseModel):
+class TaskDef(BaseModel):
     name: str
     type: str
     desc: str | None = None
@@ -53,8 +53,8 @@ class TaskConfig(BaseModel):
     duration: int = 1  # seconds
     group: str | None = None
 
-    devices: dict[str, str | TaskDeviceConfig | DynamicTaskDeviceConfig] = Field(default_factory=dict)
-    resources: dict[str, str | DynamicTaskResourceConfig] = Field(default_factory=dict)
+    devices: dict[str, str | DeviceAssignmentDef | DynamicDeviceAssignmentDef] = Field(default_factory=dict)
+    resources: dict[str, str | DynamicResourceAssignmentDef] = Field(default_factory=dict)
 
     parameters: dict[str, Any] = Field(default_factory=dict)
 

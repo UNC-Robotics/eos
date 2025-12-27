@@ -1,11 +1,9 @@
-from typing import Any
-
 from litestar import get, post, Controller
 from pydantic import BaseModel
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
-from eos.tasks.entities.task import TaskDefinition, Task
+from eos.tasks.entities.task import TaskSubmission, Task
 from eos.web_api.exception_handling import APIError
 
 
@@ -33,7 +31,7 @@ class TaskController(Controller):
         return task
 
     @post("/")
-    async def submit_task(self, data: TaskDefinition, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
+    async def submit_task(self, data: TaskSubmission, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Submit a new task for execution."""
         await orchestrator.tasks.submit_task(db, data)
         return {"message": "Task submitted"}
@@ -51,14 +49,6 @@ class TaskController(Controller):
         """Get all available task types."""
         task_types = await orchestrator.tasks.get_task_types()
         return TaskTypesResponse(task_types=task_types)
-
-    @get("/{task_type:str}/spec")
-    async def get_task_spec(self, task_type: str, orchestrator: Orchestrator) -> dict[str, Any]:
-        """Get specification for a task type."""
-        task_spec = await orchestrator.tasks.get_task_spec(task_type)
-        if not task_spec:
-            raise APIError(status_code=404, detail=f"Task type '{task_type}' not found")
-        return task_spec.model_dump()
 
     @post("/reload")
     async def reload_tasks(

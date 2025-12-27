@@ -1,8 +1,8 @@
 import asyncio
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.task import DynamicTaskDeviceConfig, TaskConfig, TaskDeviceConfig
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
+from eos.configuration.entities.task_def import DynamicDeviceAssignmentDef, TaskDef, DeviceAssignmentDef
+from eos.configuration.experiment_graph import ExperimentGraph
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
@@ -33,7 +33,7 @@ class CpSatScheduler(BaseScheduler):
         self._schedule_is_stale = False
         self._task_durations: dict[str, dict[str, int]] = {}
         self._current_time: int = 0
-        self._device_assignments: dict[str, dict[str, dict[str, TaskDeviceConfig]]] = {}
+        self._device_assignments: dict[str, dict[str, dict[str, DeviceAssignmentDef]]] = {}
         self._resource_assignments: dict[str, dict[str, dict[str, str]]] = {}
         self._parameter_overrides: dict[str, float | int | bool] = {}
 
@@ -170,23 +170,23 @@ class CpSatScheduler(BaseScheduler):
         self,
         db: AsyncDbSession,
         experiment_name: str,
-        task_config: TaskConfig,
-    ) -> dict[str, TaskDeviceConfig] | None:
+        task: TaskDef,
+    ) -> dict[str, DeviceAssignmentDef] | None:
         """Build the dict of assigned devices (dynamic + specific). Returns None if stale."""
-        task_name = task_config.name
-        assigned_devices: dict[str, TaskDeviceConfig] = {}
+        task_name = task.name
+        assigned_devices: dict[str, DeviceAssignmentDef] = {}
 
         # Start with solver-assigned dynamic devices
         solver_assignments = self._device_assignments.get(experiment_name, {}).get(task_name, {})
         assigned_devices.update(solver_assignments)
 
         # Add specific devices from config (may override solver assignments if same name)
-        for device_name, dev in task_config.devices.items():
-            if isinstance(dev, TaskDeviceConfig):
+        for device_name, dev in task.devices.items():
+            if isinstance(dev, DeviceAssignmentDef):
                 assigned_devices[device_name] = dev
 
         # If the task had dynamic requirements but we don't have an assignment, schedule is stale
-        has_dynamic = any(isinstance(d, DynamicTaskDeviceConfig) for d in task_config.devices.values())
+        has_dynamic = any(isinstance(d, DynamicDeviceAssignmentDef) for d in task.devices.values())
         if has_dynamic and not self._device_assignments.get(experiment_name, {}).get(task_name):
             self._schedule_is_stale = True
             return None
@@ -197,15 +197,15 @@ class CpSatScheduler(BaseScheduler):
         self,
         db: AsyncDbSession,
         experiment_name: str,
-        task_config: TaskConfig,
+        task: TaskDef,
     ) -> dict[str, str] | None:
         """Resolve resources for a task based on solver output.
 
         Returns a mapping of resource_name -> resource_name, or None if assignments are missing (stale schedule).
         """
-        task_name = task_config.name
+        task_name = task.name
         # If the task has any dynamic resources but no assignment, mark schedule stale
-        has_dynamic = any(not isinstance(v, str) for v in task_config.resources.values())
+        has_dynamic = any(not isinstance(v, str) for v in task.resources.values())
         assigned = self._resource_assignments.get(experiment_name, {}).get(task_name)
         if has_dynamic and not assigned:
             self._schedule_is_stale = True
@@ -215,7 +215,7 @@ class CpSatScheduler(BaseScheduler):
         resolved: dict[str, str] = {}
         if assigned:
             resolved.update(assigned)
-        for name, value in task_config.resources.items():
+        for name, value in task.resources.items():
             if isinstance(value, str):
                 resolved.setdefault(name, value)
         return resolved
@@ -224,21 +224,19 @@ class CpSatScheduler(BaseScheduler):
         self,
         db: AsyncDbSession,
         experiment_name: str,
-        task_config: TaskConfig,
-        assigned_devices: dict[str, TaskDeviceConfig],
+        task: TaskDef,
+        assigned_devices: dict[str, DeviceAssignmentDef],
     ) -> bool:
         """Check if all required devices and resources are available. Returns False if unavailable."""
         if assigned_devices:
-            checks = [
-                self._check_device_available(db, task_config, experiment_name, dev) for dev in assigned_devices.values()
-            ]
+            checks = [self._check_device_available(db, task, experiment_name, dev) for dev in assigned_devices.values()]
             if not all(await asyncio.gather(*checks)):
                 return False
 
-        if task_config.resources:
+        if task.resources:
             resource_checks = [
-                self._check_resource_available(db, task_config, experiment_name, resource_name)
-                for resource_name in task_config.resources.values()
+                self._check_resource_available(db, task, experiment_name, resource_name)
+                for resource_name in task.resources.values()
             ]
             if not all(await asyncio.gather(*resource_checks)):
                 return False

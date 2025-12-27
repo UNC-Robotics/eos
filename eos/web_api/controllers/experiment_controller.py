@@ -1,10 +1,8 @@
-from typing import Any
-
 from litestar import get, post, Controller
 from pydantic import BaseModel
 
 from eos.database.abstract_sql_db_interface import AsyncDbSession
-from eos.experiments.entities.experiment import ExperimentDefinition, Experiment
+from eos.experiments.entities.experiment import ExperimentSubmission, Experiment
 from eos.orchestration.orchestrator import Orchestrator
 from eos.web_api.exception_handling import APIError
 
@@ -24,7 +22,7 @@ class ExperimentController(Controller):
 
     @post("/")
     async def submit_experiment(
-        self, data: ExperimentDefinition, db: AsyncDbSession, orchestrator: Orchestrator
+        self, data: ExperimentSubmission, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> dict[str, str]:
         """Submit a new experiment for execution."""
         await orchestrator.experiments.submit_experiment(db, data)
@@ -83,8 +81,3 @@ class ExperimentController(Controller):
         """Reload experiment configurations."""
         await orchestrator.loading.reload_experiments(db, set(data.experiment_types))
         return {"message": "Experiment configurations reloaded"}
-
-    @get("/{experiment_type:str}/dynamic_params_template")
-    async def get_dynamic_params_template(self, experiment_type: str, orchestrator: Orchestrator) -> dict[str, Any]:
-        """Get dynamic parameters template for an experiment type."""
-        return await orchestrator.experiments.get_experiment_dynamic_params_template(experiment_type)

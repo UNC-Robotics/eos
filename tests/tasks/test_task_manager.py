@@ -1,5 +1,5 @@
-from eos.experiments.entities.experiment import ExperimentDefinition
-from eos.tasks.entities.task import TaskStatus, TaskDefinition
+from eos.experiments.entities.experiment import ExperimentSubmission
+from eos.tasks.entities.task import TaskStatus, TaskSubmission
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from tests.fixtures import *
 
@@ -10,7 +10,7 @@ EXPERIMENT_TYPE = "water_purification"
 async def experiment_manager(db, configuration_manager):
     experiment_manager = ExperimentManager(configuration_manager)
     await experiment_manager.create_experiment(
-        db, ExperimentDefinition(type=EXPERIMENT_TYPE, name=EXPERIMENT_TYPE, owner="test")
+        db, ExperimentSubmission(type=EXPERIMENT_TYPE, name=EXPERIMENT_TYPE, owner="test")
     )
     return experiment_manager
 
@@ -20,7 +20,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_create_task(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
 
         task = await task_manager.get_task(db, EXPERIMENT_TYPE, "mixing")
@@ -31,12 +31,12 @@ class TestTaskManager:
     async def test_create_task_nonexistent_type(self, db, task_manager, experiment_manager):
         with pytest.raises(EosTaskStateError):
             await task_manager.create_task(
-                db, TaskDefinition(name="nonexistent_task", type="Nonexistent", experiment_name=EXPERIMENT_TYPE)
+                db, TaskSubmission(name="nonexistent_task", type="Nonexistent", experiment_name=EXPERIMENT_TYPE)
             )
 
     @pytest.mark.asyncio
     async def test_create_existing_task(self, db, task_manager, experiment_manager):
-        task_def = TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+        task_def = TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         await task_manager.create_task(db, task_def)
 
         with pytest.raises(EosTaskExistsError):
@@ -45,7 +45,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_delete_task(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
         await task_manager.delete_task(db, EXPERIMENT_TYPE, "mixing")
         assert await task_manager.get_task(db, EXPERIMENT_TYPE, "mixing") is None
@@ -54,17 +54,17 @@ class TestTaskManager:
     async def test_delete_nonexistent_task(self, db, task_manager, experiment_manager):
         with pytest.raises(EosTaskStateError):
             await task_manager.create_task(
-                db, TaskDefinition(name="nonexistent_task", type="Nonexistent", experiment_name=EXPERIMENT_TYPE)
+                db, TaskSubmission(name="nonexistent_task", type="Nonexistent", experiment_name=EXPERIMENT_TYPE)
             )
             await task_manager.delete_task(db, EXPERIMENT_TYPE, "nonexistent_task")
 
     @pytest.mark.asyncio
     async def test_get_all_tasks_by_status(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
         await task_manager.create_task(
-            db, TaskDefinition(name="purification", type="Purification", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="purification", type="Purification", experiment_name=EXPERIMENT_TYPE)
         )
 
         await task_manager.start_task(db, EXPERIMENT_TYPE, "mixing")
@@ -81,7 +81,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_set_task_status(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
         task = await task_manager.get_task(db, EXPERIMENT_TYPE, "mixing")
         assert task.status == TaskStatus.CREATED
@@ -102,7 +102,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_start_task(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
 
         await task_manager.start_task(db, EXPERIMENT_TYPE, "mixing")
@@ -116,7 +116,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_complete_task(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
         await task_manager.start_task(db, EXPERIMENT_TYPE, "mixing")
         await task_manager.complete_task(db, EXPERIMENT_TYPE, "mixing")
@@ -131,7 +131,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_add_task_output(self, db, task_manager, experiment_manager):
         await task_manager.create_task(
-            db, TaskDefinition(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", experiment_name=EXPERIMENT_TYPE)
         )
 
         task_output_parameters = {"x": 5}

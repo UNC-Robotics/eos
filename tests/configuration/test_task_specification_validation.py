@@ -4,9 +4,9 @@ from eos.configuration.entities.task_parameters import (
     TaskParameterFactory,
     TaskParameterType,
 )
-from eos.configuration.entities.task_spec import (
-    TaskSpecOutputParameterConfig,
-    TaskSpecConfig,
+from eos.configuration.entities.task_spec_def import (
+    OutputParameter,
+    TaskSpecDef,
 )
 from tests.fixtures import *
 
@@ -244,13 +244,13 @@ class TestTaskSpecifications:
         }
 
         with pytest.raises(ValidationError):
-            TaskSpecConfig(**task_spec.model_dump())
+            TaskSpecDef(**task_spec.model_dump())
 
         del task_spec.input_parameters["invalid_name*"]
 
     def test_output_numeric_parameter_unit_not_specified(self, configuration_manager):
         with pytest.raises(ValidationError):
-            TaskSpecOutputParameterConfig(
+            OutputParameter(
                 type=TaskParameterType.INT,
                 unit="",
                 desc="Duration of evaporation in seconds.",
@@ -258,7 +258,7 @@ class TestTaskSpecifications:
 
     def test_output_non_numeric_parameter_unit_specified(self, configuration_manager):
         with pytest.raises(ValidationError):
-            TaskSpecOutputParameterConfig(
+            OutputParameter(
                 type=TaskParameterType.BOOL,
                 unit="sec",
                 desc="Whether to sparge the evaporation vessel with nitrogen.",

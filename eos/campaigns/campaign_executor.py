@@ -7,9 +7,9 @@ from ray.actor import ActorHandle
 
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
-from eos.campaigns.entities.campaign import CampaignStatus, Campaign, CampaignDefinition
+from eos.campaigns.entities.campaign import CampaignStatus, Campaign, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
-from eos.experiments.entities.experiment import ExperimentStatus, ExperimentDefinition
+from eos.experiments.entities.experiment import ExperimentStatus, ExperimentSubmission
 from eos.experiments.exceptions import EosExperimentCancellationError
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
 from eos.logging.logger import log
@@ -32,14 +32,14 @@ class OptimizerState(Enum):
 class CampaignExecutor:
     def __init__(
         self,
-        campaign_definition: CampaignDefinition,
+        campaign_submission: CampaignSubmission,
         campaign_manager: CampaignManager,
         campaign_optimizer_manager: CampaignOptimizerManager,
         task_manager: TaskManager,
         experiment_executor_factory: ExperimentExecutorFactory,
         db_interface: AbstractSqlDbInterface,
     ):
-        self._campaign_definition = campaign_definition
+        self._campaign_submission = campaign_submission
         self._campaign_manager = campaign_manager
         self._campaign_optimizer_manager = campaign_optimizer_manager
         self._task_manager = task_manager
@@ -47,8 +47,8 @@ class CampaignExecutor:
         self._db_interface = db_interface
 
         # Campaign state
-        self._campaign_name = campaign_definition.name
-        self._experiment_type = campaign_definition.experiment_type
+        self._campaign_name = campaign_submission.name
+        self._experiment_type = campaign_submission.experiment_type
         self._campaign_status: CampaignStatus | None = None
         self._experiment_executors: dict[str, ExperimentExecutor] = {}
         self._pending_experiment_cancellations: set[str] = set()
@@ -76,13 +76,13 @@ class CampaignExecutor:
 
     async def _initialize_new_campaign(self, db: AsyncDbSession) -> None:
         """Create and initialize a new campaign."""
-        await self._campaign_manager.create_campaign(db, self._campaign_definition)
+        await self._campaign_manager.create_campaign(db, self._campaign_submission)
 
     async def _handle_existing_campaign(self, db: AsyncDbSession, campaign: Campaign) -> None:
         """Handle resuming or rejecting an existing campaign based on its state."""
         self._campaign_status = campaign.status
 
-        if not self._campaign_definition.resume:
+        if not self._campaign_submission.resume:
             self._validate_campaign_resumption(campaign.status)
 
         await self._resume_campaign(db)
@@ -106,12 +106,12 @@ class CampaignExecutor:
     async def _resume_campaign(self, db: AsyncDbSession) -> None:
         """Resume an existing campaign by restoring its state."""
         # Update campaign definition in DB with any changed parameters from the new submission
-        await self._campaign_manager.update_campaign_definition(db, self._campaign_definition)
+        await self._campaign_manager.update_campaign_submission(db, self._campaign_submission)
 
         await self._campaign_manager.delete_non_completed_campaign_experiments(db, self._campaign_name)
         await self._sync_experiments_completed_counter(db)
 
-        if self._campaign_definition.optimize:
+        if self._campaign_submission.optimize:
             self._optimizer_state = OptimizerState.NEEDS_RESTORATION
 
         log.info(f"Campaign '{self._campaign_name}' resumed")
@@ -163,7 +163,7 @@ class CampaignExecutor:
         self._optimizer = await self._campaign_optimizer_manager.create_campaign_optimizer_actor(
             self._experiment_type,
             self._campaign_name,
-            self._campaign_definition.optimizer_ip,
+            self._campaign_submission.optimizer_ip,
         )
 
         (
@@ -226,7 +226,7 @@ class CampaignExecutor:
                 if complete:
                     completed_experiments.append(exp_name)
 
-            if completed_experiments and self._campaign_definition.optimize:
+            if completed_experiments and self._campaign_submission.optimize:
                 await self._process_results_for_optimization(db, completed_experiments)
 
         # Cleanup must happen outside the DB session to avoid conflicts with nested sessions
@@ -324,7 +324,7 @@ class CampaignExecutor:
 
     def cleanup(self) -> None:
         """Clean up resources when campaign executor is no longer needed."""
-        if self._campaign_definition.optimize:
+        if self._campaign_submission.optimize:
             self._campaign_optimizer_manager.terminate_campaign_optimizer_actor(self._campaign_name)
 
     async def _create_experiments(self, db: AsyncDbSession, campaign: Campaign) -> None:
@@ -344,16 +344,16 @@ class CampaignExecutor:
         self, db: AsyncDbSession, experiment_name: str, parameters: dict[str, Any]
     ) -> None:
         """Create and start a single experiment."""
-        experiment_definition = ExperimentDefinition(
+        experiment_submission = ExperimentSubmission(
             name=experiment_name,
             type=self._experiment_type,
-            owner=self._campaign_definition.owner,
-            priority=self._campaign_definition.priority,
+            owner=self._campaign_submission.owner,
+            priority=self._campaign_submission.priority,
             parameters=parameters,
         )
 
         experiment_executor = self._experiment_executor_factory.create(
-            experiment_definition, campaign=self._campaign_name
+            experiment_submission, campaign=self._campaign_name
         )
         self._experiment_executors[experiment_name] = experiment_executor
         await experiment_executor.start_experiment(db)
@@ -361,8 +361,8 @@ class CampaignExecutor:
     def _can_create_more_experiments(self, campaign: Campaign) -> bool:
         """Check if more experiments can be created based on campaign constraints."""
         num_executors = len(self._experiment_executors)
-        max_concurrent = self._campaign_definition.max_concurrent_experiments
-        max_total = self._campaign_definition.max_experiments
+        max_concurrent = self._campaign_submission.max_concurrent_experiments
+        max_total = self._campaign_submission.max_experiments
         current_total = campaign.experiments_completed + num_executors
 
         return num_executors < max_concurrent and (max_total == 0 or current_total < max_total)
@@ -376,18 +376,18 @@ class CampaignExecutor:
 
         # Start with global parameters
         merged_params = (
-            copy.deepcopy(self._campaign_definition.global_parameters)
-            if self._campaign_definition.global_parameters
+            copy.deepcopy(self._campaign_submission.global_parameters)
+            if self._campaign_submission.global_parameters
             else {}
         )
 
         # Get experiment-specific parameters
         experiment_params = None
-        if self._campaign_definition.experiment_parameters and iteration < len(
-            self._campaign_definition.experiment_parameters
+        if self._campaign_submission.experiment_parameters and iteration < len(
+            self._campaign_submission.experiment_parameters
         ):
-            experiment_params = self._campaign_definition.experiment_parameters[iteration]
-        elif self._campaign_definition.optimize:
+            experiment_params = self._campaign_submission.experiment_parameters[iteration]
+        elif self._campaign_submission.optimize:
             await self._ensure_optimizer_initialized(db)
             log.info(f"CMP '{self._campaign_name}' - Sampling new parameters...")
             new_parameters = await self._optimizer.sample.remote(1)
@@ -411,7 +411,7 @@ class CampaignExecutor:
 
     def _is_campaign_completed(self, campaign: Campaign) -> bool:
         """Check if campaign has completed all experiments."""
-        max_experiments = self._campaign_definition.max_experiments
+        max_experiments = self._campaign_submission.max_experiments
         return (
             max_experiments > 0
             and campaign.experiments_completed >= max_experiments
@@ -420,7 +420,7 @@ class CampaignExecutor:
 
     async def _complete_campaign(self, db: AsyncDbSession) -> None:
         """Complete the campaign and compute final results."""
-        if self._campaign_definition.optimize:
+        if self._campaign_submission.optimize:
             await self._compute_pareto_solutions(db)
         await self._campaign_manager.complete_campaign(db, self._campaign_name)
 
@@ -509,6 +509,6 @@ class CampaignExecutor:
         return self._optimizer
 
     @property
-    def campaign_definition(self) -> CampaignDefinition:
-        """Get the campaign definition."""
-        return self._campaign_definition
+    def campaign_submission(self) -> CampaignSubmission:
+        """Get the campaign submission."""
+        return self._campaign_submission

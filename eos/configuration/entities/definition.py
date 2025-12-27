@@ -9,12 +9,12 @@ from sqlalchemy.orm import mapped_column, Mapped
 from eos.database.abstract_sql_db_interface import Base
 
 
-class Specification(BaseModel):
-    """A specification entity (task, device, lab, or experiment spec)."""
+class Definition(BaseModel):
+    """A definition entity (task, device, lab, or experiment def)."""
 
-    spec_type: str
-    spec_name: str
-    spec_data: dict[str, Any]
+    type: str
+    name: str
+    data: dict[str, Any]
     is_loaded: bool = False
     package_name: str
     source_path: str
@@ -22,15 +22,15 @@ class Specification(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class SpecificationModel(Base):
-    """The database model for specifications."""
+class DefinitionModel(Base):
+    """The database model for definitions."""
 
-    __tablename__ = "specifications"
+    __tablename__ = "definitions"
 
-    spec_type: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
-    spec_name: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
+    type: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, primary_key=True)
 
-    spec_data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
+    data: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
     is_loaded: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     package_name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_path: Mapped[str] = mapped_column(String(1024), nullable=False)
@@ -45,7 +45,4 @@ class SpecificationModel(Base):
         onupdate=lambda: datetime.now(UTC),
     )
 
-    __table_args__ = (
-        # Index on spec_type for fast filtering
-        Index("idx_spec_type", "spec_type"),
-    )
+    __table_args__ = (Index("idx_definitions_type", "type"),)

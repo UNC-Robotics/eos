@@ -38,7 +38,7 @@ class LoadingService:
             self._configuration_manager.load_labs(labs)
             await self._device_manager.update_devices(db, loaded_labs=labs)
             await self._resource_manager.update_resources(db, loaded_labs=labs)
-            await self._configuration_manager.spec_sync.mark_labs_loaded(db, labs, True)
+            await self._configuration_manager.def_sync.mark_labs_loaded(db, labs, True)
 
     async def unload_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
         """Unload one or more labs from the orchestrator."""
@@ -49,13 +49,13 @@ class LoadingService:
             self._configuration_manager.unload_labs(labs)
             await self._device_manager.update_devices(db, unloaded_labs=labs)
             await self._resource_manager.update_resources(db, unloaded_labs=labs)
-            await self._configuration_manager.spec_sync.mark_labs_loaded(db, labs, False)
+            await self._configuration_manager.def_sync.mark_labs_loaded(db, labs, False)
 
     async def reload_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """Reload one or more labs in the orchestrator with updated device plugin code."""
         for lab_type in lab_types:
-            lab_config = self._configuration_manager.package_manager.read_lab_config(lab_type)
-            device_types = {cfg.name for cfg in lab_config.devices.values()}
+            lab = self._configuration_manager.package_manager.read_lab(lab_type)
+            device_types = {device.name for device in lab.devices.values()}
             for device_type in device_types:
                 try:
                     self._configuration_manager.devices.reload_plugin(device_type)
@@ -104,8 +104,8 @@ class LoadingService:
     def _get_experiments_for_labs(self, lab_types: set[str]) -> set[str]:
         """Get experiments that depend on the specified labs."""
         experiments_to_reload = set()
-        for experiment_type, experiment_config in self._configuration_manager.experiments.items():
-            if any(lab_type in experiment_config.labs for lab_type in lab_types):
+        for experiment_type, experiment in self._configuration_manager.experiments.items():
+            if any(lab_type in experiment.labs for lab_type in lab_types):
                 experiments_to_reload.add(experiment_type)
         return experiments_to_reload
 
@@ -119,7 +119,7 @@ class LoadingService:
             return
 
         self._configuration_manager.load_experiments(experiment_types)
-        await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, True)
+        await self._configuration_manager.def_sync.mark_experiments_loaded(db, experiment_types, True)
 
     async def unload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Unload one or more experiments from the orchestrator."""
@@ -127,7 +127,7 @@ class LoadingService:
             await self._check_experiment_usage(db, experiment_type)
 
         self._configuration_manager.unload_experiments(experiment_types)
-        await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, False)
+        await self._configuration_manager.def_sync.mark_experiments_loaded(db, experiment_types, False)
 
     async def reload_experiments(self, db: AsyncDbSession, experiment_types: set[str]) -> None:
         """Reload one or more experiments in the orchestrator."""
@@ -136,9 +136,9 @@ class LoadingService:
                 await self._check_experiment_usage(db, experiment_type)
 
             self._configuration_manager.unload_experiments(experiment_types)
-            await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, False)
+            await self._configuration_manager.def_sync.mark_experiments_loaded(db, experiment_types, False)
             self._configuration_manager.load_experiments(experiment_types)
-            await self._configuration_manager.spec_sync.mark_experiments_loaded(db, experiment_types, True)
+            await self._configuration_manager.def_sync.mark_experiments_loaded(db, experiment_types, True)
 
     async def list_experiments(self) -> dict[str, bool]:
         """Return a dictionary of experiment types and a boolean indicating whether they are loaded."""
@@ -159,26 +159,23 @@ class LoadingService:
             package_manager = self._configuration_manager.package_manager
 
             # Re-discover packages from the filesystem
-            package_manager._discover_packages()
-            package_manager._build_entity_indices(package_manager._packages)
+            package_manager.refresh()
 
             package_count = len(package_manager.get_all_packages())
             log.info(f"Discovered {package_count} package(s)")
 
-            # Re-read task and device configs to update registries
-            task_configs, task_dirs_to_task_types = package_manager.read_task_configs()
-            self._configuration_manager.tasks._specs = task_configs
-            self._configuration_manager.tasks._dir_to_type = task_dirs_to_task_types
+            # Re-read task and device specs to update registries
+            task_specs, task_dirs_to_types = package_manager.read_task_specs()
+            self._configuration_manager.task_specs.update_specs(task_specs, task_dirs_to_types)
 
-            device_configs, device_dirs_to_device_types = package_manager.read_device_configs()
-            self._configuration_manager.devices._specs = device_configs
-            self._configuration_manager.devices._dir_to_type = device_dirs_to_device_types
+            device_specs, device_dirs_to_types = package_manager.read_device_specs()
+            self._configuration_manager.device_specs.update_specs(device_specs, device_dirs_to_types)
 
             # Sync all specifications to the database
-            await self._configuration_manager.spec_sync.sync_all_specs(db)
+            await self._configuration_manager.def_sync.sync_all_defs(db)
 
             # Clean up specifications for deleted entities
-            await self._configuration_manager.spec_sync.cleanup_deleted_specs(db)
+            await self._configuration_manager.def_sync.cleanup_deleted_defs(db)
 
             log.info("Package refresh completed successfully")
 
@@ -256,10 +253,10 @@ class LoadingService:
         using_experiments = []
 
         for experiment in running_experiments:
-            experiment_config = self._configuration_manager.experiments[experiment.type]
-            if lab_name in experiment_config.labs:
+            exp_def = self._configuration_manager.experiments[experiment.type]
+            if lab_name in exp_def.labs:
                 # Get the experiment's task graph to see if it uses any of these devices
-                task_graph = experiment_config.task_graph
+                task_graph = exp_def.task_graph
                 for task in task_graph.tasks.values():
                     if task.lab == lab_name and any(device_name in task.devices for device_name in device_names):
                         using_experiments.append(experiment)

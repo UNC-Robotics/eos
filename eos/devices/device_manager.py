@@ -141,18 +141,18 @@ class DeviceManager:
         )
 
         # Create new device records and actors
-        lab_config = self._configuration_manager.labs[lab_name]
+        lab = self._configuration_manager.labs[lab_name]
         devices_to_upsert = []
         device_creation_tasks = []
 
         for device_name in device_names:
-            device_config = lab_config.devices[device_name]
+            lab_device = lab.devices[device_name]
             new_device = Device(
                 name=device_name,
                 lab_name=lab_name,
-                type=device_config.type,
-                computer=device_config.computer,
-                meta=device_config.meta,
+                type=lab_device.type,
+                computer=lab_device.computer,
+                meta=lab_device.meta,
             )
             devices_to_upsert.append(DeviceModel(**new_device.model_dump()))
             device_creation_tasks.append(self._create_device_actor(new_device))
@@ -267,7 +267,7 @@ class DeviceManager:
         :param db: The database session
         :param lab_name: The lab name
         """
-        lab_config = self._configuration_manager.labs[lab_name]
+        lab = self._configuration_manager.labs[lab_name]
 
         # Get existing devices
         stmt = select(DeviceModel).where(DeviceModel.lab_name == lab_name)
@@ -277,7 +277,7 @@ class DeviceManager:
         devices_to_upsert: list[DeviceModel] = []
         device_creation_tasks = []
 
-        for device_name, device_config in lab_config.devices.items():
+        for device_name, lab_device in lab.devices.items():
             device = existing_devices.get(device_name)
             actor_name = f"{lab_name}.{device_name}"
 
@@ -293,9 +293,9 @@ class DeviceManager:
                 new_device = Device(
                     name=device_name,
                     lab_name=lab_name,
-                    type=device_config.type,
-                    computer=device_config.computer,
-                    meta=device_config.meta,
+                    type=lab_device.type,
+                    computer=lab_device.computer,
+                    meta=lab_device.meta,
                 )
                 devices_to_upsert.append(DeviceModel(**new_device.model_dump()))
                 device_creation_tasks.append(self._create_device_actor(new_device))
@@ -311,12 +311,12 @@ class DeviceManager:
     def _restore_device_actor(self, device: Device) -> None:
         """Restore a device actor registered in the database by looking up its actor in the Ray cluster."""
         device_actor_name = device.get_actor_name()
-        device_config = self._configuration_manager.labs[device.lab_name].devices[device.name]
+        lab_device = self._configuration_manager.labs[device.lab_name].devices[device.name]
 
         try:
             self._device_actor_handles[device_actor_name] = ray.get_actor(device_actor_name)
             self._device_actor_computer_ips[device_actor_name] = (
-                self._configuration_manager.labs[device.lab_name].computers[device_config.computer].ip
+                self._configuration_manager.labs[device.lab_name].computers[lab_device.computer].ip
             )
             log.debug(f"Restored device actor '{device_actor_name}'")
         except Exception as e:
@@ -329,12 +329,12 @@ class DeviceManager:
         try:
             log.info(f"Creating device actor '{device_actor_name}'...")
 
-            lab_config = self._configuration_manager.labs[device.lab_name]
-            device_config = lab_config.devices[device.name]
-            computer_name = device_config.computer.lower()
+            lab = self._configuration_manager.labs[device.lab_name]
+            lab_device = lab.devices[device.name]
+            computer_name = lab_device.computer.lower()
 
             # Determine computer IP
-            computer_ip = "127.0.0.1" if computer_name == EOS_COMPUTER_NAME else lab_config.computers[computer_name].ip
+            computer_ip = "127.0.0.1" if computer_name == EOS_COMPUTER_NAME else lab.computers[computer_name].ip
             self._device_actor_computer_ips[device_actor_name] = computer_ip
 
             initialization_parameters = self._get_initialization_parameters(device)
@@ -363,10 +363,10 @@ class DeviceManager:
         :param device: Device object
         :returns: Dictionary of initialization parameters
         """
-        device_config = self._configuration_manager.labs[device.lab_name].devices[device.name]
+        lab_device = self._configuration_manager.labs[device.lab_name].devices[device.name]
 
         spec_params = self._configuration_manager.device_specs.get_spec_by_type(device.type).init_parameters or {}
-        config_params = device_config.init_parameters or {}
+        config_params = lab_device.init_parameters or {}
 
         return {**spec_params, **config_params}
 

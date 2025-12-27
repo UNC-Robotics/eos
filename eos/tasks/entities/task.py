@@ -7,7 +7,7 @@ from sqlalchemy import String, ForeignKey, JSON, Integer, Enum as sa_Enum, DateT
 from sqlalchemy.ext.mutable import MutableList, MutableDict
 from sqlalchemy.orm import Mapped, mapped_column
 
-from eos.configuration.entities.task import TaskDeviceConfig, TaskConfig
+from eos.configuration.entities.task_def import DeviceAssignmentDef, TaskDef
 from eos.resources.entities.resource import Resource
 from eos.database.abstract_sql_db_interface import Base
 
@@ -20,14 +20,14 @@ class TaskStatus(Enum):
     CANCELLED = "CANCELLED"
 
 
-class TaskDefinition(BaseModel):
-    """The definition of a task. Used for submission."""
+class TaskSubmission(BaseModel):
+    """Task submitted to the system."""
 
     name: str
     type: str
     experiment_name: str | None = None
 
-    devices: dict[str, TaskDeviceConfig] = Field(default_factory=dict)
+    devices: dict[str, DeviceAssignmentDef] = Field(default_factory=dict)
     input_parameters: dict[str, Any] | None = None
     input_resources: dict[str, Resource] | None = None
 
@@ -43,16 +43,16 @@ class TaskDefinition(BaseModel):
         return v
 
     @classmethod
-    def from_config(cls, config: TaskConfig, experiment_name: str | None) -> "TaskDefinition":
-        """Create a TaskDefinition from a TaskConfig.
+    def from_def(cls, config: TaskDef, experiment_name: str | None) -> "TaskSubmission":
+        """Create a TaskSubmission from a TaskDef.
 
-        Only specific device assignments (TaskDeviceConfig) are converted to TaskDefinition.
+        Only specific device assignments (DeviceAssignmentDef) are converted to TaskSubmission.
         Dynamic devices are resolved by the scheduler and converted to specific assignments.
 
         If config.resources contains resource names, create minimal Resource objects to preserve the
         assignment. The task executor will replace these with full Resource objects during initialization.
         """
-        specific_devices = {name: dev for name, dev in config.devices.items() if isinstance(dev, TaskDeviceConfig)}
+        specific_devices = {name: dev for name, dev in config.devices.items() if isinstance(dev, DeviceAssignmentDef)}
 
         # Convert resource name assignments to Resource objects so to_config() can extract them
         input_resources = None
@@ -68,13 +68,13 @@ class TaskDefinition(BaseModel):
             input_resources=input_resources,
         )
 
-    def to_config(self) -> TaskConfig:
-        """Convert a TaskDefinition to a TaskConfig."""
+    def to_def(self) -> TaskDef:
+        """Convert a TaskSubmission to a TaskDef."""
         resources = {}
         if self.input_resources:
             resources = {resource_name: resource.name for resource_name, resource in self.input_resources.items()}
 
-        return TaskConfig(
+        return TaskDef(
             name=self.name,
             type=self.type,
             devices=self.devices,
@@ -86,7 +86,7 @@ class TaskDefinition(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Task(TaskDefinition):
+class Task(TaskSubmission):
     """The state of a task in the system."""
 
     status: TaskStatus = TaskStatus.CREATED
@@ -105,9 +105,9 @@ class Task(TaskDefinition):
         return v.value
 
     @classmethod
-    def from_definition(cls, definition: TaskDefinition) -> "Task":
-        """Create a Task instance from a TaskDefinition."""
-        return cls(**definition.model_dump())
+    def from_submission(cls, submission: TaskSubmission) -> "Task":
+        """Create a Task instance from a TaskSubmission."""
+        return cls(**submission.model_dump())
 
 
 class TaskModel(Base):

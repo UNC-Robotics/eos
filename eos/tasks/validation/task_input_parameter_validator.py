@@ -2,10 +2,10 @@ import copy
 from typing import Any
 
 from eos.configuration.entities.task_parameters import TaskParameterType, TaskParameterFactory
-from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_spec import TaskSpecConfig
+from eos.configuration.entities.task_def import TaskDef
+from eos.configuration.entities.task_spec_def import TaskSpecDef
 from eos.configuration.exceptions import EosConfigurationError
-from eos.configuration.validation import validation_utils
+from eos.configuration import validation as validation_utils
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 from eos.tasks.exceptions import EosTaskValidationError
 
@@ -15,7 +15,7 @@ class TaskInputParameterValidator:
     Validates that the input parameters of a task conform to the task's specification.
     """
 
-    def __init__(self, task: TaskConfig, task_spec: TaskSpecConfig):
+    def __init__(self, task: TaskDef, task_spec: TaskSpecDef):
         self._task_name = task.name
         self._input_parameters = task.parameters
         self._task_spec = task_spec

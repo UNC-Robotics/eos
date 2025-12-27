@@ -1,13 +1,13 @@
 from typing import NamedTuple
 
-from eos.experiments.entities.experiment import ExperimentDefinition
+from eos.experiments.entities.experiment import ExperimentSubmission
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.allocation.entities.allocation_request import (
     AllocationRequestStatus,
     AllocationType,
 )
 from eos.scheduling.exceptions import EosSchedulerRegistrationError
-from eos.tasks.entities.task import TaskDefinition
+from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
 
 EXPERIMENT_TYPE = "abstract_experiment_2"
@@ -67,13 +67,13 @@ class TestCpSatScheduler:
     ):
         """Helper to create and start an experiment"""
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name=experiment_name, owner="test", priority=priority)
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name=experiment_name, owner="test", priority=priority)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
     async def _complete_task(self, db, task_manager, task_name: str, experiment_name: str = "experiment_1"):
         """Helper to mark a task as completed"""
-        await task_manager.create_task(db, TaskDefinition(name=task_name, type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name=task_name, type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, task_name)
         await task_manager.complete_task(db, experiment_name, task_name)
 
@@ -166,7 +166,7 @@ class TestCpSatSchedulerDynamicDevices:
         experiment_type = "dynamic_device_experiment"
         experiment_name = "dyn_exp_1"
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=experiment_type, name=experiment_name, owner="test", priority=0)
+            db, ExperimentSubmission(type=experiment_type, name=experiment_name, owner="test", priority=0)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
@@ -190,7 +190,7 @@ class TestCpSatSchedulerDynamicDevices:
         assert device_a.lab_name == "dynamic_lab"
 
         # Complete A to free devices
-        await task_manager.create_task(db, TaskDefinition(name="A", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="A", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "A")
         await task_manager.complete_task(db, experiment_name, "A")
 
@@ -208,7 +208,7 @@ class TestCpSatSchedulerDynamicDevices:
         device_b = task_b.devices["device_1"]
         assert device_b.lab_name == "dynamic_lab"
         assert device_b.name in {"DY2A", "DY2B"}
-        await task_manager.create_task(db, TaskDefinition(name="B", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="B", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "B")
         await task_manager.complete_task(db, experiment_name, "B")
 
@@ -219,7 +219,7 @@ class TestCpSatSchedulerDynamicDevices:
         device_c = task_c.devices["device_1"]
         assert device_c.name == "DX3B"
         assert device_c.lab_name == "dynamic_lab"
-        await task_manager.create_task(db, TaskDefinition(name="C", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="C", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "C")
         await task_manager.complete_task(db, experiment_name, "C")
 
@@ -236,7 +236,7 @@ class TestCpSatSchedulerDynamicDevices:
         device_d = task_d.devices["device_1"]
         assert device_d.lab_name == "dynamic_lab"
         assert device_d.name in {"DZ5A", "DZ5B"}
-        await task_manager.create_task(db, TaskDefinition(name="D", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="D", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "D")
         await task_manager.complete_task(db, experiment_name, "D")
 
@@ -246,7 +246,7 @@ class TestCpSatSchedulerDynamicDevices:
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "E" in tasks_by_name
-        await task_manager.create_task(db, TaskDefinition(name="E", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="E", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "E")
         await task_manager.complete_task(db, experiment_name, "E")
 
@@ -256,7 +256,7 @@ class TestCpSatSchedulerDynamicDevices:
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "F" in tasks_by_name
-        await task_manager.create_task(db, TaskDefinition(name="F", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="F", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "F")
         await task_manager.complete_task(db, experiment_name, "F")
 
@@ -266,7 +266,7 @@ class TestCpSatSchedulerDynamicDevices:
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "G" in tasks_by_name
-        await task_manager.create_task(db, TaskDefinition(name="G", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="G", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "G")
         await task_manager.complete_task(db, experiment_name, "G")
 
@@ -297,7 +297,7 @@ class TestCpSatSchedulerDeviceReferences:
 
         # Create and start experiment
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=experiment_type, name=experiment_name, owner="test", priority=0)
+            db, ExperimentSubmission(type=experiment_type, name=experiment_name, owner="test", priority=0)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
@@ -316,7 +316,7 @@ class TestCpSatSchedulerDeviceReferences:
         device_a = task_a.devices["device_1"]
         assert device_a.name in {"DX3A", "DX3B", "DX3C", "DX3D"}
 
-        await task_manager.create_task(db, TaskDefinition(name="A", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="A", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "A")
         await task_manager.complete_task(db, experiment_name, "A")
 
@@ -327,14 +327,14 @@ class TestCpSatSchedulerDeviceReferences:
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
 
-        await task_manager.create_task(db, TaskDefinition(name="B", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="B", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "B")
         await task_manager.complete_task(db, experiment_name, "B")
 
         task_c = tasks_by_name["C"]
         device_c = task_c.devices["device_1"]
         assert device_c.name == "DX3B"  # Constrained by allowed_devices
-        await task_manager.create_task(db, TaskDefinition(name="C", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="C", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "C")
         await task_manager.complete_task(db, experiment_name, "C")
 
@@ -348,7 +348,7 @@ class TestCpSatSchedulerDeviceReferences:
         task_d = tasks_by_name["D"]
         device_d = task_d.devices["device_1"]
         assert device_d.name in {"DZ5A", "DZ5B"}
-        await task_manager.create_task(db, TaskDefinition(name="D", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="D", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "D")
         await task_manager.complete_task(db, experiment_name, "D")
 
@@ -363,7 +363,7 @@ class TestCpSatSchedulerDeviceReferences:
         device_e = task_e.devices["device_1"]
         assert device_e.name == device_c.name  # Must match C
         assert device_e.name == "DX3B"
-        await task_manager.create_task(db, TaskDefinition(name="E", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="E", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "E")
         await task_manager.complete_task(db, experiment_name, "E")
 
@@ -379,7 +379,7 @@ class TestCpSatSchedulerDeviceReferences:
         assert device_f.name == device_e.name  # Must match E
         assert device_f.name == device_c.name  # Must match C (transitively)
         assert device_f.name == "DX3B"
-        await task_manager.create_task(db, TaskDefinition(name="F", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="F", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "F")
         await task_manager.complete_task(db, experiment_name, "F")
 
@@ -396,7 +396,7 @@ class TestCpSatSchedulerDeviceReferences:
         device_g_processor = task_g.devices["processor"]
         assert device_g_analyzer.name == device_a.name  # Must match A
         assert device_g_processor.name == device_d.name  # Must match D
-        await task_manager.create_task(db, TaskDefinition(name="G", type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name="G", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "G")
         await task_manager.complete_task(db, experiment_name, "G")
 
@@ -423,7 +423,7 @@ class TestCpSatSchedulerDynamicContainers:
 
         # Create and start experiment
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=experiment_type, name=experiment_name, owner="test", priority=0)
+            db, ExperimentSubmission(type=experiment_type, name=experiment_name, owner="test", priority=0)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
@@ -446,7 +446,7 @@ class TestCpSatSchedulerDynamicContainers:
         assert len(names_a) == 1
         assert next(iter(names_a)) in {"B500A", "B500B", "B500C"}
         await task_manager.create_task(
-            db, TaskDefinition(name="A", type="Container Usage", experiment_name=experiment_name)
+            db, TaskSubmission(name="A", type="Container Usage", experiment_name=experiment_name)
         )
         await task_manager.start_task(db, experiment_name, "A")
         await task_manager.complete_task(db, experiment_name, "A")
@@ -464,7 +464,7 @@ class TestCpSatSchedulerDynamicContainers:
         assert len(names_b) == 1
         assert next(iter(names_b)) in {"B500A", "B500B", "B500C"}
         await task_manager.create_task(
-            db, TaskDefinition(name="B", type="Container Usage", experiment_name=experiment_name)
+            db, TaskSubmission(name="B", type="Container Usage", experiment_name=experiment_name)
         )
         await task_manager.start_task(db, experiment_name, "B")
         await task_manager.complete_task(db, experiment_name, "B")
@@ -475,7 +475,7 @@ class TestCpSatSchedulerDynamicContainers:
         assert len(names_c) == 1
         assert next(iter(names_c)) == "B500B"
         await task_manager.create_task(
-            db, TaskDefinition(name="C", type="Container Usage", experiment_name=experiment_name)
+            db, TaskSubmission(name="C", type="Container Usage", experiment_name=experiment_name)
         )
         await task_manager.start_task(db, experiment_name, "C")
         await task_manager.complete_task(db, experiment_name, "C")
@@ -492,7 +492,7 @@ class TestCpSatSchedulerDynamicContainers:
         assert len(names_d) == 1
         assert next(iter(names_d)) in {"VIAL1", "VIAL2"}
         await task_manager.create_task(
-            db, TaskDefinition(name="D", type="Container Vial Usage", experiment_name=experiment_name)
+            db, TaskSubmission(name="D", type="Container Vial Usage", experiment_name=experiment_name)
         )
         await task_manager.start_task(db, experiment_name, "D")
         await task_manager.complete_task(db, experiment_name, "D")
@@ -510,12 +510,12 @@ class TestCpSatSchedulerContinuation:
         self, db, experiment_manager, experiment_name: str = "experiment_1", priority: int = 0
     ):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name=experiment_name, owner="test", priority=priority)
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name=experiment_name, owner="test", priority=priority)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
     async def _complete_task(self, db, task_manager, task_name: str, experiment_name: str = "experiment_1"):
-        await task_manager.create_task(db, TaskDefinition(name=task_name, type="Noop", experiment_name=experiment_name))
+        await task_manager.create_task(db, TaskSubmission(name=task_name, type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, task_name)
         await task_manager.complete_task(db, experiment_name, task_name)
 
@@ -649,16 +649,16 @@ class TestCpSatSchedulerContinuation:
         """Test that tasks in the same group are scheduled consecutively without gaps"""
         await cpsat_scheduler.update_parameters({"num_search_workers": 1, "random_seed": 40})
 
-        experiment_config = configuration_manager.experiments["abstract_experiment_2"]
-        experiment_config.tasks[0].group = "preprocessing"  # A
-        experiment_config.tasks[1].group = "preprocessing"  # B (depends on A)
-        experiment_config.tasks[2].group = "preprocessing"  # C (depends on A)
-        experiment_config.tasks[3].group = None  # D
-        experiment_config.tasks[4].group = "analysis"  # E
-        experiment_config.tasks[5].group = "analysis"  # F
-        experiment_config.tasks[6].group = None  # G
+        experiment = configuration_manager.experiments["abstract_experiment_2"]
+        experiment.tasks[0].group = "preprocessing"  # A
+        experiment.tasks[1].group = "preprocessing"  # B (depends on A)
+        experiment.tasks[2].group = "preprocessing"  # C (depends on A)
+        experiment.tasks[3].group = None  # D
+        experiment.tasks[4].group = "analysis"  # E
+        experiment.tasks[5].group = "analysis"  # F
+        experiment.tasks[6].group = None  # G
 
-        experiment_graph = ExperimentGraph(experiment_config)
+        experiment_graph = ExperimentGraph(experiment)
         await self._create_and_start_experiment(db, experiment_manager)
         await cpsat_scheduler.register_experiment("experiment_1", EXPERIMENT_TYPE, experiment_graph)
 

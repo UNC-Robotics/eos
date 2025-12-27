@@ -119,7 +119,7 @@ def add_task(
     package_dir = Path(user_dir) / package
     _validate_package_exists(package_dir)
 
-    files = {"task.yml": "", "task.py": ""}
+    files = {"task.yml": "", "task_def.py": ""}
     _add_entity(package_dir, "task", name, files)
 
 

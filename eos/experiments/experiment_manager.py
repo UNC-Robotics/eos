@@ -4,7 +4,7 @@ from typing import Any
 from sqlalchemy import exists, select, delete, and_, update
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentDefinition, ExperimentModel
+from eos.experiments.entities.experiment import Experiment, ExperimentStatus, ExperimentSubmission, ExperimentModel
 from eos.experiments.exceptions import EosExperimentStateError
 from eos.logging.logger import log
 
@@ -34,26 +34,26 @@ class ExperimentManager:
             raise EosExperimentStateError(f"Experiment '{experiment_name}' does not exist.")
 
     async def create_experiment(
-        self, db: AsyncDbSession, definition: ExperimentDefinition, campaign: str | None = None
+        self, db: AsyncDbSession, submission: ExperimentSubmission, campaign: str | None = None
     ) -> None:
-        """Create a new experiment from a definition."""
-        if await self._check_experiment_exists(db, definition.name):
+        """Create a new experiment from a submission."""
+        if await self._check_experiment_exists(db, submission.name):
             raise EosExperimentStateError(
-                f"Experiment '{definition.name}' already exists. Please create an experiment with a different name."
+                f"Experiment '{submission.name}' already exists. Please create an experiment with a different name."
             )
 
-        experiment_config = self._configuration_manager.experiments.get(definition.type)
-        if not experiment_config:
-            raise EosExperimentStateError(f"Experiment type '{definition.type}' not found in the configuration.")
+        experiment_def = self._configuration_manager.experiments.get(submission.type)
+        if not experiment_def:
+            raise EosExperimentStateError(f"Experiment type '{submission.type}' not found in the configuration.")
 
-        experiment = Experiment.from_definition(definition)
+        experiment = Experiment.from_submission(submission)
         experiment.campaign = campaign
         experiment_model = ExperimentModel(**experiment.model_dump())
 
         db.add(experiment_model)
         await db.flush()
 
-        log.info(f"Created experiment '{definition.name}'.")
+        log.info(f"Created experiment '{submission.name}'.")
 
     async def delete_experiment(self, db: AsyncDbSession, experiment_name: str) -> None:
         """Delete an experiment and its associated tasks."""

@@ -1,10 +1,10 @@
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.task import (
-    DynamicTaskDeviceConfig,
-    TaskConfig,
-    TaskDeviceConfig,
+from eos.configuration.entities.task_def import (
+    DynamicDeviceAssignmentDef,
+    TaskDef,
+    DeviceAssignmentDef,
 )
-from eos.configuration.validation import validation_utils
+from eos.configuration.utils import is_device_reference
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
@@ -37,7 +37,7 @@ class GreedyScheduler(BaseScheduler):
         super().__init__(configuration_manager, experiment_manager, task_manager, device_manager, allocation_manager)
         # Track device assignments for device reference resolution
         self._scheduled_device_assignments: dict[
-            str, dict[str, dict[str, TaskDeviceConfig]]
+            str, dict[str, dict[str, DeviceAssignmentDef]]
         ] = {}  # exp_name -> task_name -> device_name -> TaskDeviceConfig
         log.debug("Greedy scheduler initialized.")
 
@@ -77,14 +77,12 @@ class GreedyScheduler(BaseScheduler):
         if experiment_name in self._scheduled_device_assignments:
             del self._scheduled_device_assignments[experiment_name]
 
-    def _collect_specific_devices(
-        self, task_config: TaskConfig
-    ) -> tuple[dict[str, TaskDeviceConfig], set[tuple[str, str]]]:
+    def _collect_specific_devices(self, task: TaskDef) -> tuple[dict[str, DeviceAssignmentDef], set[tuple[str, str]]]:
         """Collect explicitly specified devices, deduplicated, returning dict and pair set."""
         chosen_pairs: set[tuple[str, str]] = set()
-        assigned: dict[str, TaskDeviceConfig] = {}
-        for device_name, dev in task_config.devices.items():
-            if isinstance(dev, TaskDeviceConfig):
+        assigned: dict[str, DeviceAssignmentDef] = {}
+        for device_name, dev in task.devices.items():
+            if isinstance(dev, DeviceAssignmentDef):
                 chosen_pairs.add((dev.lab_name, dev.name))
                 assigned[device_name] = dev
         return assigned, chosen_pairs
@@ -92,30 +90,30 @@ class GreedyScheduler(BaseScheduler):
     async def _pick_first_available_device(
         self,
         db: AsyncDbSession,
-        task_config: TaskConfig,
+        task: TaskDef,
         experiment_name: str,
         device_pool: list[tuple[str, str]],
         chosen_device_pairs: set[tuple[str, str]],
-    ) -> TaskDeviceConfig | None:
+    ) -> DeviceAssignmentDef | None:
         """Pick the first available device from device_pool excluding chosen_device_pairs."""
         for lab_name, device_name in device_pool:
             if (lab_name, device_name) in chosen_device_pairs:
                 continue
-            candidate = TaskDeviceConfig(lab_name=lab_name, name=device_name)
-            if await self._check_device_available(db, task_config, experiment_name, candidate):
+            candidate = DeviceAssignmentDef(lab_name=lab_name, name=device_name)
+            if await self._check_device_available(db, task, experiment_name, candidate):
                 chosen_device_pairs.add((lab_name, device_name))
                 return candidate
         return None
 
     async def _build_assigned_devices(
-        self, db: AsyncDbSession, experiment_name: str, task_config: TaskConfig
-    ) -> dict[str, TaskDeviceConfig] | None:
+        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+    ) -> dict[str, DeviceAssignmentDef] | None:
         """Greedily pick concrete devices for dynamic requirements, plus specific ones."""
-        assigned_devices, chosen_device_pairs = self._collect_specific_devices(task_config)
+        assigned_devices, chosen_device_pairs = self._collect_specific_devices(task)
 
         # Resolve device references first
-        for device_name, device_value in task_config.devices.items():
-            if isinstance(device_value, str) and validation_utils.is_device_reference(device_value):
+        for device_name, device_value in task.devices.items():
+            if isinstance(device_value, str) and is_device_reference(device_value):
                 ref_task_name, ref_device_name = device_value.split(".")
 
                 # Look up the device from previously scheduled tasks
@@ -135,8 +133,8 @@ class GreedyScheduler(BaseScheduler):
 
         eligible_devices_by_type = await self._active_devices_by_type(db)
 
-        for device_name, req in task_config.devices.items():
-            if not isinstance(req, DynamicTaskDeviceConfig):
+        for device_name, req in task.devices.items():
+            if not isinstance(req, DynamicDeviceAssignmentDef):
                 continue
 
             device_pool = filter_device_pool(req, eligible_devices_by_type.get(req.device_type, []))
@@ -144,7 +142,7 @@ class GreedyScheduler(BaseScheduler):
                 return None
 
             selected_device = await self._pick_first_available_device(
-                db, task_config, experiment_name, device_pool, chosen_device_pairs
+                db, task, experiment_name, device_pool, chosen_device_pairs
             )
             if not selected_device:
                 return None
@@ -153,19 +151,19 @@ class GreedyScheduler(BaseScheduler):
         return assigned_devices
 
     async def _resolve_specific_resources(
-        self, db: AsyncDbSession, experiment_name: str, task_config: TaskConfig
+        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
     ) -> tuple[dict[str, str], set[str]] | None:
         """Resolve specifically-named resources; ensure availability and no duplicates."""
         resolved: dict[str, str] = {}
         chosen: set[str] = set()
 
-        for name, value in task_config.resources.items():
+        for name, value in task.resources.items():
             if not isinstance(value, str):
                 continue
             if value in chosen:
                 # skip duplicates within the same task definition
                 continue
-            if not await self._check_resource_available(db, task_config, experiment_name, value):
+            if not await self._check_resource_available(db, task, experiment_name, value):
                 return None
             resolved[name] = value
             chosen.add(value)
@@ -175,7 +173,7 @@ class GreedyScheduler(BaseScheduler):
     async def _pick_first_available_resource(
         self,
         db: AsyncDbSession,
-        task_config: TaskConfig,
+        task: TaskDef,
         experiment_name: str,
         pool: list[str],
         chosen: set[str],
@@ -184,13 +182,13 @@ class GreedyScheduler(BaseScheduler):
         for resource_name in pool:
             if resource_name in chosen:
                 continue
-            if await self._check_resource_available(db, task_config, experiment_name, resource_name):
+            if await self._check_resource_available(db, task, experiment_name, resource_name):
                 chosen.add(resource_name)
                 return resource_name
         return None
 
     async def _build_resolved_resources(
-        self, db: AsyncDbSession, experiment_name: str, task_config: TaskConfig
+        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
     ) -> dict[str, str] | None:
         """Resolve task resources by choosing concrete names for any dynamic requests.
 
@@ -199,13 +197,13 @@ class GreedyScheduler(BaseScheduler):
         resources_by_type = self._resources_by_type()
 
         # First resolve specific resources
-        specific = await self._resolve_specific_resources(db, experiment_name, task_config)
+        specific = await self._resolve_specific_resources(db, experiment_name, task)
         if specific is None:
             return None
         resolved, chosen = specific
 
         # Resolve dynamic resources
-        for name, value in task_config.resources.items():
+        for name, value in task.resources.items():
             if isinstance(value, str):
                 continue
 
@@ -214,9 +212,7 @@ class GreedyScheduler(BaseScheduler):
             if not filtered_pool:
                 return None
 
-            selected = await self._pick_first_available_resource(
-                db, task_config, experiment_name, filtered_pool, chosen
-            )
+            selected = await self._pick_first_available_resource(db, task, experiment_name, filtered_pool, chosen)
             if not selected:
                 return None
 
@@ -229,13 +225,13 @@ class GreedyScheduler(BaseScheduler):
         db: AsyncDbSession,
         experiment_name: str,
         task_name: str,
-        task_config: TaskConfig,
-        assigned_devices: dict[str, TaskDeviceConfig],
+        task: TaskDef,
+        assigned_devices: dict[str, DeviceAssignmentDef],
     ) -> ScheduledTask | None:
         """
         Override to persist device assignments after successful scheduling for reference resolution.
         """
-        scheduled = await super()._finalize_scheduling(db, experiment_name, task_name, task_config, assigned_devices)
+        scheduled = await super()._finalize_scheduling(db, experiment_name, task_name, task, assigned_devices)
         if scheduled:
             if experiment_name not in self._scheduled_device_assignments:
                 self._scheduled_device_assignments[experiment_name] = {}

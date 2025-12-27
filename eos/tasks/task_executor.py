@@ -6,7 +6,7 @@ import ray
 from ray import ObjectRef
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.task import TaskConfig
+from eos.configuration.entities.task_def import TaskDef
 from eos.devices.device_actor_utils import DeviceActorReference, create_device_actor_dict
 from eos.devices.device_manager import DeviceManager
 from eos.resources.entities.resource import Resource
@@ -24,7 +24,7 @@ from eos.allocation.allocation_manager import AllocationManager
 from eos.orchestration.work_signal import WorkSignal
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.tasks.base_task import BaseTask
-from eos.tasks.entities.task import TaskStatus, TaskDefinition
+from eos.tasks.entities.task import TaskStatus, TaskSubmission
 from eos.tasks.exceptions import (
     EosTaskExecutionError,
     EosTaskExistsError,
@@ -42,7 +42,7 @@ class TaskExecutionContext:
     experiment_name: str | None
     task_name: str
 
-    task_definition: TaskDefinition
+    task_submission: TaskSubmission
 
     scheduled_task: ScheduledTask | None = None
 
@@ -92,12 +92,12 @@ class TaskExecutor:
 
     async def request_task_execution(
         self,
-        task_definition: TaskDefinition,
+        task_submission: TaskSubmission,
         scheduled_task: ScheduledTask | None = None,
     ) -> BaseTask.OutputType | None:
         """Request the execution of a new task."""
         context = TaskExecutionContext(
-            task_definition.experiment_name, task_definition.name, task_definition, scheduled_task=scheduled_task
+            task_submission.experiment_name, task_submission.name, task_submission, scheduled_task=scheduled_task
         )
 
         async with self._lock:
@@ -191,7 +191,7 @@ class TaskExecutor:
             return
 
         if await self._ready_for_execution(context):
-            context.task_ref = await self._execute_task(db, context.task_definition)
+            context.task_ref = await self._execute_task(db, context.task_submission)
             context.execution_started = True
             return
 
@@ -244,26 +244,26 @@ class TaskExecutor:
 
     async def _initialize_task(self, db: AsyncDbSession, context: TaskExecutionContext) -> None:
         """Initialize task for execution."""
-        task_config = context.task_definition.to_config()
-        context.task_definition.input_resources = await self._prepare_resources(db, task_config)
+        task = context.task_submission.to_def()
+        context.task_submission.input_resources = await self._prepare_resources(db, task)
 
-        task_definition = context.task_definition
-        experiment_name, task_name = task_definition.experiment_name, task_definition.name
+        task_submission = context.task_submission
+        experiment_name, task_name = task_submission.experiment_name, task_submission.name
         log.debug(f"Execution of task '{task_name}' for experiment '{experiment_name}' has been requested")
 
-        task = await self._task_manager.get_task(db, experiment_name, task_name)
-        if task and task.status == TaskStatus.RUNNING:
+        existing_task = await self._task_manager.get_task(db, experiment_name, task_name)
+        if existing_task and existing_task.status == TaskStatus.RUNNING:
             log.warning(f"Found running task '{task_name}' for experiment '{experiment_name}'. Restarting it.")
             await self.cancel_task(experiment_name, task_name)
             await self._task_manager.delete_task(db, experiment_name, task_name)
 
-        await self._task_manager.create_task(db, task_definition)
+        await self._task_manager.create_task(db, task_submission)
         await db.commit()
-        self._task_validator.validate(task_config)
+        self._task_validator.validate(task)
 
     async def _needs_allocations(self, context: TaskExecutionContext) -> bool:
         """Check if task needs allocations of devices or resources."""
-        if not context.task_definition.devices and not context.task_definition.input_resources:
+        if not context.task_submission.devices and not context.task_submission.input_resources:
             return False
 
         return not context.active_allocation_request or (
@@ -276,7 +276,7 @@ class TaskExecutor:
 
     async def _ready_for_execution(self, context: TaskExecutionContext) -> bool:
         """Check if task is ready for execution."""
-        if not context.task_definition.devices and not context.task_definition.input_resources:
+        if not context.task_submission.devices and not context.task_submission.input_resources:
             return not context.execution_started
 
         return (
@@ -287,7 +287,7 @@ class TaskExecutor:
 
     async def _make_task_allocations(self, db: AsyncDbSession, context: TaskExecutionContext) -> None:
         """Allocate devices and resources for task execution."""
-        allocation_request = self._create_allocation_request(context.task_definition)
+        allocation_request = self._create_allocation_request(context.task_submission)
 
         def on_allocated(req: ActiveAllocationRequest) -> None:
             context.active_allocation_request.status = req.status
@@ -331,15 +331,15 @@ class TaskExecutor:
         if context.task_key in self._pending_tasks:
             del self._pending_tasks[context.task_key]
 
-    async def _prepare_resources(self, db: AsyncDbSession, task_config: TaskConfig) -> dict[str, Resource]:
+    async def _prepare_resources(self, db: AsyncDbSession, task: TaskDef) -> dict[str, Resource]:
         """Prepare resources for task execution."""
-        resources = task_config.resources
+        resources = task.resources
         fetched_resources = await asyncio.gather(
             *[self._resource_manager.get_resource(db, resource_name) for resource_name in resources.values()]
         )
         return dict(zip(resources.keys(), fetched_resources, strict=True))
 
-    def _get_device_actor_references(self, task_definition: TaskDefinition) -> dict[str, DeviceActorReference]:
+    def _get_device_actor_references(self, task_submission: TaskSubmission) -> dict[str, DeviceActorReference]:
         """Get device actor references for task execution.
 
         Returns a dict mapping device name (from task spec/config) to DeviceActorReference.
@@ -352,15 +352,15 @@ class TaskExecutor:
                 actor_handle=self._device_manager.get_device_actor(device.lab_name, device.name),
                 meta=self._configuration_manager.labs[device.lab_name].devices[device.name].meta,
             )
-            for device_name, device in task_definition.devices.items()
+            for device_name, device in task_submission.devices.items()
         }
 
-    async def _execute_task(self, db: AsyncDbSession, task_definition: TaskDefinition) -> ObjectRef:
+    async def _execute_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> ObjectRef:
         """Execute the task using Ray."""
-        experiment_name, task_name = task_definition.experiment_name, task_definition.name
-        device_actor_references = self._get_device_actor_references(task_definition)
-        task_class_type = self._task_plugin_registry.get_plugin_class_type(task_definition.type)
-        input_parameters = self._task_input_parameter_caster.cast_input_parameters(task_definition)
+        experiment_name, task_name = task_submission.experiment_name, task_submission.name
+        device_actor_references = self._get_device_actor_references(task_submission)
+        task_class_type = self._task_plugin_registry.get_plugin_class_type(task_submission.type)
+        input_parameters = self._task_input_parameter_caster.cast_input_parameters(task_submission)
 
         @ray.remote(num_cpus=0)
         def _ray_execute_task(
@@ -377,7 +377,7 @@ class TaskExecutor:
         await self._task_manager.start_task(db, experiment_name, task_name)
         log_msg = (
             f"EXP '{experiment_name}' - Started task '{task_name}'."
-            if task_definition.experiment_name
+            if task_submission.experiment_name
             else f"Started on-demand task '{task_name}'."
         )
         log.info(log_msg)
@@ -387,33 +387,33 @@ class TaskExecutor:
             task_name,
             device_actor_references,
             input_parameters,
-            task_definition.input_resources,
+            task_submission.input_resources,
         )
 
     @staticmethod
     def _create_allocation_request(
-        task_definition: TaskDefinition,
+        task_submission: TaskSubmission,
     ) -> AllocationRequest | None:
         """
         Create an exclusive allocation request for devices and resources for task execution.
         Returns None if no allocations are needed.
         """
         # Skip allocation if no devices or resources are needed
-        if not task_definition.devices and not task_definition.input_resources:
+        if not task_submission.devices and not task_submission.input_resources:
             return None
 
         request = AllocationRequest(
-            requester=task_definition.name,
-            experiment_name=task_definition.experiment_name,
-            priority=task_definition.priority,
-            timeout=task_definition.allocation_timeout,
-            reason=f"Resources required for task '{task_definition.name}'",
+            requester=task_submission.name,
+            experiment_name=task_submission.experiment_name,
+            priority=task_submission.priority,
+            timeout=task_submission.allocation_timeout,
+            reason=f"Resources required for task '{task_submission.name}'",
         )
 
-        for device in task_definition.devices.values():
+        for device in task_submission.devices.values():
             request.add_allocation(device.name, device.lab_name, AllocationType.DEVICE)
 
-        for resource in task_definition.input_resources.values():
+        for resource in task_submission.input_resources.values():
             request.add_allocation(resource.name, "", AllocationType.RESOURCE)
 
         return request

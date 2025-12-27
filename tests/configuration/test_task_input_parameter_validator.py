@@ -2,8 +2,8 @@ import pytest
 from pydantic import ValidationError
 
 from eos.configuration.entities.task_parameters import TaskParameterType
-from eos.configuration.entities.task import TaskConfig
-from eos.configuration.entities.task_spec import TaskSpecConfig
+from eos.configuration.entities.task_def import TaskDef
+from eos.configuration.entities.task_spec_def import TaskSpecDef
 from eos.tasks.exceptions import EosTaskValidationError
 from eos.tasks.validation.task_input_parameter_validator import TaskInputParameterValidator
 
@@ -11,7 +11,7 @@ from eos.tasks.validation.task_input_parameter_validator import TaskInputParamet
 class TestTaskInputParameterValidator:
     @pytest.fixture
     def task_spec(self):
-        return TaskSpecConfig(
+        return TaskSpecDef(
             type="test_task",
             desc="A test task",
             input_parameters={
@@ -31,8 +31,8 @@ class TestTaskInputParameterValidator:
         )
 
     @pytest.fixture
-    def task_config(self, task_spec):
-        return TaskConfig(
+    def task(self, task_spec):
+        return TaskDef(
             name="test_task_1",
             type="test_task",
             parameters={
@@ -47,8 +47,8 @@ class TestTaskInputParameterValidator:
         )
 
     @pytest.fixture
-    def validator(self, task_config, task_spec):
-        return TaskInputParameterValidator(task_config, task_spec)
+    def validator(self, task, task_spec):
+        return TaskInputParameterValidator(task, task_spec)
 
     def test_valid_input_parameters(self, validator):
         validator.validate()
@@ -64,18 +64,18 @@ class TestTaskInputParameterValidator:
             ("choice_param", "D"),
         ],
     )
-    def test_invalid_input_parameters(self, validator, task_config, param_name, invalid_value):
-        task_config.parameters[param_name] = invalid_value
+    def test_invalid_input_parameters(self, validator, task, param_name, invalid_value):
+        task.parameters[param_name] = invalid_value
         with pytest.raises((ValidationError, EosTaskValidationError)):
             validator.validate()
 
-    def test_missing_required_parameter(self, validator, task_config):
-        del task_config.parameters["int_param"]
+    def test_missing_required_parameter(self, validator, task):
+        del task.parameters["int_param"]
         with pytest.raises((ValidationError, EosTaskValidationError)):
             validator.validate()
 
-    def test_extra_parameter(self, validator, task_config):
-        task_config.parameters["extra_param"] = "extra"
+    def test_extra_parameter(self, validator, task):
+        task.parameters["extra_param"] = "extra"
         with pytest.raises((ValidationError, EosTaskValidationError)):
             validator.validate()
 
@@ -91,9 +91,7 @@ class TestTaskInputParameterValidator:
             (TaskParameterType.CHOICE, ["A", "B", "C"], ["D", 1, True]),
         ],
     )
-    def test_parameter_type_conversion(
-        self, validator, task_config, task_spec, param_type, valid_values, invalid_values
-    ):
+    def test_parameter_type_conversion(self, validator, task, task_spec, param_type, valid_values, invalid_values):
         param_name = f"{param_type.value}_param"
 
         if param_type == TaskParameterType.CHOICE:
@@ -103,11 +101,11 @@ class TestTaskInputParameterValidator:
             task_spec.input_parameters[param_name].length = 3
 
         for valid_value in valid_values:
-            task_config.parameters[param_name] = valid_value
+            task.parameters[param_name] = valid_value
             validator.validate()
 
         for invalid_value in invalid_values:
-            task_config.parameters[param_name] = invalid_value
+            task.parameters[param_name] = invalid_value
             with pytest.raises((ValidationError, EosTaskValidationError)):
                 validator.validate()
 
@@ -120,7 +118,7 @@ class TestTaskInputParameterValidator:
             ("list_param", [1, 2, 3, 4], (ValidationError, EosTaskValidationError)),
         ],
     )
-    def test_specific_validation_cases(self, validator, task_config, param_name, invalid_value, expected_error):
-        task_config.parameters[param_name] = invalid_value
+    def test_specific_validation_cases(self, validator, task, param_name, invalid_value, expected_error):
+        task.parameters[param_name] = invalid_value
         with pytest.raises(expected_error):
             validator.validate()

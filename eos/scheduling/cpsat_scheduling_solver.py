@@ -3,14 +3,14 @@ from dataclasses import dataclass
 from ortools.sat.python import cp_model
 from ortools.sat.sat_parameters_pb2 import SatParameters
 
-from eos.configuration.entities.task import (
-    DynamicTaskDeviceConfig,
-    DynamicTaskResourceConfig,
-    TaskConfig,
-    TaskDeviceConfig,
+from eos.configuration.entities.task_def import (
+    DynamicDeviceAssignmentDef,
+    DynamicResourceAssignmentDef,
+    TaskDef,
+    DeviceAssignmentDef,
 )
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
-from eos.configuration.validation import validation_utils
+from eos.configuration.experiment_graph import ExperimentGraph
+from eos.configuration.utils import is_device_reference, is_resource_reference
 from eos.logging.logger import log
 from eos.scheduling.exceptions import EosSchedulerError
 from eos.scheduling.utils import filter_device_pool
@@ -27,7 +27,7 @@ class TaskVariables:
 @dataclass(slots=True)
 class SchedulingSolution:
     schedule: dict[str, dict[str, int]]
-    device_assignments: dict[str, dict[str, dict[str, TaskDeviceConfig]]]
+    device_assignments: dict[str, dict[str, dict[str, DeviceAssignmentDef]]]
     resource_assignments: dict[str, dict[str, dict[str, str]]]
     makespan: int
     compute_duration_ms: float
@@ -64,7 +64,7 @@ class CpSatSchedulingSolver:
         experiment_priorities: dict[str, int],
         eligible_devices_by_type: dict[str, list[tuple[str, str]]],
         eligible_resources_by_type: dict[str, list[tuple[str, str]]],
-        previous_device_assignments: dict[str, dict[str, dict[str, TaskDeviceConfig]]] | None = None,
+        previous_device_assignments: dict[str, dict[str, dict[str, DeviceAssignmentDef]]] | None = None,
         previous_resource_assignments: dict[str, dict[str, dict[str, str]]] | None = None,
         parameter_overrides: dict[str, float | int | bool] | None = None,
     ):
@@ -114,17 +114,17 @@ class CpSatSchedulingSolver:
 
         for exp_name, (_, exp_graph) in self._experiments.items():
             tasks = exp_graph.get_topologically_sorted_tasks()
-            durations = {task_name: exp_graph.get_task_config(task_name).duration for task_name in tasks}
+            durations = {task_name: exp_graph.get_task(task_name).duration for task_name in tasks}
             horizon += sum(durations.values())
             self._task_durations[exp_name] = durations
 
         return horizon
 
-    def _eligible_dynamic_devices_for(self, device_req: DynamicTaskDeviceConfig) -> list[tuple[str, str]]:
+    def _eligible_dynamic_devices_for(self, device_req: DynamicDeviceAssignmentDef) -> list[tuple[str, str]]:
         """Get eligible concrete devices for a dynamic request after filtering."""
         return filter_device_pool(device_req, self._eligible_devices_by_type.get(device_req.device_type, ()))
 
-    def _eligible_dynamic_resources_for(self, cont_req: DynamicTaskResourceConfig) -> list[tuple[str, str]]:
+    def _eligible_dynamic_resources_for(self, cont_req: DynamicResourceAssignmentDef) -> list[tuple[str, str]]:
         """Get eligible concrete resources for a dynamic request after filtering."""
         return list(self._eligible_resources_by_type.get(cont_req.resource_type, []))
 
@@ -132,7 +132,7 @@ class CpSatSchedulingSolver:
         self,
         exp_name: str,
         task_name: str,
-        dev_req: DynamicTaskDeviceConfig,
+        dev_req: DynamicDeviceAssignmentDef,
         eligible: list[tuple[str, str]],
         slot_index: int,
         start_var: cp_model.IntVar,
@@ -166,7 +166,7 @@ class CpSatSchedulingSolver:
         self,
         exp_name: str,
         task_name: str,
-        task_config: TaskConfig,
+        task: TaskDef,
         start_var: cp_model.IntVar,
         end_var: cp_model.IntVar,
         duration: int,
@@ -174,8 +174,8 @@ class CpSatSchedulingSolver:
         """Add dynamic device allocation constraints for a task (single selection)."""
         slots: list[list[tuple[tuple[str, str], cp_model.IntVar]]] = []
 
-        for dev_req in task_config.devices.values():
-            if not isinstance(dev_req, DynamicTaskDeviceConfig):
+        for dev_req in task.devices.values():
+            if not isinstance(dev_req, DynamicDeviceAssignmentDef):
                 continue
 
             eligible = self._eligible_dynamic_devices_for(dev_req)
@@ -214,7 +214,7 @@ class CpSatSchedulingSolver:
         self,
         exp_name: str,
         task_name: str,
-        task_config: TaskConfig,
+        task: TaskDef,
         start_var: cp_model.IntVar,
         end_var: cp_model.IntVar,
         duration: int,
@@ -222,7 +222,7 @@ class CpSatSchedulingSolver:
         """Add dynamic resource allocation constraints for resource requests in the task config (single selection)."""
         entries: list[tuple[str, list[tuple[tuple[str, str], cp_model.IntVar]]]] = []
 
-        for name, value in task_config.resources.items():
+        for name, value in task.resources.items():
             if isinstance(value, str):
                 continue
 
@@ -271,49 +271,41 @@ class CpSatSchedulingSolver:
 
         return TaskVariables(start=start_var, end=end_var, interval=interval_var)
 
-    def _process_task_devices(
-        self, exp_name: str, task_name: str, task_config: TaskConfig, task_vars: TaskVariables
-    ) -> None:
+    def _process_task_devices(self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables) -> None:
         """Process specific and dynamic device requirements for a task."""
         # Specific devices: create fixed resource intervals
-        for dev in task_config.devices.values():
-            if isinstance(dev, TaskDeviceConfig):
+        for dev in task.devices.values():
+            if isinstance(dev, DeviceAssignmentDef):
                 resource_name = f"device_{dev.lab_name}_{dev.name}"
                 self._resource_intervals.setdefault(resource_name, []).append(task_vars.interval)
 
         # Dynamic devices: create optional intervals for each eligible device
-        self._add_dynamic_device_constraints(
-            exp_name, task_name, task_config, task_vars.start, task_vars.end, task_config.duration
-        )
+        self._add_dynamic_device_constraints(exp_name, task_name, task, task_vars.start, task_vars.end, task.duration)
 
-    def _process_task_resources(
-        self, exp_name: str, task_name: str, task_config: TaskConfig, task_vars: TaskVariables
-    ) -> None:
+    def _process_task_resources(self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables) -> None:
         """Process specific and dynamic resource requirements for a task."""
         # Specific resources (non-references): create fixed resource intervals
-        for resource_value in task_config.resources.values():
-            if isinstance(resource_value, str) and not validation_utils.is_resource_reference(resource_value):
+        for resource_value in task.resources.values():
+            if isinstance(resource_value, str) and not is_resource_reference(resource_value):
                 resource_name = f"resource_{resource_value}"
                 self._resource_intervals.setdefault(resource_name, []).append(task_vars.interval)
 
         # Dynamic resources: optional intervals for eligible resources
-        self._add_dynamic_resource_constraints(
-            exp_name, task_name, task_config, task_vars.start, task_vars.end, task_config.duration
-        )
+        self._add_dynamic_resource_constraints(exp_name, task_name, task, task_vars.start, task_vars.end, task.duration)
 
-    def _track_task_references(self, exp_name: str, task_name: str, task_config: TaskConfig) -> None:
+    def _track_task_references(self, exp_name: str, task_name: str, task: TaskDef) -> None:
         """Track device and resource references for later constraint creation."""
         # Track device references
-        for device_name, device_value in task_config.devices.items():
-            if isinstance(device_value, str) and validation_utils.is_device_reference(device_value):
+        for device_name, device_value in task.devices.items():
+            if isinstance(device_value, str) and is_device_reference(device_value):
                 ref_task_name, ref_device_name = device_value.split(".")
                 self._device_references.setdefault((exp_name, task_name), []).append(
                     (device_name, ref_task_name, ref_device_name)
                 )
 
         # Track resource references
-        for resource_name, resource_value in task_config.resources.items():
-            if isinstance(resource_value, str) and validation_utils.is_resource_reference(resource_value):
+        for resource_name, resource_value in task.resources.items():
+            if isinstance(resource_value, str) and is_resource_reference(resource_value):
                 ref_task_name, ref_resource_name = resource_value.split(".")
                 self._resource_references.setdefault((exp_name, task_name), []).append(
                     (resource_name, ref_task_name, ref_resource_name)
@@ -338,22 +330,22 @@ class CpSatSchedulingSolver:
                 if task_name in self._completed_by_exp.get(exp_name, set()):
                     continue
 
-                task_config: TaskConfig = exp_graph.get_task_config(task_name)
+                task: TaskDef = exp_graph.get_task(task_name)
                 is_running = task_name in self._running_by_exp.get(exp_name, set())
 
                 # Create time variables
-                task_vars = self._create_task_time_variables(exp_name, task_name, task_config.duration, is_running)
+                task_vars = self._create_task_time_variables(exp_name, task_name, task.duration, is_running)
                 self._task_vars[(exp_name, task_name)] = task_vars
 
                 # Process devices and resources
-                self._process_task_devices(exp_name, task_name, task_config, task_vars)
-                self._process_task_resources(exp_name, task_name, task_config, task_vars)
+                self._process_task_devices(exp_name, task_name, task, task_vars)
+                self._process_task_resources(exp_name, task_name, task, task_vars)
 
                 # Track references
-                self._track_task_references(exp_name, task_name, task_config)
+                self._track_task_references(exp_name, task_name, task)
 
                 # Apply timing constraints
-                self._apply_task_timing_constraints(exp_name, task_name, task_vars, task_config.duration, is_running)
+                self._apply_task_timing_constraints(exp_name, task_name, task_vars, task.duration, is_running)
 
     def _apply_precedence_constraints(self) -> None:
         """Apply precedence constraints: start(task) >= end(dep) for each dependency."""
@@ -417,9 +409,9 @@ class CpSatSchedulingSolver:
                 if (exp_name, task_name) not in self._task_vars:
                     continue
 
-                task_config = exp_graph.get_task_config(task_name)
-                if task_config.group:
-                    groups.setdefault(task_config.group, []).append(task_name)
+                task = exp_graph.get_task(task_name)
+                if task.group:
+                    groups.setdefault(task.group, []).append(task_name)
 
             # Apply constraints for each group
             for _group_name, task_names in groups.items():
@@ -437,22 +429,22 @@ class CpSatSchedulingSolver:
         """Enforce that device references use the same device as the referenced task."""
         for (exp_name, task_name), refs in self._device_references.items():
             _, exp_graph = self._experiments[exp_name]
-            task_config = exp_graph.get_task_config(task_name)
+            task = exp_graph.get_task(task_name)
             task_vars = self._task_vars[(exp_name, task_name)]
-            duration = task_config.duration
+            duration = task.duration
 
             for device_name, ref_task_name, ref_device_name in refs:
                 # Get the referenced task's config and find the slot for the referenced device
-                ref_task_config = exp_graph.get_task_config(ref_task_name)
-                ref_device_value = ref_task_config.devices.get(ref_device_name)
+                ref_task = exp_graph.get_task(ref_task_name)
+                ref_device_value = ref_task.devices.get(ref_device_name)
 
-                if isinstance(ref_device_value, DynamicTaskDeviceConfig):
+                if isinstance(ref_device_value, DynamicDeviceAssignmentDef):
                     # Find the slot index in the referenced task
                     ref_slot_idx = 0
-                    for ref_dev_name, ref_dev_val in ref_task_config.devices.items():
+                    for ref_dev_name, ref_dev_val in ref_task.devices.items():
                         if ref_dev_name == ref_device_name:
                             break
-                        if isinstance(ref_dev_val, DynamicTaskDeviceConfig):
+                        if isinstance(ref_dev_val, DynamicDeviceAssignmentDef):
                             ref_slot_idx += 1
 
                     # Get the choice variables from the referenced task
@@ -476,7 +468,7 @@ class CpSatSchedulingSolver:
                         resource_name = f"device_{lab_name}_{dev_name}"
                         self._resource_intervals.setdefault(resource_name, []).append(optional_interval)
 
-                elif isinstance(ref_device_value, TaskDeviceConfig):
+                elif isinstance(ref_device_value, DeviceAssignmentDef):
                     # Referenced device is specific, add this task's interval to that device's resource bucket
                     resource_name = f"device_{ref_device_value.lab_name}_{ref_device_value.name}"
                     self._resource_intervals.setdefault(resource_name, []).append(task_vars.interval)
@@ -485,16 +477,16 @@ class CpSatSchedulingSolver:
         """Enforce that resource references use the same resource as the referenced task."""
         for (exp_name, task_name), refs in self._resource_references.items():
             _, exp_graph = self._experiments[exp_name]
-            task_config = exp_graph.get_task_config(task_name)
+            task = exp_graph.get_task(task_name)
             task_vars = self._task_vars[(exp_name, task_name)]
-            duration = task_config.duration
+            duration = task.duration
 
             for resource_name, ref_task_name, ref_resource_name in refs:
                 # Get the referenced task's config and find the resource
-                ref_task_config = exp_graph.get_task_config(ref_task_name)
-                ref_resource_value = ref_task_config.resources.get(ref_resource_name)
+                ref_task = exp_graph.get_task(ref_task_name)
+                ref_resource_value = ref_task.resources.get(ref_resource_name)
 
-                if isinstance(ref_resource_value, DynamicTaskResourceConfig):
+                if isinstance(ref_resource_value, DynamicResourceAssignmentDef):
                     # Find the entry index in the referenced task's dynamic resource choices
                     ref_entries = self._dynamic_resource_choice_vars.get((exp_name, ref_task_name), [])
                     for entry_name, choices in ref_entries:
@@ -513,9 +505,7 @@ class CpSatSchedulingSolver:
                                 bucket_name = f"resource_{concrete_resource_name}"
                                 self._resource_intervals.setdefault(bucket_name, []).append(optional_interval)
                             break
-                elif isinstance(ref_resource_value, str) and not validation_utils.is_resource_reference(
-                    ref_resource_value
-                ):
+                elif isinstance(ref_resource_value, str) and not is_resource_reference(ref_resource_value):
                     # Referenced resource is specific (non-reference string), add this task's interval to that
                     # resource bucket
                     bucket_name = f"resource_{ref_resource_value}"
@@ -543,39 +533,39 @@ class CpSatSchedulingSolver:
             schedule[exp_name][task_name] = self.solver.Value(tv.start)
         return schedule
 
-    def _extract_device_assignments(self) -> dict[str, dict[str, dict[str, TaskDeviceConfig]]]:
+    def _extract_device_assignments(self) -> dict[str, dict[str, dict[str, DeviceAssignmentDef]]]:
         """Extract dynamic + specific device assignments per task (concise logging)."""
         # Start with previous assignments (from completed/running tasks)
-        device_assignments: dict[str, dict[str, dict[str, TaskDeviceConfig]]] = {
+        device_assignments: dict[str, dict[str, dict[str, DeviceAssignmentDef]]] = {
             exp: {task: devs.copy() for task, devs in tasks.items()}
             for exp, tasks in self._previous_device_assignments.items()
         }
 
         for (exp_name, task_name), _tv in self._task_vars.items():
             _, exp_graph = self._experiments[exp_name]
-            task_cfg: TaskConfig = exp_graph.get_task_config(task_name)
-            task_devices: dict[str, TaskDeviceConfig] = {}
+            task: TaskDef = exp_graph.get_task(task_name)
+            task_devices: dict[str, DeviceAssignmentDef] = {}
 
-            # Extract selections preserving device names from task_cfg
+            # Extract selections preserving device names from task
             slots = self._dynamic_choice_vars.get((exp_name, task_name), [])
             slot_idx = 0
 
             # Dynamic and specific devices
-            for device_name, dev in task_cfg.devices.items():
-                if isinstance(dev, DynamicTaskDeviceConfig):
+            for device_name, dev in task.devices.items():
+                if isinstance(dev, DynamicDeviceAssignmentDef):
                     if slot_idx < len(slots):
                         slot = slots[slot_idx]
                         for (lab_name, dev_name), b in slot:
                             if self.solver.Value(b) == 1:
-                                task_devices[device_name] = TaskDeviceConfig(lab_name=lab_name, name=dev_name)
+                                task_devices[device_name] = DeviceAssignmentDef(lab_name=lab_name, name=dev_name)
                                 break
                         slot_idx += 1
-                elif isinstance(dev, TaskDeviceConfig):
+                elif isinstance(dev, DeviceAssignmentDef):
                     task_devices[device_name] = dev
 
             # Resolve device references against already-built assignments
-            for device_name, dev in task_cfg.devices.items():
-                if isinstance(dev, str) and validation_utils.is_device_reference(dev):
+            for device_name, dev in task.devices.items():
+                if isinstance(dev, str) and is_device_reference(dev):
                     ref_task_name, ref_device_name = dev.split(".")
                     ref_map = device_assignments.get(exp_name, {}).get(ref_task_name, {})
                     ref_device = ref_map.get(ref_device_name)
@@ -597,7 +587,7 @@ class CpSatSchedulingSolver:
 
         for (exp_name, task_name), _tv in self._task_vars.items():
             _, exp_graph = self._experiments[exp_name]
-            task_cfg: TaskConfig = exp_graph.get_task_config(task_name)
+            task: TaskDef = exp_graph.get_task(task_name)
             assigned: dict[str, str] = {}
 
             # Dynamic resource assignments
@@ -609,13 +599,13 @@ class CpSatSchedulingSolver:
                         break
 
             # Explicit (non-reference) strings
-            for name, value in task_cfg.resources.items():
-                if isinstance(value, str) and not validation_utils.is_resource_reference(value):
+            for name, value in task.resources.items():
+                if isinstance(value, str) and not is_resource_reference(value):
                     assigned[name] = value
 
             # Resolve resource references
-            for name, value in task_cfg.resources.items():
-                if isinstance(value, str) and validation_utils.is_resource_reference(value):
+            for name, value in task.resources.items():
+                if isinstance(value, str) and is_resource_reference(value):
                     ref_task_name, ref_resource_name = value.split(".")
                     ref_map = resource_assignments.get(exp_name, {}).get(ref_task_name, {})
                     ref_value = ref_map.get(ref_resource_name)

@@ -19,8 +19,8 @@ class ExperimentStatus(Enum):
     FAILED = "FAILED"
 
 
-class ExperimentDefinition(BaseModel):
-    """The definition of an experiment. Used for submission."""
+class ExperimentSubmission(BaseModel):
+    """Experiment submitted to the system."""
 
     name: str
     type: str
@@ -37,7 +37,7 @@ class ExperimentDefinition(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Experiment(ExperimentDefinition):
+class Experiment(ExperimentSubmission):
     """The state of an experiment in the system."""
 
     campaign: str | None = None
@@ -53,9 +53,9 @@ class Experiment(ExperimentDefinition):
         return v.value
 
     @classmethod
-    def from_definition(cls, definition: ExperimentDefinition) -> "Experiment":
-        """Create an Experiment instance from an ExperimentDefinition."""
-        return cls(**definition.model_dump())
+    def from_submission(cls, submission: ExperimentSubmission) -> "Experiment":
+        """Create an Experiment instance from an ExperimentSubmission."""
+        return cls(**submission.model_dump())
 
 
 class ExperimentModel(Base):

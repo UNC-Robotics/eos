@@ -1,6 +1,6 @@
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
-from eos.experiments.entities.experiment import ExperimentDefinition
+from eos.configuration.experiment_graph import ExperimentGraph
+from eos.experiments.entities.experiment import ExperimentSubmission
 from eos.experiments.experiment_executor import ExperimentExecutor
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
@@ -32,12 +32,12 @@ class ExperimentExecutorFactory:
         self._scheduler = scheduler
         self._db_interface = db_interface
 
-    def create(self, experiment_definition: ExperimentDefinition, campaign: str | None = None) -> ExperimentExecutor:
-        experiment_config = self._configuration_manager.experiments.get(experiment_definition.type)
-        experiment_graph = ExperimentGraph(experiment_config)
+    def create(self, experiment_submission: ExperimentSubmission, campaign: str | None = None) -> ExperimentExecutor:
+        experiment = self._configuration_manager.experiments.get(experiment_submission.type)
+        experiment_graph = ExperimentGraph(experiment)
 
         return ExperimentExecutor(
-            experiment_definition=experiment_definition,
+            experiment_submission=experiment_submission,
             experiment_graph=experiment_graph,
             experiment_manager=self._experiment_manager,
             task_manager=self._task_manager,

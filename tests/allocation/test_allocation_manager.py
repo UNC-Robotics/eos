@@ -11,7 +11,7 @@ from eos.allocation.exceptions import (
     EosResourceNotFoundError,
     EosAllocationRequestError,
 )
-from eos.experiments.entities.experiment import ExperimentDefinition
+from eos.experiments.entities.experiment import ExperimentSubmission
 from tests.fixtures import *
 
 LAB_ID = "small_lab"
@@ -22,8 +22,8 @@ EXPERIMENT_NAME = "water_purification_1"
 async def experiment(db, experiment_manager):
     existing = await experiment_manager.get_experiment(db, EXPERIMENT_NAME)
     if not existing:
-        definition = ExperimentDefinition(name=EXPERIMENT_NAME, type="water_purification", owner="test")
-        await experiment_manager.create_experiment(db, definition)
+        submission = ExperimentSubmission(name=EXPERIMENT_NAME, type="water_purification", owner="test")
+        await experiment_manager.create_experiment(db, submission)
         await db.commit()
 
 

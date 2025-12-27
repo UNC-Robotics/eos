@@ -1,13 +1,13 @@
-from eos.campaigns.entities.campaign import CampaignStatus, CampaignDefinition
+from eos.campaigns.entities.campaign import CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignStateError
 from tests.fixtures import *
 
 EXPERIMENT_TYPE = "water_purification"
 
 
-def create_campaign_definition(campaign_name: str, max_experiments: int = 2) -> CampaignDefinition:
-    """Helper function to create a non-optimized campaign definition."""
-    return CampaignDefinition(
+def create_campaign_submission(campaign_name: str, max_experiments: int = 2) -> CampaignSubmission:
+    """Helper function to create a non-optimized campaign submission."""
+    return CampaignSubmission(
         name=campaign_name,
         experiment_type=EXPERIMENT_TYPE,
         owner="test",
@@ -24,7 +24,7 @@ def create_campaign_definition(campaign_name: str, max_experiments: int = 2) -> 
 class TestCampaignManager:
     @pytest.mark.asyncio
     async def test_create_campaign(self, db, campaign_manager):
-        await campaign_manager.create_campaign(db, create_campaign_definition("test_campaign"))
+        await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))
 
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
         assert campaign.name == "test_campaign"
@@ -35,7 +35,7 @@ class TestCampaignManager:
     async def test_create_campaign_validation_errors(self, db, campaign_manager):
         # Test missing dynamic parameters
         with pytest.raises(ValueError, match="experiment_parameters or global_parameters must be provided"):
-            invalid_definition = CampaignDefinition(
+            invalid_submission = CampaignSubmission(
                 name="test_campaign",
                 experiment_type=EXPERIMENT_TYPE,
                 owner="test",
@@ -45,32 +45,32 @@ class TestCampaignManager:
                 optimizer_ip="127.0.0.1",
                 experiment_parameters=None,
             )
-            await campaign_manager.create_campaign(db, invalid_definition)
+            await campaign_manager.create_campaign(db, invalid_submission)
 
         # Test incorrect number of dynamic parameters
         with pytest.raises(ValueError, match="experiment_parameters must be provided for all experiments"):
-            invalid_definition = create_campaign_definition("test_campaign", max_experiments=3)
-            invalid_definition.experiment_parameters = [{"param1": {"value": 0}}]  # Only one set
-            await campaign_manager.create_campaign(db, invalid_definition)
+            invalid_submission = create_campaign_submission("test_campaign", max_experiments=3)
+            invalid_submission.experiment_parameters = [{"param1": {"value": 0}}]  # Only one set
+            await campaign_manager.create_campaign(db, invalid_submission)
 
     @pytest.mark.asyncio
     async def test_create_campaign_nonexistent_type(self, db, campaign_manager):
         with pytest.raises(EosCampaignStateError):
-            definition = create_campaign_definition("test_campaign")
-            definition.experiment_type = "nonexistent"
-            await campaign_manager.create_campaign(db, definition)
+            submission = create_campaign_submission("test_campaign")
+            submission.experiment_type = "nonexistent"
+            await campaign_manager.create_campaign(db, submission)
 
     @pytest.mark.asyncio
     async def test_create_existing_campaign(self, db, campaign_manager):
-        definition = create_campaign_definition("test_campaign")
-        await campaign_manager.create_campaign(db, definition)
+        submission = create_campaign_submission("test_campaign")
+        await campaign_manager.create_campaign(db, submission)
 
         with pytest.raises(EosCampaignStateError):
-            await campaign_manager.create_campaign(db, definition)
+            await campaign_manager.create_campaign(db, submission)
 
     @pytest.mark.asyncio
     async def test_delete_campaign(self, db, campaign_manager):
-        await campaign_manager.create_campaign(db, create_campaign_definition("test_campaign"))
+        await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))
 
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
         assert campaign is not None
@@ -84,7 +84,7 @@ class TestCampaignManager:
     async def test_get_campaigns_by_status(self, db, campaign_manager):
         # Create and set different statuses for campaigns
         for campaign_name in ["campaign1", "campaign2", "campaign3"]:
-            await campaign_manager.create_campaign(db, create_campaign_definition(campaign_name))
+            await campaign_manager.create_campaign(db, create_campaign_submission(campaign_name))
 
         await campaign_manager.start_campaign(db, "campaign1")
         await campaign_manager.start_campaign(db, "campaign2")
@@ -100,7 +100,7 @@ class TestCampaignManager:
 
     @pytest.mark.asyncio
     async def test_campaign_lifecycle(self, db, campaign_manager):
-        await campaign_manager.create_campaign(db, create_campaign_definition("test_campaign"))
+        await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))
 
         # Test status transitions
         campaign = await campaign_manager.get_campaign(db, "test_campaign")
@@ -122,13 +122,13 @@ class TestCampaignManager:
 
     @pytest.mark.asyncio
     async def test_campaign_experiments(self, db, campaign_manager, experiment_manager):
-        await campaign_manager.create_campaign(db, create_campaign_definition("test_campaign"))
+        await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))
 
         # Create experiments linked to the campaign
-        from eos.experiments.entities.experiment import ExperimentDefinition
+        from eos.experiments.entities.experiment import ExperimentSubmission
 
-        exp1_def = ExperimentDefinition(name="exp1", type=EXPERIMENT_TYPE, owner="test")
-        exp2_def = ExperimentDefinition(name="exp2", type=EXPERIMENT_TYPE, owner="test")
+        exp1_def = ExperimentSubmission(name="exp1", type=EXPERIMENT_TYPE, owner="test")
+        exp2_def = ExperimentSubmission(name="exp2", type=EXPERIMENT_TYPE, owner="test")
 
         await experiment_manager.create_experiment(db, exp1_def, campaign="test_campaign")
         await experiment_manager.create_experiment(db, exp2_def, campaign="test_campaign")

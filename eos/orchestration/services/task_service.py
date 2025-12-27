@@ -1,10 +1,9 @@
 import traceback
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.task_spec import TaskSpecConfig
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
-from eos.tasks.entities.task import Task, TaskStatus, TaskDefinition
+from eos.tasks.entities.task import Task, TaskStatus, TaskSubmission
 from eos.tasks.exceptions import EosTaskCancellationError, EosTaskExecutionError
 from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
@@ -47,19 +46,19 @@ class TaskService:
     async def submit_task(
         self,
         db: AsyncDbSession,
-        task_definition: TaskDefinition,
+        task_submission: TaskSubmission,
     ) -> None:
         """
         Submit a new task for execution.
 
         :param db: The database session.
-        :param task_definition: The task definition.
+        :param task_submission: The task submission.
         :return: The output of the task.
         """
         try:
-            await self._on_demand_task_executor.submit_task(db, task_definition)
+            await self._on_demand_task_executor.submit_task(db, task_submission)
         except EosTaskExecutionError:
-            log.error(f"Failed to submit task '{task_definition.name}': {traceback.format_exc()}")
+            log.error(f"Failed to submit task '{task_submission.name}': {traceback.format_exc()}")
             raise
 
     async def cancel_task(self, task_name: str, experiment_name: str | None = None) -> None:
@@ -91,14 +90,6 @@ class TaskService:
     async def get_task_types(self) -> list[str]:
         """Get a list of all task types that are defined in the configuration."""
         return [task.type for task in self._configuration_manager.task_specs.get_all_specs().values()]
-
-    async def get_task_spec(self, task_type: str) -> TaskSpecConfig | None:
-        """Get the task specification for a given task type."""
-        task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_type)
-        if not task_spec:
-            log.error(f"Task type '{task_type}' does not exist.")
-
-        return task_spec
 
     async def process_on_demand_tasks(self) -> None:
         """Try to make progress on all on-demand tasks."""

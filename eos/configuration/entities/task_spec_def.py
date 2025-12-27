@@ -9,7 +9,7 @@ from eos.configuration.entities.task_parameters import (
 )
 
 
-class TaskSpecResourceConfig(BaseModel):
+class ResourceRequirement(BaseModel):
     type: str
 
     @field_validator("type")
@@ -19,7 +19,7 @@ class TaskSpecResourceConfig(BaseModel):
         return v
 
 
-class TaskSpecOutputParameterConfig(BaseModel):
+class OutputParameter(BaseModel):
     type: TaskParameterType
     desc: str | None = None
     unit: str | None = None
@@ -47,7 +47,7 @@ class TaskSpecOutputParameterConfig(BaseModel):
 ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_.]*$")]
 
 
-class TaskSpecDeviceConfig(BaseModel):
+class DeviceRequirementDef(BaseModel):
     type: str
 
     @field_validator("type")
@@ -57,16 +57,16 @@ class TaskSpecDeviceConfig(BaseModel):
         return v
 
 
-class TaskSpecConfig(BaseModel):
+class TaskSpecDef(BaseModel):
     type: str
     desc: str | None = None
-    devices: dict[ValidName, TaskSpecDeviceConfig] = Field(default_factory=dict)
+    devices: dict[ValidName, DeviceRequirementDef] = Field(default_factory=dict)
 
-    input_resources: dict[ValidName, TaskSpecResourceConfig] = Field(default_factory=dict)
+    input_resources: dict[ValidName, ResourceRequirement] = Field(default_factory=dict)
     input_parameters: dict[ValidName, Any] = Field(default_factory=dict)
 
-    output_resources: dict[ValidName, TaskSpecResourceConfig] = Field(default_factory=dict)
-    output_parameters: dict[ValidName, TaskSpecOutputParameterConfig] = Field(default_factory=dict)
+    output_resources: dict[ValidName, ResourceRequirement] = Field(default_factory=dict)
+    output_parameters: dict[ValidName, OutputParameter] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _set_default_output_resources(self) -> Self:

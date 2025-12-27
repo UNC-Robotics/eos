@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
+from eos.configuration.experiment_graph import ExperimentGraph
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 

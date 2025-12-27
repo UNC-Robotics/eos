@@ -1,6 +1,6 @@
-from eos.configuration.entities.lab import LabResourceConfig
+from eos.configuration.entities.lab_def import ResourceDef
 from eos.configuration.exceptions import EosLabConfigurationError
-from eos.configuration.validation.validators import LabValidator
+from eos.configuration.validation import LabValidator
 from tests.fixtures import *
 
 
@@ -25,8 +25,8 @@ class TestLabValidation:
     def test_resources_allow_duplicate_types(self, configuration_manager, lab):
         # Duplicate types are allowed across different resource IDs
         lab.resources = {}
-        lab.resources["a"] = LabResourceConfig(type="beaker_500")
-        lab.resources["b"] = LabResourceConfig(type="beaker_500")
+        lab.resources["a"] = ResourceDef(type="beaker_500")
+        lab.resources["b"] = ResourceDef(type="beaker_500")
 
         # Should not raise error
         LabValidator(
@@ -39,8 +39,8 @@ class TestLabValidation:
     def test_resource_duplicate_names_within_lab_not_possible(self, configuration_manager, lab):
         # In dict-based resources, duplicate IDs cannot coexist (later assignment overwrites earlier).
         lab.resources = {}
-        lab.resources["dup"] = LabResourceConfig(type="beaker")
-        lab.resources["dup"] = LabResourceConfig(type="flask")
+        lab.resources["dup"] = ResourceDef(type="beaker")
+        lab.resources["dup"] = ResourceDef(type="flask")
 
         # Should not raise due to duplicate IDs within the same lab (dict enforces uniqueness).
         LabValidator(

@@ -140,6 +140,7 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> _Uvicor
     from litestar.openapi.plugins import ScalarRenderPlugin
     import uvicorn
     from eos.web_api.controllers.campaign_controller import CampaignController
+    from eos.web_api.controllers.definition_controller import DefinitionController
     from eos.web_api.controllers.experiment_controller import ExperimentController
     from eos.web_api.controllers.file_controller import FileController
     from eos.web_api.controllers.health_controller import HealthController
@@ -158,6 +159,7 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> _Uvicor
 
     controllers: list[type[Controller]] = [
         CampaignController,
+        DefinitionController,
         ExperimentController,
         FileController,
         HealthController,

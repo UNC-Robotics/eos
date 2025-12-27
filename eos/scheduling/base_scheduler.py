@@ -4,8 +4,8 @@ from abc import ABC
 from dataclasses import dataclass
 
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.entities.task import TaskDeviceConfig, TaskConfig
-from eos.configuration.experiment_graph.experiment_graph import ExperimentGraph
+from eos.configuration.entities.task_def import DeviceAssignmentDef, TaskDef
+from eos.configuration.experiment_graph import ExperimentGraph
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.devices.device_manager import DeviceManager
 from eos.devices.entities.device import DeviceStatus
@@ -194,16 +194,16 @@ class BaseScheduler(AbstractScheduler, ABC):
         self._resources_by_type_with_labs_cache = resources_by_type
         return resources_by_type
 
-    async def _resolve_task_config(
+    async def _resolve_task(
         self,
         db: AsyncDbSession,
         experiment_name: str,
         experiment_graph: ExperimentGraph,
         task_name: str,
-    ) -> TaskConfig:
-        """Get TaskConfig and resolve resource input references."""
-        task_config = experiment_graph.get_task_config(task_name)
-        return await self._task_input_resolver.resolve_input_resource_references(db, experiment_name, task_config)
+    ) -> TaskDef:
+        """Get Task and resolve resource input references."""
+        task = experiment_graph.get_task(task_name)
+        return await self._task_input_resolver.resolve_input_resource_references(db, experiment_name, task)
 
     async def _release_completed_allocations(self, db: AsyncDbSession, completed_by_exp: dict[str, set[str]]) -> None:
         """Release allocations for tasks completed across experiments."""
@@ -235,7 +235,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         return all(dep in completed_tasks for dep in dependencies)
 
     async def _check_device_available(
-        self, db: AsyncDbSession, task_config: TaskConfig, experiment_name: str, task_device: TaskDeviceConfig
+        self, db: AsyncDbSession, task: TaskDef, experiment_name: str, task_device: DeviceAssignmentDef
     ) -> bool:
         """
         A device is available if it is active and either unallocated or allocated to this task.
@@ -243,7 +243,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         """
         # Fast path: conflicting pending request owned by another task?
         owner = self._pending_device_index.get((task_device.lab_name, task_device.name))
-        if owner and owner != (experiment_name, task_config.name):
+        if owner and owner != (experiment_name, task.name):
             return False
 
         device = await self._device_manager.get_device(db, task_device.lab_name, task_device.name)
@@ -252,20 +252,20 @@ class BaseScheduler(AbstractScheduler, ABC):
                 "Device %s in lab %s is inactive (requested by task %s).",
                 task_device.name,
                 task_device.lab_name,
-                task_config.name,
+                task.name,
             )
             return False
 
         # Check if device is already allocated
         allocation = await self._allocation_manager.get_device_allocation(db, task_device.lab_name, task_device.name)
         if allocation:
-            return allocation.owner == task_config.name and allocation.experiment_name == experiment_name
+            return allocation.owner == task.name and allocation.experiment_name == experiment_name
 
         # Pending requests already indexed above; allocated requests are handled by DB check.
         return True
 
     async def _check_resource_available(
-        self, db: AsyncDbSession, task_config: TaskConfig, experiment_name: str, resource_name: str
+        self, db: AsyncDbSession, task: TaskDef, experiment_name: str, resource_name: str
     ) -> bool:
         """
         A resource is available if it is unallocated or allocated to the requesting task.
@@ -273,13 +273,13 @@ class BaseScheduler(AbstractScheduler, ABC):
         """
         # Fast path: conflicting pending request owned by another task?
         owner = self._pending_resource_index.get(resource_name)
-        if owner and owner != (experiment_name, task_config.name):
+        if owner and owner != (experiment_name, task.name):
             return False
 
         # Check if resource is already allocated
         allocation = await self._allocation_manager.get_resource_allocation(db, resource_name)
         if allocation:
-            return allocation.owner == task_config.name and allocation.experiment_name == experiment_name
+            return allocation.owner == task.name and allocation.experiment_name == experiment_name
 
         return True
 
@@ -287,23 +287,21 @@ class BaseScheduler(AbstractScheduler, ABC):
         self,
         db: AsyncDbSession,
         experiment_name: str,
-        task_config: TaskConfig,
-        assigned_devices: dict[str, TaskDeviceConfig],
+        task: TaskDef,
+        assigned_devices: dict[str, DeviceAssignmentDef],
     ) -> bool:
         """
         Check that all assigned devices and required resources are available.
         """
         if assigned_devices:
-            checks = [
-                self._check_device_available(db, task_config, experiment_name, dev) for dev in assigned_devices.values()
-            ]
+            checks = [self._check_device_available(db, task, experiment_name, dev) for dev in assigned_devices.values()]
             if not all(await asyncio.gather(*checks)):
                 return False
 
-        if task_config.resources:
+        if task.resources:
             resource_checks = [
-                self._check_resource_available(db, task_config, experiment_name, resource_name)
-                for resource_name in task_config.resources.values()
+                self._check_resource_available(db, task, experiment_name, resource_name)
+                for resource_name in task.resources.values()
             ]
             if not all(await asyncio.gather(*resource_checks)):
                 return False
@@ -315,18 +313,18 @@ class BaseScheduler(AbstractScheduler, ABC):
         db: AsyncDbSession,
         experiment_name: str,
         task_name: str,
-        task_config: TaskConfig,
-        assigned_devices: dict[str, TaskDeviceConfig],
+        task: TaskDef,
+        assigned_devices: dict[str, DeviceAssignmentDef],
     ) -> ScheduledTask | None:
         """
         Given a task and its concrete device assignments, verify availability, allocate resources and
         build the ScheduledTask. Returns None if resources are unavailable or allocation not granted.
         """
-        if not await self._check_resources_available(db, experiment_name, task_config, assigned_devices):
+        if not await self._check_resources_available(db, experiment_name, task, assigned_devices):
             return None
 
         success, allocated_request = await self._allocate_task_resources(
-            db, experiment_name, task_name, task_config, assigned_devices
+            db, experiment_name, task_name, task, assigned_devices
         )
         if not success:
             return None
@@ -335,7 +333,7 @@ class BaseScheduler(AbstractScheduler, ABC):
             name=task_name,
             experiment_name=experiment_name,
             devices=assigned_devices,
-            resources=task_config.resources,
+            resources=task.resources,
             allocations=allocated_request,
         )
 
@@ -354,7 +352,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         self,
         db: AsyncDbSession,
         experiment_name: str,
-        task_config: TaskConfig,
+        task: TaskDef,
     ) -> dict[str, str] | None:
         """
         Default resource resolution: accept only explicit (non-reference) strings.
@@ -362,7 +360,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         Return None to defer scheduling if resources cannot be resolved now.
         """
         resolved: dict[str, str] = {}
-        for name, value in task_config.resources.items():
+        for name, value in task.resources.items():
             if isinstance(value, str):
                 resolved[name] = value
             else:
@@ -374,16 +372,16 @@ class BaseScheduler(AbstractScheduler, ABC):
         self,
         db: AsyncDbSession,
         experiment_name: str,
-        task_config: TaskConfig,
-    ) -> dict[str, TaskDeviceConfig] | None:
+        task: TaskDef,
+    ) -> dict[str, DeviceAssignmentDef] | None:
         """
         Default device resolution: use only explicitly-declared devices.
         Subclasses override to support dynamic devices and references.
         """
         return {
-            device_name: TaskDeviceConfig(lab_name=dev.lab_name, name=dev.name)
-            for device_name, dev in task_config.devices.items()
-            if isinstance(dev, TaskDeviceConfig)
+            device_name: DeviceAssignmentDef(lab_name=dev.lab_name, name=dev.name)
+            for device_name, dev in task.devices.items()
+            if isinstance(dev, DeviceAssignmentDef)
         }
 
     async def _check_and_allocate_resources(
@@ -401,18 +399,18 @@ class BaseScheduler(AbstractScheduler, ABC):
         if not self._check_task_dependencies_met(task_name, completed_tasks, experiment_graph):
             return None
 
-        task_config: TaskConfig = await self._resolve_task_config(db, experiment_name, experiment_graph, task_name)
+        task: TaskDef = await self._resolve_task(db, experiment_name, experiment_graph, task_name)
 
-        resolved_resources = await self._build_resolved_resources(db, experiment_name, task_config)
+        resolved_resources = await self._build_resolved_resources(db, experiment_name, task)
         if resolved_resources is None:
             return None
-        task_config.resources = resolved_resources
+        task.resources = resolved_resources
 
-        assigned_devices = await self._build_assigned_devices(db, experiment_name, task_config)
+        assigned_devices = await self._build_assigned_devices(db, experiment_name, task)
         if assigned_devices is None:
             return None
 
-        return await self._finalize_scheduling(db, experiment_name, task_name, task_config, assigned_devices)
+        return await self._finalize_scheduling(db, experiment_name, task_name, task, assigned_devices)
 
     async def update_parameters(self, parameters: dict) -> None:
         """
@@ -490,8 +488,8 @@ class BaseScheduler(AbstractScheduler, ABC):
         db: AsyncDbSession,
         experiment_name: str,
         task_name: str,
-        task_config: TaskConfig,
-        assigned_devices: dict[str, TaskDeviceConfig],
+        task: TaskDef,
+        assigned_devices: dict[str, DeviceAssignmentDef],
     ) -> AllocationRequest:
         """Build an allocation request for the given task configuration."""
         experiment = await self._experiment_manager.get_experiment(db, experiment_name)
@@ -503,7 +501,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         )
         for dev in assigned_devices.values():
             request.add_allocation(dev.name, dev.lab_name, AllocationType.DEVICE)
-        for resource_name in task_config.resources.values():
+        for resource_name in task.resources.values():
             request.add_allocation(resource_name, "", AllocationType.RESOURCE)
         return request
 
@@ -512,15 +510,15 @@ class BaseScheduler(AbstractScheduler, ABC):
         db: AsyncDbSession,
         experiment_name: str,
         task_name: str,
-        task_config: TaskConfig,
-        assigned_devices: dict[str, TaskDeviceConfig],
+        task: TaskDef,
+        assigned_devices: dict[str, DeviceAssignmentDef],
     ) -> tuple[bool, ActiveAllocationRequest | None]:
         """
         Allocate devices and resources for a task using the provided concrete device assignments and resources.
 
         Returns: (success, allocated_request)
         """
-        if not assigned_devices and not task_config.resources:
+        if not assigned_devices and not task.resources:
             return True, None
 
         # Check if there's already a pending or allocated request for this task
@@ -531,7 +529,7 @@ class BaseScheduler(AbstractScheduler, ABC):
                 return result.success, result.request
 
         # Build and submit the allocation request
-        request = await self._create_allocation_request(db, experiment_name, task_name, task_config, assigned_devices)
+        request = await self._create_allocation_request(db, experiment_name, task_name, task, assigned_devices)
 
         try:
             allocated_request = await self._allocation_manager.request_allocations(db, request, lambda _: None)

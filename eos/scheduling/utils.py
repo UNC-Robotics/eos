@@ -1,9 +1,9 @@
 from collections.abc import Iterable
 
-from eos.configuration.entities.task import DynamicTaskDeviceConfig
+from eos.configuration.entities.task_def import DynamicDeviceAssignmentDef
 
 
-def filter_device_pool(req: DynamicTaskDeviceConfig, pool: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+def filter_device_pool(req: DynamicDeviceAssignmentDef, pool: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
     """Filter an iterable of (lab_name, device_name) by req constraints and sort deterministically."""
     filtered = list(pool)
 

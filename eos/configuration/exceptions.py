@@ -25,10 +25,6 @@ class EosTaskValidationError(Exception):
     pass
 
 
-class EosDynamicParameterConfigurationError(Exception):
-    pass
-
-
 class EosTaskGraphError(Exception):
     pass
 
@@ -38,10 +34,6 @@ class EosTaskPluginError(Exception):
 
 
 class EosCampaignOptimizerPluginError(Exception):
-    pass
-
-
-class EosCampaignOptimizerNotFoundError(Exception):
     pass
 
 

@@ -1,7 +1,7 @@
 import copy
 
 from eos.configuration.exceptions import EosLabConfigurationError
-from eos.configuration.validation.validators import MultiLabValidator
+from eos.configuration.validation import MultiLabValidator
 from tests.fixtures import *
 
 

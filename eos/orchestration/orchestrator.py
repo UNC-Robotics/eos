@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 import ray
 import time
@@ -14,6 +15,7 @@ from eos.experiments.experiment_executor_factory import ExperimentExecutorFactor
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.orchestration.services.campaign_service import CampaignService
+from eos.orchestration.services.definition_service import DefinitionService
 from eos.orchestration.services.experiment_service import ExperimentService
 from eos.orchestration.services.lab_service import LabService
 from eos.orchestration.services.loading_service import LoadingService
@@ -58,6 +60,7 @@ class Orchestrator(metaclass=Singleton):
         self._task_executor: TaskExecutor | None = None
         self._on_demand_task_executor: OnDemandTaskExecutor | None = None
 
+        self._definitions: DefinitionService | None = None
         self._loading: LoadingService | None = None
         self._labs: LabService | None = None
         self._results: ResultService | None = None
@@ -94,8 +97,8 @@ class Orchestrator(metaclass=Singleton):
         await db_interface.initialize_database()
 
         async with db_interface.get_async_session() as db:
-            await configuration_manager.spec_sync.sync_all_specs(db)
-            await configuration_manager.spec_sync.cleanup_deleted_specs(db)
+            await configuration_manager.def_sync.sync_all_defs(db)
+            await configuration_manager.def_sync.cleanup_deleted_defs(db)
 
         file_db_interface = FileDbInterface(self._file_db_config)
         di.register(FileDbInterface, file_db_interface)
@@ -158,6 +161,7 @@ class Orchestrator(metaclass=Singleton):
         di.register(CampaignExecutorFactory, campaign_executor_factory)
 
         # Orchestrator Services ###################################
+        self._definitions = DefinitionService()
         self._loading = LoadingService()
         self._labs = LabService()
         self._results = ResultService()
@@ -185,7 +189,8 @@ class Orchestrator(metaclass=Singleton):
 
         except ConnectionError:
             log.info("Initializing local Ray cluster...")
-            ray.init(namespace="eos", resources={"eos": 1000})
+            num_cpus = min(8, os.cpu_count() or 8)
+            ray.init(namespace="eos", num_cpus=num_cpus, resources={"eos": 1000}, include_dashboard=False)
             log.info("Initialized local Ray cluster.")
 
     async def terminate(self) -> None:
@@ -297,3 +302,7 @@ class Orchestrator(metaclass=Singleton):
     @property
     def campaigns(self) -> CampaignService:
         return self._campaigns
+
+    @property
+    def definitions(self) -> DefinitionService:
+        return self._definitions

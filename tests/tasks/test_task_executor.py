@@ -1,9 +1,9 @@
 import asyncio
 from asyncio import CancelledError
 
-from eos.configuration.entities.task import TaskConfig, TaskDeviceConfig
-from eos.experiments.entities.experiment import ExperimentDefinition
-from eos.tasks.entities.task import TaskDefinition
+from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
+from eos.experiments.entities.experiment import ExperimentSubmission
+from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
 
 
@@ -15,7 +15,7 @@ from tests.fixtures import *
 class TestTaskExecutor:
     async def _setup_experiment(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type="water_purification", name="water_purification", owner="test")
+            db, ExperimentSubmission(type="water_purification", name="water_purification", owner="test")
         )
 
     async def _process_until_done(self, task_executor, future, timeout_seconds=10):
@@ -39,16 +39,16 @@ class TestTaskExecutor:
         async with db_interface.get_async_session() as db:
             await self._setup_experiment(db, experiment_manager)
 
-        task_config = experiment_graph.get_task_config("mixing")
-        task_config.parameters["time"] = 5
-        task_config.devices = {"magnetic_mixer": TaskDeviceConfig(lab_name="small_lab", name="magnetic_mixer")}
+        task = experiment_graph.get_task("mixing")
+        task.parameters["time"] = 5
+        task.devices = {"magnetic_mixer": DeviceAssignmentDef(lab_name="small_lab", name="magnetic_mixer")}
 
         # Test multiple executions
         for task_name in ["mixing", "mixing2", "mixing3"]:
-            task_definition = TaskDefinition.from_config(task_config, "water_purification")
-            task_definition.name = task_name
+            task_submission = TaskSubmission.from_def(task, "water_purification")
+            task_submission.name = task_name
 
-            future = asyncio.create_task(task_executor.request_task_execution(task_definition))
+            future = asyncio.create_task(task_executor.request_task_execution(task_submission))
             await self._process_until_done(task_executor, future)
 
             task_output_parameters, _, _ = await future
@@ -59,22 +59,22 @@ class TestTaskExecutor:
         async with db_interface.get_async_session() as db:
             await self._setup_experiment(db, experiment_manager)
 
-        sleep_config = TaskConfig(
+        sleep_config = TaskDef(
             name="sleep_task",
             type="Sleep",
-            devices={"device_1": TaskDeviceConfig(lab_name="small_lab", name="general_computer")},
+            devices={"device_1": DeviceAssignmentDef(lab_name="small_lab", name="general_computer")},
             parameters={"time": 5},
         )
-        task_definition = TaskDefinition.from_config(sleep_config, "water_purification")
+        task_submission = TaskSubmission.from_def(sleep_config, "water_purification")
 
-        future = asyncio.create_task(task_executor.request_task_execution(task_definition))
+        future = asyncio.create_task(task_executor.request_task_execution(task_submission))
 
         # Give task time to start
         for _ in range(5):
             await task_executor.process_tasks()
             await asyncio.sleep(0.1)
 
-        await task_executor.cancel_task(task_definition.experiment_name, task_definition.name)
+        await task_executor.cancel_task(task_submission.experiment_name, task_submission.name)
         await self._process_until_done(task_executor, future, timeout_seconds=2)
 
         with pytest.raises(CancelledError):

@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import patch
 
-from eos.experiments.entities.experiment import ExperimentStatus, ExperimentDefinition
+from eos.experiments.entities.experiment import ExperimentStatus, ExperimentSubmission
 from eos.experiments.exceptions import EosExperimentExecutionError
 from eos.experiments.experiment_executor import ExperimentExecutor
 from tests.fixtures import *
@@ -40,7 +40,7 @@ class TestExperimentExecutor:
         db_interface,
     ):
         return ExperimentExecutor(
-            experiment_definition=ExperimentDefinition(
+            experiment_submission=ExperimentSubmission(
                 name=EXPERIMENT_NAME, type=EXPERIMENT_TYPE, owner="test", parameters=PARAMETERS
             ),
             experiment_graph=experiment_graph,
@@ -115,10 +115,10 @@ class TestExperimentExecutor:
     )
     @pytest.mark.asyncio
     async def test_handle_existing_experiment(self, db, experiment_executor, experiment_manager, experiment_status):
-        await experiment_manager.create_experiment(db, experiment_executor._experiment_definition)
+        await experiment_manager.create_experiment(db, experiment_executor._experiment_submission)
         await experiment_manager._set_experiment_status(db, EXPERIMENT_NAME, experiment_status)
 
-        experiment_executor._experiment_definition.resume = False
+        experiment_executor._experiment_submission.resume = False
         with patch.object(experiment_executor, "_resume_experiment") as mock_resume:
             if experiment_status in [
                 ExperimentStatus.COMPLETED,
@@ -136,7 +136,7 @@ class TestExperimentExecutor:
                 await experiment_executor._handle_existing_experiment(db, experiment)
                 mock_resume.assert_not_called()
 
-        experiment_executor._experiment_definition.resume = True
+        experiment_executor._experiment_submission.resume = True
         with patch.object(experiment_executor, "_resume_experiment") as mock_resume:
             experiment = await experiment_manager.get_experiment(db, EXPERIMENT_NAME)
             await experiment_executor._handle_existing_experiment(db, experiment)

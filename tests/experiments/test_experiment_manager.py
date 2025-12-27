@@ -1,4 +1,4 @@
-from eos.experiments.entities.experiment import ExperimentStatus, ExperimentDefinition
+from eos.experiments.entities.experiment import ExperimentStatus, ExperimentSubmission
 from eos.experiments.exceptions import EosExperimentStateError
 from tests.fixtures import *
 
@@ -10,10 +10,10 @@ class TestExperimentManager:
     @pytest.mark.asyncio
     async def test_create_experiment(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
         )
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment_2", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment_2", owner="test")
         )
 
         experiment1 = await experiment_manager.get_experiment(db, "test_experiment")
@@ -25,24 +25,24 @@ class TestExperimentManager:
     async def test_create_experiment_nonexistent_type(self, db, experiment_manager):
         with pytest.raises(EosExperimentStateError):
             await experiment_manager.create_experiment(
-                db, ExperimentDefinition(type="nonexistent", name="test_experiment", owner="test")
+                db, ExperimentSubmission(type="nonexistent", name="test_experiment", owner="test")
             )
 
     @pytest.mark.asyncio
     async def test_create_existing_experiment(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
         )
 
         with pytest.raises(EosExperimentStateError):
             await experiment_manager.create_experiment(
-                db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+                db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
             )
 
     @pytest.mark.asyncio
     async def test_delete_experiment(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
         )
 
         experiment = await experiment_manager.get_experiment(db, "test_experiment")
@@ -61,13 +61,13 @@ class TestExperimentManager:
     @pytest.mark.asyncio
     async def test_get_experiments_by_status(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
         )
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment_2", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment_2", owner="test")
         )
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment_3", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment_3", owner="test")
         )
 
         await experiment_manager.start_experiment(db, "test_experiment")
@@ -87,7 +87,7 @@ class TestExperimentManager:
     @pytest.mark.asyncio
     async def test_set_experiment_status(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
         )
         experiment = await experiment_manager.get_experiment(db, "test_experiment")
         assert experiment.status == ExperimentStatus.CREATED
@@ -108,13 +108,13 @@ class TestExperimentManager:
     @pytest.mark.asyncio
     async def test_get_all_experiments(self, db, experiment_manager):
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment", owner="test")
         )
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment_2", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment_2", owner="test")
         )
         await experiment_manager.create_experiment(
-            db, ExperimentDefinition(type=EXPERIMENT_TYPE, name="test_experiment_3", owner="test")
+            db, ExperimentSubmission(type=EXPERIMENT_TYPE, name="test_experiment_3", owner="test")
         )
 
         experiments = await experiment_manager.get_experiments(db)
