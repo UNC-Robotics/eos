@@ -71,6 +71,7 @@ class ExperimentExecutor:
             )
 
             await self._experiment_manager.start_experiment(db, self._experiment_name)
+            await db.commit()
             self._experiment_status = ExperimentStatus.RUNNING
 
             action = "Resumed" if self._experiment_submission.resume else "Started"

@@ -45,7 +45,7 @@ class LabService:
             filtered_devices = {
                 name: device
                 for name, device in lab.devices.items()
-                if not task_device_types or device.name in task_device_types
+                if not task_device_types or device.type in task_device_types
             }
 
             if filtered_devices:

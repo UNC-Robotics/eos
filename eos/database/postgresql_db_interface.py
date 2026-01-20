@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     create_async_engine,
 )
-from eos.logging.logger import log
+
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface, Base
 from eos.database.alembic_commands import alembic_upgrade, alembic_downgrade
+from eos.database.exceptions import DbConnectionError
+from eos.logging.logger import log
 
 
 class PostgresqlDbInterface(AbstractSqlDbInterface):
@@ -72,9 +74,12 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
     async def initialize_database(self) -> None:
         """Initialize database by creating it if needed and running migrations.
 
-        :raises Exception: If initialization fails
+        :raises DbConnectionError: If connection to database fails
+        :raises Exception: If initialization fails for other reasons
         """
-        log.info(f"Connecting to database at {self._db_config.postgres.host}:{self._db_config.postgres.port}...")
+        host = self._db_config.postgres.host
+        port = self._db_config.postgres.port
+        log.info(f"Connecting to database at {host}:{port}...")
         try:
             exists = await self._database_exists()
             if not exists:
@@ -87,6 +92,15 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
                 await conn.run_sync(Base.metadata.create_all)
 
             log.info(f"Connected to database '{self._db_name}'")
+        except TimeoutError as e:
+            raise DbConnectionError(
+                f"Connection to database at {host}:{port} timed out. "
+                "Please check that PostgreSQL is running and accessible."
+            ) from e
+        except OSError as e:
+            raise DbConnectionError(
+                f"Failed to connect to database at {host}:{port}. Please check that PostgreSQL is running. Error: {e}"
+            ) from e
         except Exception as e:
             log.error(f"Failed to initialize database: {e!s}")
             raise

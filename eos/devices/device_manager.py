@@ -8,6 +8,7 @@ from sqlalchemy import select, update, delete
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.constants import EOS_COMPUTER_NAME
+from eos.allocation.entities.device_allocation import DeviceAllocationModel
 from eos.devices.entities.device import Device, DeviceStatus, DeviceModel
 from eos.devices.exceptions import EosDeviceStateError, EosDeviceInitializationError
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
@@ -125,15 +126,14 @@ class DeviceManager:
                 raise
 
         # Cleanup the specific device actors
-        reload_tasks = []
+        actors_to_cleanup = [
+            f"{lab_name}.{device_name}"
+            for device_name in device_names
+            if f"{lab_name}.{device_name}" in self._device_actor_handles
+        ]
 
-        for device_name in device_names:
-            actor_name = f"{lab_name}.{device_name}"
-            if actor_name in self._device_actor_handles:
-                reload_tasks.append(self._cleanup_single_device(actor_name))
-
-        if reload_tasks:
-            await asyncio.gather(*reload_tasks)
+        if actors_to_cleanup:
+            await self._cleanup_device_actors_with_timeout(actors_to_cleanup)
 
         # Remove device records from database
         await db.execute(
@@ -183,16 +183,87 @@ class DeviceManager:
         if not actor_names:
             return
 
-        cleanup_tasks = [
-            self._cleanup_single_device(actor_name)
-            for actor_name in actor_names
-            if actor_name in self._device_actor_handles
-        ]
-
-        if cleanup_tasks:
-            await asyncio.gather(*cleanup_tasks)
+        actors_to_cleanup = [name for name in actor_names if name in self._device_actor_handles]
+        if actors_to_cleanup:
+            await self._cleanup_device_actors_with_timeout(actors_to_cleanup)
 
         await self.cleanup_devices(db, lab_names)
+
+    async def _cleanup_device_actors_with_timeout(self, actor_names: list[str], cleanup_timeout: float = 30.0) -> None:
+        """Clean up multiple device actors concurrently with a timeout."""
+        # Start cleanup on all actors and collect the object refs
+        cleanup_refs: dict[ray.ObjectRef, str] = {}
+        for actor_name in actor_names:
+            actor_handle = self._device_actor_handles.get(actor_name)
+            if actor_handle is None:
+                continue
+
+            try:
+                log.info(f"Cleaning up device '{actor_name}'...")
+                cleanup_ref = actor_handle.cleanup.remote()
+                cleanup_refs[cleanup_ref] = actor_name
+            except Exception as e:
+                log.error(f"Failed to start cleanup for device '{actor_name}': {e}")
+                self._forcefully_kill_actor(actor_name)
+
+        if not cleanup_refs:
+            return
+
+        # Process cleanups as they complete, with overall timeout
+        pending_refs = set(cleanup_refs.keys())
+        start_time = asyncio.get_event_loop().time()
+
+        while pending_refs:
+            elapsed = asyncio.get_event_loop().time() - start_time
+            remaining_timeout = max(0, cleanup_timeout - elapsed)
+
+            if remaining_timeout <= 0:
+                break
+
+            ready_refs, _ = ray.wait(
+                list(pending_refs),
+                num_returns=1,
+                timeout=remaining_timeout,
+            )
+
+            if not ready_refs:
+                # Timeout reached with no more completions
+                break
+
+            for ref in ready_refs:
+                pending_refs.discard(ref)
+                actor_name = cleanup_refs[ref]
+                try:
+                    ray.get(ref)  # Check for exceptions
+                    log.info(f"Cleaned up device '{actor_name}'")
+                except Exception as e:
+                    log.error(f"Cleanup failed for device '{actor_name}': {e}")
+                    self._forcefully_kill_actor(actor_name)
+                finally:
+                    self._remove_device_references(actor_name)
+
+        # Forcefully kill actors that timed out
+        if pending_refs:
+            timed_out_actors = [cleanup_refs[ref] for ref in pending_refs]
+            log.warning(
+                f"Timed out cleaning up {len(timed_out_actors)} device(s) after {cleanup_timeout} seconds: "
+                f"{', '.join(timed_out_actors)}"
+            )
+            for ref in pending_refs:
+                actor_name = cleanup_refs[ref]
+                self._forcefully_kill_actor(actor_name)
+                self._remove_device_references(actor_name)
+
+    def _forcefully_kill_actor(self, actor_name: str) -> None:
+        """Forcefully kill a device actor."""
+        if actor_name not in self._device_actor_handles:
+            return
+
+        try:
+            log.warning(f"Forcefully killing device '{actor_name}'")
+            ray.kill(self._device_actor_handles[actor_name])
+        except Exception as e:
+            log.error(f"Error killing device '{actor_name}': {e}")
 
     async def _get_actor_names_to_cleanup(self, db: AsyncDbSession, lab_names: list[str] | None) -> list[str]:
         """Get actor names that need to be cleaned up."""
@@ -203,50 +274,6 @@ class DeviceManager:
         devices = [Device.model_validate(device) for device in result.scalars()]
         return [device.get_actor_name() for device in devices]
 
-    async def _cleanup_single_device(self, actor_name: str) -> None:
-        """Clean up a single device actor with timeout.
-
-        Attempts to gracefully clean up a device actor. If the cleanup
-        doesn't complete within 30 seconds, forcefully kills the actor.
-
-        :param actor_name: The name of the actor to clean up
-        """
-        if actor_name not in self._device_actor_handles:
-            return
-
-        actor_handle = self._device_actor_handles[actor_name]
-        success = False
-        cleanup_timeout = 30.0
-
-        try:
-            log.info(f"Cleaning up device actor '{actor_name}'...")
-            cleanup_ref = actor_handle.cleanup.remote()
-
-            # Wait for cleanup to complete with timeout
-            ready_refs, _ = ray.wait([cleanup_ref], timeout=cleanup_timeout)
-
-            if cleanup_ref in ready_refs:
-                log.info(f"Cleaned up device actor '{actor_name}'")
-                success = True
-            else:
-                log.warning(
-                    f"Timed out cleaning up device actor '{actor_name}' after {cleanup_timeout} seconds, "
-                    f"will forcefully kill..."
-                )
-        except Exception as e:
-            log.error(f"Failed cleaning up device actor '{actor_name}': {e}")
-        finally:
-            # Kill if cleanup wasn't successful
-            if not success and actor_name in self._device_actor_handles:
-                try:
-                    log.warning(f"Forcefully killing device actor '{actor_name}'")
-                    ray.kill(self._device_actor_handles[actor_name])
-                except Exception as e:
-                    log.error(f"Error killing device actor '{actor_name}': {e}")
-
-            # Clean up references regardless of success
-            self._remove_device_references(actor_name)
-
     def _remove_device_references(self, actor_name: str) -> None:
         """Remove device references from internal tracking dictionaries."""
         self._device_actor_handles.pop(actor_name, None)
@@ -255,9 +282,11 @@ class DeviceManager:
     async def cleanup_devices(self, db: AsyncDbSession, lab_names: list[str] | None = None) -> None:
         """Remove device records from the database."""
         if lab_names:
+            await db.execute(delete(DeviceAllocationModel).where(DeviceAllocationModel.lab_name.in_(lab_names)))
             await db.execute(delete(DeviceModel).where(DeviceModel.lab_name.in_(lab_names)))
             log.debug(f"Cleaned up devices for lab(s): {', '.join(lab_names)}")
         else:
+            await db.execute(delete(DeviceAllocationModel))
             await db.execute(delete(DeviceModel))
             log.debug("Cleaned up all devices")
 

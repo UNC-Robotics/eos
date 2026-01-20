@@ -55,7 +55,7 @@ class LoadingService:
         """Reload one or more labs in the orchestrator with updated device plugin code."""
         for lab_type in lab_types:
             lab = self._configuration_manager.package_manager.read_lab(lab_type)
-            device_types = {device.name for device in lab.devices.values()}
+            device_types = {device.type for device in lab.devices.values()}
             for device_type in device_types:
                 try:
                     self._configuration_manager.devices.reload_plugin(device_type)

@@ -105,7 +105,7 @@ class LabValidator:
         for device_name, device in self._lab.devices.items():
             if not self._device_specs.get_spec_by_config(device):
                 batch_error(
-                    f"Device type '{device.name}' of device '{device_name}' does not exist.",
+                    f"Device type '{device.type}' of device '{device_name}' does not exist.",
                     EosLabConfigurationError,
                 )
         raise_batched_errors(EosLabConfigurationError)
@@ -120,7 +120,7 @@ class LabValidator:
                     if param_name not in spec_params:
                         batch_error(
                             f"Invalid initialization parameter '{param_name}' for device '{device_name}' "
-                            f"of type '{device.name}' in lab type '{self._lab.name}'. "
+                            f"of type '{device.type}' in lab type '{self._lab.name}'. "
                             f"Valid parameters are: {', '.join(spec_params.keys())}",
                             EosLabConfigurationError,
                         )

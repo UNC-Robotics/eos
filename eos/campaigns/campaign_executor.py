@@ -69,7 +69,7 @@ class CampaignExecutor:
             await self._initialize_new_campaign(db)
 
         await self._campaign_manager.start_campaign(db, self._campaign_name)
-        await db.flush()
+        await db.commit()
 
         self._campaign_status = CampaignStatus.RUNNING
         log.info(f"Started campaign '{self._campaign_name}'")

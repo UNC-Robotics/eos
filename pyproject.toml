@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.13.0"
+version = "0.14.0"
 description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -22,39 +22,39 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "ray[default]==2.52.1",
-    "typer==0.20.0",
-    "rich==14.2.0",
-    "PyYAML==6.0.3",
-    "jinja2==3.1.6",
-    "pydantic==2.12.5",
-    "pydantic-settings==2.12.0",
-    "networkx==3.6.0",
-    "sqlalchemy==2.0.44",
-    "alembic==1.17.2",
-    "psycopg[binary]==3.3.1",
-    "asyncpg==0.31.0",
-    "minio==7.2.18",
-    "bofire[optimization]==0.3.0",
-    "pandas==2.3.3",
+    "ray[default]>=2.53.0",
+    "typer>=0.21.1",
+    "rich>=14.2.0",
+    "PyYAML>=6.0.3",
+    "jinja2>=3.1.6",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "networkx>=3.6.1",
+    "sqlalchemy>=2.0.45",
+    "alembic>=1.18.0",
+    "psycopg[binary]>=3.3.2",
+    "asyncpg>=0.31.0",
+    "minio>=7.2.20",
+    "bofire[optimization]>=0.3.1",
+    "pandas>=2.3.3",
     "ortools<=9.12",
-    "litestar[standard]==2.18.0",
+    "litestar[standard]>=2.19.0",
 ]
 
 [dependency-groups]
 worker = [
-    "ray[default]==2.52.1",
-    "typer==0.20.0",
-    "rich==14.2.0",
-    "pydantic==2.12.5",
-    "pydantic-settings==2.12.0",
-    "sqlalchemy==2.0.44",
-    "alembic==1.17.2",
+    "ray[default]>=2.53.0",
+    "typer>=0.21.1",
+    "rich>=14.2.0",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "sqlalchemy>=2.0.45",
+    "alembic>=1.18.0",
 ]
 optimizer_worker = [
     { include-group = "worker" },
-    "bofire[optimization]==0.3.0",
-    "pandas==2.3.3",
+    "bofire[optimization]>=0.3.1",
+    "pandas>=2.3.3",
 ]
 
 sila2 = [

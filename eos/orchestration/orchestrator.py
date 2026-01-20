@@ -111,6 +111,11 @@ class Orchestrator(metaclass=Singleton):
         di.register(WorkSignal, self._work_signal)
 
         # State management ########################################
+        allocation_manager = AllocationManager()
+        async with db_interface.get_async_session() as db:
+            await allocation_manager.initialize(db)
+        di.register(AllocationManager, allocation_manager)
+
         device_manager = DeviceManager()
         async with db_interface.get_async_session() as db:
             await device_manager.cleanup_devices(db)
@@ -120,11 +125,6 @@ class Orchestrator(metaclass=Singleton):
         async with db_interface.get_async_session() as db:
             await resource_manager.initialize(db)
         di.register(ResourceManager, resource_manager)
-
-        allocation_manager = AllocationManager()
-        async with db_interface.get_async_session() as db:
-            await allocation_manager.initialize(db)
-        di.register(AllocationManager, allocation_manager)
 
         task_manager = TaskManager()
         di.register(TaskManager, task_manager)
