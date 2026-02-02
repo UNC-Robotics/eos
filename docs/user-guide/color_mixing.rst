@@ -39,7 +39,9 @@ Edit the ``config.yml`` file to have the following for user_dir, labs, and exper
 Sample Usage
 ------------
 1. ``cd`` into the ``eos`` directory
-2. Run ``python3 user/eos_examples/color_lab/device_drivers.py`` to start the fluid simulation and simulated device drivers.
+2. Run ``python3 user/eos_examples/color_lab/device_drivers.py`` to start the fluid simulation and simulated device drivers. Browser windows will open automatically.
+
+   On dual-GPU systems (e.g., NVIDIA + integrated GPU on Wayland), pass ``--browser chrome --nvidia`` to launch the browser with NVIDIA GPU offload and X11 mode for correct WebGL rendering.
 3. Start EOS.
 4. Submit tasks, experiments, or campaigns through the REST API.
 
@@ -79,6 +81,7 @@ The top-level structure of the ``color_lab`` package is as follows:
     ├── common/ <-- contains shared code
     ├── devices/ <-- contains the device implementations
     ├── experiments/ <-- contains the color mixing experiment definitions
+    ├── labs/ <-- contains the laboratory definition
     ├── tasks/ <-- contains the task definitions
     ├── fluid_simulation/ <-- contains the source code for the fluid simulation web app
     └── device_drivers.py <-- a script for starting the fluid simulation and socket servers for the devices
@@ -88,12 +91,11 @@ Devices
 -------
 The package contains the following device implementations:
 
-* **Color mixer**: Sends commands to the fluid simulation to dispense and mix colors.
-* **Color analyzer**: Queries the fluid simulation to get the average fluid color.
+* **Color station**: Sends commands to the fluid simulation to dispense and mix colors, and queries it to get the average fluid color.
 * **Robot arm**: Moves sample containers between other devices.
 * **Cleaning station**: Cleans sample containers (by erasing their stored metadata).
 
-This is the Python code for the color analyzer device:
+This is the Python code for the color station device:
 
 :bdg-primary:`device.py`
 
@@ -106,7 +108,7 @@ This is the Python code for the color analyzer device:
     from user.eos_examples.color_lab.common.device_client import DeviceClient
 
 
-    class ColorAnalyzer(BaseDevice):
+    class ColorStation(BaseDevice):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
             port = int(init_parameters["port"])
             self.client = DeviceClient(port)
@@ -118,41 +120,59 @@ This is the Python code for the color analyzer device:
         async def _report(self) -> dict[str, Any]:
             return {}
 
+        def mix(
+            self,
+            container: Resource,
+            cyan_volume: float,
+            cyan_strength: float,
+            magenta_volume: float,
+            magenta_strength: float,
+            yellow_volume: float,
+            yellow_strength: float,
+            black_volume: float,
+            black_strength: float,
+            mixing_time: int,
+            mixing_speed: int,
+        ) -> Resource:
+            ...
+
         def analyze(self, container: Resource) -> tuple[Resource, tuple[int, int, int]]:
             rgb = self.client.send_command("analyze", {})
             return container, rgb
 
-You will notice that there is little code here.
-In fact, the device implementation communicates with another process over a socket.
+You will notice that the color station combines both mixing and analysis into a single device.
+This ensures that a single allocation connects to a single fluid simulation window, so the
+color that is mixed is the same one that gets analyzed.
+
+The device implementation communicates with another process over a socket.
 This is a common pattern when integrating devices in the laboratory, as device drivers are usually provided by a 3rd
 party, such as the device manufacturer.
 So often the device implementation simply uses the existing driver.
 In some cases, the device implementation may include a full driver implementation.
 
 The device implementation initializes a client that connects to the device driver over a socket.
-The device implements one function called ``analyze``, which accepts a beaker resource and returns the resource and the average
-RGB value of the fluid color from the fluid simulation.
+The device implements a ``mix`` function for dispensing and mixing colors, and an ``analyze`` function
+that returns the average RGB value of the fluid color from the fluid simulation.
 
-The device YAML file for the color analyzer device is:
+The device YAML file for the color station device is:
 
 :bdg-primary:`device.yml`
 
 .. code-block:: yaml
 
-    type: color_analyzer
-    desc: Analyzes the RGB value of a color mixture
+    type: color_station
+    desc: Color mixing and analysis station backed by a fluid simulation
 
     init_parameters:
-      port: 5002
+      port: 5003
 
 Tasks
 -----
 The package contains the following tasks:
 
-* **Retrieve container**: Retrieves a beaker from storage and moves it to a color mixer using the robot arm.
-* **Mix colors**: Dispenses and mixes colors using a color mixer (fluid simulation).
-* **Move container to analyzer**: Moves the beaker from the color mixer to a color analyzer using the robot arm.
-* **Analyze color**: Analyzes the color of the fluid using a color analyzer (fluid simulation).
+* **Retrieve container**: Retrieves a beaker from storage and moves it to a color station using the robot arm.
+* **Mix colors**: Dispenses and mixes colors using a color station (fluid simulation).
+* **Analyze color**: Analyzes the color of the fluid using a color station (fluid simulation).
 * **Score color**: Calculates a loss function taking into account how close the mixed color is to the target color and
   how much color ingredients were used.
 * **Empty container**: Empties a beaker with the robot arm.
@@ -175,9 +195,9 @@ This is the Python code for the "Analyze color" task:
             parameters: BaseTask.ParametersType,
             resources: BaseTask.ResourcesType,
         ) -> BaseTask.OutputType:
-            color_analyzer = devices["color_analyzer"]
+            color_station = devices["color_station"]
 
-            resources["beaker"], rgb = color_analyzer.analyze(resources["beaker"])
+            resources["beaker"], rgb = color_station.analyze(resources["beaker"])
 
             output_parameters = {
                 "red": rgb[0],
@@ -187,8 +207,8 @@ This is the Python code for the "Analyze color" task:
 
             return output_parameters, resources, None
 
-The task implementation is straightforward. We first get a reference to the color analyzer device.
-Then, we call the ``analyze`` function from the color analyzer device we saw earlier. Finally, we construct
+The task implementation is straightforward. We first get a reference to the color station device.
+Then, we call the ``analyze`` function from the color station device we saw earlier. Finally, we construct
 and return the dict of output parameters and the resources.
 
 The task YAML file is the following:
@@ -201,8 +221,8 @@ The task YAML file is the following:
     desc: Analyze the color of a solution
 
     devices:
-      color_analyzer:
-        type: color_analyzer
+      color_station:
+        type: color_station
 
     input_resources:
       beaker:
@@ -227,7 +247,7 @@ Laboratory
 The laboratory YAML definition is shown below.
 
 We define the devices we discussed earlier.
-Note that we define three color mixers and three color analyzers so the laboratory can support up to three simultaneous color mixing experiments.
+Note that we define three color stations so the laboratory can support up to three simultaneous color mixing experiments.
 
 We also define the resource types and the actual resources (beakers) with their initial locations.
 
@@ -247,12 +267,9 @@ We also define the resource types and the actual resources (beakers) with their 
         init_parameters:
           locations:
             - container_storage
-            - color_mixer_1
-            - color_mixer_2
-            - color_mixer_3
-            - color_analyzer_1
-            - color_analyzer_2
-            - color_analyzer_3
+            - color_station_1
+            - color_station_2
+            - color_station_3
             - cleaning_station
             - emptying_location
 
@@ -264,71 +281,38 @@ We also define the resource types and the actual resources (beakers) with their 
         meta:
           location: cleaning_station
 
-      color_mixer_1:
-        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
-        type: color_mixer
-        computer: eos_computer
-
-        init_parameters:
-          port: 5004
-
-        meta:
-          location: color_mixer_1
-
-      color_mixer_2:
-        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
-        type: color_mixer
-        computer: eos_computer
-
-        init_parameters:
-          port: 5006
-
-        meta:
-          location: color_mixer_2
-
-      color_mixer_3:
-        desc: Color mixing apparatus for incrementally dispensing and mixing color solutions
-        type: color_mixer
-        computer: eos_computer
-
-        init_parameters:
-          port: 5008
-
-        meta:
-          location: color_mixer_3
-
-      color_analyzer_1:
-        desc: Analyzer for color solutions
-        type: color_analyzer
+      color_station_1:
+        desc: Color mixing and analysis station backed by a fluid simulation
+        type: color_station
         computer: eos_computer
 
         init_parameters:
           port: 5003
 
         meta:
-          location: color_analyzer_1
+          location: color_station_1
 
-      color_analyzer_2:
-        desc: Analyzer for color solutions
-        type: color_analyzer
+      color_station_2:
+        desc: Color mixing and analysis station backed by a fluid simulation
+        type: color_station
+        computer: eos_computer
+
+        init_parameters:
+          port: 5004
+
+        meta:
+          location: color_station_2
+
+      color_station_3:
+        desc: Color mixing and analysis station backed by a fluid simulation
+        type: color_station
         computer: eos_computer
 
         init_parameters:
           port: 5005
 
         meta:
-          location: color_analyzer_2
-
-      color_analyzer_3:
-        desc: Analyzer for color solutions
-        type: color_analyzer
-        computer: eos_computer
-
-        init_parameters:
-          port: 5007
-
-        meta:
-          location: color_analyzer_3
+          location: color_station_3
 
 
     resource_types:
@@ -362,9 +346,8 @@ Experiment
 ----------
 The color mixing experiment is a linear sequence of the following tasks:
 
-#. **retrieve_container**: Get a beaker from storage and move it to a color mixer.
+#. **retrieve_container**: Get a beaker from storage and move it to a color station.
 #. **mix_colors**: Iteratively dispense and mix the colors in the beaker.
-#. **move_container_to_analyzer**: Move the beaker from the color mixer to a color analyzer.
 #. **analyze_color**: Analyze the color of the solution in the beaker and output the RGB values.
 #. **score_color**: Score the color (compute the loss function) based on the RGB values.
 #. **empty_container**: Empty the beaker and move it to the cleaning station.
@@ -392,10 +375,9 @@ The YAML definition of the experiment is shown below:
           robot_arm:
             lab_name: color_lab
             name: robot_arm
-          color_mixer:
+          color_station:
             allocation_type: dynamic
-            device_type: color_mixer
-            allowed_labs: [color_lab]
+            device_type: color_station
         resources:
           beaker:
             allocation_type: dynamic
@@ -407,7 +389,7 @@ The YAML definition of the experiment is shown below:
         desc: Mix the colors in the container
         duration: 20
         devices:
-          color_mixer: retrieve_container.color_mixer
+          color_station: retrieve_container.color_station
         resources:
           beaker: retrieve_container.beaker
         parameters:
@@ -423,32 +405,15 @@ The YAML definition of the experiment is shown below:
           mixing_speed: eos_dynamic
         dependencies: [retrieve_container]
 
-      - name: move_container_to_analyzer
-        type: Move Container to Analyzer
-        desc: Move the container to the color analyzer
-        duration: 5
-        devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          color_mixer: mix_colors.color_mixer
-          color_analyzer:
-            allocation_type: dynamic
-            device_type: color_analyzer
-            allowed_labs: [color_lab]
-        resources:
-          beaker: mix_colors.beaker
-        dependencies: [mix_colors]
-
       - name: analyze_color
         type: Analyze Color
         desc: Analyze the color of the solution in the container and output the RGB values
         duration: 2
         devices:
-          color_analyzer: move_container_to_analyzer.color_analyzer
+          color_station: mix_colors.color_station
         resources:
-          beaker: move_container_to_analyzer.beaker
-        dependencies: [move_container_to_analyzer]
+          beaker: mix_colors.beaker
+        dependencies: [mix_colors]
 
       - name: score_color
         type: Score Color
@@ -528,13 +493,13 @@ Example:
 
     - name: mix_colors
       devices:
-        color_mixer: retrieve_container.color_mixer
+        color_station: retrieve_container.color_station
 
     - name: analyze_color
       devices:
-        color_analyzer: move_container_to_analyzer.color_analyzer
+        color_station: mix_colors.color_station
 
-In the first snippet, the mix_colors task uses the exact color_mixer allocated during retrieve_container. In the second, analyze_color uses the color_analyzer allocated during move_container_to_analyzer.
+In the first snippet, the mix_colors task uses the exact color_station allocated during retrieve_container. In the second, analyze_color uses the same color_station, ensuring that the mixed color is analyzed on the same simulation window.
 
 **Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
 
@@ -548,9 +513,9 @@ Example:
 
     - name: analyze_color
       resources:
-        beaker: move_container_to_analyzer.beaker
+        beaker: mix_colors.beaker
 
-The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then moved by the robot and reused by analyze_color.
+The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then reused by analyze_color on the same station.
 
 **Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
 
