@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=361a893e"></script>
+    <script src="../_static/documentation_options.js?v=52d5597a"></script>
     <script src="../_static/doctools.js?v=9bcbadda"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -406,7 +406,8 @@
 <p>Using an isolated laboratory network for security and performance is strongly recommended.
 See <a class="reference internal" href="infrastructure_setup.html"><span class="doc">infrastructure setup</span></a> for details.</p>
 </div>
-<p>EOS requires PostgreSQL and MinIO for data and file storage. We provide a Docker Compose file to set up these services.</p>
+<p>EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
+Docker Compose file to set up these services.</p>
 <section id="install-uv">
 <h2>1. Install uv<a class="headerlink" href="#install-uv" title="Link to this heading">#</a></h2>
 <p>uv manages dependencies for EOS.</p>
@@ -456,7 +457,7 @@ cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
 </section>
 <section id="launch-external-services">
 <h2>4. Launch External Services<a class="headerlink" href="#launch-external-services" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start external services (PostgreSQL and MinIO)</span>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start external services (PostgreSQL and SeaweedFS)</span>
 docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </pre></div>
 </div>
