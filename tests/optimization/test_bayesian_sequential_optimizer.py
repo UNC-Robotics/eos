@@ -78,3 +78,28 @@ class TestCampaignBayesianOptimizer:
                 and abs(solution["y2"] - true_solution["y2"]) < 2.0
                 for _, solution in optimal_solutions.iterrows()
             )
+
+    def test_sample_after_initial_samples_exhausted_before_all_reported(self):
+        optimizer = BayesianSequentialOptimizer(
+            inputs=[
+                ContinuousInput(key="x", bounds=(0, 7)),
+            ],
+            outputs=[ContinuousOutput(key="y", objective=MaximizeObjective(w=1.0))],
+            constraints=[],
+            acquisition_function=qLogNEI(),
+            num_initial_samples=5,
+            initial_sampling_method=SamplingMethodEnum.SOBOL,
+        )
+
+        # Consume all 5 initial samples in one batch
+        params_batch = optimizer.sample(num_experiments=5)
+        assert len(params_batch) == 5
+
+        # Report only 1 result (simulating 1 experiment completing before the others)
+        first_params = params_batch.iloc[[0]]
+        first_results = pd.DataFrame({"y": -((first_params["x"] - 2) ** 2) + 4})
+        optimizer.report(first_params, first_results)
+
+        # Request 1 more sample to fill the empty slot — this should NOT raise
+        extra = optimizer.sample(num_experiments=1)
+        assert len(extra) == 1

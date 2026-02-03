@@ -73,9 +73,15 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
                 self._generate_initial_samples_df()
 
             if self._initial_samples_df is not None and not self._initial_samples_df.empty:
-                return self._fetch_and_remove_initial_samples(num_experiments)
+                initial = self._fetch_and_remove_initial_samples(num_experiments)
+                if len(initial) >= num_experiments:
+                    return initial
+                remaining = num_experiments - len(initial)
+                extra = self._domain.inputs.sample(n=remaining, method=self._initial_sampling_method)
+                return pd.concat([initial, extra], ignore_index=True)
 
             self._initial_samples_df = None
+            return self._domain.inputs.sample(n=num_experiments, method=self._initial_sampling_method)
 
         new_parameters_df = self._optimizer.ask(candidate_count=num_experiments)
 

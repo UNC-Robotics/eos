@@ -518,6 +518,45 @@ class TestAllocationRequests:
         assert len(await allocation_manager.get_all_active_requests(db)) == 0
 
     @pytest.mark.asyncio
+    async def test_batch_non_conflicting_allocations(self, db, allocation_manager, experiment):
+        """Multiple non-conflicting requests should all be allocated in a single process_requests call."""
+        requests = [
+            AllocationRequest(
+                requester="requester_a",
+                reason="Needed for experiment",
+                experiment_name=EXPERIMENT_NAME,
+            ),
+            AllocationRequest(
+                requester="requester_b",
+                reason="Needed for experiment",
+                experiment_name=EXPERIMENT_NAME,
+            ),
+            AllocationRequest(
+                requester="requester_c",
+                reason="Needed for experiment",
+                experiment_name=EXPERIMENT_NAME,
+            ),
+        ]
+        requests[0].add_allocation("magnetic_mixer", LAB_ID, AllocationType.DEVICE)
+        requests[1].add_allocation("evaporator", LAB_ID, AllocationType.DEVICE)
+        requests[2].add_allocation("026749f8f40342b38157f9824ae2f512", LAB_ID, AllocationType.RESOURCE)
+
+        active_requests = [await allocation_manager.request_allocations(db, req, lambda x: None) for req in requests]
+
+        # All three are pending before processing
+        for ar in active_requests:
+            assert ar.status == AllocationRequestStatus.PENDING
+
+        # A single process_requests call should allocate all three
+        await allocation_manager.process_requests(db)
+
+        for ar in active_requests:
+            updated = await allocation_manager.get_active_request(db, ar.id)
+            assert updated.status == AllocationRequestStatus.ALLOCATED, (
+                f"Request {updated.requester} should be ALLOCATED but is {updated.status}"
+            )
+
+    @pytest.mark.asyncio
     async def test_all_or_nothing_allocation(self, db, allocation_manager, experiment):
         request = AllocationRequest(
             requester="test_requester",

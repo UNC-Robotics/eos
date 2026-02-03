@@ -103,7 +103,17 @@ class AllocationManager:
                     )
                 )
 
-        active = await self._model_to_active_request(db, model)
+        active = ActiveAllocationRequest(
+            id=model.id,
+            requester=request.requester,
+            allocations=list(request.allocations),
+            experiment_name=request.experiment_name,
+            reason=request.reason,
+            priority=request.priority,
+            timeout=request.timeout,
+            status=AllocationRequestStatus.PENDING,
+            created_at=model.created_at,
+        )
         self._request_callbacks[active.id] = callback
         return active
 
@@ -121,7 +131,7 @@ class AllocationManager:
     async def get_active_request(self, db: AsyncDbSession, request_id: int) -> ActiveAllocationRequest | None:
         result = await db.execute(select(AllocationRequestModel).where(AllocationRequestModel.id == request_id))
         if m := result.scalar_one_or_none():
-            return await self._model_to_active_request(db, m)
+            return self._model_to_active_request(m)
         return None
 
     async def get_all_active_requests(
@@ -157,14 +167,17 @@ class AllocationManager:
         if filters:
             stmt = stmt.where(*filters)
         result = await db.execute(stmt)
-        return [await self._model_to_active_request(db, m) for m in result.scalars()]
+        return [self._model_to_active_request(m) for m in result.scalars()]
 
     async def process_requests(self, db: AsyncDbSession) -> None:
         """Process pending allocation requests in priority order."""
-        async with self._lock:
-            await self._delete_completed_and_aborted_requests(db)
-            active_requests = await self._get_all_active_requests_prioritized(db)
+        await self._delete_completed_and_aborted_requests(db)
+        active_requests = await self._get_all_active_requests_prioritized(db)
 
+        if not active_requests:
+            return
+
+        async with self._lock:
             priority_groups: dict[int, list[ActiveAllocationRequest]] = {}
             for req in active_requests:
                 priority_groups.setdefault(req.priority, []).append(req)
@@ -369,14 +382,129 @@ class AllocationManager:
 
     async def _process_request_batch(self, db: AsyncDbSession, requests: list[ActiveAllocationRequest]) -> None:
         now = datetime.now(UTC)
+
+        allocatable: list[tuple[ActiveAllocationRequest, list[tuple[str, str]], list[str]]] = []
+
         for request in requests:
             if request.status != AllocationRequestStatus.PENDING:
                 continue
             if self._is_request_timed_out(request, now):
                 await self._handle_timeout(db, request)
                 continue
-            if await self._try_allocate(db, request):
-                self._invoke_request_callback(request)
+
+            devices, resources = self._parse_request_allocations(request)
+
+            try:
+                for lab_name, device_name in devices:
+                    self._validate_device_exists(lab_name, device_name)
+                for resource_name in resources:
+                    self._validate_resource_exists(resource_name)
+            except Exception as e:
+                self._rollback_cache(allocatable)
+                await self.abort_request(db, request.id)
+                raise EosAllocationRequestError(f"Failed to allocate for request {request.id}: {e!s}") from e
+
+            if any(d in self._device_allocations for d in devices):
+                continue
+            if any(r in self._resource_allocations for r in resources):
+                continue
+
+            self._reserve_in_cache(request, devices, resources)
+            allocatable.append((request, devices, resources))
+
+        if not allocatable:
+            return
+
+        try:
+            await self._bulk_persist_allocations(db, allocatable)
+        except Exception:
+            self._rollback_cache(allocatable)
+            raise
+
+    def _reserve_in_cache(
+        self, request: ActiveAllocationRequest, devices: list[tuple[str, str]], resources: list[str]
+    ) -> None:
+        for lab_name, device_name in devices:
+            self._device_allocations[(lab_name, device_name)] = DeviceAllocation(
+                name=device_name,
+                lab_name=lab_name,
+                owner=request.requester,
+                experiment_name=request.experiment_name,
+            )
+        for resource_name in resources:
+            self._resource_allocations[resource_name] = ResourceAllocation(
+                name=resource_name,
+                owner=request.requester,
+                experiment_name=request.experiment_name,
+            )
+
+    def _rollback_cache(
+        self, allocatable: list[tuple[ActiveAllocationRequest, list[tuple[str, str]], list[str]]]
+    ) -> None:
+        for _, devices, resources in allocatable:
+            for key in devices:
+                self._device_allocations.pop(key, None)
+            for name in resources:
+                self._resource_allocations.pop(name, None)
+
+    async def _bulk_persist_allocations(
+        self,
+        db: AsyncDbSession,
+        allocatable: list[tuple[ActiveAllocationRequest, list[tuple[str, str]], list[str]]],
+    ) -> None:
+        all_device_allocs: list[DeviceAllocation] = []
+        all_resource_allocs: list[ResourceAllocation] = []
+        request_ids: list[int] = []
+
+        for request, devices, resources in allocatable:
+            request_ids.append(request.id)
+            for key in devices:
+                all_device_allocs.append(self._device_allocations[key])
+            for name in resources:
+                all_resource_allocs.append(self._resource_allocations[name])
+
+        if all_device_allocs:
+            conditions = [
+                (DeviceAllocationModel.lab_name == a.lab_name) & (DeviceAllocationModel.name == a.name)
+                for a in all_device_allocs
+            ]
+            await db.execute(delete(DeviceAllocationModel).where(or_(*conditions)))
+
+        if all_resource_allocs:
+            await db.execute(
+                delete(ResourceAllocationModel).where(
+                    ResourceAllocationModel.name.in_([a.name for a in all_resource_allocs])
+                )
+            )
+
+        if all_device_allocs:
+            db.add_all([DeviceAllocationModel(**a.model_dump(exclude={"created_at"})) for a in all_device_allocs])
+        if all_resource_allocs:
+            db.add_all([ResourceAllocationModel(**a.model_dump(exclude={"created_at"})) for a in all_resource_allocs])
+
+        await db.flush()
+
+        await db.execute(
+            update(AllocationRequestModel)
+            .where(AllocationRequestModel.id.in_(request_ids))
+            .values(status=AllocationRequestStatus.ALLOCATED, allocated_at=datetime.now(UTC))
+        )
+
+        for request, _, _ in allocatable:
+            request.status = AllocationRequestStatus.ALLOCATED
+            self._invoke_request_callback(request)
+
+    @staticmethod
+    def _parse_request_allocations(
+        request: ActiveAllocationRequest,
+    ) -> tuple[list[tuple[str, str]], list[str]]:
+        devices, resources = [], []
+        for alloc in request.allocations:
+            if alloc.allocation_type == AllocationType.DEVICE:
+                devices.append((alloc.lab_name, alloc.name))
+            elif alloc.allocation_type == AllocationType.RESOURCE:
+                resources.append(alloc.name)
+        return devices, resources
 
     async def _handle_timeout(self, db: AsyncDbSession, request: ActiveAllocationRequest) -> None:
         created = request.created_at.replace(tzinfo=UTC) if not request.created_at.tzinfo else request.created_at
@@ -385,52 +513,10 @@ class AllocationManager:
         await self.abort_request(db, request.id)
         self._invoke_request_callback(request)
 
-    async def _try_allocate(self, db: AsyncDbSession, request: ActiveAllocationRequest) -> bool:
-        try:
-            if not await self._check_request_allocations_available(db, request):
-                return False
-            await self._perform_request_allocations(db, request)
-            await self._update_request_status(db, request.id, AllocationRequestStatus.ALLOCATED)
-            request.status = AllocationRequestStatus.ALLOCATED
-            return True
-        except Exception as e:
-            await self.abort_request(db, request.id)
-            raise EosAllocationRequestError(f"Failed to allocate for request {request.id}: {e!s}") from e
-
-    async def _check_request_allocations_available(self, db: AsyncDbSession, request: ActiveAllocationRequest) -> bool:
-        devices, resources = [], []
-        for alloc in request.allocations:
-            if alloc.allocation_type == AllocationType.DEVICE:
-                devices.append((alloc.lab_name, alloc.name))
-            elif alloc.allocation_type == AllocationType.RESOURCE:
-                resources.append(alloc.name)
-
-        if devices and await self.bulk_check_devices_allocated(db, devices):
-            return False
-        return not (resources and await self.bulk_check_resources_allocated(db, resources))
-
-    async def _perform_request_allocations(self, db: AsyncDbSession, request: ActiveAllocationRequest) -> None:
-        devices, resources = [], []
-        for alloc in request.allocations:
-            if alloc.allocation_type == AllocationType.DEVICE:
-                devices.append((alloc.lab_name, alloc.name))
-            elif alloc.allocation_type == AllocationType.RESOURCE:
-                resources.append(alloc.name)
-
-        if devices:
-            await self.bulk_allocate_devices(db, devices, request.requester, request.experiment_name)
-        if resources:
-            await self.bulk_allocate_resources(db, resources, request.requester, request.experiment_name)
-
     async def _bulk_deallocate_by_request(
         self, db: AsyncDbSession, request: ActiveAllocationRequest, new_status: AllocationRequestStatus
     ) -> None:
-        devices, resources = [], []
-        for alloc in request.allocations:
-            if alloc.allocation_type == AllocationType.DEVICE:
-                devices.append((alloc.lab_name, alloc.name))
-            elif alloc.allocation_type == AllocationType.RESOURCE:
-                resources.append(alloc.name)
+        devices, resources = self._parse_request_allocations(request)
 
         if devices:
             await self.bulk_deallocate_devices(db, devices)
@@ -449,7 +535,7 @@ class AllocationManager:
             .order_by(desc(AllocationRequestModel.priority))
         )
         result = await db.execute(stmt)
-        return [await self._model_to_active_request(db, m) for m in result.scalars()]
+        return [self._model_to_active_request(m) for m in result.scalars()]
 
     async def _update_request_status(
         self, db: AsyncDbSession, request_id: int, status: AllocationRequestStatus
@@ -472,7 +558,7 @@ class AllocationManager:
         )
         result = await db.execute(stmt)
         for model in result.scalars():
-            active = await self._model_to_active_request(db, model)
+            active = self._model_to_active_request(model)
             model_allocs = sorted(
                 [(a.name, a.lab_name, a.allocation_type.value) for a in active.allocations],
             )
@@ -480,21 +566,11 @@ class AllocationManager:
                 return active
         return None
 
-    async def _model_to_active_request(
-        self, db: AsyncDbSession, model: AllocationRequestModel
-    ) -> ActiveAllocationRequest:
-        """Convert a database model to ActiveAllocationRequest by loading allocations from related tables."""
-        # Load device allocations
-        device_result = await db.execute(
-            select(AllocationRequestDeviceModel).where(AllocationRequestDeviceModel.request_id == model.id)
-        )
-        # Load resource allocations
-        resource_result = await db.execute(
-            select(AllocationRequestResourceModel).where(AllocationRequestResourceModel.request_id == model.id)
-        )
-
+    @staticmethod
+    def _model_to_active_request(model: AllocationRequestModel) -> ActiveAllocationRequest:
+        """Convert a database model to an ActiveAllocationRequest."""
         allocations: list[AllocationRequestItem] = []
-        for device in device_result.scalars():
+        for device in model.devices:
             allocations.append(
                 AllocationRequestItem(
                     name=device.name,
@@ -502,7 +578,7 @@ class AllocationManager:
                     allocation_type=AllocationType.DEVICE,
                 )
             )
-        for resource in resource_result.scalars():
+        for resource in model.resources:
             allocations.append(
                 AllocationRequestItem(
                     name=resource.name,

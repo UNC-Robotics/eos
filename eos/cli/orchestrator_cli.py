@@ -3,7 +3,8 @@ import importlib.metadata
 import os
 import signal
 import sys
-from collections.abc import AsyncIterator, Callable
+import threading
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, TYPE_CHECKING
@@ -56,44 +57,16 @@ def parse_list_arg(arg: str | None) -> list[str]:
     return [item.strip() for item in arg.split(",")] if arg else []
 
 
-def _get_shutdown_signals() -> list[signal.Signals]:
-    """Get the list of signals to handle for graceful shutdown based on platform."""
-    signals_to_handle = [signal.SIGINT]
-    if sys.platform == "win32" and hasattr(signal, "SIGBREAK"):
-        signals_to_handle.append(signal.SIGBREAK)
-    elif sys.platform != "win32":
-        signals_to_handle.append(signal.SIGTERM)
-    return signals_to_handle
+def _block_shutdown_signals() -> None:
+    """
+    Block SIGINT/SIGTERM so Ray's C-level sigaction handlers can't intercept them.
 
-
-def _register_shutdown_handlers(
-    loop: asyncio.AbstractEventLoop,
-    signal_handler: Callable,
-    signals_to_handle: list[signal.Signals],
-) -> dict:
-    """Register signal handlers for shutdown. Returns original handlers on Windows, empty dict on Unix."""
-    if sys.platform == "win32":
-        # Windows: asyncio signal handlers not supported, use standard signal.signal()
-        return {sig: signal.signal(sig, signal_handler) for sig in signals_to_handle}
-
-    # Unix/Linux: use asyncio's native signal handlers
-    for sig in signals_to_handle:
-        loop.add_signal_handler(sig, signal_handler)
-    return {}
-
-
-def _cleanup_shutdown_handlers(
-    loop: asyncio.AbstractEventLoop,
-    signals_to_handle: list[signal.Signals],
-    original_handlers: dict,
-) -> None:
-    """Clean up signal handlers."""
-    if sys.platform == "win32":
-        for sig, handler in original_handlers.items():
-            signal.signal(sig, handler)
-    else:
-        for sig in signals_to_handle:
-            loop.remove_signal_handler(sig)
+    A dedicated thread uses sigwait() to catch these signals instead.
+    Must be called before asyncio.run() and ray.init() so all spawned threads
+    inherit the blocked signal mask.
+    """
+    if sys.platform != "win32":
+        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM})
 
 
 async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
@@ -110,27 +83,7 @@ async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
     return orchestrator
 
 
-class _UvicornServerNoSignals:
-    """Uvicorn Server wrapper that disables uvicorn's signal handling.
-
-    Uvicorn's default serve() uses signal.signal() which overrides asyncio handlers,
-    and then re-raises captured signals via signal.raise_signal() on exit. This can
-    trigger asyncio.run()'s internal handler which cancels the main task during cleanup.
-    By calling _serve() directly, we bypass this signal handling entirely.
-    """
-
-    def __init__(self, server: "uvicorn.Server") -> None:
-        self._server = server
-
-    def __getattr__(self, name: str):
-        return getattr(self._server, name)
-
-    async def serve(self, sockets=None) -> None:
-        """Run the server without installing signal handlers."""
-        await self._server._serve(sockets)
-
-
-def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> _UvicornServerNoSignals:
+def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicorn.Server":
     """Set up the web API server."""
     from litestar import Litestar, Router
     from litestar import Controller
@@ -199,30 +152,57 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> _Uvicor
 
     uv_config = uvicorn.Config(web_api_app, host=config.host, port=config.port, log_level="critical")
 
-    return _UvicornServerNoSignals(uvicorn.Server(uv_config))
+    return uvicorn.Server(uv_config)
 
 
 @asynccontextmanager
 async def handle_shutdown(
-    orchestrator: "Orchestrator", web_api_server: _UvicornServerNoSignals
+    orchestrator: "Orchestrator", web_api_server: "uvicorn.Server"
 ) -> AsyncIterator[asyncio.Event]:
-    """Context manager for graceful shutdown handling via signals."""
+    """Context manager for graceful shutdown handling."""
     loop = asyncio.get_running_loop()
     shutdown_event = asyncio.Event()
 
-    def signal_handler(*_) -> None:
-        """Signal handler that safely triggers shutdown via event."""
-        if not shutdown_event.is_set():
-            log.warning("Shutdown signal.")
-            loop.call_soon_threadsafe(shutdown_event.set)
+    if sys.platform != "win32":
+        # Unix: use sigwait() in a dedicated thread to catch blocked signals.
+        shutdown_signals = {signal.SIGINT, signal.SIGTERM}
+        shutdown_count = 0
 
-    signals_to_handle = _get_shutdown_signals()
-    original_handlers = _register_shutdown_handlers(loop, signal_handler, signals_to_handle)
+        def _signal_waiter() -> None:
+            """Wait for shutdown signals and trigger graceful/forced exit."""
+            nonlocal shutdown_count
+            while True:
+                signal.sigwait(shutdown_signals)
+                if not shutdown_event.is_set():
+                    log.warning("Shutdown signal.")
+                    loop.call_soon_threadsafe(shutdown_event.set)
+                elif shutdown_count == 0:
+                    shutdown_count = 1
+                    log.warning("Shutdown in progress. Press Ctrl+C again to force exit.")
+                else:
+                    log.warning("Forcing shutdown.")
+                    os._exit(1)
+
+        waiter = threading.Thread(target=_signal_waiter, daemon=True, name="signal-waiter")
+        waiter.start()
+    else:
+        # Windows: use signal.signal() since sigwait is not available.
+        def _signal_handler(*_) -> None:
+            if not shutdown_event.is_set():
+                log.warning("Shutdown signal.")
+                loop.call_soon_threadsafe(shutdown_event.set)
+
+        win_signals = [signal.SIGINT]
+        if hasattr(signal, "SIGBREAK"):
+            win_signals.append(signal.SIGBREAK)
+        original_handlers = {sig: signal.signal(sig, _signal_handler) for sig in win_signals}
 
     try:
         yield shutdown_event
     finally:
-        _cleanup_shutdown_handlers(loop, signals_to_handle, original_handlers)
+        if sys.platform == "win32":
+            for sig, handler in original_handlers.items():
+                signal.signal(sig, handler)
 
         log.info("Shutting down the web API...")
         web_api_server.should_exit = True
@@ -242,18 +222,12 @@ async def run_eos(config: EosConfig) -> None:
     log.info("EOS initialized.")
 
     async with handle_shutdown(orchestrator, web_api_server) as shutdown_event:
-
-        async def wait_for_shutdown() -> None:
-            """Task that completes when shutdown is requested."""
-            await shutdown_event.wait()
-
-        # Create all main tasks
         tasks = [
             asyncio.create_task(
                 orchestrator.spin(config.orchestrator_hz.rate, config.orchestrator_hz.maintenance_interval)
             ),
             asyncio.create_task(web_api_server.serve()),
-            asyncio.create_task(wait_for_shutdown()),
+            asyncio.create_task(shutdown_event.wait()),
         ]
 
         # Run until any task completes (typically the shutdown monitor on Ctrl+C)
@@ -321,4 +295,5 @@ def start_orchestrator(
 
     log.set_level(config.log_level)
 
+    _block_shutdown_signals()
     asyncio.run(run_eos(config))
