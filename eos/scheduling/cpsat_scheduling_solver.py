@@ -368,36 +368,6 @@ class CpSatSchedulingSolver:
             if intervals:
                 self.model.AddNoOverlap(intervals)
 
-    def _apply_experiment_ordering_constraints(self) -> None:
-        """
-        If priorities differ, higher-priority experiments must finish no later
-        than lower-priority ones.
-        """
-        exp_finish_times = {}
-        for exp_name, (_, exp_graph) in self._experiments.items():
-            tasks = [
-                task_name
-                for task_name in exp_graph.get_topologically_sorted_tasks()
-                if (exp_name, task_name) in self._task_vars
-            ]
-            if tasks:
-                finish_time = self.model.NewIntVar(0, self._horizon, f"{exp_name}_finish")
-                self.model.AddMaxEquality(
-                    finish_time, [self._task_vars[(exp_name, task_name)].end for task_name in tasks]
-                )
-                exp_finish_times[exp_name] = finish_time
-
-        # Only add ordering constraints if experiments have differing priorities
-        if len(set(self._experiment_priorities.values())) <= 1:
-            return
-
-        for exp_i, exp_i_finish_time in exp_finish_times.items():
-            for exp_j, exp_j_finish_time in exp_finish_times.items():
-                if exp_i == exp_j:
-                    continue
-                if self._experiment_priorities.get(exp_i, 0) > self._experiment_priorities.get(exp_j, 0):
-                    self.model.Add(exp_i_finish_time <= exp_j_finish_time)
-
     def _apply_group_constraints(self) -> None:
         """Tasks in the same group are consecutive: next.start == current.end."""
         for exp_name, (_, exp_graph) in self._experiments.items():
@@ -425,6 +395,54 @@ class CpSatSchedulingSolver:
                         self._task_vars[(exp_name, next_task)].start == self._task_vars[(exp_name, current_task)].end
                     )
 
+    @staticmethod
+    def _resolve_device_root(
+        exp_graph: ExperimentGraph, ref_task_name: str, ref_device_name: str
+    ) -> tuple[str, str, object] | None:
+        """
+        Follow a chain of device string references to the root definition.
+
+        Returns (root_task_name, root_device_name, root_device_value) or None on a cycle.
+        """
+        visited: set[tuple[str, str]] = set()
+        while True:
+            key = (ref_task_name, ref_device_name)
+            if key in visited:
+                return None
+            visited.add(key)
+
+            ref_task = exp_graph.get_task(ref_task_name)
+            ref_device_value = ref_task.devices.get(ref_device_name)
+
+            if isinstance(ref_device_value, str) and is_device_reference(ref_device_value):
+                ref_task_name, ref_device_name = ref_device_value.split(".")
+            else:
+                return ref_task_name, ref_device_name, ref_device_value
+
+    @staticmethod
+    def _resolve_resource_root(
+        exp_graph: ExperimentGraph, ref_task_name: str, ref_resource_name: str
+    ) -> tuple[str, str, object] | None:
+        """
+        Follow a chain of resource string references to the root definition.
+
+        Returns (root_task_name, root_resource_name, root_resource_value) or None on a cycle.
+        """
+        visited: set[tuple[str, str]] = set()
+        while True:
+            key = (ref_task_name, ref_resource_name)
+            if key in visited:
+                return None
+            visited.add(key)
+
+            ref_task = exp_graph.get_task(ref_task_name)
+            ref_resource_value = ref_task.resources.get(ref_resource_name)
+
+            if isinstance(ref_resource_value, str) and is_resource_reference(ref_resource_value):
+                ref_task_name, ref_resource_name = ref_resource_value.split(".")
+            else:
+                return ref_task_name, ref_resource_name, ref_resource_value
+
     def _apply_device_reference_constraints(self) -> None:
         """Enforce that device references use the same device as the referenced task."""
         for (exp_name, task_name), refs in self._device_references.items():
@@ -434,21 +452,24 @@ class CpSatSchedulingSolver:
             duration = task.duration
 
             for device_name, ref_task_name, ref_device_name in refs:
-                # Get the referenced task's config and find the slot for the referenced device
-                ref_task = exp_graph.get_task(ref_task_name)
-                ref_device_value = ref_task.devices.get(ref_device_name)
+                # Resolve chained references to the root device definition
+                root = self._resolve_device_root(exp_graph, ref_task_name, ref_device_name)
+                if root is None:
+                    continue
+                root_task_name, root_device_name, ref_device_value = root
+                ref_task = exp_graph.get_task(root_task_name)
 
                 if isinstance(ref_device_value, DynamicDeviceAssignmentDef):
                     # Find the slot index in the referenced task
                     ref_slot_idx = 0
                     for ref_dev_name, ref_dev_val in ref_task.devices.items():
-                        if ref_dev_name == ref_device_name:
+                        if ref_dev_name == root_device_name:
                             break
                         if isinstance(ref_dev_val, DynamicDeviceAssignmentDef):
                             ref_slot_idx += 1
 
                     # Get the choice variables from the referenced task
-                    ref_slots = self._dynamic_choice_vars.get((exp_name, ref_task_name), [])
+                    ref_slots = self._dynamic_choice_vars.get((exp_name, root_task_name), [])
                     if ref_slot_idx >= len(ref_slots):
                         continue
 
@@ -482,15 +503,17 @@ class CpSatSchedulingSolver:
             duration = task.duration
 
             for resource_name, ref_task_name, ref_resource_name in refs:
-                # Get the referenced task's config and find the resource
-                ref_task = exp_graph.get_task(ref_task_name)
-                ref_resource_value = ref_task.resources.get(ref_resource_name)
+                # Resolve chained references to the root resource definition
+                root = self._resolve_resource_root(exp_graph, ref_task_name, ref_resource_name)
+                if root is None:
+                    continue
+                root_task_name, root_resource_name, ref_resource_value = root
 
                 if isinstance(ref_resource_value, DynamicResourceAssignmentDef):
                     # Find the entry index in the referenced task's dynamic resource choices
-                    ref_entries = self._dynamic_resource_choice_vars.get((exp_name, ref_task_name), [])
+                    ref_entries = self._dynamic_resource_choice_vars.get((exp_name, root_task_name), [])
                     for entry_name, choices in ref_entries:
-                        if entry_name == ref_resource_name:
+                        if entry_name == root_resource_name:
                             # Create optional intervals for each possible resource choice
                             # Each interval is only active when the referenced task selects that specific resource
                             for (_lab_name, concrete_resource_name), ref_bool_var in choices:
@@ -519,7 +542,6 @@ class CpSatSchedulingSolver:
         self._apply_device_reference_constraints()
         self._apply_resource_reference_constraints()
         self._apply_resource_constraints()
-        self._apply_experiment_ordering_constraints()
         self._apply_group_constraints()
 
         # Create makespan variable
@@ -617,65 +639,40 @@ class CpSatSchedulingSolver:
 
         return resource_assignments
 
-    def _solve_phase1_makespan(self) -> tuple[int, int, float]:
-        """
-        Phase 1: Minimize makespan.
-
-        Returns: (status, optimal_makespan, duration_ms)
-        """
-        with Timer() as timer:
-            self.model.Minimize(self._makespan)
-            status = self.solver.Solve(self.model)
-        duration_ms = timer.get_duration("ms")
-
-        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            raise EosSchedulerError("Could not compute a valid schedule in the makespan optimization pass with CP-SAT.")
-
-        optimal_makespan = self.solver.Value(self._makespan)
-        return status, optimal_makespan, duration_ms
-
-    def _solve_phase2_start_times(self, optimal_makespan: int) -> tuple[int, float]:
-        """
-        Phase 2: Minimize task start times with fixed makespan.
-
-        Returns: (status, duration_ms)
-        """
-        with Timer() as timer:
-            self.model.Add(self._makespan <= optimal_makespan)
-            total_start = self.model.NewIntVar(0, self._horizon * len(self._task_vars), "total_start")
-            self.model.Add(total_start == sum(task_vars.start for task_vars in self._task_vars.values()))
-            self.model.Minimize(total_start)
-            status = self.solver.Solve(self.model)
-        duration_ms = timer.get_duration("ms")
-
-        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-            log.warning("Could not refine schedule in the task start time minimization optimization pass with CP-SAT.")
-
-        return status, duration_ms
-
     def solve(self) -> SchedulingSolution:
         """
-        Solve the scheduling problem with two-phase optimization.
+        Solve the scheduling problem with a single hierarchical objective.
 
-        Phase 1: Minimize makespan
-        Phase 2: Minimize task start times with fixed makespan
+        Primary: minimize makespan. Secondary: minimize priority-weighted task start times.
+        The makespan weight is set large enough to guarantee strict lexicographic dominance
+        over the start-time term.
         """
         self._build_model()
 
-        # Phase 1: Minimize makespan
-        _, optimal_makespan, time_phase1 = self._solve_phase1_makespan()
+        relative_horizon = self._horizon - self._current_time
 
-        # Phase 2: Minimize start times
-        status, time_phase2 = self._solve_phase2_start_times(optimal_makespan)
+        total_task_weight = sum(self._experiment_priorities.get(exp_name, 0) + 1 for (exp_name, _) in self._task_vars)
+        weighted_start_sum = sum(
+            (self._experiment_priorities.get(exp_name, 0) + 1) * (task_vars.start - self._current_time)
+            for (exp_name, _), task_vars in self._task_vars.items()
+        )
 
-        # Extract solution
+        makespan_weight = total_task_weight * relative_horizon + 1
+        self.model.Minimize((self._makespan - self._current_time) * makespan_weight + weighted_start_sum)
+
+        with Timer() as timer:
+            status = self.solver.Solve(self.model)
+        compute_duration = timer.get_duration("ms")
+
+        if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            raise EosSchedulerError("Could not compute a valid schedule with CP-SAT.")
+
+        optimal_makespan = self.solver.Value(self._makespan)
         schedule = self._extract_schedule()
         device_assignments = self._extract_device_assignments()
         resource_assignments = self._extract_resource_assignments()
-        compute_duration = time_phase1 + time_phase2
         status_str = "optimal" if status == cp_model.OPTIMAL else "feasible"
 
-        # Keep INFO concise; full schedule available at DEBUG if needed
         log.info(
             f"Computed {status_str} schedule "
             f"(makespan={optimal_makespan - self._current_time}, compute_duration={compute_duration:.2f} ms)."

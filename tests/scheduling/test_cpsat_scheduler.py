@@ -1,3 +1,4 @@
+import copy
 from typing import NamedTuple
 
 from eos.experiments.entities.experiment import ExperimentSubmission
@@ -549,16 +550,14 @@ class TestCpSatSchedulerContinuation:
         task_manager,
         allocation_manager,
     ):
-        """Test experiment scheduling workflow with multiple experiments."""
+        """Test experiment scheduling workflow with multiple experiments and soft priorities."""
         await cpsat_scheduler.update_parameters({"num_search_workers": 1, "random_seed": 40})
 
-        # Create and start both experiments.
-        await self._create_and_start_experiment(db, experiment_manager, "experiment_1", priority=1)
+        await self._create_and_start_experiment(db, experiment_manager, "experiment_1", priority=5)
         await self._create_and_start_experiment(db, experiment_manager, "experiment_2", priority=0)
 
-        # --- Phase 1: Experiment 1 only ---
-        # Register experiment 1
         await cpsat_scheduler.register_experiment("experiment_1", EXPERIMENT_TYPE, experiment_graph)
+        await cpsat_scheduler.register_experiment("experiment_2", EXPERIMENT_TYPE, experiment_graph)
 
         # EX1-A
         expected_tasks = [ExpectedTask("A", "abstract_lab", "D1")]
@@ -566,20 +565,11 @@ class TestCpSatSchedulerContinuation:
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks
         )
 
-        # EX1-B and EX1-C
-        expected_tasks = [
+        # EX1-B, EX1-C and EX2-A
+        expected_tasks_ex1 = [
             ExpectedTask("B", "abstract_lab", "D2"),
             ExpectedTask("C", "abstract_lab", "D3"),
         ]
-        await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks
-        )
-
-        # --- Phase 2: Experiment 1 + Experiment 2 ---
-        await cpsat_scheduler.register_experiment("experiment_2", EXPERIMENT_TYPE, experiment_graph)
-
-        # EX1-D and EX2-A
-        expected_tasks_ex1 = [ExpectedTask("D", "abstract_lab", "D3")]
         expected_tasks_ex2 = [ExpectedTask("A", "abstract_lab", "D1")]
         await self._process_and_verify_tasks(
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
@@ -588,14 +578,27 @@ class TestCpSatSchedulerContinuation:
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
         )
 
-        # EX2-B
+        # EX1-D and EX2-B
+        expected_tasks_ex1 = [ExpectedTask("D", "abstract_lab", "D3")]
         expected_tasks_ex2 = [ExpectedTask("B", "abstract_lab", "D2")]
+        await self._process_and_verify_tasks(
+            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
+        )
         await self._process_and_verify_tasks(
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
         )
 
-        # EX1-E and EX2-C
-        expected_tasks_ex1 = [ExpectedTask("E", "abstract_lab", "D4")]
+        # EX1-F and EX1-E
+        expected_tasks_ex1 = [
+            ExpectedTask("F", "abstract_lab", "D3"),
+            ExpectedTask("E", "abstract_lab", "D4"),
+        ]
+        await self._process_and_verify_tasks(
+            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
+        )
+
+        # EX1-G and EX2-C
+        expected_tasks_ex1 = [ExpectedTask("G", "abstract_lab", "D5")]
         expected_tasks_ex2 = [ExpectedTask("C", "abstract_lab", "D3")]
         await self._process_and_verify_tasks(
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
@@ -610,22 +613,11 @@ class TestCpSatSchedulerContinuation:
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
         )
 
-        # EX1-F and EX2-E
-        expected_tasks_ex1 = [ExpectedTask("F", "abstract_lab", "D3")]
-        expected_tasks_ex2 = [ExpectedTask("E", "abstract_lab", "D4")]
-        await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
-        )
-        await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
-        )
-
-        # EX1-G and EX2-F
-        expected_tasks_ex1 = [ExpectedTask("G", "abstract_lab", "D5")]
-        expected_tasks_ex2 = [ExpectedTask("F", "abstract_lab", "D3")]
-        await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
-        )
+        # EX2-F and EX2-E
+        expected_tasks_ex2 = [
+            ExpectedTask("F", "abstract_lab", "D3"),
+            ExpectedTask("E", "abstract_lab", "D4"),
+        ]
         await self._process_and_verify_tasks(
             db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
         )
@@ -702,8 +694,8 @@ class TestCpSatSchedulerContinuation:
         """Test that task groups are experiment-specific"""
         await cpsat_scheduler.update_parameters({"num_search_workers": 1, "random_seed": 40})
 
-        exp1_config = configuration_manager.experiments["abstract_experiment_2"]
-        exp2_config = configuration_manager.experiments["abstract_experiment_2"]
+        exp1_config = copy.deepcopy(configuration_manager.experiments["abstract_experiment_2"])
+        exp2_config = copy.deepcopy(configuration_manager.experiments["abstract_experiment_2"])
 
         for task in exp1_config.tasks:
             task.group = "processing" if task.name in ["A", "B"] else None

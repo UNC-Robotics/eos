@@ -32,7 +32,8 @@ Documentation is available at [https://unc-robotics.github.io/eos/](https://unc-
 
 EOS should be installed on a central laboratory computer that is easily accessible.
 
-EOS requires PostgreSQL and MinIO for data and file storage. These can be run with Docker Compose.
+EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. These can be 
+run with Docker Compose.
 
 1. **Install uv**
    - **Linux/Mac**

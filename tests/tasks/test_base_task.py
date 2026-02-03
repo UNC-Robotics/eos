@@ -12,7 +12,7 @@ class ConcreteTask(BaseTask):
     async def _execute(
         self, devices: BaseTask.DevicesType, parameters: BaseTask.ParametersType, resources: BaseTask.ResourcesType
     ) -> BaseTask.OutputType | None:
-        return {"out_param": parameters["param1"]}, {"resource1": resources["resource1"]}, {"file": b"content"}
+        return {"out_param": parameters["param1"]}, {"resource1": resources["resource1"]}, {"file.bin": b"content"}
 
 
 class TestBaseTask:
@@ -44,7 +44,7 @@ class TestBaseTask:
         assert isinstance(result[2], dict)
         assert result[0] == {"out_param": "value1"}
         assert result[1] == {"resource1": resource}
-        assert result[2] == {"file": b"content"}
+        assert result[2] == {"file.bin": b"content"}
 
     @pytest.mark.asyncio
     async def test_execute_failure(self, resource):

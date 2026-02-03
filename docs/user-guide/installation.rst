@@ -9,7 +9,8 @@ EOS should be installed on a central laboratory computer that is easily accessib
     Using an isolated laboratory network for security and performance is strongly recommended.
     See :doc:`infrastructure setup <infrastructure_setup>` for details.
 
-EOS requires PostgreSQL and MinIO for data and file storage. We provide a Docker Compose file to set up these services.
+EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
+Docker Compose file to set up these services.
 
 1. Install uv
 ^^^^^^^^^^^^^
@@ -64,7 +65,7 @@ uv manages dependencies for EOS.
 
 .. code-block:: shell
 
-    # Start external services (PostgreSQL and MinIO)
+    # Start external services (PostgreSQL and SeaweedFS)
     docker compose up -d
 
 5. Start EOS

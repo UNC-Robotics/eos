@@ -26,4 +26,4 @@ class ResultService:
         """
         Get a list of all output files for a given task.
         """
-        return self._task_manager.list_task_output_files(experiment_name, task_name)
+        return await self._task_manager.list_task_output_files(experiment_name, task_name)

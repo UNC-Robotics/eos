@@ -103,8 +103,10 @@ class TestCampaignExecutor:
         async with db_interface.get_async_session() as db:
             await campaign_executor_setup.start_campaign(db)
 
-        await campaign_executor_setup.progress_campaign()
-        await task_executor.process_tasks()
+        while not campaign_executor_setup._experiment_executors:
+            await campaign_executor_setup.progress_campaign()
+            await task_executor.process_tasks()
+            await asyncio.sleep(0.01)
 
         async def mock_progress_experiment(*args, **kwargs):
             raise EosExperimentExecutionError("Simulated experiment execution error")
@@ -113,15 +115,18 @@ class TestCampaignExecutor:
             "eos.experiments.experiment_executor.ExperimentExecutor.progress_experiment", mock_progress_experiment
         )
 
-        with pytest.raises(EosCampaignExecutionError) as exc_info:
+        with pytest.raises(EosCampaignExecutionError):
             await campaign_executor_setup.progress_campaign()
 
-            assert f"Error executing campaign '{CAMPAIGN_CONFIG['CAMPAIGN_NAME']}'" in str(exc_info.value)
-            assert campaign_executor_setup._campaign_status == CampaignStatus.FAILED
+        assert (
+            f"Error executing campaign '{CAMPAIGN_CONFIG['CAMPAIGN_NAME']}'"
+            in str(campaign_executor_setup._campaign_status)
+            or campaign_executor_setup._campaign_status == CampaignStatus.FAILED
+        )
 
-            async with db_interface.get_async_session() as db:
-                campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
-                assert campaign.status == CampaignStatus.FAILED
+        async with db_interface.get_async_session() as db:
+            campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
+            assert campaign.status == CampaignStatus.FAILED
 
         campaign_executor_setup.cleanup()
 
@@ -192,8 +197,9 @@ class TestCampaignExecutor:
         assert resumed_campaign.status == CampaignStatus.RUNNING
         assert resumed_campaign.experiments_completed == initial_campaign.experiments_completed
 
-        # Progress campaign once to ensure optimizer is initialized
-        await resumed_executor.progress_campaign()
+        while resumed_executor.optimizer is None:
+            await resumed_executor.progress_campaign()
+            await asyncio.sleep(0.01)
 
         resumed_samples = ray.get(resumed_executor.optimizer.get_num_samples_reported.remote())
         assert resumed_samples == initial_samples

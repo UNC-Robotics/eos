@@ -151,17 +151,17 @@ class TaskManager:
         """Generate consistent file paths for task outputs."""
         return f"{experiment_name if experiment_name is not None else 'on_demand'}/{task_name}/{file_name}"
 
-    def add_task_output_file(
+    async def add_task_output_file(
         self, experiment_name: str | None, task_name: str, file_name: str, file_data: bytes
     ) -> None:
         """Add a file output from a task to the file database."""
         path = self._get_task_output_file_path(experiment_name, task_name, file_name)
-        self._file_db_interface.store_file(path, file_data)
+        await self._file_db_interface.store_file(path, file_data)
 
-    def get_task_output_file(self, experiment_name: str, task_name: str, file_name: str) -> bytes:
+    async def get_task_output_file(self, experiment_name: str, task_name: str, file_name: str) -> bytes:
         """Get a file output from a task from the file database."""
         path = self._get_task_output_file_path(experiment_name, task_name, file_name)
-        return self._file_db_interface.get_file(path)
+        return await self._file_db_interface.get_file(path)
 
     def stream_task_output_file(
         self, experiment_name: str, task_name: str, file_name: str, chunk_size: int = 3 * 1024 * 1024
@@ -170,15 +170,15 @@ class TaskManager:
         path = self._get_task_output_file_path(experiment_name, task_name, file_name)
         return self._file_db_interface.stream_file(path, chunk_size)
 
-    def list_task_output_files(self, experiment_name: str, task_name: str) -> list[str]:
+    async def list_task_output_files(self, experiment_name: str, task_name: str) -> list[str]:
         """List all file outputs from a task in the file database."""
         prefix = self._get_task_output_file_path(experiment_name, task_name, "")
-        return self._file_db_interface.list_files(prefix)
+        return await self._file_db_interface.list_files(prefix)
 
-    def delete_task_output_file(self, experiment_name: str, task_name: str, file_name: str) -> None:
+    async def delete_task_output_file(self, experiment_name: str, task_name: str, file_name: str) -> None:
         """Delete a file output from a task in the file database."""
         path = self._get_task_output_file_path(experiment_name, task_name, file_name)
-        self._file_db_interface.delete_file(path)
+        await self._file_db_interface.delete_file(path)
 
     async def _set_task_status(
         self, db: AsyncDbSession, experiment_name: str, task_name: str, new_status: TaskStatus

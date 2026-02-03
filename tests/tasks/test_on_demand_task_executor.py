@@ -58,7 +58,7 @@ class TestOnDemandTaskExecutor:
             await asyncio.sleep(0.5)
 
         assert task.status == TaskStatus.COMPLETED
-        file = task_manager.get_task_output_file(None, "file_gen", "file.txt")
+        file = await task_manager.get_task_output_file(None, "file_gen", "file.txt")
 
         assert len(file) == 32
 

@@ -73,15 +73,13 @@ class DbConfig(BaseSettings):
 
 
 class FileDbConfig(BaseSettings):
-    """File database (object storage) configuration."""
+    """File database (S3-compatible object storage) configuration."""
 
-    bucket: str = Field("eos", validation_alias="EOS_MINIO_BUCKET")
-
-    host: str = Field("localhost", validation_alias="EOS_MINIO_HOST")
-    port: int = Field(9000, validation_alias="EOS_MINIO_PORT")
-
-    username: str = Field(..., validation_alias="EOS_MINIO_USER")
-    password: str = Field(..., validation_alias="EOS_MINIO_PASSWORD")
+    bucket: str = Field("eos", validation_alias="EOS_S3_BUCKET")
+    endpoint_url: str | None = Field(None, validation_alias="EOS_S3_ENDPOINT_URL")
+    access_key_id: str = Field(..., validation_alias="EOS_S3_ACCESS_KEY_ID")
+    secret_access_key: str = Field(..., validation_alias="EOS_S3_SECRET_ACCESS_KEY")
+    region_name: str = Field("us-east-1", validation_alias="EOS_S3_REGION")
 
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore", populate_by_name=True)
 
@@ -96,7 +94,7 @@ class SchedulerType(Enum):
 class SchedulerConfig(BaseModel):
     """Configuration for the scheduler."""
 
-    type: SchedulerType = SchedulerType.CPSAT
+    type: SchedulerType = SchedulerType.GREEDY
     parameters: dict = Field(default_factory=dict)
 
 

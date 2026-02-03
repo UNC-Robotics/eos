@@ -216,7 +216,7 @@ class TaskExecutor:
                 await self._resource_manager.update_resource(db, resource)
 
             for file_name, file_data in output_files.items():
-                self._task_manager.add_task_output_file(
+                await self._task_manager.add_task_output_file(
                     context.experiment_name, context.task_name, file_name, file_data
                 )
 

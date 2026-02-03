@@ -140,13 +140,13 @@ class TestTaskManager:
         await task_manager.add_task_output(
             db, EXPERIMENT_TYPE, "mixing", task_output_parameters, None, task_output_file_names
         )
-        task_manager.add_task_output_file(EXPERIMENT_TYPE, "mixing", "file", b"file_data")
+        await task_manager.add_task_output_file(EXPERIMENT_TYPE, "mixing", "file", b"file_data")
 
         task = await task_manager.get_task(db, EXPERIMENT_TYPE, "mixing")
         assert task.output_parameters == {"x": 5}
         assert task.output_file_names == ["file"]
 
-        output_file = task_manager.get_task_output_file(
+        output_file = await task_manager.get_task_output_file(
             experiment_name=EXPERIMENT_TYPE, task_name="mixing", file_name="file"
         )
         assert output_file == b"file_data"

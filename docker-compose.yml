@@ -16,22 +16,28 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  eos-minio:
-    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
-    container_name: eos-minio
-    hostname: eos-minio
+  eos-seaweedfs:
+    image: chrislusf/seaweedfs
+    container_name: eos-seaweedfs
+    hostname: eos-seaweedfs
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${EOS_MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${EOS_MINIO_PASSWORD}
+      EOS_S3_ACCESS_KEY_ID: ${EOS_S3_ACCESS_KEY_ID}
+      EOS_S3_SECRET_ACCESS_KEY: ${EOS_S3_SECRET_ACCESS_KEY}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        cat > /tmp/s3.json <<CONF
+        {"identities":[{"name":"eos","credentials":[{"accessKey":"$$EOS_S3_ACCESS_KEY_ID","secretKey":"$$EOS_S3_SECRET_ACCESS_KEY"}],"actions":["Admin","Read","List","Tagging","Write"]}]}
+        CONF
+        exec weed server -s3 -s3.config=/tmp/s3.json -dir=/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "8333:8333"
     networks:
       - eos_network
     volumes:
-      - minio_data:/data
-    command: server --console-address ":9001" /data
+      - seaweedfs_data:/data
 
 networks:
   eos_network:
@@ -41,5 +47,5 @@ networks:
 volumes:
   postgres_data:
     driver: local
-  minio_data:
+  seaweedfs_data:
     driver: local
