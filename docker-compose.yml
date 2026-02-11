@@ -34,6 +34,7 @@ services:
         exec weed server -s3 -s3.config=/tmp/s3.json -dir=/data
     ports:
       - "8333:8333"
+      - "8888:8888"
     networks:
       - eos_network
     volumes:
