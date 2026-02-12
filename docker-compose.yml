@@ -48,6 +48,8 @@ services:
       - "8334:8334"
     networks:
       - eos_network
+    volumes:
+      - filestash_data:/app/data/state/
 
 networks:
   eos_network:
