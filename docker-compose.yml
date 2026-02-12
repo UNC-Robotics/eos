@@ -40,6 +40,16 @@ services:
     volumes:
       - seaweedfs_data:/data
 
+  filestash:
+    image: machines/filestash:latest
+    container_name: filestash
+    hostname: filestash
+    restart: unless-stopped
+    ports:
+      - "8334:8334"
+    networks:
+      - eos_network
+
 networks:
   eos_network:
     name: eos_network
@@ -49,4 +59,6 @@ volumes:
   postgres_data:
     driver: local
   seaweedfs_data:
+    driver: local
+  filestash_data:
     driver: local
