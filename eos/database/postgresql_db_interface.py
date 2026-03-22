@@ -21,7 +21,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         super().__init__(db_config)
 
     def _get_connection_args(self) -> dict:
-        """Get connection pool arguments for PostgreSQL.
+        """
+        Get connection pool arguments for PostgreSQL.
 
         :returns: Dictionary of connection arguments
         :rtype: dict
@@ -36,7 +37,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         }
 
     def build_db_url(self, use_system_db: bool = False) -> str:
-        """Build synchronous database URL.
+        """
+        Build synchronous database URL.
 
         :param use_system_db: Whether to connect to postgres system database
         :type use_system_db: bool
@@ -50,7 +52,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         )
 
     def build_async_db_url(self, use_system_db: bool = False) -> str:
-        """Build asynchronous database URL.
+        """
+        Build asynchronous database URL.
 
         :param use_system_db: Whether to connect to postgres system database
         :type use_system_db: bool
@@ -72,7 +75,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
         )
 
     async def initialize_database(self) -> None:
-        """Initialize database by creating it if needed and running migrations.
+        """
+        Initialize database by creating it if needed and running migrations.
 
         :raises DbConnectionError: If connection to database fails
         :raises Exception: If initialization fails for other reasons
@@ -106,7 +110,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             raise
 
     async def _database_exists(self) -> bool:
-        """Check if PostgreSQL database exists.
+        """
+        Check if PostgreSQL database exists.
 
         :returns: True if database exists, False otherwise
         :rtype: bool
@@ -123,7 +128,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             await system_engine.dispose()
 
     async def _create_database(self) -> None:
-        """Create PostgreSQL database if it doesn't exist.
+        """
+        Create PostgreSQL database if it doesn't exist.
 
         :raises Exception: If database creation fails
         """
@@ -137,7 +143,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             await system_engine.dispose()
 
     async def _drop_database(self) -> None:
-        """Drop the PostgreSQL database if it exists.
+        """
+        Drop the PostgreSQL database if it exists.
 
         :raises Exception: If database drop fails
         """
@@ -168,7 +175,8 @@ class PostgresqlDbInterface(AbstractSqlDbInterface):
             raise
 
     async def downgrade_migrations(self, revision: str = "-1") -> None:
-        """Downgrade database schema to a specific revision.
+        """
+        Downgrade database schema to a specific revision.
 
         :param revision: Target revision to downgrade to, defaults to "-1"
         :type revision: str

@@ -2,7 +2,7 @@ from collections.abc import AsyncIterable
 from datetime import datetime, UTC
 from typing import Any
 
-from sqlalchemy import select, update, delete, exists
+from sqlalchemy import select, update, delete, exists, and_, or_
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
@@ -92,10 +92,12 @@ class TaskManager:
         await self._validate_task_exists(db, experiment_name, task_name)
         await self._set_task_status(db, experiment_name, task_name, TaskStatus.COMPLETED)
 
-    async def fail_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> None:
+    async def fail_task(
+        self, db: AsyncDbSession, experiment_name: str | None, task_name: str, error_message: str | None = None
+    ) -> None:
         """Update task status to failed."""
         await self._validate_task_exists(db, experiment_name, task_name)
-        await self._set_task_status(db, experiment_name, task_name, TaskStatus.FAILED)
+        await self._set_task_status(db, experiment_name, task_name, TaskStatus.FAILED, error_message=error_message)
 
     async def cancel_task(self, db: AsyncDbSession, experiment_name: str | None, task_name: str) -> None:
         """Update task status to cancelled."""
@@ -125,6 +127,26 @@ class TaskManager:
 
         result = await db.execute(stmt)
         return [Task.model_validate(task_model) for task_model in result.scalars()]
+
+    async def get_tasks_by_experiments(
+        self,
+        db: AsyncDbSession,
+        experiment_names: list[str],
+        task_names: list[str] | None = None,
+    ) -> dict[tuple[str, str], Task]:
+        """
+        Get tasks for multiple experiments in a single query.
+
+        :param db: Database session
+        :param experiment_names: Experiment names to query
+        :param task_names: Optional filter for specific task names
+        :return: Dict mapping (experiment_name, task_name) to Task
+        """
+        stmt = select(TaskModel).where(TaskModel.experiment_name.in_(experiment_names))
+        if task_names:
+            stmt = stmt.where(TaskModel.name.in_(task_names))
+        result = await db.execute(stmt)
+        return {(task.experiment_name, task.name): Task.model_validate(task) for task in result.scalars()}
 
     async def add_task_output(
         self,
@@ -181,20 +203,43 @@ class TaskManager:
         await self._file_db_interface.delete_file(path)
 
     async def _set_task_status(
-        self, db: AsyncDbSession, experiment_name: str, task_name: str, new_status: TaskStatus
+        self,
+        db: AsyncDbSession,
+        experiment_name: str,
+        task_name: str,
+        new_status: TaskStatus,
+        error_message: str | None = None,
     ) -> None:
         """Update the status of a task."""
-        update_fields = {"status": new_status}
+        update_fields: dict = {"status": new_status}
         now = datetime.now(UTC)
 
         if new_status == TaskStatus.RUNNING:
             update_fields["start_time"] = now
             update_fields["end_time"] = None
+            update_fields["error_message"] = None
         elif new_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
             update_fields["end_time"] = now
+
+        if error_message is not None:
+            update_fields["error_message"] = error_message
 
         await db.execute(
             update(TaskModel)
             .where(TaskModel.experiment_name == experiment_name, TaskModel.name == task_name)
             .values(**update_fields)
         )
+
+    async def fail_tasks_batch(
+        self, db: AsyncDbSession, task_keys: list[tuple[str, str]], error_message: str | None = None
+    ) -> None:
+        if not task_keys:
+            return
+        conditions = [and_(TaskModel.experiment_name == exp, TaskModel.name == name) for exp, name in task_keys]
+        update_fields: dict = {
+            "status": TaskStatus.FAILED,
+            "end_time": datetime.now(UTC),
+        }
+        if error_message is not None:
+            update_fields["error_message"] = error_message
+        await db.execute(update(TaskModel).where(or_(*conditions)).values(**update_fields))

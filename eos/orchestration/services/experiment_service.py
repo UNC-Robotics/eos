@@ -63,6 +63,7 @@ class ExperimentService:
 
             try:
                 await experiment_executor.start_experiment(db)
+                await db.commit()
                 self._submitted_experiments[experiment_name] = experiment_executor
                 self._work_signal.signal()
             except EosExperimentExecutionError:
@@ -82,15 +83,17 @@ class ExperimentService:
     async def fail_running_experiments(self, db: AsyncDbSession) -> None:
         """Fail all running experiments."""
         running_experiments = await self._experiment_manager.get_experiments(db, status=ExperimentStatus.RUNNING.value)
+        if not running_experiments:
+            return
 
-        for experiment in running_experiments:
-            await self._experiment_manager.fail_experiment(db, experiment.name)
-
-        if running_experiments:
-            log.warning(
-                "All running experiments have been marked as failed. Please review the state of the system and "
-                "re-submit with resume=True."
-            )
+        names = [e.name for e in running_experiments]
+        await self._experiment_manager.fail_experiments_batch(
+            db, names, error_message="Experiment was running when the orchestrator restarted"
+        )
+        log.warning(
+            "All running experiments have been marked as failed. Please review the state of the system and "
+            "re-submit with resume=True."
+        )
 
     async def get_experiment_types(self) -> list[str]:
         """Get a list of all experiment types that are defined in the configuration."""

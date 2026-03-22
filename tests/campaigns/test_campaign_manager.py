@@ -1,5 +1,6 @@
 from eos.campaigns.entities.campaign import CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignStateError
+from eos.experiments.entities.experiment import ExperimentSubmission
 from tests.fixtures import *
 
 EXPERIMENT_TYPE = "water_purification"
@@ -125,8 +126,6 @@ class TestCampaignManager:
         await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))
 
         # Create experiments linked to the campaign
-        from eos.experiments.entities.experiment import ExperimentSubmission
-
         exp1_def = ExperimentSubmission(name="exp1", type=EXPERIMENT_TYPE, owner="test")
         exp2_def = ExperimentSubmission(name="exp2", type=EXPERIMENT_TYPE, owner="test")
 

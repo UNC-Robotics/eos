@@ -38,6 +38,7 @@ def campaign_executor_setup(
     campaign_manager,
     campaign_optimizer_manager,
     task_manager,
+    experiment_manager,
     experiment_executor_factory,
     db_interface,
     campaign_submission,
@@ -49,6 +50,7 @@ def campaign_executor_setup(
         campaign_optimizer_manager=campaign_optimizer_manager,
         task_manager=task_manager,
         experiment_executor_factory=experiment_executor_factory,
+        experiment_manager=experiment_manager,
         db_interface=db_interface,
     )
 
@@ -154,6 +156,7 @@ class TestCampaignExecutor:
         campaign_manager,
         campaign_optimizer_manager,
         task_manager,
+        experiment_manager,
         experiment_executor_factory,
         db_interface,
         task_executor,
@@ -168,7 +171,6 @@ class TestCampaignExecutor:
 
         async with db_interface.get_async_session() as db:
             initial_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
-        initial_samples = ray.get(campaign_executor_setup.optimizer.get_num_samples_reported.remote())
 
         await campaign_executor_setup.cancel_campaign()
         campaign_executor_setup.cleanup()
@@ -187,6 +189,7 @@ class TestCampaignExecutor:
             campaign_optimizer_manager,
             task_manager,
             experiment_executor_factory,
+            experiment_manager,
             db_interface,
         )
 
@@ -202,7 +205,7 @@ class TestCampaignExecutor:
             await asyncio.sleep(0.01)
 
         resumed_samples = ray.get(resumed_executor.optimizer.get_num_samples_reported.remote())
-        assert resumed_samples == initial_samples
+        assert resumed_samples == initial_campaign.experiments_completed
 
         await self.wait_for_campaign_progress(
             resumed_executor, campaign_manager, task_executor, db_interface, num_experiments=5

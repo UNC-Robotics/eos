@@ -59,7 +59,7 @@ Below is an example:
             ],
             "constraints": [],
             "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 25,
+            "num_initial_samples": 10,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 
@@ -72,7 +72,12 @@ This function must return:
 #. The class type of the optimizer
 
 In this example, we use EOS' built-in Bayesian optimizer.
-However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
+
+For most use cases, we recommend the :doc:`beacon_optimizer`, which combines Bayesian optimization with
+AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
+constraints) but adds an AI agent that reasons about experimental history to suggest smarter experiments.
+
+It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
 the class type from ``eos_create_campaign_optimizer``.
 
 .. note::

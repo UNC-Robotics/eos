@@ -16,7 +16,8 @@ class DefinitionController(Controller):
     async def list_definitions(
         self, db: AsyncDbSession, orchestrator: Orchestrator, def_type: str | None = None
     ) -> list[dict[str, Any]]:
-        """List all definitions, optionally filtered by type.
+        """
+        List all definitions, optionally filtered by type.
 
         :param def_type: Optional type filter (task, device, lab, experiment)
         """
@@ -27,7 +28,8 @@ class DefinitionController(Controller):
     async def list_definitions_by_type(
         self, def_type: str, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> list[dict[str, Any]]:
-        """List all definitions of a specific type.
+        """
+        List all definitions of a specific type.
 
         :param def_type: Definition type (task, device, lab, experiment)
         """
@@ -38,7 +40,8 @@ class DefinitionController(Controller):
     async def get_definition(
         self, def_type: str, name: str, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> dict[str, Any]:
-        """Get a single definition by type and name.
+        """
+        Get a single definition by type and name.
 
         :param def_type: Definition type (task, device, lab, experiment)
         :param name: Definition name

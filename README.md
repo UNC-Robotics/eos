@@ -9,22 +9,28 @@
 [![Docs](https://img.shields.io/badge/Docs-Available-brightgreen)](https://unc-robotics.github.io/eos/) 
 ![license](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 
-EOS is a comprehensive software framework and runtime for laboratory automation, designed to serve as 
+EOS is a software framework and runtime for laboratory automation, designed to serve as
 the foundation for one or more automated or self-driving labs (SDLs).
 
-EOS provides:
+**Core**
+* Plugin system for defining labs, devices, tasks, experiments, and optimizers
+* Package system for sharing and reusing automation code
+* Validation of experiments, parameters, and configurations at load time and runtime
 
-* A common framework to implement laboratory automation
-* A plugin system for defining labs, devices, experiments, tasks, and optimizers
-* A package system for sharing and reusing code and resources across the community
-* Extensive static and dynamic validation of experiments, task parameters, and more
-* A runtime for executing tasks, experiments, and experiment campaigns
-* A central authoritative orchestrator that can communicate with and control multiple devices
-* Distributed task execution and optimization using the Ray framework
-* Built-in Bayesian experiment parameter optimization
-* Optimized task scheduling
-* Device and sample container allocation system to prevent conflicts
-* Result aggregation such as automatic output file storage
+**Execution & Scheduling**
+* Central orchestrator that coordinates devices and experiments across multiple computers
+* Intelligent task scheduling with dynamic device and resource allocation
+* Scheduling simulation for testing strategies offline without hardware
+
+**Optimization**
+* Built-in Bayesian optimization for experiment campaigns, with single and multi-objective support
+* Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
+
+**Interfaces**
+* Web UI with visual experiment editor, real-time monitoring, device inspector, and file browser
+* REST API with OpenAPI documentation
+* MCP server for connecting AI assistants
+* SiLA 2 instrument protocol integration
 
 Documentation is available at [https://unc-robotics.github.io/eos/](https://unc-robotics.github.io/eos/).
 
@@ -51,7 +57,7 @@ run with Docker Compose.
    cd eos
    uv venv
    source .venv/bin/activate
-   uv sync
+   uv sync --all-groups
    ```
 
 3. **Configure EOS**
@@ -70,6 +76,24 @@ run with Docker Compose.
 5. **Start EOS**
    ```shell
    eos start
+   ```
+
+6. **Install the Web UI**
+   ```shell
+   cd web_ui
+   npm install
+   ```
+
+7. **Configure the Web UI**
+   ```shell
+   cp .env.example .env
+   # Edit .env and provide values
+   ```
+
+8. **Start the Web UI** (in a new terminal)
+   ```shell
+   eos ui
+   ```
 
 ## Citation
 If you use EOS for your work, please cite:

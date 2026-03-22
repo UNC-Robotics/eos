@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
@@ -7,7 +7,7 @@ from typing import Self
 from eos.configuration.utils import is_dynamic_parameter
 
 
-class TaskParameterType(str, Enum):
+class TaskParameterType(StrEnum):
     """Enumeration of supported parameter types."""
 
     INT = "int"

@@ -41,8 +41,8 @@ class CpSatSchedulingSolver:
     def _create_default_parameters() -> SatParameters:
         """Create default CP-SAT solver parameters optimized for scheduling."""
         params = SatParameters()
-        params.max_time_in_seconds = 30.0
-        params.num_search_workers = 0
+        params.max_time_in_seconds = 15.0
+        params.num_search_workers = 4
         params.push_all_tasks_toward_start = True
         params.optimize_with_lb_tree_search = True
         params.use_objective_lb_search = True
@@ -108,17 +108,22 @@ class CpSatSchedulingSolver:
         self._makespan: cp_model.IntVar | None = None
 
     def _calculate_horizon(self) -> int:
-        """Calculate horizon and refresh task durations."""
-        horizon = self._current_time
+        """
+        Calculate horizon and refresh task durations.
+
+        The horizon must be large enough to accommodate resource contention
+        and hold bridges which extend the schedule beyond the sum of task durations.
+        """
+        total_duration = 0
         self._task_durations.clear()
 
         for exp_name, (_, exp_graph) in self._experiments.items():
             tasks = exp_graph.get_topologically_sorted_tasks()
             durations = {task_name: exp_graph.get_task(task_name).duration for task_name in tasks}
-            horizon += sum(durations.values())
+            total_duration += sum(durations.values())
             self._task_durations[exp_name] = durations
 
-        return horizon
+        return self._current_time + total_duration * 2
 
     def _eligible_dynamic_devices_for(self, device_req: DynamicDeviceAssignmentDef) -> list[tuple[str, str]]:
         """Get eligible concrete devices for a dynamic request after filtering."""
@@ -534,6 +539,321 @@ class CpSatSchedulingSolver:
                     bucket_name = f"resource_{ref_resource_value}"
                     self._resource_intervals.setdefault(bucket_name, []).append(task_vars.interval)
 
+    def _apply_hold_bridge_constraints(self) -> None:
+        """
+        Add bridge intervals for tasks with hold=true.
+
+        When a task declares hold=true on a device/resource, a bridge interval is added
+        between the task's end and its successor's start on that device/resource.
+        This prevents the solver from scheduling other experiments' tasks in the gap.
+
+        For static devices, a regular bridge interval is created.
+        For dynamic devices, optional bridge intervals are created per choice variable.
+        """
+        for exp_name, (_, exp_graph) in self._experiments.items():
+            for task_name in exp_graph.get_topologically_sorted_tasks():
+                if (exp_name, task_name) not in self._task_vars:
+                    continue
+                task = exp_graph.get_task(task_name)
+                task_vars = self._task_vars[(exp_name, task_name)]
+                self._apply_device_hold_bridges(exp_name, task_name, task, task_vars, exp_graph)
+                self._apply_resource_hold_bridges(exp_name, task_name, task, task_vars, exp_graph)
+
+    def _apply_device_hold_bridges(
+        self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables, exp_graph: ExperimentGraph
+    ) -> None:
+        """Add bridge intervals for held device slots."""
+        for slot, dev in task.devices.items():
+            if not task.device_holds.get(slot, False):
+                continue
+
+            if isinstance(dev, DeviceAssignmentDef):
+                bucket = f"device_{dev.lab_name}_{dev.name}"
+                self._add_bridge_for_successors(exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=True)
+            elif isinstance(dev, DynamicDeviceAssignmentDef):
+                self._add_dynamic_bridge_for_successors(
+                    exp_name, task_name, task_vars, exp_graph, slot, task_name, slot, is_device=True
+                )
+            elif isinstance(dev, str) and is_device_reference(dev):
+                self._add_device_ref_hold_bridge(exp_name, task_name, task_vars, exp_graph, slot, dev)
+
+    def _add_device_ref_hold_bridge(
+        self, exp_name: str, task_name: str, task_vars: TaskVariables, exp_graph: ExperimentGraph, slot: str, ref: str
+    ) -> None:
+        """Add bridge for a device reference hold (resolves to static or dynamic root)."""
+        root = self._resolve_device_root(exp_graph, *ref.split("."))
+        if not root:
+            return
+        root_task_name, root_device_name, root_dev = root
+        if isinstance(root_dev, DeviceAssignmentDef):
+            bucket = f"device_{root_dev.lab_name}_{root_dev.name}"
+            self._add_bridge_for_successors(exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=True)
+        elif isinstance(root_dev, DynamicDeviceAssignmentDef):
+            self._add_dynamic_bridge_for_successors(
+                exp_name, task_name, task_vars, exp_graph, slot, root_task_name, root_device_name, is_device=True
+            )
+
+    def _apply_resource_hold_bridges(
+        self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables, exp_graph: ExperimentGraph
+    ) -> None:
+        """Add bridge intervals for held resource slots."""
+        for slot, res in task.resources.items():
+            if not task.resource_holds.get(slot, False):
+                continue
+
+            if isinstance(res, DynamicResourceAssignmentDef):
+                self._add_dynamic_bridge_for_successors(
+                    exp_name, task_name, task_vars, exp_graph, slot, task_name, slot, is_device=False
+                )
+            elif isinstance(res, str):
+                if not is_resource_reference(res):
+                    bucket = f"resource_{res}"
+                    self._add_bridge_for_successors(
+                        exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=False
+                    )
+                else:
+                    self._add_resource_ref_hold_bridge(exp_name, task_name, task_vars, exp_graph, slot, res)
+
+    def _add_resource_ref_hold_bridge(
+        self, exp_name: str, task_name: str, task_vars: TaskVariables, exp_graph: ExperimentGraph, slot: str, ref: str
+    ) -> None:
+        """Add bridge for a resource reference hold (resolves to static or dynamic root)."""
+        root = self._resolve_resource_root(exp_graph, *ref.split("."))
+        if not root:
+            return
+        root_task_name, root_resource_name, root_res = root
+        if isinstance(root_res, str) and not is_resource_reference(root_res):
+            bucket = f"resource_{root_res}"
+            self._add_bridge_for_successors(exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=False)
+        elif isinstance(root_res, DynamicResourceAssignmentDef):
+            self._add_dynamic_bridge_for_successors(
+                exp_name, task_name, task_vars, exp_graph, slot, root_task_name, root_resource_name, is_device=False
+            )
+
+    def _get_task_successors(self, exp_name: str, task_name: str, exp_graph: ExperimentGraph) -> list[str]:
+        """Get direct task-node successors that have solver variables."""
+        graph = exp_graph.get_graph()
+        return [
+            s
+            for s in graph.successors(task_name)
+            if graph.nodes[s].get("node_type") == "task" and (exp_name, s) in self._task_vars
+        ]
+
+    def _add_bridge_for_successors(
+        self,
+        exp_name: str,
+        task_name: str,
+        task_vars: TaskVariables,
+        exp_graph: ExperimentGraph,
+        slot: str,
+        bucket: str,
+        is_device: bool,
+    ) -> None:
+        """Add a bridge interval between task_name and each successor that uses the same device/resource."""
+        for succ_name in self._get_task_successors(exp_name, task_name, exp_graph):
+            succ_task = exp_graph.get_task(succ_name)
+            succ_vars = self._task_vars[(exp_name, succ_name)]
+
+            if is_device:
+                uses_same = self._successor_uses_device_bucket(exp_graph, succ_task, bucket)
+            else:
+                uses_same = self._successor_uses_resource_bucket(exp_graph, succ_task, bucket)
+
+            if not uses_same:
+                continue
+
+            bridge_size = self.model.NewIntVar(
+                0, self._horizon, f"bridge_size_{exp_name}_{task_name}_to_{succ_name}_{bucket}"
+            )
+            bridge_interval = self.model.NewIntervalVar(
+                task_vars.end,
+                bridge_size,
+                succ_vars.start,
+                f"bridge_iv_{exp_name}_{task_name}_to_{succ_name}_{bucket}",
+            )
+            self._resource_intervals.setdefault(bucket, []).append(bridge_interval)
+
+    def _successor_uses_device_bucket(self, exp_graph: ExperimentGraph, succ_task: TaskDef, bucket: str) -> bool:
+        """Check if a successor task uses the device identified by bucket."""
+        for _slot, s_dev in succ_task.devices.items():
+            if isinstance(s_dev, DeviceAssignmentDef):
+                if f"device_{s_dev.lab_name}_{s_dev.name}" == bucket:
+                    return True
+            elif isinstance(s_dev, str) and is_device_reference(s_dev):
+                root = self._resolve_device_root(exp_graph, *s_dev.split("."))
+                if root:
+                    _, _, root_dev = root
+                    if (
+                        isinstance(root_dev, DeviceAssignmentDef)
+                        and f"device_{root_dev.lab_name}_{root_dev.name}" == bucket
+                    ):
+                        return True
+        return False
+
+    def _successor_uses_resource_bucket(self, exp_graph: ExperimentGraph, succ_task: TaskDef, bucket: str) -> bool:
+        """Check if a successor task uses the resource identified by bucket."""
+        for _slot, s_res in succ_task.resources.items():
+            if isinstance(s_res, str):
+                if is_resource_reference(s_res):
+                    root = self._resolve_resource_root(exp_graph, *s_res.split("."))
+                    if root:
+                        _, _, root_res = root
+                        if (
+                            isinstance(root_res, str)
+                            and not is_resource_reference(root_res)
+                            and f"resource_{root_res}" == bucket
+                        ):
+                            return True
+                elif f"resource_{s_res}" == bucket:
+                    return True
+        return False
+
+    def _find_dynamic_device_slot_index(self, exp_graph: ExperimentGraph, task_name: str, slot_name: str) -> int:
+        """Compute the slot index for a dynamic device by counting prior dynamic entries."""
+        task = exp_graph.get_task(task_name)
+        idx = 0
+        for dev_name, dev_val in task.devices.items():
+            if dev_name == slot_name:
+                return idx
+            if isinstance(dev_val, DynamicDeviceAssignmentDef):
+                idx += 1
+        return idx
+
+    def _add_dynamic_bridge_for_successors(
+        self,
+        exp_name: str,
+        task_name: str,
+        task_vars: TaskVariables,
+        exp_graph: ExperimentGraph,
+        slot: str,
+        dynamic_root_task: str,
+        dynamic_root_slot: str,
+        is_device: bool,
+    ) -> None:
+        """
+        Add optional bridge intervals for dynamic device/resource holds.
+
+        For each candidate device/resource in the dynamic pool, creates an optional
+        bridge interval conditioned on the choice boolean. The bridge is only active
+        when that specific device/resource is chosen.
+        """
+        # Find the choice variables for the dynamic root
+        if is_device:
+            slot_idx = self._find_dynamic_device_slot_index(exp_graph, dynamic_root_task, dynamic_root_slot)
+            choices = self._dynamic_choice_vars.get((exp_name, dynamic_root_task), [])
+            if slot_idx >= len(choices):
+                return
+            slot_choices = choices[slot_idx]
+        else:
+            entries = self._dynamic_resource_choice_vars.get((exp_name, dynamic_root_task), [])
+            slot_choices = None
+            for entry_name, entry_choices in entries:
+                if entry_name == dynamic_root_slot:
+                    slot_choices = entry_choices
+                    break
+            if not slot_choices:
+                return
+
+        for succ_name in self._get_task_successors(exp_name, task_name, exp_graph):
+            succ_task = exp_graph.get_task(succ_name)
+            succ_vars = self._task_vars[(exp_name, succ_name)]
+
+            # Check if successor uses the same dynamic device/resource
+            uses_same = self._successor_uses_dynamic_root(
+                exp_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices, is_device
+            )
+            if not uses_same:
+                continue
+
+            # Create optional bridge intervals for each choice
+            for (lab_name, dev_name), bool_var in slot_choices:
+                bucket = f"device_{lab_name}_{dev_name}" if is_device else f"resource_{dev_name}"
+
+                bridge_size = self.model.NewIntVar(
+                    0,
+                    self._horizon,
+                    f"bridge_size_{exp_name}_{task_name}_to_{succ_name}_{bucket}",
+                )
+                bridge_interval = self.model.NewOptionalIntervalVar(
+                    task_vars.end,
+                    bridge_size,
+                    succ_vars.start,
+                    bool_var,
+                    f"bridge_iv_{exp_name}_{task_name}_to_{succ_name}_{bucket}",
+                )
+                self._resource_intervals.setdefault(bucket, []).append(bridge_interval)
+
+    def _successor_uses_dynamic_root(
+        self,
+        exp_graph: ExperimentGraph,
+        succ_task: TaskDef,
+        dynamic_root_task: str,
+        dynamic_root_slot: str,
+        slot_choices: list[tuple[tuple[str, str], cp_model.IntVar]],
+        is_device: bool,
+    ) -> bool:
+        """Check if a successor task uses the same dynamic device/resource root."""
+        if is_device:
+            return self._successor_uses_dynamic_device_root(
+                exp_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices
+            )
+        return self._successor_uses_dynamic_resource_root(
+            exp_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices
+        )
+
+    def _successor_uses_dynamic_device_root(
+        self,
+        exp_graph: ExperimentGraph,
+        succ_task: TaskDef,
+        dynamic_root_task: str,
+        dynamic_root_slot: str,
+        slot_choices: list[tuple[tuple[str, str], cp_model.IntVar]],
+    ) -> bool:
+        """Check if successor uses the same dynamic device root."""
+        for _s_slot, s_dev in succ_task.devices.items():
+            if isinstance(s_dev, str) and is_device_reference(s_dev):
+                root = self._resolve_device_root(exp_graph, *s_dev.split("."))
+                if root:
+                    r_task, r_slot, r_dev = root
+                    if (
+                        isinstance(r_dev, DynamicDeviceAssignmentDef)
+                        and r_task == dynamic_root_task
+                        and r_slot == dynamic_root_slot
+                    ):
+                        return True
+            elif isinstance(s_dev, DeviceAssignmentDef):
+                for (lab, dev), _ in slot_choices:
+                    if s_dev.lab_name == lab and s_dev.name == dev:
+                        return True
+        return False
+
+    def _successor_uses_dynamic_resource_root(
+        self,
+        exp_graph: ExperimentGraph,
+        succ_task: TaskDef,
+        dynamic_root_task: str,
+        dynamic_root_slot: str,
+        slot_choices: list[tuple[tuple[str, str], cp_model.IntVar]],
+    ) -> bool:
+        """Check if successor uses the same dynamic resource root."""
+        for _s_slot, s_res in succ_task.resources.items():
+            if isinstance(s_res, str):
+                if is_resource_reference(s_res):
+                    root = self._resolve_resource_root(exp_graph, *s_res.split("."))
+                    if root:
+                        r_task, r_slot, r_dev = root
+                        if (
+                            isinstance(r_dev, DynamicResourceAssignmentDef)
+                            and r_task == dynamic_root_task
+                            and r_slot == dynamic_root_slot
+                        ):
+                            return True
+                else:
+                    for (_, res_name), _ in slot_choices:
+                        if s_res == res_name:
+                            return True
+        return False
+
     def _build_model(self) -> None:
         """Build the complete scheduling model."""
         self._horizon = self._calculate_horizon()
@@ -541,12 +861,21 @@ class CpSatSchedulingSolver:
         self._apply_precedence_constraints()
         self._apply_device_reference_constraints()
         self._apply_resource_reference_constraints()
+        self._apply_hold_bridge_constraints()
         self._apply_resource_constraints()
         self._apply_group_constraints()
+        self._apply_solution_hints()
 
         # Create makespan variable
         self._makespan = self.model.NewIntVar(0, self._horizon, "makespan")
         self.model.AddMaxEquality(self._makespan, [tv.end for tv in self._task_vars.values()])
+
+    def _apply_solution_hints(self) -> None:
+        """Warm-start the solver with start times from the previous solution."""
+        for (exp_name, task_name), tv in self._task_vars.items():
+            prev_start = self._schedule.get(exp_name, {}).get(task_name)
+            if prev_start is not None:
+                self.model.AddHint(tv.start, prev_start)
 
     def _extract_schedule(self) -> dict[str, dict[str, int]]:
         """Extract task schedule from solved model efficiently in a single pass."""

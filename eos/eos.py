@@ -6,12 +6,16 @@ from eos.cli.db_cli import db_app
 from eos.cli.orchestrator_cli import start_orchestrator
 from eos.cli.pkg_cli import pkg_app
 from eos.cli.ray_cli import ray_app
+from eos.cli.sim_cli import simulate
+from eos.cli.web_cli import start_web_ui
 
-eos_app = typer.Typer(pretty_exceptions_show_locals=False)
+eos_app = typer.Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
 eos_app.command(name="start", help="Start the EOS orchestrator")(start_orchestrator)
 eos_app.add_typer(db_app, name="db", help="Manage the EOS database")
 eos_app.add_typer(pkg_app, name="pkg", help="Manage EOS packages")
 eos_app.add_typer(ray_app, name="ray", help="Manage EOS Ray cluster")
+eos_app.command(name="sim", help="Run a scheduling simulation")(simulate)
+eos_app.command(name="ui", help="Start the EOS web UI")(start_web_ui)
 
 if __name__ == "__main__":
     eos_app()

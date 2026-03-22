@@ -1,5 +1,6 @@
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.exceptions import EosConfigurationError
+from eos.configuration.packages import EntityType
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.experiments.entities.experiment import ExperimentStatus
@@ -46,10 +47,17 @@ class LoadingService:
             await self._check_lab_usage(db, lab_name)
 
         async with self._loading_lock:
+            # Determine which experiments will be implicitly unloaded with the labs
+            experiments_to_unload = self._get_experiments_for_labs(labs)
+
             self._configuration_manager.unload_labs(labs)
             await self._device_manager.update_devices(db, unloaded_labs=labs)
             await self._resource_manager.update_resources(db, unloaded_labs=labs)
             await self._configuration_manager.def_sync.mark_labs_loaded(db, labs, False)
+
+            # Mark implicitly unloaded experiments in the database
+            if experiments_to_unload:
+                await self._configuration_manager.def_sync.mark_experiments_loaded(db, experiments_to_unload, False)
 
     async def reload_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """Reload one or more labs in the orchestrator with updated device plugin code."""
@@ -162,7 +170,6 @@ class LoadingService:
             package_manager.refresh()
 
             package_count = len(package_manager.get_all_packages())
-            log.info(f"Discovered {package_count} package(s)")
 
             # Re-read task and device specs to update registries
             task_specs, task_dirs_to_types = package_manager.read_task_specs()
@@ -181,13 +188,78 @@ class LoadingService:
 
             return package_count
 
+    async def list_packages(self) -> dict[str, bool]:
+        """List all discovered packages and whether they're currently active."""
+        package_manager = self._configuration_manager.package_manager
+        all_names = package_manager.discover_all_package_names()
+        active_names = {p.name for p in package_manager.get_all_packages()}
+        return {name: name in active_names for name in all_names}
+
+    async def load_packages(self, db: AsyncDbSession, package_names: set[str]) -> None:
+        """Load packages into the active set and sync definitions to database."""
+        async with self._loading_lock:
+            package_manager = self._configuration_manager.package_manager
+            for name in package_names:
+                package_manager.add_package(name)
+
+            # Re-read specs and sync to DB
+            task_specs, task_dirs = package_manager.read_task_specs()
+            self._configuration_manager.task_specs.update_specs(task_specs, task_dirs)
+            device_specs, device_dirs = package_manager.read_device_specs()
+            self._configuration_manager.device_specs.update_specs(device_specs, device_dirs)
+            self._configuration_manager._initialize_task_plugins()
+            await self._configuration_manager.def_sync.sync_all_defs(db)
+
+            log.info(f"Loaded packages: {', '.join(package_names)}")
+
+    async def unload_packages(self, db: AsyncDbSession, package_names: set[str]) -> None:
+        """Unload packages from the active set, checking for usage first."""
+        for pkg_name in package_names:
+            self._check_package_not_in_use(pkg_name)
+
+        async with self._loading_lock:
+            package_manager = self._configuration_manager.package_manager
+            for name in package_names:
+                package_manager.remove_package(name)
+
+            # Re-read specs and sync/cleanup DB
+            task_specs, task_dirs = package_manager.read_task_specs()
+            self._configuration_manager.task_specs.update_specs(task_specs, task_dirs)
+            device_specs, device_dirs = package_manager.read_device_specs()
+            self._configuration_manager.device_specs.update_specs(device_specs, device_dirs)
+            await self._configuration_manager.def_sync.sync_all_defs(db)
+            await self._configuration_manager.def_sync.cleanup_deleted_defs(db)
+
+            log.info(f"Unloaded packages: {', '.join(package_names)}")
+
+    def _check_package_not_in_use(self, package_name: str) -> None:
+        """Verify no loaded labs or experiments belong to the package."""
+        package_manager = self._configuration_manager.package_manager
+
+        lab_entities = package_manager.get_entities_in_package(package_name, EntityType.LAB)
+        loaded_labs = set(self._configuration_manager.labs.keys())
+        in_use_labs = loaded_labs & set(lab_entities)
+        if in_use_labs:
+            raise EosConfigurationError(
+                f"Cannot remove package '{package_name}': labs {in_use_labs} are currently loaded"
+            )
+
+        exp_entities = package_manager.get_entities_in_package(package_name, EntityType.EXPERIMENT)
+        loaded_experiments = set(self._configuration_manager.experiments.keys())
+        in_use_experiments = loaded_experiments & set(exp_entities)
+        if in_use_experiments:
+            raise EosConfigurationError(
+                f"Cannot remove package '{package_name}': experiments {in_use_experiments} are currently loaded"
+            )
+
     async def reload_task_plugins(self, db: AsyncDbSession, task_types: set[str]) -> None:
-        """Reload one or more task plugins in the orchestrator."""
+        """Reload one or more task plugins and their specs in the orchestrator."""
         async with self._loading_lock:
             for task_type in task_types:
                 await self._check_task_usage(db, task_type)
 
             for task_type in task_types:
+                self._configuration_manager.refresh_task_spec(task_type)
                 self._configuration_manager.tasks.reload_plugin(task_type)
                 log.info(f"Reloaded task '{task_type}'")
 

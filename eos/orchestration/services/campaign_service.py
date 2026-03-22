@@ -1,9 +1,11 @@
 import asyncio
 import traceback
+from typing import Any, TYPE_CHECKING
 
 from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
+from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
@@ -12,6 +14,9 @@ from eos.orchestration.exceptions import EosExperimentDoesNotExistError
 from eos.orchestration.work_signal import WorkSignal
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.utils.di.di_container import inject
+
+if TYPE_CHECKING:
+    from ray.actor import ActorHandle
 
 
 class CampaignService:
@@ -25,12 +30,14 @@ class CampaignService:
         self,
         configuration_manager: ConfigurationManager,
         campaign_manager: CampaignManager,
+        campaign_optimizer_manager: CampaignOptimizerManager,
         campaign_executor_factory: CampaignExecutorFactory,
         db_interface: AbstractSqlDbInterface,
         work_signal: WorkSignal,
     ):
         self._configuration_manager = configuration_manager
         self._campaign_manager = campaign_manager
+        self._campaign_optimizer_manager = campaign_optimizer_manager
         self._campaign_executor_factory = campaign_executor_factory
         self._db_interface = db_interface
         self._work_signal = work_signal
@@ -63,6 +70,7 @@ class CampaignService:
 
             try:
                 await campaign_executor.start_campaign(db)
+                await db.commit()
                 self._submitted_campaigns[campaign_name] = campaign_executor
                 self._work_signal.signal()
             except EosCampaignExecutionError:
@@ -92,15 +100,17 @@ class CampaignService:
     async def fail_running_campaigns(self, db: AsyncDbSession) -> None:
         """Fail all running campaigns."""
         running_campaigns = await self._campaign_manager.get_campaigns(db, status=CampaignStatus.RUNNING.value)
+        if not running_campaigns:
+            return
 
-        for campaign in running_campaigns:
-            await self._campaign_manager.fail_campaign(db, campaign.name)
-
-        if running_campaigns:
-            log.warning(
-                "All running campaigns have been marked as failed. Please review the state of the system and re-submit "
-                "with resume=True."
-            )
+        names = [c.name for c in running_campaigns]
+        await self._campaign_manager.fail_campaigns_batch(
+            db, names, error_message="Campaign was running when the orchestrator restarted"
+        )
+        log.warning(
+            "All running campaigns have been marked as failed. Please review the state of the system and re-submit "
+            "with resume=True."
+        )
 
     async def process_campaigns(self) -> None:
         """Try to make progress on all submitted campaigns."""
@@ -172,6 +182,64 @@ class CampaignService:
             error_msg = f"Cannot submit experiment of type '{experiment_type}' as it does not exist."
             log.error(error_msg)
             raise EosExperimentDoesNotExistError(error_msg)
+
+    def _get_running_optimizer(self, campaign_name: str) -> "ActorHandle":
+        """Get the optimizer actor for a running campaign, or raise."""
+        if campaign_name not in self._submitted_campaigns:
+            raise EosCampaignExecutionError(f"Campaign '{campaign_name}' is not currently running.")
+        optimizer = self._submitted_campaigns[campaign_name].optimizer
+        if optimizer is None:
+            raise EosCampaignExecutionError(f"Campaign '{campaign_name}' has no active optimizer.")
+        return optimizer
+
+    async def _persist_optimizer_meta(self, campaign_name: str, optimizer: "ActorHandle") -> None:
+        meta = await optimizer.get_optimizer_meta.remote()
+        if not meta:
+            return
+        async with self._db_interface.get_async_session() as db:
+            current_meta = await self._campaign_manager.get_campaign_meta(db, campaign_name) or {}
+            current_beacon = current_meta.get("beacon", {}) or {}
+            merged_beacon = {**current_beacon, **meta}
+            await self._campaign_manager.update_campaign_meta(db, campaign_name, "beacon", merged_beacon)
+
+    async def add_optimizer_insight(self, campaign_name: str, insight: str) -> None:
+        """Add an expert insight to the optimizer of a running campaign."""
+        optimizer = self._get_running_optimizer(campaign_name)
+        await optimizer.add_insight.remote(insight)
+        await self._persist_optimizer_meta(campaign_name, optimizer)
+
+    async def get_optimizer_info(self, campaign_name: str) -> dict[str, Any]:
+        """Get optimizer type, runtime params, insights, and journal for a running campaign."""
+        if campaign_name not in self._submitted_campaigns:
+            raise EosCampaignExecutionError(f"Campaign '{campaign_name}' is not currently running.")
+
+        optimizer = self._submitted_campaigns[campaign_name].optimizer
+        if optimizer is None:
+            return {"status": "initializing"}
+
+        optimizer_type, runtime_params, meta = await asyncio.gather(
+            optimizer.get_optimizer_type.remote(),
+            optimizer.get_runtime_params.remote(),
+            optimizer.get_optimizer_meta.remote(),
+        )
+
+        return {
+            "status": "ready",
+            "optimizer_type": optimizer_type,
+            "runtime_params": runtime_params,
+            "insights": meta.get("insights", []) if meta else [],
+            "journal": meta.get("journal", []) if meta else [],
+        }
+
+    async def update_optimizer_params(self, campaign_name: str, params: dict[str, Any]) -> None:
+        """Update runtime-safe optimizer parameters for a running campaign."""
+        optimizer = self._get_running_optimizer(campaign_name)
+        await optimizer.set_runtime_params.remote(params)
+        await self._persist_optimizer_meta(campaign_name, optimizer)
+
+    def get_optimizer_defaults(self, experiment_type: str) -> tuple[str, dict[str, Any]] | None:
+        """Get optimizer type name and default params for an experiment type."""
+        return self._campaign_optimizer_manager.get_optimizer_defaults(experiment_type)
 
     @property
     def submitted_campaigns(self) -> dict[str, CampaignExecutor]:

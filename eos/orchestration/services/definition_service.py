@@ -8,7 +8,8 @@ class DefinitionService:
     """Service for querying definitions from the database."""
 
     async def get_definitions(self, db: AsyncDbSession, def_type: str | None = None) -> list[Definition]:
-        """Get all definitions, optionally filtered by type.
+        """
+        Get all definitions, optionally filtered by type.
 
         :param db: Database session
         :param def_type: Optional type filter (task, device, lab, experiment)
@@ -21,7 +22,8 @@ class DefinitionService:
         return [Definition.model_validate(model) for model in models]
 
     async def get_definition(self, db: AsyncDbSession, def_type: str, name: str) -> Definition | None:
-        """Get a single definition by type and name.
+        """
+        Get a single definition by type and name.
 
         :param db: Database session
         :param def_type: Definition type (task, device, lab, experiment)

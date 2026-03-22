@@ -3,10 +3,6 @@ from typing import NamedTuple
 
 from eos.experiments.entities.experiment import ExperimentSubmission
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.allocation.entities.allocation_request import (
-    AllocationRequestStatus,
-    AllocationType,
-)
 from eos.scheduling.exceptions import EosSchedulerRegistrationError
 from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
@@ -84,16 +80,14 @@ class TestCpSatScheduler:
         device = task.devices["device_1"]
         assert device.lab_name == expected.lab_name
         assert device.name == expected.device_name
-        assert task.allocations.status == AllocationRequestStatus.ALLOCATED
 
     async def _process_and_verify_tasks(
-        self, db, scheduler, resource_manager, task_manager, experiment_name: str, expected_tasks: list[ExpectedTask]
+        self, db, scheduler, allocation_manager, task_manager, experiment_name: str, expected_tasks: list[ExpectedTask]
     ):
         """Helper to process and verify a batch of scheduled tasks (order not enforced)"""
-        await scheduler.request_tasks(db, experiment_name)
-        await resource_manager.process_requests(db)
         tasks = await scheduler.request_tasks(db, experiment_name)
-        print(tasks)
+        if not tasks:
+            tasks = await scheduler.request_tasks(db, experiment_name)
 
         tasks_by_name = {task.name: task for task in tasks}
 
@@ -132,8 +126,6 @@ class TestCpSatScheduler:
 
         # Process each batch of tasks
         for expected_batch in scheduling_sequence:
-            print("------------------")
-            print(expected_batch)
             await self._process_and_verify_tasks(
                 db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_batch
             )
@@ -142,8 +134,6 @@ class TestCpSatScheduler:
         assert await cpsat_scheduler.is_experiment_completed(db, "experiment_1")
 
         # Verify no more tasks are scheduled
-        await cpsat_scheduler.request_tasks(db, "experiment_1")
-        await allocation_manager.process_requests(db)
         final_tasks = await cpsat_scheduler.request_tasks(db, "experiment_1")
         assert len(final_tasks) == 0
 
@@ -176,35 +166,28 @@ class TestCpSatSchedulerDynamicDevices:
         await cpsat_scheduler.register_experiment(experiment_name, experiment_type, graph)
 
         # Step 1: Task A requires a DT3 device dynamically
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
+        if not tasks:
+            tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
 
         tasks_by_name = {t.name: t for t in tasks}
         assert "A" in tasks_by_name
         task_a = tasks_by_name["A"]
-        assert task_a.allocations.status == AllocationRequestStatus.ALLOCATED
         assert len(task_a.devices) == 1
-        # Any DT3 device from the lab is acceptable
         device_a = task_a.devices["device_1"]
         assert device_a.name in {"DX3A", "DX3B", "DX3C", "DX3D"}
         assert device_a.lab_name == "dynamic_lab"
 
-        # Complete A to free devices
         await task_manager.create_task(db, TaskSubmission(name="A", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "A")
         await task_manager.complete_task(db, experiment_name, "A")
 
         # Step 2: B (DT2) and C (DT3 with allowed_devices=DX3B)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
-
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
 
         task_b = tasks_by_name["B"]
-        assert task_b.allocations.status == AllocationRequestStatus.ALLOCATED
         assert len(task_b.devices) == 1
         device_b = task_b.devices["device_1"]
         assert device_b.lab_name == "dynamic_lab"
@@ -214,8 +197,6 @@ class TestCpSatSchedulerDynamicDevices:
         await task_manager.complete_task(db, experiment_name, "B")
 
         task_c = tasks_by_name["C"]
-        assert task_c.allocations.status == AllocationRequestStatus.ALLOCATED
-        # C has allowed_devices constraint -> must be DX3B
         assert len(task_c.devices) == 1
         device_c = task_c.devices["device_1"]
         assert device_c.name == "DX3B"
@@ -225,14 +206,10 @@ class TestCpSatSchedulerDynamicDevices:
         await task_manager.complete_task(db, experiment_name, "C")
 
         # Step 3: D (DT5)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
-
         tasks_by_name = {t.name: t for t in tasks}
         assert "D" in tasks_by_name
         task_d = tasks_by_name["D"]
-        assert task_d.allocations.status == AllocationRequestStatus.ALLOCATED
         assert len(task_d.devices) == 1
         device_d = task_d.devices["device_1"]
         assert device_d.lab_name == "dynamic_lab"
@@ -241,40 +218,19 @@ class TestCpSatSchedulerDynamicDevices:
         await task_manager.start_task(db, experiment_name, "D")
         await task_manager.complete_task(db, experiment_name, "D")
 
-        # Step 4: E (device reference to C.device_1)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
-        tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
-        tasks_by_name = {t.name: t for t in tasks}
-        assert "E" in tasks_by_name
-        await task_manager.create_task(db, TaskSubmission(name="E", type="Noop", experiment_name=experiment_name))
-        await task_manager.start_task(db, experiment_name, "E")
-        await task_manager.complete_task(db, experiment_name, "E")
+        # Steps 4-6: E, F, G
+        for task_name in ["E", "F", "G"]:
+            tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
+            tasks_by_name = {t.name: t for t in tasks}
+            assert task_name in tasks_by_name
+            await task_manager.create_task(
+                db, TaskSubmission(name=task_name, type="Noop", experiment_name=experiment_name)
+            )
+            await task_manager.start_task(db, experiment_name, task_name)
+            await task_manager.complete_task(db, experiment_name, task_name)
 
-        # Step 5: F (device reference to E.device_1)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
-        tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
-        tasks_by_name = {t.name: t for t in tasks}
-        assert "F" in tasks_by_name
-        await task_manager.create_task(db, TaskSubmission(name="F", type="Noop", experiment_name=experiment_name))
-        await task_manager.start_task(db, experiment_name, "F")
-        await task_manager.complete_task(db, experiment_name, "F")
-
-        # Step 6: G (device references to A.device_1 and D.device_1)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
-        tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
-        tasks_by_name = {t.name: t for t in tasks}
-        assert "G" in tasks_by_name
-        await task_manager.create_task(db, TaskSubmission(name="G", type="Noop", experiment_name=experiment_name))
-        await task_manager.start_task(db, experiment_name, "G")
-        await task_manager.complete_task(db, experiment_name, "G")
-
-        # Verify experiment completion and no more tasks
+        # Verify experiment completion
         assert await cpsat_scheduler.is_experiment_completed(db, experiment_name)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         assert len(await cpsat_scheduler.request_tasks(db, experiment_name)) == 0
 
 
@@ -296,23 +252,20 @@ class TestCpSatSchedulerDeviceReferences:
         experiment_type = "dynamic_device_experiment"
         experiment_name = "dev_ref_cpsat_exp_1"
 
-        # Create and start experiment
         await experiment_manager.create_experiment(
             db, ExperimentSubmission(type=experiment_type, name=experiment_name, owner="test", priority=0)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
-        # Register experiment
         graph = ExperimentGraph(configuration_manager.experiments[experiment_type])
         await cpsat_scheduler.register_experiment(experiment_name, experiment_type, graph)
 
         # Step 1: Task A dynamically allocates a DT3 device
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
+        if not tasks:
+            tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "A" in tasks_by_name
-
         task_a = tasks_by_name["A"]
         device_a = task_a.devices["device_1"]
         assert device_a.name in {"DX3A", "DX3B", "DX3C", "DX3D"}
@@ -321,9 +274,7 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.start_task(db, experiment_name, "A")
         await task_manager.complete_task(db, experiment_name, "A")
 
-        # Step 2: B and C execute (C must get DX3B due to allowed_devices constraint)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
+        # Step 2: B and C (C must get DX3B)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
@@ -334,18 +285,15 @@ class TestCpSatSchedulerDeviceReferences:
 
         task_c = tasks_by_name["C"]
         device_c = task_c.devices["device_1"]
-        assert device_c.name == "DX3B"  # Constrained by allowed_devices
+        assert device_c.name == "DX3B"
         await task_manager.create_task(db, TaskSubmission(name="C", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "C")
         await task_manager.complete_task(db, experiment_name, "C")
 
-        # Step 3: D executes
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
+        # Step 3: D
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "D" in tasks_by_name
-
         task_d = tasks_by_name["D"]
         device_d = task_d.devices["device_1"]
         assert device_d.name in {"DZ5A", "DZ5B"}
@@ -353,55 +301,42 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.start_task(db, experiment_name, "D")
         await task_manager.complete_task(db, experiment_name, "D")
 
-        # Step 4: E references C.device_1 - must use same device (DX3B)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
+        # Step 4: E references C.device_1 - must use DX3B
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "E" in tasks_by_name
-
         task_e = tasks_by_name["E"]
         device_e = task_e.devices["device_1"]
-        assert device_e.name == device_c.name  # Must match C
-        assert device_e.name == "DX3B"
+        assert device_e.name == device_c.name == "DX3B"
         await task_manager.create_task(db, TaskSubmission(name="E", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "E")
         await task_manager.complete_task(db, experiment_name, "E")
 
-        # Step 5: F references E.device_1 (depth-2 reference) - must use same device (DX3B)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
+        # Step 5: F references E.device_1 - must use DX3B
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "F" in tasks_by_name
-
         task_f = tasks_by_name["F"]
         device_f = task_f.devices["device_1"]
-        assert device_f.name == device_e.name  # Must match E
-        assert device_f.name == device_c.name  # Must match C (transitively)
         assert device_f.name == "DX3B"
         await task_manager.create_task(db, TaskSubmission(name="F", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "F")
         await task_manager.complete_task(db, experiment_name, "F")
 
-        # Step 6: G references A.device_1 and D.device_1 - must use both devices
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
+        # Step 6: G references A.device_1 and D.device_1
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "G" in tasks_by_name
-
         task_g = tasks_by_name["G"]
         assert len(task_g.devices) == 2
         device_g_analyzer = task_g.devices["analyzer"]
         device_g_processor = task_g.devices["processor"]
-        assert device_g_analyzer.name == device_a.name  # Must match A
-        assert device_g_processor.name == device_d.name  # Must match D
+        assert device_g_analyzer.name == device_a.name
+        assert device_g_processor.name == device_d.name
         await task_manager.create_task(db, TaskSubmission(name="G", type="Noop", experiment_name=experiment_name))
         await task_manager.start_task(db, experiment_name, "G")
         await task_manager.complete_task(db, experiment_name, "G")
 
-        # Verify experiment completion
         assert await cpsat_scheduler.is_experiment_completed(db, experiment_name)
 
 
@@ -422,30 +357,24 @@ class TestCpSatSchedulerDynamicContainers:
         experiment_type = "dynamic_resource_experiment"
         experiment_name = "dyn_cont_cp_1"
 
-        # Create and start experiment
         await experiment_manager.create_experiment(
             db, ExperimentSubmission(type=experiment_type, name=experiment_name, owner="test", priority=0)
         )
         await experiment_manager.start_experiment(db, experiment_name)
 
-        # Register experiment
         graph = ExperimentGraph(configuration_manager.experiments[experiment_type])
         await cpsat_scheduler.register_experiment(experiment_name, experiment_type, graph)
 
-        def container_names(task: ScheduledTask) -> set[str]:
-            return {a.name for a in task.allocations.allocations if a.allocation_type == AllocationType.RESOURCE}
-
         # Step 1: A requires dynamic beaker_500
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
+        if not tasks:
+            tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "A" in tasks_by_name
         task_a = tasks_by_name["A"]
-        assert task_a.allocations.status == AllocationRequestStatus.ALLOCATED
-        names_a = container_names(task_a)
-        assert len(names_a) == 1
-        assert next(iter(names_a)) in {"B500A", "B500B", "B500C"}
+        assert len(task_a.resources) == 1
+        res_a = next(iter(task_a.resources.values()))
+        assert res_a in {"B500A", "B500B", "B500C"}
         await task_manager.create_task(
             db, TaskSubmission(name="A", type="Container Usage", experiment_name=experiment_name)
         )
@@ -453,17 +382,14 @@ class TestCpSatSchedulerDynamicContainers:
         await task_manager.complete_task(db, experiment_name, "A")
 
         # Step 2: B (dynamic beaker_500) and C (specific B500B)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
 
         task_b = tasks_by_name["B"]
-        assert task_b.allocations.status == AllocationRequestStatus.ALLOCATED
-        names_b = container_names(task_b)
-        assert len(names_b) == 1
-        assert next(iter(names_b)) in {"B500A", "B500B", "B500C"}
+        assert len(task_b.resources) == 1
+        res_b = next(iter(task_b.resources.values()))
+        assert res_b in {"B500A", "B500B", "B500C"}
         await task_manager.create_task(
             db, TaskSubmission(name="B", type="Container Usage", experiment_name=experiment_name)
         )
@@ -471,10 +397,9 @@ class TestCpSatSchedulerDynamicContainers:
         await task_manager.complete_task(db, experiment_name, "B")
 
         task_c = tasks_by_name["C"]
-        assert task_c.allocations.status == AllocationRequestStatus.ALLOCATED
-        names_c = container_names(task_c)
-        assert len(names_c) == 1
-        assert next(iter(names_c)) == "B500B"
+        assert len(task_c.resources) == 1
+        res_c = next(iter(task_c.resources.values()))
+        assert res_c == "B500B"
         await task_manager.create_task(
             db, TaskSubmission(name="C", type="Container Usage", experiment_name=experiment_name)
         )
@@ -482,26 +407,21 @@ class TestCpSatSchedulerDynamicContainers:
         await task_manager.complete_task(db, experiment_name, "C")
 
         # Step 3: D (dynamic vial)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         tasks = await cpsat_scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "D" in tasks_by_name
         task_d = tasks_by_name["D"]
-        assert task_d.allocations.status == AllocationRequestStatus.ALLOCATED
-        names_d = container_names(task_d)
-        assert len(names_d) == 1
-        assert next(iter(names_d)) in {"VIAL1", "VIAL2"}
+        assert len(task_d.resources) == 1
+        res_d = next(iter(task_d.resources.values()))
+        assert res_d in {"VIAL1", "VIAL2"}
         await task_manager.create_task(
             db, TaskSubmission(name="D", type="Container Vial Usage", experiment_name=experiment_name)
         )
         await task_manager.start_task(db, experiment_name, "D")
         await task_manager.complete_task(db, experiment_name, "D")
 
-        # Confirm experiment completion and no more tasks
+        # Confirm experiment completion
         assert await cpsat_scheduler.is_experiment_completed(db, experiment_name)
-        await cpsat_scheduler.request_tasks(db, experiment_name)
-        await allocation_manager.process_requests(db)
         assert len(await cpsat_scheduler.request_tasks(db, experiment_name)) == 0
 
 
@@ -525,14 +445,13 @@ class TestCpSatSchedulerContinuation:
         device = task.devices["device_1"]
         assert device.lab_name == expected.lab_name
         assert device.name == expected.device_name
-        assert task.allocations.status == AllocationRequestStatus.ALLOCATED
 
     async def _process_and_verify_tasks(
-        self, db, scheduler, resource_manager, task_manager, experiment_name: str, expected_tasks: list[ExpectedTask]
+        self, db, scheduler, allocation_manager, task_manager, experiment_name: str, expected_tasks: list[ExpectedTask]
     ):
-        await scheduler.request_tasks(db, experiment_name)
-        await resource_manager.process_requests(db)
         tasks = await scheduler.request_tasks(db, experiment_name)
+        if not tasks:
+            tasks = await scheduler.request_tasks(db, experiment_name)
         tasks_by_name = {task.name: task for task in tasks}
         for expected in expected_tasks:
             task = tasks_by_name.get(expected.task_name)
@@ -560,72 +479,107 @@ class TestCpSatSchedulerContinuation:
         await cpsat_scheduler.register_experiment("experiment_2", EXPERIMENT_TYPE, experiment_graph)
 
         # EX1-A
-        expected_tasks = [ExpectedTask("A", "abstract_lab", "D1")]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_1",
+            [ExpectedTask("A", "abstract_lab", "D1")],
         )
 
         # EX1-B, EX1-C and EX2-A
-        expected_tasks_ex1 = [
-            ExpectedTask("B", "abstract_lab", "D2"),
-            ExpectedTask("C", "abstract_lab", "D3"),
-        ]
-        expected_tasks_ex2 = [ExpectedTask("A", "abstract_lab", "D1")]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_1",
+            [ExpectedTask("B", "abstract_lab", "D2"), ExpectedTask("C", "abstract_lab", "D3")],
         )
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_2",
+            [ExpectedTask("A", "abstract_lab", "D1")],
         )
 
         # EX1-D and EX2-B
-        expected_tasks_ex1 = [ExpectedTask("D", "abstract_lab", "D3")]
-        expected_tasks_ex2 = [ExpectedTask("B", "abstract_lab", "D2")]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_1",
+            [ExpectedTask("D", "abstract_lab", "D3")],
         )
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_2",
+            [ExpectedTask("B", "abstract_lab", "D2")],
         )
 
         # EX1-F and EX1-E
-        expected_tasks_ex1 = [
-            ExpectedTask("F", "abstract_lab", "D3"),
-            ExpectedTask("E", "abstract_lab", "D4"),
-        ]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_1",
+            [ExpectedTask("F", "abstract_lab", "D3"), ExpectedTask("E", "abstract_lab", "D4")],
         )
 
         # EX1-G and EX2-C
-        expected_tasks_ex1 = [ExpectedTask("G", "abstract_lab", "D5")]
-        expected_tasks_ex2 = [ExpectedTask("C", "abstract_lab", "D3")]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_1", expected_tasks_ex1
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_1",
+            [ExpectedTask("G", "abstract_lab", "D5")],
         )
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_2",
+            [ExpectedTask("C", "abstract_lab", "D3")],
         )
 
         # EX2-D
-        expected_tasks_ex2 = [ExpectedTask("D", "abstract_lab", "D3")]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_2",
+            [ExpectedTask("D", "abstract_lab", "D3")],
         )
 
         # EX2-F and EX2-E
-        expected_tasks_ex2 = [
-            ExpectedTask("F", "abstract_lab", "D3"),
-            ExpectedTask("E", "abstract_lab", "D4"),
-        ]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_2",
+            [ExpectedTask("F", "abstract_lab", "D3"), ExpectedTask("E", "abstract_lab", "D4")],
         )
 
         # EX2-G
-        expected_tasks_ex2 = [ExpectedTask("G", "abstract_lab", "D5")]
         await self._process_and_verify_tasks(
-            db, cpsat_scheduler, allocation_manager, task_manager, "experiment_2", expected_tasks_ex2
+            db,
+            cpsat_scheduler,
+            allocation_manager,
+            task_manager,
+            "experiment_2",
+            [ExpectedTask("G", "abstract_lab", "D5")],
         )
 
     @pytest.mark.asyncio
@@ -655,7 +609,6 @@ class TestCpSatSchedulerContinuation:
         await cpsat_scheduler.register_experiment("experiment_1", EXPERIMENT_TYPE, experiment_graph)
 
         await cpsat_scheduler.request_tasks(db, "experiment_1")
-        await allocation_manager.process_requests(db)
 
         schedule = cpsat_scheduler._schedule["experiment_1"]
         durations = cpsat_scheduler._task_durations["experiment_1"]
@@ -667,13 +620,13 @@ class TestCpSatSchedulerContinuation:
         c_start = schedule["C"]
         c_end = c_start + durations["C"]
 
-        assert b_start >= a_end  # B dependency respected
-        assert c_start >= a_end  # C dependency respected
-        assert a_end in (b_start, c_start)  # One starts immediately after A
+        assert b_start >= a_end
+        assert c_start >= a_end
+        assert a_end in (b_start, c_start)
         if b_start == a_end:
-            assert c_start == b_end  # C follows B
+            assert c_start == b_end
         else:
-            assert b_start == c_end  # B follows C
+            assert b_start == c_end
 
         # Verify analysis group (E, F) are consecutive
         e_start = schedule["E"]
@@ -712,7 +665,6 @@ class TestCpSatSchedulerContinuation:
 
         await cpsat_scheduler.request_tasks(db, "exp1")
         await cpsat_scheduler.request_tasks(db, "exp2")
-        await allocation_manager.process_requests(db)
 
         schedule_1 = cpsat_scheduler._schedule["exp1"]
         durations_1 = cpsat_scheduler._task_durations["exp1"]

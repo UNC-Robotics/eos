@@ -1,20 +1,21 @@
-import asyncio
-import os
-
 import pytest
 
-# Suppress Ray GPU override warning
-os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
+import eos.configuration.env
+from eos.utils import profiler
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+def pytest_addoption(parser):
+    parser.addoption("--profile", action="store_true", default=False, help="Enable EOS function profiling report")
+
+
+def pytest_sessionstart(session):
+    if session.config.getoption("--profile"):
+        profiler.start()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.getoption("--profile"):
+        profiler.report()
 
 
 def pytest_collection_modifyitems(items):

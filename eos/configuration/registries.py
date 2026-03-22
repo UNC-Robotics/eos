@@ -80,6 +80,10 @@ class SpecRegistry(Generic[T, C]):
     def spec_exists_by_type(self, spec_type: str) -> bool:
         return spec_type in self._specifications
 
+    def update_spec(self, spec_type: str, spec: T) -> None:
+        """Update a single specification by type."""
+        self._specifications[spec_type] = spec
+
     def update_specs(self, specifications: dict[str, T], dirs_to_types: dict[str, str]) -> None:
         """Public method for refreshing specs."""
         self._specifications = specifications.copy()
@@ -371,8 +375,7 @@ def create_task_plugin_registry(
     task_specs: SpecRegistry,
 ) -> PluginRegistry:
     """Create a task plugin registry."""
-    # Import here to avoid circular imports
-    from eos.tasks.base_task import BaseTask
+    from eos.tasks.base_task import BaseTask  # noqa: PLC0415 (circular import)
 
     config = PluginRegistryConfig(
         spec_registry=task_specs,
@@ -391,8 +394,7 @@ def create_device_plugin_registry(
     device_specs: SpecRegistry,
 ) -> PluginRegistry:
     """Create a device plugin registry."""
-    # Import here to avoid circular imports
-    from eos.devices.base_device import BaseDevice
+    from eos.devices.base_device import BaseDevice  # noqa: PLC0415 (circular import)
 
     config = PluginRegistryConfig(
         spec_registry=device_specs,
@@ -427,19 +429,21 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
             exception_class=EosCampaignOptimizerPluginError,
             entity_type=EntityType.EXPERIMENT,
         )
-        super().__init__(package_manager, config)
+        super().__init__(package_manager, config, initialize=False)
 
     def get_campaign_optimizer_creation_parameters(
         self, experiment_type: str
     ) -> tuple[dict[str, Any], type[AbstractSequentialOptimizer]] | None:
         """
         Get a function that can be used to get the constructor arguments and the optimizer type so it can be
-        constructed later.
+        constructed later. Lazy-loads the optimizer plugin on first access.
 
         :param experiment_type: The type of the experiment.
         :return: A tuple containing the constructor arguments and the optimizer type, or None if not found.
         """
-        optimizer_function = self.get_plugin_class_type(experiment_type)
+        if experiment_type not in self.plugin_types:
+            self.load_campaign_optimizer(experiment_type)
+        optimizer_function = self.plugin_types.get(experiment_type)
         if optimizer_function:
             return optimizer_function()
         return None

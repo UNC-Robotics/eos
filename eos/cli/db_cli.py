@@ -15,6 +15,7 @@ from eos.database.alembic_commands import (
     alembic_upgrade,
     alembic_downgrade,
     alembic_revision,
+    alembic_stamp,
 )
 
 if TYPE_CHECKING:
@@ -241,6 +242,34 @@ def clear(
         typer.secho("Cleared all data from database tables", fg="green")
     except Exception as e:
         typer.secho(f"Failed to clear database: {e}", fg="red", err=True)
+        raise typer.Exit(1) from e
+
+
+@db_app.command()
+def stamp(
+    ctx: Context,
+    revision: str = typer.Argument(..., help="Target revision to stamp (e.g. 'head', revision hash)"),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        "--yes",
+        help="Skip confirmation prompt (yes/force)",
+    ),
+) -> None:
+    """
+    Stamp the database with a revision without running migrations.
+    """
+    if not force and not typer.confirm(f"Stamp database to {revision}?"):
+        raise typer.Exit()
+
+    eos_config: EosConfig = ctx.obj
+    try:
+        setup_alembic(eos_config)
+        alembic_stamp(revision)
+        typer.secho(f"Successfully stamped to: {revision}", fg="green")
+    except Exception as e:
+        typer.secho(f"Failed to stamp database: {e}", fg="red", err=True)
         raise typer.Exit(1) from e
 
 

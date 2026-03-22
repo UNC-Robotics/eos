@@ -2,6 +2,7 @@ from functools import wraps
 from pathlib import Path
 from threading import Lock
 
+import alembic.command
 import eos.database
 
 from alembic.config import Config
@@ -35,7 +36,6 @@ def alembic_config() -> Config:
 @alembic_lock
 def alembic_upgrade(revision: str = "head") -> None:
     """Run alembic upgrade on the EOS database."""
-    import alembic.command
 
     alembic.command.upgrade(alembic_config(), revision)
 
@@ -43,7 +43,6 @@ def alembic_upgrade(revision: str = "head") -> None:
 @alembic_lock
 def alembic_downgrade(revision: str = "-1") -> None:
     """Run alembic downgrade on EOS database."""
-    import alembic.command
 
     alembic.command.downgrade(alembic_config(), revision)
 
@@ -51,7 +50,6 @@ def alembic_downgrade(revision: str = "-1") -> None:
 @alembic_lock
 def alembic_revision(message: str | None = None, autogenerate: bool = False, **kwargs) -> None:
     """Create a new revision file for the database."""
-    import alembic.command
 
     alembic.command.revision(alembic_config(), message=message, autogenerate=autogenerate, **kwargs)
 
@@ -59,7 +57,6 @@ def alembic_revision(message: str | None = None, autogenerate: bool = False, **k
 @alembic_lock
 def alembic_stamp(revision: str) -> None:
     """Stamp the revision table with the given revision."""
-    import alembic.command
 
     alembic.command.stamp(alembic_config(), revision=revision)
 
@@ -67,7 +64,6 @@ def alembic_stamp(revision: str) -> None:
 @alembic_lock
 def alembic_current() -> None:
     """Get the current revision of the database."""
-    import alembic.command
 
     alembic_cfg = alembic_config()
     alembic_cfg.print_stdout = lambda *args, **kwargs: None

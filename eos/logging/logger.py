@@ -1,6 +1,7 @@
 import logging
 from enum import Enum
 
+from eos.logging.buffer_handler import BufferHandler
 from eos.logging.rich_console_handler import RichConsoleHandler
 
 
@@ -22,6 +23,7 @@ class Logger:
         self.logger.name = "eos"
         self.logger.setLevel(logging.DEBUG)
         self.logger.addHandler(RichConsoleHandler())
+        self.logger.addHandler(BufferHandler())
 
     def set_level(self, level: LogLevel | str) -> None:
         if isinstance(level, str):

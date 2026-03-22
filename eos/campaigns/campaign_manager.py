@@ -1,7 +1,7 @@
 from datetime import datetime, UTC
 from typing import Any
 
-from sqlalchemy import select, exists, delete, update
+from sqlalchemy import func, select, exists, delete, update
 
 from eos.campaigns.entities.campaign import (
     Campaign,
@@ -60,8 +60,18 @@ class CampaignManager:
         log.info(f"Created campaign '{submission.name}'.")
 
     async def delete_campaign(self, db: AsyncDbSession, campaign_name: str) -> None:
-        """Delete a campaign."""
+        """Delete a campaign and all associated experiments and samples."""
         await self._validate_campaign_exists(db, campaign_name)
+
+        # Get all experiment names for this campaign
+        stmt = select(ExperimentModel.name).where(ExperimentModel.campaign == campaign_name)
+        result = await db.execute(stmt)
+        experiment_names = [row[0] for row in result.all()]
+
+        # Delete experiments and their tasks
+        if experiment_names:
+            await db.execute(delete(TaskModel).where(TaskModel.experiment_name.in_(experiment_names)))
+            await db.execute(delete(ExperimentModel).where(ExperimentModel.campaign == campaign_name))
 
         await db.execute(delete(CampaignSampleModel).where(CampaignSampleModel.campaign_name == campaign_name))
         await db.execute(delete(CampaignModel).where(CampaignModel.name == campaign_name))
@@ -133,10 +143,9 @@ class CampaignManager:
         result = await db.execute(stmt)
         experiment_names = [row[0] for row in result.all()]
 
-        # Delete tasks and experiments
-        for experiment_name in experiment_names:
-            await db.execute(delete(TaskModel).where(TaskModel.experiment_name == experiment_name))
-            await db.execute(delete(ExperimentModel).where(ExperimentModel.name == experiment_name))
+        if experiment_names:
+            await db.execute(delete(TaskModel).where(TaskModel.experiment_name.in_(experiment_names)))
+            await db.execute(delete(ExperimentModel).where(ExperimentModel.name.in_(experiment_names)))
 
     async def get_campaign_experiment_names(
         self, db: AsyncDbSession, campaign_name: str, status: ExperimentStatus | None = None
@@ -151,14 +160,28 @@ class CampaignManager:
 
     async def get_running_campaign_experiment_count(self, db: AsyncDbSession, campaign_name: str) -> int:
         """Get count of running experiments for a campaign."""
-        from sqlalchemy import func
-
         stmt = select(func.count()).where(
             ExperimentModel.campaign == campaign_name,
             ExperimentModel.status == ExperimentStatus.RUNNING,
         )
         result = await db.execute(stmt)
         return result.scalar_one()
+
+    async def get_campaign_meta(self, db: AsyncDbSession, campaign_name: str) -> dict[str, Any] | None:
+        """Get the meta dict for a campaign."""
+        result = await db.execute(select(CampaignModel.meta).where(CampaignModel.name == campaign_name))
+        return result.scalar_one_or_none()
+
+    async def update_campaign_meta(self, db: AsyncDbSession, campaign_name: str, key: str, value: Any) -> None:
+        """Merge a key into campaign meta."""
+        result = await db.execute(select(CampaignModel.meta).where(CampaignModel.name == campaign_name))
+        current_meta = result.scalar_one_or_none()
+        if current_meta is not None:
+            await db.execute(
+                update(CampaignModel)
+                .where(CampaignModel.name == campaign_name)
+                .values(meta={**current_meta, key: value})
+            )
 
     async def set_pareto_solutions(
         self, db: AsyncDbSession, campaign_name: str, pareto_solutions: list[dict[str, Any]]
@@ -170,19 +193,25 @@ class CampaignManager:
             update(CampaignModel).where(CampaignModel.name == campaign_name).values(pareto_solutions=pareto_solutions)
         )
 
-    async def _set_campaign_status(self, db: AsyncDbSession, campaign_name: str, new_status: CampaignStatus) -> None:
+    async def _set_campaign_status(
+        self, db: AsyncDbSession, campaign_name: str, new_status: CampaignStatus, error_message: str | None = None
+    ) -> None:
         """Set the status of a campaign."""
         await self._validate_campaign_exists(db, campaign_name)
 
-        update_fields = {"status": new_status}
+        update_fields: dict = {"status": new_status}
         if new_status == CampaignStatus.RUNNING:
             update_fields["start_time"] = datetime.now(UTC)
+            update_fields["error_message"] = None
         elif new_status in [
             CampaignStatus.COMPLETED,
             CampaignStatus.CANCELLED,
             CampaignStatus.FAILED,
         ]:
             update_fields["end_time"] = datetime.now(UTC)
+
+        if error_message is not None:
+            update_fields["error_message"] = error_message
 
         await db.execute(update(CampaignModel).where(CampaignModel.name == campaign_name).values(**update_fields))
 
@@ -202,6 +231,19 @@ class CampaignManager:
         """Suspend a campaign."""
         await self._set_campaign_status(db, campaign_name, CampaignStatus.SUSPENDED)
 
-    async def fail_campaign(self, db: AsyncDbSession, campaign_name: str) -> None:
+    async def fail_campaign(self, db: AsyncDbSession, campaign_name: str, error_message: str | None = None) -> None:
         """Fail a campaign."""
-        await self._set_campaign_status(db, campaign_name, CampaignStatus.FAILED)
+        await self._set_campaign_status(db, campaign_name, CampaignStatus.FAILED, error_message=error_message)
+
+    async def fail_campaigns_batch(
+        self, db: AsyncDbSession, names: list[str], error_message: str | None = None
+    ) -> None:
+        if not names:
+            return
+        update_fields: dict = {
+            "status": CampaignStatus.FAILED,
+            "end_time": datetime.now(UTC),
+        }
+        if error_message is not None:
+            update_fields["error_message"] = error_message
+        await db.execute(update(CampaignModel).where(CampaignModel.name.in_(names)).values(**update_fields))

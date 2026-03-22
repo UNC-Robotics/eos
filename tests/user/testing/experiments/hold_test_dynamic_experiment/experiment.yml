@@ -1,0 +1,34 @@
+type: hold_test_dynamic_experiment
+desc: Test hold behavior with dynamic device assignments — D1 is shared, D2 is dynamically assigned and held
+labs:
+  - abstract_lab
+
+tasks:
+  - name: setup
+    type: Noop
+    devices:
+      shared_device:
+        lab_name: abstract_lab
+        name: D1
+      held_device:
+        allocation_type: dynamic
+        device_type: DT2
+        hold: true
+
+  - name: process
+    type: Noop
+    dependencies: [setup]
+    devices:
+      held_device:
+        ref: setup.held_device
+        hold: true
+
+  - name: cleanup
+    type: Noop
+    dependencies: [process]
+    devices:
+      shared_device:
+        lab_name: abstract_lab
+        name: D1
+      held_device:
+        ref: setup.held_device

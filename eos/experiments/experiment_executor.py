@@ -71,15 +71,14 @@ class ExperimentExecutor:
             )
 
             await self._experiment_manager.start_experiment(db, self._experiment_name)
-            await db.commit()
             self._experiment_status = ExperimentStatus.RUNNING
 
             action = "Resumed" if self._experiment_submission.resume else "Started"
             log.info(f"{action} experiment '{self._experiment_name}'.")
-        except EosExperimentExecutionError:
+        except EosExperimentExecutionError as e:
             if experiment_created:
                 try:
-                    await self._experiment_manager.fail_experiment(db, self._experiment_name)
+                    await self._experiment_manager.fail_experiment(db, self._experiment_name, error_message=str(e))
                     self._experiment_status = ExperimentStatus.FAILED
                 except Exception as fail_err:
                     log.error(f"Failed to mark experiment '{self._experiment_name}' as failed: {fail_err}")
@@ -87,7 +86,7 @@ class ExperimentExecutor:
         except Exception as e:
             if experiment_created:
                 try:
-                    await self._experiment_manager.fail_experiment(db, self._experiment_name)
+                    await self._experiment_manager.fail_experiment(db, self._experiment_name, error_message=str(e))
                     self._experiment_status = ExperimentStatus.FAILED
                 except Exception as fail_err:
                     log.error(f"Failed to mark experiment '{self._experiment_name}' as failed: {fail_err}")
@@ -147,13 +146,11 @@ class ExperimentExecutor:
                 return True
 
             await self._process_completed_tasks(db)
-            await db.commit()
             await self._execute_tasks(db)
 
             return False
         except Exception as e:
-            await self._fail_experiment(db)
-            await db.commit()
+            await self._fail_experiment(db, error_message=str(e))
             raise EosExperimentExecutionError(f"Error executing experiment '{self._experiment_name}'") from e
 
     async def _resume_experiment(self, db: AsyncDbSession) -> None:
@@ -194,10 +191,10 @@ class ExperimentExecutor:
         self._experiment_status = ExperimentStatus.COMPLETED
         log.info(f"Completed experiment '{self._experiment_name}'.")
 
-    async def _fail_experiment(self, db: AsyncDbSession) -> None:
+    async def _fail_experiment(self, db: AsyncDbSession, error_message: str | None = None) -> None:
         """Fail the experiment and cancel any running tasks."""
         await self._scheduler.unregister_experiment(db, self._experiment_name)
-        await self._experiment_manager.fail_experiment(db, self._experiment_name)
+        await self._experiment_manager.fail_experiment(db, self._experiment_name, error_message=error_message)
         self._experiment_status = ExperimentStatus.FAILED
 
         # Ensure any running tasks are cancelled to avoid orphan work

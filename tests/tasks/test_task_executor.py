@@ -3,6 +3,7 @@ from asyncio import CancelledError
 
 from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
 from eos.experiments.entities.experiment import ExperimentSubmission
+from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
 
@@ -41,14 +42,22 @@ class TestTaskExecutor:
 
         task = experiment_graph.get_task("mixing")
         task.parameters["time"] = 5
-        task.devices = {"magnetic_mixer": DeviceAssignmentDef(lab_name="small_lab", name="magnetic_mixer")}
+        devices = {"magnetic_mixer": DeviceAssignmentDef(lab_name="small_lab", name="magnetic_mixer")}
+        task.devices = devices
 
         # Test multiple executions
         for task_name in ["mixing", "mixing2", "mixing3"]:
             task_submission = TaskSubmission.from_def(task, "water_purification")
             task_submission.name = task_name
 
-            future = asyncio.create_task(task_executor.request_task_execution(task_submission))
+            scheduled_task = ScheduledTask(
+                name=task_name,
+                experiment_name="water_purification",
+                devices=devices,
+                resources={},
+            )
+
+            future = asyncio.create_task(task_executor.request_task_execution(task_submission, scheduled_task))
             await self._process_until_done(task_executor, future)
 
             task_output_parameters, _, _ = await future
@@ -59,15 +68,23 @@ class TestTaskExecutor:
         async with db_interface.get_async_session() as db:
             await self._setup_experiment(db, experiment_manager)
 
+        devices = {"device_1": DeviceAssignmentDef(lab_name="small_lab", name="general_computer")}
         sleep_config = TaskDef(
             name="sleep_task",
             type="Sleep",
-            devices={"device_1": DeviceAssignmentDef(lab_name="small_lab", name="general_computer")},
+            devices=devices,
             parameters={"time": 5},
         )
         task_submission = TaskSubmission.from_def(sleep_config, "water_purification")
 
-        future = asyncio.create_task(task_executor.request_task_execution(task_submission))
+        scheduled_task = ScheduledTask(
+            name="sleep_task",
+            experiment_name="water_purification",
+            devices=devices,
+            resources={},
+        )
+
+        future = asyncio.create_task(task_executor.request_task_execution(task_submission, scheduled_task))
 
         # Give task time to start
         for _ in range(5):

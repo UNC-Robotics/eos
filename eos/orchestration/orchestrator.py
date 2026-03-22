@@ -27,12 +27,9 @@ from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.database.file_db_interface import FileDbInterface
 from eos.database.postgresql_db_interface import PostgresqlDbInterface
 from eos.database.sqlite_db_interface import SqliteDbInterface
-from eos.allocation.allocation_manager import (
-    AllocationManager,
-)
+from eos.allocation.allocation_manager import AllocationManager
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.scheduler_factory import SchedulerFactory
-from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
 from eos.utils.di.di_container import get_di_container
@@ -58,7 +55,7 @@ class Orchestrator(metaclass=Singleton):
         self._initialized = False
 
         self._task_executor: TaskExecutor | None = None
-        self._on_demand_task_executor: OnDemandTaskExecutor | None = None
+        self._allocation_manager: AllocationManager | None = None
 
         self._definitions: DefinitionService | None = None
         self._loading: LoadingService | None = None
@@ -115,6 +112,7 @@ class Orchestrator(metaclass=Singleton):
         async with db_interface.get_async_session() as db:
             await allocation_manager.initialize(db)
         di.register(AllocationManager, allocation_manager)
+        self._allocation_manager = allocation_manager
 
         device_manager = DeviceManager()
         async with db_interface.get_async_session() as db:
@@ -138,21 +136,17 @@ class Orchestrator(metaclass=Singleton):
         campaign_optimizer_manager = CampaignOptimizerManager()
         di.register(CampaignOptimizerManager, campaign_optimizer_manager)
 
-        # Execution ###############################################
-        task_executor = TaskExecutor()
-        di.register(TaskExecutor, task_executor)
-        self._task_executor = task_executor
-
-        on_demand_task_executor = OnDemandTaskExecutor()
-        di.register(OnDemandTaskExecutor, on_demand_task_executor)
-        self._on_demand_task_executor = on_demand_task_executor
-
-        # Scheduler
+        # Scheduler (must be created before TaskExecutor, which depends on it)
         log.info(f"Using scheduler: {self._scheduler_config.type.value}")
         scheduler = SchedulerFactory.create_scheduler(self._scheduler_config.type)
         if self._scheduler_config.parameters:
             await scheduler.update_parameters(self._scheduler_config.parameters)
         di.register(AbstractScheduler, scheduler)
+
+        # Execution ###############################################
+        task_executor = TaskExecutor()
+        di.register(TaskExecutor, task_executor)
+        self._task_executor = task_executor
 
         experiment_executor_factory = ExperimentExecutorFactory()
         di.register(ExperimentExecutorFactory, experiment_executor_factory)
@@ -225,7 +219,6 @@ class Orchestrator(metaclass=Singleton):
                 bool(self._experiments.submitted_experiments)
                 or bool(self._campaigns.submitted_campaigns)
                 or bool(self._task_executor.has_work)
-                or bool(self._on_demand_task_executor.has_work)
             )
 
             if not has_work:
@@ -242,7 +235,6 @@ class Orchestrator(metaclass=Singleton):
                 bool(self._experiments.submitted_experiments)
                 or bool(self._campaigns.submitted_campaigns)
                 or bool(self._task_executor.has_work)
-                or bool(self._on_demand_task_executor.has_work)
             )
 
             if has_more_work and elapsed < cycle_time:
@@ -255,7 +247,12 @@ class Orchestrator(metaclass=Singleton):
 
         await self._task_executor.process_tasks()
 
-        await self._tasks.process_on_demand_tasks()
+        # Process manual scientist reservations
+        async with get_db_interface().get_async_session() as db:
+            await self._allocation_manager.process_reservations(db)
+
+        # Retry queued on-demand tasks
+        await self._tasks.process_pending_on_demand()
 
         await self._experiments.process_experiments()
         await self._campaigns.process_campaigns()

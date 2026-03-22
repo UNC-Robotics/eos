@@ -18,7 +18,8 @@ class DeviceActorReference:
 
 
 def create_device_actor_dict(device_references: dict[str, DeviceActorReference]) -> dict[str, RayActorWrapper]:
-    """Create a simple dict of device name to RayActorWrapper from device references.
+    """
+    Create a simple dict of device name to RayActorWrapper from device references.
 
     Args:
         device_references: Dict mapping device name (from task spec/config) to DeviceActorReference

@@ -76,12 +76,18 @@ class PackageManager:
 
     def __init__(self, user_dir: str, allowed_packages: set[str] | None = None):
         self._user_dir = Path(user_dir)
+        self._allowed_packages = set(allowed_packages) if allowed_packages else None
         self._entity_indices: dict[EntityType, dict[str, EntityLocationInfo]] = defaultdict(dict)
         self._packages: dict[str, Package] = {}
+        self._jinja_env = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(self._user_dir),
+            undefined=jinja2.StrictUndefined,
+            autoescape=True,
+        )
 
         self._discover_packages()
-        self._filter_packages(allowed_packages)
-        self._validate_packages(allowed_packages)
+        self._filter_packages(self._allowed_packages)
+        self._validate_packages(self._allowed_packages)
         self._build_entity_indices()
 
         log.info(f"Loaded packages: {', '.join(self._packages.keys())}")
@@ -119,23 +125,16 @@ class PackageManager:
 
     def _scan_directory(self, directory: Path, depth: int = 0, max_depth: int = 10) -> None:
         """Recursively scan directories to find packages (directories with pyproject.toml)."""
-        if not directory.is_dir() or depth > max_depth:
-            return
-
-        if (directory / "pyproject.toml").is_file() and directory != self._user_dir:
-            self._packages[directory.name] = Package(directory.name, directory)
-            log.debug(f"Discovered package: {directory.name} at {directory}")
-            return
-
-        for item in directory.iterdir():
-            if item.is_dir():
-                self._scan_directory(item, depth + 1, max_depth)
+        self._scan_directory_into(directory, self._packages, depth, max_depth)
 
     def read_lab(self, lab_name: str) -> LabDef:
         return self._read_entity(lab_name, EntityType.LAB)
 
     def read_experiment(self, experiment_name: str) -> ExperimentDef:
         return self._read_entity(experiment_name, EntityType.EXPERIMENT)
+
+    def read_task_spec(self, task_name: str) -> TaskSpecDef:
+        return self._read_entity(task_name, EntityType.TASK)
 
     def read_task_specs(self) -> tuple[dict[str, TaskSpecDef], dict[str, str]]:
         return self._read_all_entities(EntityType.TASK)
@@ -178,13 +177,19 @@ class PackageManager:
         return list(self._packages.values())
 
     def add_package(self, package_name: str) -> None:
-        package_path = self._user_dir / package_name
-        if not package_path.is_dir():
-            raise EosMissingConfigurationError(f"Package directory '{package_path}' does not exist")
+        # Discover the actual path by scanning the filesystem, since packages can be nested
+        discovered: dict[str, Package] = {}
+        self._scan_directory_into(self._user_dir, discovered)
+        if package_name not in discovered:
+            raise EosMissingConfigurationError(f"Package directory '{self._user_dir / package_name}' does not exist")
 
-        new_package = Package(package_name, package_path)
+        new_package = discovered[package_name]
         self._packages[package_name] = new_package
         self._index_package(new_package)
+
+        if self._allowed_packages is not None:
+            self._allowed_packages.add(package_name)
+
         log.info(f"Added package '{package_name}'")
 
     def remove_package(self, package_name: str) -> None:
@@ -194,13 +199,39 @@ class PackageManager:
         del self._packages[package_name]
         self._remove_package_from_index(package_name)
 
+        if self._allowed_packages is not None:
+            self._allowed_packages.discard(package_name)
+
         log.info(f"Removed package '{package_name}'")
 
     def refresh(self) -> None:
         """Re-discover packages and rebuild entity indices."""
         self._discover_packages()
+        self._filter_packages(self._allowed_packages)
         self._build_entity_indices()
         log.info(f"Refreshed packages: {', '.join(self._packages.keys())}")
+
+    def discover_all_package_names(self) -> list[str]:
+        """Scan the filesystem and return all package names without modifying state."""
+        packages: dict[str, Package] = {}
+        self._scan_directory_into(self._user_dir, packages)
+        return sorted(packages.keys())
+
+    def _scan_directory_into(
+        self, directory: Path, target: dict[str, Package], depth: int = 0, max_depth: int = 10
+    ) -> None:
+        """Recursively scan directories to find packages, storing results in target dict."""
+        if not directory.is_dir() or depth > max_depth:
+            return
+
+        if (directory / "pyproject.toml").is_file() and directory != self._user_dir:
+            target[directory.name] = Package(directory.name, directory)
+            log.debug(f"Discovered package: {directory.name} at {directory}")
+            return
+
+        for item in directory.iterdir():
+            if item.is_dir():
+                self._scan_directory_into(item, target, depth + 1, max_depth)
 
     def find_package_for_entity(self, entity_name: str, entity_type: EntityType) -> Package | None:
         entity_location = self._get_entity_location(entity_name, entity_type)
@@ -272,12 +303,7 @@ class PackageManager:
         info = ENTITY_INFO[entity_type]
         try:
             raw_content = file_path.read_text()
-            env = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(self._user_dir),
-                undefined=jinja2.StrictUndefined,
-                autoescape=True,
-            )
-            rendered = env.from_string(raw_content).render()
+            rendered = self._jinja_env.from_string(raw_content).render()
             data = yaml.safe_load(rendered)
             return info.config_type.model_validate(data)
         except OSError as e:

@@ -6,7 +6,7 @@ from typing import Any
 from eos.configuration.constants import EOS_COMPUTER_NAME, LABS_DIR
 from eos.configuration.entities.experiment_def import ExperimentDef
 from eos.configuration.entities.lab_def import LabDef, ResourceDef
-from eos.configuration.entities.task_def import TaskDef
+from eos.configuration.entities.task_def import DeviceAssignmentDef, DynamicDeviceAssignmentDef, TaskDef
 from eos.configuration.entities.task_parameters import TaskParameterFactory, TaskParameterType
 from eos.configuration.entities.task_spec_def import TaskSpecDef, ResourceRequirement
 from eos.configuration.exceptions import (
@@ -18,6 +18,7 @@ from eos.configuration.exceptions import (
 )
 from eos.configuration.registries import DeviceSpecRegistry, TaskSpecRegistry
 from eos.configuration.utils import (
+    is_device_reference,
     is_dynamic_parameter,
     is_parameter_reference,
     is_resource_reference,
@@ -256,10 +257,11 @@ class TaskValidator:
             self._validate_task(task)
 
     def _validate_task(self, task: TaskDef) -> None:
-        """Validate a single task's parameters and resources."""
+        """Validate a single task's parameters, resources, and devices."""
         task_spec = self._task_specs.get_spec_by_config(task)
         self._validate_task_parameters(task, task_spec)
         self._validate_task_resources(task, task_spec)
+        self._validate_task_devices(task, task_spec)
 
     def _validate_task_parameters(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         """Validate task parameters including references."""
@@ -498,6 +500,85 @@ class TaskValidator:
                 f"Type mismatch for referenced resource '{referenced_resource}' in task '{task.name}'. "
                 f"The required resource type is '{required_resource_spec.type}' which does not match the referenced "
                 f"resource type '{referenced_resource_spec.type}'."
+            )
+
+    def _validate_task_devices(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
+        """Validate task device assignments."""
+        spec_devices = task_spec.devices or {}
+
+        # Check all required devices from spec are provided
+        for device_name in spec_devices:
+            if device_name not in task.devices:
+                batch_error(
+                    f"Required device '{device_name}' not provided for task '{task.name}'.",
+                    EosTaskValidationError,
+                )
+        raise_batched_errors(root_exception_type=EosTaskValidationError)
+
+        if not task.devices:
+            return
+
+        for device_name, assignment in task.devices.items():
+            if isinstance(assignment, DynamicDeviceAssignmentDef):
+                self._validate_dynamic_device_assignment(task.name, device_name, assignment)
+            elif isinstance(assignment, DeviceAssignmentDef):
+                self._validate_specific_device_assignment(task.name, device_name, assignment)
+            elif isinstance(assignment, str) and is_device_reference(assignment):
+                self._validate_device_reference(task.name, device_name, assignment)
+        raise_batched_errors(root_exception_type=EosTaskValidationError)
+
+    def _validate_dynamic_device_assignment(
+        self, task_name: str, device_name: str, assignment: DynamicDeviceAssignmentDef
+    ) -> None:
+        """Validate that a dynamic device type exists in loaded labs."""
+        available_types = {dev.type for lab in self._labs for dev in lab.devices.values()}
+        if assignment.device_type not in available_types:
+            batch_error(
+                f"Device type '{assignment.device_type}' for device '{device_name}' in task '{task_name}' "
+                f"does not exist in any loaded lab. Available types: {sorted(available_types)}.",
+                EosTaskValidationError,
+            )
+        if assignment.allowed_labs:
+            lab_names = {lab.name for lab in self._labs}
+            for lab_name in assignment.allowed_labs:
+                if lab_name not in lab_names:
+                    batch_error(
+                        f"Lab '{lab_name}' in allowed_labs for device '{device_name}' in task "
+                        f"'{task_name}' does not exist.",
+                        EosTaskValidationError,
+                    )
+
+    def _validate_specific_device_assignment(
+        self, task_name: str, device_name: str, assignment: DeviceAssignmentDef
+    ) -> None:
+        """Validate that a specific device exists in its lab."""
+        lab = next((lab for lab in self._labs if lab.name == assignment.lab_name), None)
+        if not lab:
+            batch_error(
+                f"Lab '{assignment.lab_name}' for device '{device_name}' in task '{task_name}' not found.",
+                EosTaskValidationError,
+            )
+        elif assignment.name not in lab.devices:
+            batch_error(
+                f"Device '{assignment.name}' not found in lab '{assignment.lab_name}' "
+                f"for device '{device_name}' in task '{task_name}'.",
+                EosTaskValidationError,
+            )
+
+    def _validate_device_reference(self, task_name: str, device_name: str, reference: str) -> None:
+        """Validate that a device reference points to an existing task and device."""
+        ref_task_name, ref_device_name = reference.split(".")
+        ref_task = self._find_task_by_name(ref_task_name)
+        if not ref_task:
+            batch_error(
+                f"Device '{device_name}' in task '{task_name}' references non-existent task '{ref_task_name}'.",
+                EosTaskValidationError,
+            )
+        elif ref_device_name not in ref_task.devices:
+            batch_error(
+                f"Device '{device_name}' in task '{task_name}' references device '{ref_device_name}' "
+                f"which does not exist in task '{ref_task_name}'.",
+                EosTaskValidationError,
             )
 
     def _find_task_by_name(self, task_name: str) -> TaskDef | None:

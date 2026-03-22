@@ -32,7 +32,8 @@ class SqliteDbInterface(AbstractSqlDbInterface):
         }
 
     def _configure_connection(self, _: any) -> Connection:
-        """Configure SQLite connection with optimized settings and WAL mode.
+        """
+        Configure SQLite connection with optimized settings and WAL mode.
 
         Args:
             _: Ignored connection record from SQLAlchemy pool

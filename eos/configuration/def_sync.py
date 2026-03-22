@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, tuple_, update
 
 from eos.configuration.entities.definition import DefinitionModel
 from eos.configuration.packages import EntityType, PackageManager
@@ -33,6 +33,7 @@ class DefSync:
             await self.sync_device_defs(db)
             await self.sync_lab_defs(db)
             await self.sync_experiment_defs(db)
+            await self._mark_unloaded_package_defs(db)
             log.info("Successfully synced all defs to database")
         except Exception:
             log.error(f"Error syncing defs to database: {traceback.format_exc()}")
@@ -134,6 +135,24 @@ class DefSync:
         await self._batch_update_loaded_status(db, def_type, names, is_loaded)
         log.debug(f"Marked {len(names)} {def_type}s as {'loaded' if is_loaded else 'unloaded'}")
 
+    async def _mark_unloaded_package_defs(self, db: AsyncDbSession) -> None:
+        """Mark definitions from unloaded packages as not loaded."""
+        active_package_names = {p.name for p in self._package_manager.get_all_packages()}
+
+        result = await db.execute(
+            select(DefinitionModel).where(DefinitionModel.is_loaded == True)  # noqa: E712
+        )
+        loaded_defs = result.scalars().all()
+
+        to_unload: dict[str, set[str]] = {}
+        for defn in loaded_defs:
+            if defn.package_name not in active_package_names:
+                to_unload.setdefault(defn.type, set()).add(defn.name)
+
+        for def_type, names in to_unload.items():
+            await self._batch_update_loaded_status(db, def_type, names, False)
+            log.debug(f"Marked {len(names)} {def_type} definitions from unloaded packages as not loaded")
+
     async def cleanup_deleted_defs(self, db: AsyncDbSession) -> None:
         """Remove defs from the database where source files no longer exist."""
         existing_entities = self._get_all_existing_entities()
@@ -145,16 +164,22 @@ class DefSync:
             (defn.type, defn.name) for defn in all_defs if defn.name not in existing_entities.get(defn.type, set())
         ]
 
-        for def_type, def_name in defs_to_delete:
-            log.info(f"Removing definition '{def_type}/{def_name}' - no longer exists")
-            await db.execute(
-                delete(DefinitionModel).where(
-                    DefinitionModel.type == def_type,
-                    DefinitionModel.name == def_name,
-                )
-            )
-
         if defs_to_delete:
+            for def_type, def_name in defs_to_delete:
+                log.info(f"Removing definition '{def_type}/{def_name}' - no longer exists")
+
+            by_type: dict[str, list[str]] = {}
+            for def_type, def_name in defs_to_delete:
+                by_type.setdefault(def_type, []).append(def_name)
+
+            for def_type, names in by_type.items():
+                await db.execute(
+                    delete(DefinitionModel).where(
+                        DefinitionModel.type == def_type,
+                        DefinitionModel.name.in_(names),
+                    )
+                )
+
             await db.commit()
             log.info(f"Cleaned up {len(defs_to_delete)} deleted definitions from database")
 
@@ -185,12 +210,17 @@ class DefSync:
             return
 
         now = datetime.now(UTC)
-        for defn in defs:
-            existing = await db.get(DefinitionModel, (defn["type"], defn["name"]))
 
+        keys = [(d["type"], d["name"]) for d in defs]
+        result = await db.execute(
+            select(DefinitionModel).where(tuple_(DefinitionModel.type, DefinitionModel.name).in_(keys))
+        )
+        existing_map = {(m.type, m.name): m for m in result.scalars()}
+
+        for defn in defs:
+            existing = existing_map.get((defn["type"], defn["name"]))
             if existing:
                 existing.data = defn["data"]
-                existing.is_loaded = defn["is_loaded"]
                 existing.package_name = defn["package_name"]
                 existing.source_path = defn["source_path"]
                 existing.updated_at = now

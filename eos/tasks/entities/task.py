@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
-from sqlalchemy import String, ForeignKey, JSON, Integer, Enum as sa_Enum, DateTime, Index
+from sqlalchemy import String, Text, ForeignKey, JSON, Integer, Enum as sa_Enum, DateTime, Index
 from sqlalchemy.ext.mutable import MutableList, MutableDict
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,7 +44,8 @@ class TaskSubmission(BaseModel):
 
     @classmethod
     def from_def(cls, config: TaskDef, experiment_name: str | None) -> "TaskSubmission":
-        """Create a TaskSubmission from a TaskDef.
+        """
+        Create a TaskSubmission from a TaskDef.
 
         Only specific device assignments (DeviceAssignmentDef) are converted to TaskSubmission.
         Dynamic devices are resolved by the scheduler and converted to specific assignments.
@@ -90,6 +91,7 @@ class Task(TaskSubmission):
     """The state of a task in the system."""
 
     status: TaskStatus = TaskStatus.CREATED
+    error_message: str | None = None
     output_parameters: dict[str, Any] | None = None
     output_resources: dict[str, Resource] | None = None
     output_file_names: list[str] | None = None
@@ -141,6 +143,7 @@ class TaskModel(Base):
     status: Mapped[TaskStatus] = mapped_column(
         sa_Enum(TaskStatus), nullable=False, default=TaskStatus.CREATED, index=True
     )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -149,6 +152,6 @@ class TaskModel(Base):
     )
 
     __table_args__ = (
-        # Composite unique index for (experiment_name, name)
         Index("idx_experiment_name_task_name", "experiment_name", "name", unique=True),
+        Index("ix_tasks_created_at", "created_at"),
     )

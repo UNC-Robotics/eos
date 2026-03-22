@@ -1,4 +1,7 @@
 import asyncio
+from typing import Any, ClassVar
+
+import yaml
 
 import pandas as pd
 import ray
@@ -8,6 +11,7 @@ from sqlalchemy import delete, select
 from eos.campaigns.entities.campaign import CampaignSample, CampaignSampleModel
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.packages import EntityType
 from eos.logging.logger import log
 from eos.optimization.sequential_optimizer_actor import SequentialOptimizerActor
 from eos.database.abstract_sql_db_interface import AsyncDbSession
@@ -21,6 +25,28 @@ warnings.filterwarnings("ignore", category=UserWarning, module="bofire.utils.che
 warnings.filterwarnings("ignore", category=UserWarning, module="bofire.surrogates.xgb")
 warnings.filterwarnings("ignore", category=UserWarning, module="bofire.strategies.predictives.enting")
 
+_SNAPSHOT_SKIP_KEYS = {"ai_api_key", "experiment_context"}
+
+
+def serialize_value(v: Any) -> Any:
+    """Recursively serialize a value for JSON storage."""
+    if v is None or isinstance(v, str | int | float | bool):
+        return v
+    if hasattr(v, "model_dump"):
+        return v.model_dump()
+    if isinstance(v, list):
+        return [serialize_value(item) for item in v]
+    if isinstance(v, dict):
+        return {k: serialize_value(val) for k, val in v.items()}
+    if isinstance(v, set):
+        return list(v)
+    return v.value if hasattr(v, "value") else str(v)
+
+
+def _serialize_config_snapshot(constructor_args: dict[str, Any]) -> dict[str, Any]:
+    """Build a JSON-safe config snapshot from optimizer constructor args."""
+    return {k: serialize_value(v) for k, v in constructor_args.items() if k not in _SNAPSHOT_SKIP_KEYS}
+
 
 class CampaignOptimizerManager:
     """
@@ -29,22 +55,46 @@ class CampaignOptimizerManager:
 
     @inject
     def __init__(self, configuration_manager: ConfigurationManager):
+        self._configuration_manager = configuration_manager
         self._campaign_optimizer_plugin_registry = configuration_manager.campaign_optimizers
         self._optimizer_actors: dict[str, ActorHandle] = {}
         log.debug("Campaign optimizer manager initialized.")
 
+    # Tier classification for optimizer parameter overrides
+    _TIER1_RUNTIME_KEYS: ClassVar[set[str]] = {"p_bayesian", "p_ai", "ai_history_size", "ai_additional_context"}
+    _TIER2_INIT_KEYS: ClassVar[set[str]] = {
+        "ai_model",
+        "ai_api_key",
+        "ai_retries",
+        "ai_model_settings",
+        "num_initial_samples",
+        "initial_sampling_method",
+        "acquisition_function",
+        "surrogate_specs",
+    }
+    _TIER3_DOMAIN_KEYS: ClassVar[set[str]] = {"inputs", "outputs", "constraints"}
+
     async def create_campaign_optimizer_actor(
-        self, experiment_type: str, campaign_name: str, computer_ip: str
-    ) -> ActorHandle:
+        self,
+        experiment_type: str,
+        campaign_name: str,
+        computer_ip: str,
+        optimizer_overrides: dict[str, Any] | None = None,
+        is_resume: bool = False,
+        global_parameters: dict[str, dict[str, Any]] | None = None,
+        experiment_parameters: list[dict[str, dict[str, Any]]] | None = None,
+    ) -> tuple[ActorHandle, str, dict[str, Any]]:
         """
         Create a new campaign optimizer Ray actor with status check.
 
         :param experiment_type: The type of the experiment.
         :param campaign_name: The name of the campaign.
         :param computer_ip: The IP address of the optimizer computer on which the actor will run.
+        :param optimizer_overrides: Optional parameter overrides from the UI.
+        :param is_resume: Whether this is a resume (restricts which overrides are allowed).
         :raises TimeoutError: If the actor fails to respond within timeout
         :raises RuntimeError: If the actor creation or initialization fails
-        :return: The initialized optimizer actor
+        :return: Tuple of (initialized optimizer actor, optimizer type name, final constructor args)
         """
         try:
             constructor_args, optimizer_type = (
@@ -56,16 +106,68 @@ class CampaignOptimizerManager:
                 f"Failed to load optimizer configuration for experiment type '{experiment_type}': {e}"
             ) from e
 
+        # Merge overrides into constructor args
+        if optimizer_overrides:
+            if is_resume:
+                allowed_keys = self._TIER1_RUNTIME_KEYS | self._TIER2_INIT_KEYS
+            else:
+                allowed_keys = self._TIER1_RUNTIME_KEYS | self._TIER2_INIT_KEYS | self._TIER3_DOMAIN_KEYS
+
+            for key, value in optimizer_overrides.items():
+                if key in allowed_keys:
+                    constructor_args[key] = value
+                else:
+                    log.warning(
+                        f"Ignoring optimizer override '{key}' — not allowed "
+                        f"{'on resume' if is_resume else 'at submission'}"
+                    )
+
+            # Keep p_bayesian + p_ai in sync
+            if "p_bayesian" in optimizer_overrides and "p_ai" not in optimizer_overrides:
+                constructor_args["p_ai"] = 1.0 - float(constructor_args["p_bayesian"])
+            elif "p_ai" in optimizer_overrides and "p_bayesian" not in optimizer_overrides:
+                constructor_args["p_bayesian"] = 1.0 - float(constructor_args["p_ai"])
+
+        experiment_yaml = self._read_experiment_yaml(experiment_type)
+        if experiment_yaml:
+            if global_parameters:
+                experiment_yaml = self._merge_params_into_yaml(experiment_yaml, global_parameters)
+            constructor_args["experiment_context"] = experiment_yaml
+        if experiment_parameters:
+            constructor_args["experiment_parameters_schedule"] = experiment_parameters
+
+        optimizer_type_name = optimizer_type.__name__
+
+        # Build config snapshot (strip sensitive keys, serialize BoFire objects for JSON persistence)
+        config_snapshot = _serialize_config_snapshot(constructor_args)
+
         resources = {"eos": 0.01} if computer_ip in ["localhost", "127.0.0.1"] else {f"node:{computer_ip}": 0.01}
 
         optimizer_actor = SequentialOptimizerActor.options(
-            name=f"{campaign_name}_optimizer", resources=resources
+            name=f"{campaign_name}_optimizer", resources=resources, max_concurrency=4
         ).remote(constructor_args, optimizer_type)
 
         await self._validate_optimizer_health(optimizer_actor)
 
         self._optimizer_actors[campaign_name] = optimizer_actor
-        return optimizer_actor
+        return optimizer_actor, optimizer_type_name, config_snapshot
+
+    def get_optimizer_defaults(self, experiment_type: str) -> tuple[str, dict[str, Any]] | None:
+        """Get optimizer type name and default constructor args for an experiment type."""
+        try:
+            # Ensure the optimizer plugin is loaded
+            if experiment_type not in self._campaign_optimizer_plugin_registry.plugin_types:
+                self._campaign_optimizer_plugin_registry.load_campaign_optimizer(experiment_type)
+            result = self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(
+                experiment_type
+            )
+        except Exception:
+            return None
+        if result is None:
+            return None
+        constructor_args, optimizer_type = result
+        safe_args = {k: v for k, v in constructor_args.items() if k not in _SNAPSHOT_SKIP_KEYS}
+        return optimizer_type.__name__, safe_args
 
     def terminate_campaign_optimizer_actor(self, campaign_name: str) -> None:
         """
@@ -87,20 +189,22 @@ class CampaignOptimizerManager:
         """
         return self._optimizer_actors[campaign_name]
 
-    async def get_input_and_output_names(self, campaign_name: str) -> tuple[list[str], list[str]]:
+    async def get_input_and_output_names(self, campaign_name: str) -> tuple[list[str], list[str], list[str]]:
         """
-        Get the input and output names from an optimizer associated with a campaign.
+        Get the input, output, and additional parameter names from an optimizer associated with a campaign.
 
         :param campaign_name: The name of the campaign associated with the optimizer.
-        :return: A tuple containing the input and output names.
+        :return: A tuple containing the input names, output names, and additional parameter names.
         """
         optimizer_actor = self._optimizer_actors[campaign_name]
 
-        input_names, output_names = await asyncio.gather(
-            optimizer_actor.get_input_names.remote(), optimizer_actor.get_output_names.remote()
+        input_names, output_names, additional_parameters = await asyncio.gather(
+            optimizer_actor.get_input_names.remote(),
+            optimizer_actor.get_output_names.remote(),
+            optimizer_actor.get_additional_parameters.remote(),
         )
 
-        return input_names, output_names
+        return input_names, output_names, additional_parameters
 
     async def record_campaign_samples(
         self,
@@ -109,6 +213,7 @@ class CampaignOptimizerManager:
         experiment_names: list[str],
         inputs: pd.DataFrame,
         outputs: pd.DataFrame,
+        meta_list: list[dict[str, Any]] | None = None,
     ) -> None:
         """
         Record one or more campaign samples (experiment results) for the given campaign.
@@ -119,6 +224,7 @@ class CampaignOptimizerManager:
         :param experiment_names: The names of the experiments.
         :param inputs: The input data.
         :param outputs: The output data.
+        :param meta_list: Optional per-sample metadata dicts.
         """
         inputs_dict = inputs.to_dict(orient="records")
         outputs_dict = outputs.to_dict(orient="records")
@@ -129,6 +235,7 @@ class CampaignOptimizerManager:
                 experiment_name=experiment_name,
                 inputs=inputs_dict[i],
                 outputs=outputs_dict[i],
+                meta=meta_list[i] if meta_list else {},
             )
             for i, experiment_name in enumerate(experiment_names)
         ]
@@ -154,6 +261,38 @@ class CampaignOptimizerManager:
 
         result = await db.execute(stmt)
         return [CampaignSample.model_validate(model) for model in result.scalars()]
+
+    @staticmethod
+    def _merge_params_into_yaml(yaml_str: str, global_parameters: dict[str, dict[str, Any]]) -> str:
+        """
+        Merge campaign global_parameters into the experiment YAML string.
+
+        Overwrites default parameter values in each task so the AI agent sees
+        the actual values that will be used at runtime.
+        """
+        data = yaml.safe_load(yaml_str)
+        if not isinstance(data, dict) or "tasks" not in data:
+            return yaml_str
+        for task in data["tasks"]:
+            task_name = task.get("name")
+            if task_name and task_name in global_parameters:
+                if "parameters" not in task:
+                    task["parameters"] = {}
+                task["parameters"].update(global_parameters[task_name])
+        return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+    def _read_experiment_yaml(self, experiment_type: str) -> str | None:
+        """Read the raw experiment YAML file for the given experiment type."""
+        try:
+            experiment_dir = self._configuration_manager.package_manager.get_entity_dir(
+                experiment_type, EntityType.EXPERIMENT
+            )
+            yaml_path = experiment_dir / "experiment.yml"
+            if yaml_path.is_file():
+                return yaml_path.read_text()
+        except Exception:
+            log.debug(f"Could not read experiment YAML for '{experiment_type}'", exc_info=True)
+        return None
 
     async def _validate_optimizer_health(self, actor: ActorHandle) -> None:
         """Check the health of an actor by calling a method with a timeout."""

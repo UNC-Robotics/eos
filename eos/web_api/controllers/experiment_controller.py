@@ -1,10 +1,33 @@
+import re
+
+import yaml as pyyaml
 from litestar import get, post, Controller
 from pydantic import BaseModel
+from sqlalchemy import select
 
+from eos.configuration.entities.definition import DefinitionModel
+from eos.configuration.entities.experiment_def import ExperimentDef
+from eos.configuration.entities.lab_def import LabDef
+from eos.configuration.validation import ExperimentValidator
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.experiments.entities.experiment import ExperimentSubmission, Experiment
 from eos.orchestration.orchestrator import Orchestrator
 from eos.web_api.exception_handling import APIError
+
+# Pattern to extract task names from validation error messages
+_TASK_NAME_PATTERN = re.compile(r"[Tt]ask '([^']+)'")
+
+
+def _parse_validation_errors(error_message: str) -> list[dict]:
+    """Parse a multi-line validation error into structured per-task errors."""
+    errors = []
+    for raw_line in error_message.strip().split("\n"):
+        cleaned = raw_line.strip().lstrip("- ")
+        if not cleaned:
+            continue
+        match = _TASK_NAME_PATTERN.search(cleaned)
+        errors.append({"task": match.group(1) if match else None, "message": cleaned})
+    return errors or [{"task": None, "message": error_message}]
 
 
 class ExperimentTypes(BaseModel):
@@ -13,6 +36,10 @@ class ExperimentTypes(BaseModel):
 
 class ExperimentTypesResponse(BaseModel):
     experiment_types: list[str]
+
+
+class ExperimentValidationRequest(BaseModel):
+    experiment_yaml: str
 
 
 class ExperimentController(Controller):
@@ -81,3 +108,41 @@ class ExperimentController(Controller):
         """Reload experiment configurations."""
         await orchestrator.loading.reload_experiments(db, set(data.experiment_types))
         return {"message": "Experiment configurations reloaded"}
+
+    @post("/validate")
+    async def validate_experiment_yaml(self, data: ExperimentValidationRequest, db: AsyncDbSession) -> dict:
+        """Validate experiment YAML against lab and task specs.
+
+        Returns structured errors with per-task attribution when possible.
+        """
+        # Parse YAML
+        try:
+            raw = pyyaml.safe_load(data.experiment_yaml)
+            experiment = ExperimentDef.model_validate(raw)
+        except Exception as e:
+            return {"valid": False, "errors": [{"task": None, "message": f"YAML parse error: {e}"}]}
+
+        lab_names = list(experiment.labs)
+        result = await db.execute(
+            select(DefinitionModel).where(
+                DefinitionModel.type == "lab",
+                DefinitionModel.name.in_(lab_names),
+            )
+        )
+        lab_defs = {defn.name: defn for defn in result.scalars()}
+        missing_labs = [name for name in lab_names if name not in lab_defs]
+
+        if missing_labs:
+            return {
+                "valid": False,
+                "errors": [{"task": None, "message": f"Unknown labs: {missing_labs}"}],
+            }
+
+        labs = [LabDef.model_validate(lab_defs[name].data) for name in lab_names]
+
+        # Validate using the authoritative ExperimentValidator
+        try:
+            ExperimentValidator(experiment, labs).validate()
+            return {"valid": True, "errors": []}
+        except Exception as e:
+            return {"valid": False, "errors": _parse_validation_errors(str(e))}

@@ -9,7 +9,7 @@
 import importlib.metadata
 
 project = "eos"
-copyright = "2025, UNC Robotics"
+copyright = "2026, UNC Robotics"
 author = "Angelos Angelopoulos"
 release = importlib.metadata.version("eos")
 
@@ -29,7 +29,7 @@ templates_path = ["_templates"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "pydata_sphinx_theme"
-html_title = "EOS - Experiment Orchestration System"
+html_title = "EOS"
 html_static_path = ["_static"]
 html_css_files = [
     "custom.css",

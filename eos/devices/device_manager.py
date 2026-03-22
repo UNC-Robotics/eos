@@ -93,7 +93,8 @@ class DeviceManager:
         log.debug("Devices have been updated.")
 
     async def reload_devices(self, db: AsyncDbSession, lab_name: str, device_names: list[str]) -> None:
-        """Reload specific devices within a lab with updated plugin code.
+        """
+        Reload specific devices within a lab with updated plugin code.
 
         This method reloads the device plugin code and then recreates the device actors.
 
@@ -160,8 +161,13 @@ class DeviceManager:
         if device_creation_tasks:
             await asyncio.gather(*device_creation_tasks)
 
+        # Only persist devices whose actors were successfully created
         if devices_to_upsert:
-            db.add_all(devices_to_upsert)
+            successful = [
+                model for model in devices_to_upsert if f"{model.lab_name}.{model.name}" in self._device_actor_handles
+            ]
+            if successful:
+                db.add_all(successful)
 
         await db.commit()
         log.info(f"Reloaded devices {device_names} in lab '{lab_name}'")
@@ -291,7 +297,8 @@ class DeviceManager:
             log.debug("Cleaned up all devices")
 
     async def _create_devices_for_lab(self, db: AsyncDbSession, lab_name: str) -> None:
-        """Create or update devices for a specific lab.
+        """
+        Create or update devices for a specific lab.
 
         :param db: The database session
         :param lab_name: The lab name
@@ -332,8 +339,13 @@ class DeviceManager:
         if device_creation_tasks:
             await asyncio.gather(*device_creation_tasks)
 
+        # Only persist devices whose actors were successfully created
         if devices_to_upsert:
-            db.add_all(devices_to_upsert)
+            successful = [
+                model for model in devices_to_upsert if f"{model.lab_name}.{model.name}" in self._device_actor_handles
+            ]
+            if successful:
+                db.add_all(successful)
 
         log.debug(f"Updated devices for lab '{lab_name}'")
 
@@ -387,7 +399,8 @@ class DeviceManager:
             )
 
     def _get_initialization_parameters(self, device: Device) -> dict[str, Any]:
-        """Get merged initialization parameters for a device.
+        """
+        Get merged initialization parameters for a device.
 
         :param device: Device object
         :returns: Dictionary of initialization parameters
@@ -400,7 +413,8 @@ class DeviceManager:
         return {**spec_params, **config_params}
 
     def _get_actor_resources(self, computer_ip: str) -> dict[str, float]:
-        """Get Ray resource requirements for an actor.
+        """
+        Get Ray resource requirements for an actor.
 
         :param computer_ip: IP address of the computer to run on
         :returns: Dictionary of resource requirements
@@ -411,7 +425,8 @@ class DeviceManager:
         return {f"node:{computer_ip}": 0.0001}
 
     def _cleanup_failed_actor(self, device_actor_name: str) -> None:
-        """Clean up a failed actor and its references.
+        """
+        Clean up a failed actor and its references.
 
         :param device_actor_name: Actor name to clean up
         """
@@ -422,7 +437,8 @@ class DeviceManager:
         self._remove_device_references(device_actor_name)
 
     def _check_device_actors_healthy(self) -> None:
-        """Check health of all device actors and kill unresponsive ones.
+        """
+        Check health of all device actors and kill unresponsive ones.
 
         :raises EosDeviceInitializationError: If any device actors are unhealthy
         """
@@ -437,7 +453,7 @@ class DeviceManager:
         }
 
         # Wait for status reports with timeout
-        ready_status_reports, not_ready_status_reports = ray.wait(
+        _ready_status_reports, not_ready_status_reports = ray.wait(
             status_reports,
             num_returns=len(self._device_actor_handles),
             timeout=5,

@@ -2,11 +2,198 @@ from pathlib import Path
 from typing import Annotated, Literal
 import typer
 
-pkg_app = typer.Typer()
-add_app = typer.Typer()
+pkg_app = typer.Typer(no_args_is_help=True)
+add_app = typer.Typer(no_args_is_help=True)
 pkg_app.add_typer(add_app, name="add", help="Add entities to an existing package")
 
 EntityType = Literal["lab", "device", "task", "experiment"]
+
+_GITIGNORE = """\
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[codz]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+# .python-version
+
+# pipenv
+# Pipfile.lock
+
+# UV
+# uv.lock
+
+# poetry
+# poetry.lock
+# poetry.toml
+
+# pdm
+# pdm.lock
+# pdm.toml
+.pdm-python
+.pdm-build/
+
+# pixi
+# pixi.lock
+.pixi
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# Redis
+*.rdb
+*.aof
+*.pid
+
+# RabbitMQ
+mnesia/
+rabbitmq/
+rabbitmq-data/
+
+# ActiveMQ
+activemq-data/
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.envrc
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+# .idea/
+
+# Abstra
+.abstra/
+
+# Visual Studio Code
+# .vscode/
+
+# Ruff stuff:
+.ruff_cache/
+
+# PyPI configuration file
+.pypirc
+
+# Marimo
+marimo/_static/
+marimo/_lsp/
+__marimo__/
+
+# Streamlit
+.streamlit/secrets.toml
+"""
 
 
 def _validate_package_exists(package_dir: Path) -> None:
@@ -68,6 +255,9 @@ dependencies = [
         pyproject_path = package_dir / "pyproject.toml"
         pyproject_path.write_text(pyproject_content)
 
+        gitignore_path = package_dir / ".gitignore"
+        gitignore_path.write_text(_GITIGNORE)
+
         typer.echo(f"Successfully created package '{name}' in {package_dir}")
     except FileExistsError:
         typer.echo(f"Error: Package '{name}' already exists in {user_dir}", err=True)
@@ -119,7 +309,7 @@ def add_task(
     package_dir = Path(user_dir) / package
     _validate_package_exists(package_dir)
 
-    files = {"task.yml": "", "task_def.py": ""}
+    files = {"task.yml": "", "task.py": ""}
     _add_entity(package_dir, "task", name, files)
 
 

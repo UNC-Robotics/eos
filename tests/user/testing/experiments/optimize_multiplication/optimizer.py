@@ -5,7 +5,7 @@ from bofire.data_models.features.discrete import DiscreteInput
 from bofire.data_models.objectives.identity import MinimizeObjective
 
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
+from eos.optimization.beacon_optimizer import BeaconOptimizer
 
 
 def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
@@ -22,6 +22,8 @@ def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimi
         "acquisition_function": qLogNEI(),
         "num_initial_samples": 5,
         "initial_sampling_method": SamplingMethodEnum.SOBOL,
+        "p_bayesian": 1.0,
+        "p_ai": 0.0,
     }
 
-    return constructor_args, BayesianSequentialOptimizer
+    return constructor_args, BeaconOptimizer

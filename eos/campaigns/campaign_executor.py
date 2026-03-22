@@ -1,12 +1,12 @@
 import asyncio
 import copy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 from ray.actor import ActorHandle
-
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.campaigns.entities.campaign import CampaignStatus, Campaign, CampaignSubmission
@@ -14,6 +14,7 @@ from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.experiments.entities.experiment import ExperimentStatus, ExperimentSubmission
 from eos.experiments.exceptions import EosExperimentCancellationError
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
+from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.tasks.task_manager import TaskManager
@@ -60,6 +61,7 @@ class CampaignExecutor:
         campaign_optimizer_manager: CampaignOptimizerManager,
         task_manager: TaskManager,
         experiment_executor_factory: ExperimentExecutorFactory,
+        experiment_manager: ExperimentManager,
         db_interface: AbstractSqlDbInterface,
     ):
         self._campaign_submission = campaign_submission
@@ -67,6 +69,7 @@ class CampaignExecutor:
         self._campaign_optimizer_manager = campaign_optimizer_manager
         self._task_manager = task_manager
         self._experiment_executor_factory = experiment_executor_factory
+        self._experiment_manager = experiment_manager
         self._db_interface = db_interface
 
         # Campaign state
@@ -80,12 +83,14 @@ class CampaignExecutor:
         self._optimizer: ActorHandle | None = None
         self._optimizer_input_names: list[str] = []
         self._optimizer_output_names: list[str] = []
+        self._optimizer_additional_parameters: list[str] = []
         self._optimizer_state: OptimizerState = OptimizerState.UNINITIALIZED
 
         # Pending async optimizer operations
-        self._pending_sample: _PendingOptimizerSample | None = None
+        self._pending_samples: list[_PendingOptimizerSample] = []
         self._pending_report: asyncio.Task | None = None
         self._pending_pareto: asyncio.Task | None = None
+        self._queued_reports: list[tuple[pd.DataFrame, pd.DataFrame]] = []
 
     async def start_campaign(self, db: AsyncDbSession) -> None:
         """Initialize and start a new campaign or resume an existing one."""
@@ -97,7 +102,6 @@ class CampaignExecutor:
             await self._initialize_new_campaign(db)
 
         await self._campaign_manager.start_campaign(db, self._campaign_name)
-        await db.commit()
 
         self._campaign_status = CampaignStatus.RUNNING
         log.info(f"Started campaign '{self._campaign_name}'")
@@ -159,6 +163,10 @@ class CampaignExecutor:
         """Get the next experiment number (max existing + 1), handling gaps from cancelled experiments."""
         all_experiment_names = await self._campaign_manager.get_campaign_experiment_names(db, self._campaign_name)
 
+        # Also account for names reserved by pending (unresolved) samples
+        for pending in self._pending_samples:
+            all_experiment_names.extend(name for name, _ in pending.experiments)
+
         max_exp_num = 0
         prefix = f"{self._campaign_name}_exp_"
         for name in all_experiment_names:
@@ -176,16 +184,43 @@ class CampaignExecutor:
         if self._optimizer:
             return
 
+        # Extract overrides from campaign submission meta
+        optimizer_overrides = None
+        if self._campaign_submission.meta:
+            optimizer_overrides = self._campaign_submission.meta.get("optimizer_overrides")
+
+        is_resume = self._optimizer_state == OptimizerState.NEEDS_RESTORATION
+
         log.info(f"Creating optimizer for campaign '{self._campaign_name}'...")
-        self._optimizer = await self._campaign_optimizer_manager.create_campaign_optimizer_actor(
+        (
+            self._optimizer,
+            optimizer_type_name,
+            config_snapshot,
+        ) = await self._campaign_optimizer_manager.create_campaign_optimizer_actor(
             self._experiment_type,
             self._campaign_name,
             self._campaign_submission.optimizer_ip,
+            optimizer_overrides=optimizer_overrides,
+            is_resume=is_resume,
+            global_parameters=self._campaign_submission.global_parameters,
+            experiment_parameters=self._campaign_submission.experiment_parameters,
         )
+
+        # Persist optimizer config to campaign meta
+        optimizer_config = {
+            "optimizer_type": optimizer_type_name,
+            "constructor_args": config_snapshot,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        async with self._db_interface.get_async_session() as db:
+            await self._campaign_manager.update_campaign_meta(
+                db, self._campaign_name, "beacon", {"optimizer_config": optimizer_config}
+            )
 
         (
             self._optimizer_input_names,
             self._optimizer_output_names,
+            self._optimizer_additional_parameters,
         ) = await self._campaign_optimizer_manager.get_input_and_output_names(self._campaign_name)
 
     async def _ensure_optimizer_initialized(self, db: AsyncDbSession) -> None:
@@ -232,8 +267,6 @@ class CampaignExecutor:
 
     async def _progress_experiments(self) -> None:
         """Progress all running experiments and process completed ones."""
-        self._wait_for_pending_report()
-
         async with self._db_interface.get_async_session() as db:
             completed_experiments = []
             for exp_name, executor in self._experiment_executors.items():
@@ -244,16 +277,15 @@ class CampaignExecutor:
             if completed_experiments and self._campaign_submission.optimize:
                 await self._process_results_for_optimization(db, completed_experiments)
 
-        # Cleanup outside the DB session to avoid nested session conflicts
-        if completed_experiments:
-            await self._cleanup_completed_experiments(completed_experiments)
-
-    async def _cleanup_completed_experiments(self, completed_experiments: list[str]) -> None:
-        """Clean up completed experiments and update campaign state."""
-        async with self._db_interface.get_async_session() as db:
-            for exp_name in completed_experiments:
+            for _ in completed_experiments:
                 await self._campaign_manager.increment_iteration(db, self._campaign_name)
-                del self._experiment_executors[exp_name]
+
+        # Non-blocking: resolve report if done, flush queued reports if actor is free
+        await self._try_resolve_pending_report()
+        await self._try_flush_reports()
+
+        for exp_name in completed_experiments:
+            del self._experiment_executors[exp_name]
 
     async def cancel_campaign(self) -> None:
         """Cancel the campaign and all running experiments."""
@@ -268,6 +300,12 @@ class CampaignExecutor:
             log.warning(f"Cancelling campaign '{self._campaign_name}'...")
             await self._campaign_manager.cancel_campaign(db, self._campaign_name)
             self._campaign_status = CampaignStatus.CANCELLED
+
+            pending_experiment_names = [
+                experiment_name for pending in self._pending_samples for experiment_name, _ in pending.experiments
+            ]
+            if pending_experiment_names:
+                await self._experiment_manager.cancel_experiments_batch(db, pending_experiment_names)
 
         await self._cancel_running_experiments()
 
@@ -339,37 +377,48 @@ class CampaignExecutor:
 
     async def _create_experiments(self, db: AsyncDbSession, campaign: Campaign) -> None:
         """Create new experiments up to the maximum allowed concurrent experiments."""
-        if self._pending_sample is not None:
-            if not self._pending_sample.future.done():
-                return  # Still waiting for optimizer sample
-            resolved = self._resolve_pending_sample()
-            for experiment_name, parameters in resolved:
-                await self._create_single_experiment(db, experiment_name, parameters)
+        # Resolve any completed samples — experiments already exist as CREATED
+        still_pending = []
+        for pending in self._pending_samples:
+            if pending.future.done():
+                resolved = await self._resolve_pending_sample(pending)
+                for experiment_name, parameters in resolved:
+                    await self._experiment_manager.update_experiment_parameters(db, experiment_name, parameters)
+                    await self._create_single_experiment(db, experiment_name, parameters)
+            else:
+                still_pending.append(pending)
+        self._pending_samples = still_pending
 
-        if not self._can_create_more_experiments(campaign):
+        # Account for experiments waiting in pending samples
+        pending_slots = sum(len(p.experiments) for p in self._pending_samples)
+        effective_in_flight = len(self._experiment_executors) + pending_slots
+
+        if not self._can_create_more_experiments_with(campaign, effective_in_flight):
             return
 
         next_exp_num = await self._get_next_experiment_number(db)
 
-        while self._can_create_more_experiments(campaign):
+        while self._can_create_more_experiments_with(campaign, effective_in_flight):
             experiment_name = f"{self._campaign_name}_exp_{next_exp_num}"
             next_exp_num += 1
-            iteration = campaign.experiments_completed + len(self._experiment_executors)
+            iteration = campaign.experiments_completed + effective_in_flight
 
             parameters = self._get_experiment_parameters(iteration)
             if parameters is not None:
                 await self._create_single_experiment(db, experiment_name, parameters)
+                effective_in_flight += 1
                 continue
 
             # Batch all remaining slots into one optimizer sample(N) call
             batch: list[tuple[str, dict]] = [(experiment_name, self._get_base_params())]
-            projected = len(self._experiment_executors) + len(batch)
+            projected = effective_in_flight + 1
             while self._can_create_more_experiments_with(campaign, projected):
                 experiment_name = f"{self._campaign_name}_exp_{next_exp_num}"
                 next_exp_num += 1
                 batch.append((experiment_name, self._get_base_params()))
                 projected += 1
             await self._launch_batch_sample(db, batch)
+            effective_in_flight = projected
             return
 
     async def _create_single_experiment(
@@ -389,10 +438,6 @@ class CampaignExecutor:
         )
         self._experiment_executors[experiment_name] = experiment_executor
         await experiment_executor.start_experiment(db)
-
-    def _can_create_more_experiments(self, campaign: Campaign) -> bool:
-        """Check if more experiments can be created based on campaign constraints."""
-        return self._can_create_more_experiments_with(campaign, len(self._experiment_executors))
 
     def _can_create_more_experiments_with(self, campaign: Campaign, num_in_flight: int) -> bool:
         """Check if more experiments can be created given a projected in-flight count."""
@@ -431,21 +476,31 @@ class CampaignExecutor:
 
     async def _launch_batch_sample(self, db: AsyncDbSession, batch: list[tuple[str, dict]]) -> None:
         """Launch a non-blocking batch optimizer sample for multiple experiments."""
-        if not self._wait_for_pending_report():
-            return
-
         await self._ensure_optimizer_initialized(db)
-        num = len(batch)
-        log.info(f"CMP '{self._campaign_name}' - Sampling parameters for {num} experiment(s)...")
-        future = asyncio.create_task(_await_ray_ref(self._optimizer.sample.remote(num)))
-        self._pending_sample = _PendingOptimizerSample(future=future, experiments=batch)
 
-    def _resolve_pending_sample(self) -> list[tuple[str, dict[str, Any]]]:
+        # Create experiment records as CREATED before parameters are available
+        for experiment_name, base_params in batch:
+            submission = ExperimentSubmission(
+                name=experiment_name,
+                type=self._experiment_type,
+                owner=self._campaign_submission.owner,
+                priority=self._campaign_submission.priority,
+                parameters=base_params,
+            )
+            await self._experiment_manager.create_experiment(db, submission, campaign=self._campaign_name)
+
+        num = len(batch)
+        exp_names = ", ".join(name for name, _ in batch)
+        log.info(f"CMP '{self._campaign_name}' - Sampling parameters for {num} experiment(s): {exp_names}")
+        future = asyncio.create_task(_await_ray_ref(self._optimizer.sample_and_get_meta.remote(num)))
+        self._pending_samples.append(_PendingOptimizerSample(future=future, experiments=batch))
+
+    async def _resolve_pending_sample(self, pending: _PendingOptimizerSample) -> list[tuple[str, dict[str, Any]]]:
         """Resolve a completed batch sample into (experiment_name, merged_params) pairs."""
-        pending = self._pending_sample
-        self._pending_sample = None
         try:
-            samples_df = pending.future.result()
+            samples_df, meta = pending.future.result()
+            if meta:
+                await self._save_optimizer_meta_dict(meta)
             records = samples_df.to_dict(orient="records")
             log.debug(f"CMP '{self._campaign_name}' - Sampled parameters: {records}")
         except Exception as e:
@@ -463,12 +518,22 @@ class CampaignExecutor:
     def _is_campaign_completed(self, campaign: Campaign) -> bool:
         """Check if campaign has completed all experiments."""
         max_experiments = self._campaign_submission.max_experiments
-        return 0 < max_experiments <= campaign.experiments_completed and not self._experiment_executors
+        return (
+            0 < max_experiments <= campaign.experiments_completed
+            and not self._experiment_executors
+            and not self._pending_samples
+        )
 
     async def _complete_campaign(self, db: AsyncDbSession) -> bool:
         """Complete the campaign. Returns False if waiting for async pareto computation."""
         if self._campaign_submission.optimize:
-            if not self._wait_for_pending_report():
+            # Flush any remaining queued reports before Pareto computation
+            if self._queued_reports:
+                await self._try_resolve_pending_report()
+                if self._pending_report is not None:
+                    return False  # Actor still busy, try next cycle
+                await self._try_flush_reports()
+            if not await self._wait_for_pending_report():
                 return False
 
             await self._ensure_optimizer_initialized(db)
@@ -494,10 +559,18 @@ class CampaignExecutor:
 
     async def _handle_campaign_failure(self, error: Exception) -> None:
         """Mark campaign as failed, cancel running experiments, and raise."""
-        self._cancel_pending_futures()
-
         async with self._db_interface.get_async_session() as db:
-            await self._campaign_manager.fail_campaign(db, self._campaign_name)
+            pending_experiment_names = [
+                experiment_name for pending in self._pending_samples for experiment_name, _ in pending.experiments
+            ]
+            if pending_experiment_names:
+                try:
+                    await self._experiment_manager.cancel_experiments_batch(db, pending_experiment_names)
+                except Exception:
+                    log.warning(f"CMP '{self._campaign_name}' - Failed to cancel pending experiments")
+            await self._campaign_manager.fail_campaign(db, self._campaign_name, error_message=str(error))
+
+        self._cancel_pending_futures()
         self._campaign_status = CampaignStatus.FAILED
 
         try:
@@ -513,12 +586,13 @@ class CampaignExecutor:
 
     def _cancel_pending_futures(self) -> None:
         """Cancel any pending optimizer futures."""
-        if self._pending_sample is not None and not self._pending_sample.future.done():
-            self._pending_sample.future.cancel()
+        for pending in self._pending_samples:
+            if not pending.future.done():
+                pending.future.cancel()
+        self._pending_samples.clear()
         for task in (self._pending_report, self._pending_pareto):
             if task is not None and not task.done():
                 task.cancel()
-        self._pending_sample = None
         self._pending_report = None
         self._pending_pareto = None
 
@@ -528,9 +602,16 @@ class CampaignExecutor:
             db, self._campaign_name, status=ExperimentStatus.COMPLETED
         )
 
-        inputs_df, outputs_df = await self._collect_experiment_results(db, completed_experiment_names)
+        inputs_df, outputs_df, additional = await self._collect_experiment_results(db, completed_experiment_names)
 
-        await self._optimizer.report.remote(inputs_df, outputs_df)
+        # Piggyback additional params onto outputs_df for optimizer (BeaconOptimizer strips them)
+        report_df = pd.concat([outputs_df, pd.DataFrame(additional)], axis=1) if additional else outputs_df
+        await self._optimizer.report.remote(inputs_df, report_df)
+
+        meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name)
+        if meta and meta.get("beacon"):
+            await self._optimizer.restore_optimizer_meta.remote(meta["beacon"])
+            log.info(f"CMP '{self._campaign_name}' - Restored optimizer meta")
 
         log.info(
             f"CMP '{self._campaign_name}' - Restored optimizer state from {len(completed_experiment_names)} "
@@ -539,48 +620,116 @@ class CampaignExecutor:
 
     async def _collect_experiment_results(
         self, db: AsyncDbSession, experiment_names: list[str]
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Collect optimizer input/output values from completed experiments."""
+    ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, list]]:
+        """Collect optimizer input/output/additional parameter values from completed experiments."""
         inputs = {input_name: [] for input_name in self._optimizer_input_names}
         outputs = {output_name: [] for output_name in self._optimizer_output_names}
+        additional = {key: [] for key in self._optimizer_additional_parameters}
+
+        # Collect all unique task names referenced by optimizer params
+        all_param_refs = (
+            self._optimizer_input_names + self._optimizer_output_names + self._optimizer_additional_parameters
+        )
+        task_names = list({ref.split(".")[0] for ref in all_param_refs})
+
+        # Single batch query instead of N+1 individual queries
+        task_lookup = await self._task_manager.get_tasks_by_experiments(db, experiment_names, task_names)
 
         for experiment_name in experiment_names:
             for input_name in self._optimizer_input_names:
                 reference_task_name, parameter_name = input_name.split(".")
-                task = await self._task_manager.get_task(db, experiment_name, reference_task_name)
-                inputs[input_name].append(float(task.input_parameters[parameter_name]))
+                task = task_lookup.get((experiment_name, reference_task_name))
+                inputs[input_name].append(task.input_parameters[parameter_name] if task else None)
             for output_name in self._optimizer_output_names:
                 reference_task_name, parameter_name = output_name.split(".")
-                task = await self._task_manager.get_task(db, experiment_name, reference_task_name)
-                outputs[output_name].append(float(task.output_parameters[parameter_name]))
+                task = task_lookup.get((experiment_name, reference_task_name))
+                outputs[output_name].append(task.output_parameters[parameter_name] if task else None)
+            for key in self._optimizer_additional_parameters:
+                reference_task_name, parameter_name = key.split(".")
+                task = task_lookup.get((experiment_name, reference_task_name))
+                additional[key].append(task.output_parameters[parameter_name] if task else None)
 
-        return pd.DataFrame(inputs), pd.DataFrame(outputs)
+        return pd.DataFrame(inputs), pd.DataFrame(outputs), additional
+
+    async def _save_optimizer_meta_dict(self, meta: dict[str, Any]) -> None:
+        """
+        Save pre-fetched optimizer meta (journal, insights) to Campaign.meta.
+
+        Merges into the existing 'beacon' key so optimizer_config is preserved.
+        """
+        async with self._db_interface.get_async_session() as db:
+            current_meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name) or {}
+            current_beacon = current_meta.get("beacon", {}) or {}
+            merged_beacon = {**current_beacon, **meta}
+            await self._campaign_manager.update_campaign_meta(db, self._campaign_name, "beacon", merged_beacon)
 
     async def _process_results_for_optimization(self, db: AsyncDbSession, completed_experiments: list[str]) -> None:
-        """Record experiment results and launch a non-blocking optimizer report."""
+        """Record experiment results and queue an optimizer report (non-blocking)."""
         await self._ensure_optimizer_initialized(db)
-        inputs_df, outputs_df = await self._collect_experiment_results(db, completed_experiments)
+        inputs_df, outputs_df, additional = await self._collect_experiment_results(db, completed_experiments)
+
+        # Store additional params under beacon key in sample meta
+        meta_list = None
+        if additional:
+            meta_list = [
+                {"beacon": {"additional_parameters": dict(zip(additional.keys(), vals, strict=True))}}
+                for vals in zip(*additional.values(), strict=True)
+            ]
 
         await self._campaign_optimizer_manager.record_campaign_samples(
-            db, self._campaign_name, completed_experiments, inputs_df, outputs_df
+            db, self._campaign_name, completed_experiments, inputs_df, outputs_df, meta_list=meta_list
         )
 
-        self._pending_report = asyncio.create_task(_await_ray_ref(self._optimizer.report.remote(inputs_df, outputs_df)))
+        # Queue results for reporting — flushed when actor is free
+        report_df = pd.concat([outputs_df, pd.DataFrame(additional)], axis=1) if additional else outputs_df
+        self._queued_reports.append((inputs_df, report_df))
 
-    def _wait_for_pending_report(self) -> bool:
-        """Return True if no report is pending or it completed. False if still in progress."""
-        if self._pending_report is None:
-            return True
-        if not self._pending_report.done():
-            return False
+    async def _try_flush_reports(self) -> None:
+        """Non-blocking: submit queued reports to optimizer if actor is free."""
+        if not self._queued_reports:
+            return
+
+        # Resolve existing report first
+        if self._pending_report is not None:
+            if not self._pending_report.done():
+                return  # Actor busy, try next cycle
+            await self._resolve_report_result()
+
+        # Merge all queued results into one report
+        all_inputs = pd.concat([r[0] for r in self._queued_reports], ignore_index=True)
+        all_reports = pd.concat([r[1] for r in self._queued_reports], ignore_index=True)
+        self._queued_reports.clear()
+
+        self._pending_report = asyncio.create_task(
+            _await_ray_ref(self._optimizer.report_and_get_meta.remote(all_inputs, all_reports))
+        )
+
+    async def _try_resolve_pending_report(self) -> None:
+        """Non-blocking: resolve pending report if done, skip if actor is still busy."""
+        if self._pending_report is None or not self._pending_report.done():
+            return
+        await self._resolve_report_result()
+
+    async def _resolve_report_result(self) -> None:
+        """Extract meta from completed report and save it."""
         try:
-            self._pending_report.result()
+            meta = self._pending_report.result()
+            if meta:
+                await self._save_optimizer_meta_dict(meta)
         except Exception as e:
             raise EosCampaignExecutionError(
                 f"CMP '{self._campaign_name}' - Error reporting results to optimizer"
             ) from e
         finally:
             self._pending_report = None
+
+    async def _wait_for_pending_report(self) -> bool:
+        """Return True if no report is pending or it completed. False if still in progress."""
+        if self._pending_report is None:
+            return True
+        if not self._pending_report.done():
+            return False
+        await self._resolve_report_result()
         return True
 
     @property

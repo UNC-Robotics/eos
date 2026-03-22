@@ -2,7 +2,7 @@ from datetime import datetime, UTC
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum, Integer, Boolean, ForeignKey
+from sqlalchemy import DateTime, Index, String, Text, JSON, Enum as sa_Enum, Integer, Boolean, ForeignKey
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import mapped_column, Mapped
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
@@ -63,6 +63,7 @@ class Campaign(CampaignSubmission):
     """The state of a campaign in the system."""
 
     status: CampaignStatus = CampaignStatus.CREATED
+    error_message: str | None = None
 
     experiments_completed: int = Field(0, ge=0)
 
@@ -90,6 +91,7 @@ class CampaignSample(BaseModel):
 
     inputs: dict[str, Any]
     outputs: dict[str, Any]
+    meta: dict[str, Any] = Field(default_factory=dict)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
 
@@ -106,7 +108,7 @@ class CampaignModel(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     experiment_type: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    owner: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     max_experiments: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -127,6 +129,7 @@ class CampaignModel(Base):
     status: Mapped[CampaignStatus] = mapped_column(
         sa_Enum(CampaignStatus), nullable=False, default=CampaignStatus.CREATED, index=True
     )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     experiments_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
@@ -138,17 +141,24 @@ class CampaignModel(Base):
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
+    __table_args__ = (Index("ix_campaigns_created_at", "created_at"),)
+
 
 class CampaignSampleModel(Base):
     """The database model for campaign samples."""
 
     __tablename__ = "campaign_samples"
 
-    campaign_name: Mapped[str] = mapped_column(String(255), ForeignKey("campaigns.name"), primary_key=True)
-    experiment_name: Mapped[str] = mapped_column(String(255), ForeignKey("experiments.name"), primary_key=True)
+    campaign_name: Mapped[str] = mapped_column(
+        String(255), ForeignKey("campaigns.name", ondelete="CASCADE"), primary_key=True
+    )
+    experiment_name: Mapped[str] = mapped_column(
+        String(255), ForeignKey("experiments.name", ondelete="CASCADE"), primary_key=True
+    )
 
     inputs: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
     outputs: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)
+    meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)

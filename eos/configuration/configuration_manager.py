@@ -106,16 +106,14 @@ class ConfigurationManager:
     def load_experiment(self, experiment_type: str) -> None:
         """Load an experiment configuration and validate it."""
         if experiment_type in self.experiments:
-            raise EosConfigurationError(
-                f"Experiment '{experiment_type}' that was requested to be loaded is already loaded."
-            )
+            log.debug(f"Experiment '{experiment_type}' is already loaded, skipping")
+            return
 
         try:
             experiment = self.package_manager.read_experiment(experiment_type)
 
             ExperimentValidator(experiment, list(self.labs.values())).validate()
 
-            self.campaign_optimizers.load_campaign_optimizer(experiment_type)
             self.experiments[experiment_type] = experiment
 
             log.info(f"Loaded experiment '{experiment_type}'")
@@ -162,6 +160,18 @@ class ConfigurationManager:
         for experiment_name in experiments_to_remove:
             self.unload_experiment(experiment_name)
             log.debug(f"Unloaded experiment '{experiment_name}' as it was associated with lab(s) {lab_names}")
+
+    def refresh_task_spec(self, task_type: str) -> None:
+        """Re-read a single task spec from disk and update the registry."""
+        dir_path = self.task_specs.get_dir_by_type(task_type)
+        if dir_path is None:
+            raise EosConfigurationError(f"Task type '{task_type}' not found in spec registry.")
+        entity_name = dir_path.name
+        spec = self.package_manager.read_task_spec(entity_name)
+        if not spec.output_resources:
+            spec.output_resources = spec.input_resources.copy()
+        self.task_specs.update_spec(spec.type, spec)
+        log.debug(f"Refreshed task spec '{task_type}' from disk")
 
     def _initialize_task_plugins(self) -> None:
         """Initialize all task plugins to catch errors early."""

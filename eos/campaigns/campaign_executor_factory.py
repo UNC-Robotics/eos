@@ -5,6 +5,7 @@ from eos.campaigns.entities.campaign import CampaignSubmission
 from eos.configuration.configuration_manager import ConfigurationManager
 
 from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
+from eos.experiments.experiment_manager import ExperimentManager
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 
 from eos.tasks.task_manager import TaskManager
@@ -24,6 +25,7 @@ class CampaignExecutorFactory:
         campaign_optimizer_manager: CampaignOptimizerManager,
         task_manager: TaskManager,
         experiment_executor_factory: ExperimentExecutorFactory,
+        experiment_manager: ExperimentManager,
         db_interface: AbstractSqlDbInterface,
     ):
         self._configuration_manager = configuration_manager
@@ -31,6 +33,7 @@ class CampaignExecutorFactory:
         self._campaign_optimizer_manager = campaign_optimizer_manager
         self._task_manager = task_manager
         self._experiment_executor_factory = experiment_executor_factory
+        self._experiment_manager = experiment_manager
         self._db_interface = db_interface
 
     def create(
@@ -43,5 +46,6 @@ class CampaignExecutorFactory:
             self._campaign_optimizer_manager,
             self._task_manager,
             self._experiment_executor_factory,
+            self._experiment_manager,
             self._db_interface,
         )

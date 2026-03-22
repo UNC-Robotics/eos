@@ -16,4 +16,4 @@ class Analyzer(BaseDevice):
         pass
 
     def analyze_result(self, number: int, product: int) -> int:
-        return number + 100 * abs(product - 1024)
+        return abs(product - 1024)

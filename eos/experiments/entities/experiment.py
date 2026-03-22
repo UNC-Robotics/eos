@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
-from sqlalchemy import DateTime, String, JSON, Enum as sa_Enum, Integer, ForeignKey
+from sqlalchemy import DateTime, Index, String, Text, JSON, Enum as sa_Enum, Integer, ForeignKey
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
 
@@ -43,6 +43,7 @@ class Experiment(ExperimentSubmission):
     campaign: str | None = None
 
     status: ExperimentStatus = ExperimentStatus.CREATED
+    error_message: str | None = None
 
     start_time: datetime | None = None
     end_time: datetime | None = None
@@ -67,8 +68,10 @@ class ExperimentModel(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     type: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    owner: Mapped[str] = mapped_column(String(255), nullable=False)
-    campaign: Mapped[str | None] = mapped_column(String(255), ForeignKey("campaigns.name"), nullable=True, index=True)
+    owner: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    campaign: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("campaigns.name", ondelete="CASCADE"), nullable=True, index=True
+    )
 
     priority: Mapped[int] = mapped_column(nullable=False, default=0)
 
@@ -80,9 +83,12 @@ class ExperimentModel(Base):
     status: Mapped[ExperimentStatus] = mapped_column(
         sa_Enum(ExperimentStatus), nullable=False, default=ExperimentStatus.CREATED, index=True
     )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
+
+    __table_args__ = (Index("ix_experiments_created_at", "created_at"),)

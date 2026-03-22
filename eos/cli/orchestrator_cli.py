@@ -16,8 +16,7 @@ if sys.platform == "win32":
     # Prevent Intel Fortran runtime from intercepting signals and aborting the process
     os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
 
-# Suppress Ray GPU override warning
-os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
+import eos.configuration.env  # noqa: F401
 
 from eos.configuration.eos_config import EosConfig, WebApiConfig
 from eos.logging.logger import log, LogLevel
@@ -28,15 +27,13 @@ if TYPE_CHECKING:
 
 
 EOS_BANNER = f"""Experiment Orchestration System v{importlib.metadata.version("eos")}
- ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄
-▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀
-▐░█▄▄▄▄▄▄▄▄▄ ▐░▌       ▐░▌▐░█▄▄▄▄▄▄▄▄▄
-▐░░░░░░░░░░░▌▐░▌       ▐░▌▐░░░░░░░░░░░▌
-▐░█▀▀▀▀▀▀▀▀▀ ▐░▌       ▐░▌ ▀▀▀▀▀▀▀▀▀█░▌
-▐░█▄▄▄▄▄▄▄▄▄ ▐░█▄▄▄▄▄▄▄█░▌ ▄▄▄▄▄▄▄▄▄█░▌
-▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
- ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀
+
+███████╗ ██████╗ ███████╗
+██╔════╝██╔═══██╗██╔════╝
+█████╗  ██║   ██║███████╗
+██╔══╝  ██║   ██║╚════██║
+███████╗╚██████╔╝███████║
+╚══════╝ ╚═════╝ ╚══════╝
 """
 
 
@@ -98,8 +95,11 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
     from eos.web_api.controllers.file_controller import FileController
     from eos.web_api.controllers.health_controller import HealthController
     from eos.web_api.controllers.lab_controller import LabController
+    from eos.web_api.controllers.package_controller import PackageController
     from eos.web_api.controllers.refresh_controller import RefreshController
     from eos.web_api.controllers.rpc_controller import RPCController
+    from eos.web_api.controllers.optimizer_controller import OptimizerController
+    from eos.web_api.controllers.log_controller import LogController
     from eos.web_api.controllers.task_controller import TaskController
     from eos.web_api.dependencies import get_common_dependencies
     from eos.web_api.exception_handling import general_exception_handler
@@ -117,6 +117,9 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
         FileController,
         HealthController,
         LabController,
+        LogController,
+        OptimizerController,
+        PackageController,
         RefreshController,
         RPCController,
         TaskController,
@@ -204,6 +207,10 @@ async def handle_shutdown(
             for sig, handler in original_handlers.items():
                 signal.signal(sig, handler)
 
+        from eos.logging.log_buffer import log_buffer
+
+        log_buffer.shutdown()
+
         log.info("Shutting down the web API...")
         web_api_server.should_exit = True
         await web_api_server.shutdown()
@@ -216,6 +223,10 @@ async def handle_shutdown(
 
 async def run_eos(config: EosConfig) -> None:
     """Run the EOS orchestrator and web API server."""
+    from eos.logging.log_buffer import log_buffer
+
+    log_buffer.set_loop(asyncio.get_running_loop())
+
     orchestrator = await setup_orchestrator(config)
     web_api_server = setup_web_api(orchestrator, config.web_api)
 
@@ -268,9 +279,22 @@ def start_orchestrator(
         | None
     ) = None,
     log_level: Annotated[LogLevel, typer.Option("--log-level", "-v", help="Logging level")] = None,
+    profile: Annotated[bool, typer.Option("--profile", help="Enable function profiling report on exit")] = False,
+    profile_mem: Annotated[
+        bool, typer.Option("--profile-mem", help="Also profile memory (RSS + tracemalloc). Use with --profile")
+    ] = False,
+    profile_mem_all: Annotated[
+        bool,
+        typer.Option("--profile-mem-all", help="Profile all Python memory, not just EOS. Implies --profile-mem"),
+    ] = False,
 ) -> None:
     """Start the EOS orchestrator with the given configuration."""
     typer.echo(EOS_BANNER)
+
+    if profile or profile_mem or profile_mem_all:
+        from eos.utils.profiler import start as start_profiler
+
+        start_profiler(memory=profile_mem or profile_mem_all, memory_all=profile_mem_all)
 
     file_config = load_config(config_file)
 

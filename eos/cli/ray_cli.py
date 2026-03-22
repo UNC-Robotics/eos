@@ -1,3 +1,5 @@
+import subprocess
+
 import typer
 
 ray_app = typer.Typer(help="Manage EOS Ray cluster commands", no_args_is_help=True)
@@ -10,7 +12,6 @@ def head(
     """
     Create a Ray head node.
     """
-    import subprocess
 
     cmd = ["ray", "start", "--head", "--resources", '{"eos": 1000}', "--disable-usage-stats"]
 
@@ -39,7 +40,6 @@ def worker(
     This command calls the Ray CLI command:
         ray start --address <address> <additional_params>
     """
-    import subprocess
 
     # Base Ray CLI command for worker node
     cmd = ["ray", "start", "--address", address, "--disable-usage-stats"]
@@ -64,7 +64,6 @@ def stop() -> None:
     This command calls the Ray CLI command:
         ray stop
     """
-    import subprocess
 
     cmd = ["ray", "stop"]
 
@@ -83,7 +82,6 @@ def status() -> None:
     This command calls the Ray CLI command:
         ray status
     """
-    import subprocess
 
     cmd = ["ray", "status"]
     try:

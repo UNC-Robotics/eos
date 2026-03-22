@@ -50,6 +50,15 @@ class ResourceManager:
 
         raise EosResourceStateError(f"Resource '{resource_name}' does not exist.")
 
+    async def get_resources_by_names(self, db: AsyncDbSession, resource_names: list[str]) -> dict[str, Resource]:
+        """Get multiple resources by name in a single query."""
+        result = await db.execute(select(ResourceModel).where(ResourceModel.name.in_(resource_names)))
+        resources = {model.name: Resource.model_validate(model) for model in result.scalars()}
+        missing = set(resource_names) - resources.keys()
+        if missing:
+            raise EosResourceStateError(f"Resources not found: {', '.join(sorted(missing))}")
+        return resources
+
     async def get_resources(self, db: AsyncDbSession, **filters: Any) -> list[Resource]:
         """
         Query resources with arbitrary parameters.
@@ -214,10 +223,17 @@ class ResourceManager:
     async def _create_resources_for_lab(self, db: AsyncDbSession, lab_name: str) -> None:
         """Create resources for a loaded lab."""
         lab = self._configuration_manager.labs[lab_name]
-        resources_to_add = []
+        resource_names = list(lab.resources.keys())
 
+        if resource_names:
+            result = await db.execute(select(ResourceModel.name).where(ResourceModel.name.in_(resource_names)))
+            existing_names = {row[0] for row in result.all()}
+        else:
+            existing_names = set()
+
+        resources_to_add = []
         for resource_name, lab_resource in lab.resources.items():
-            if not await self._check_resource_exists(db, resource_name):
+            if resource_name not in existing_names:
                 resource = self._build_resource(resource_name, lab_resource, lab)
                 resources_to_add.append(ResourceModel(**resource.model_dump()))
 

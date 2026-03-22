@@ -1,0 +1,193 @@
+@import 'tailwindcss';
+
+/* Configure dark mode for next-themes compatibility */
+@variant dark (&:where(.dark, .dark *));
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+    'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Theme transitions - exclude ReactFlow elements and SVGs to prevent visual artifacts */
+*:not(svg, svg *, [class*='react-flow'], [class*='react-flow'] *) {
+  transition-property: background-color, border-color, color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* ReactFlow dark mode support */
+.dark .react-flow__controls {
+  background-color: rgb(30 41 59);
+  border-color: rgb(71 85 105);
+}
+
+.dark .react-flow__controls-button {
+  background-color: rgb(30 41 59);
+  border-color: rgb(71 85 105);
+  color: rgb(226 232 240);
+}
+
+.dark .react-flow__controls-button:hover {
+  background-color: rgb(51 65 85);
+}
+
+.dark .react-flow__controls-button svg {
+  fill: rgb(226 232 240);
+}
+
+.dark .react-flow__edge-path {
+  stroke: rgb(148 163 184);
+}
+
+.dark .react-flow__handle {
+  border-color: rgb(71 85 105);
+}
+
+/* ReactFlow selection box  */
+.react-flow__selection {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgb(59, 130, 246);
+}
+
+.dark .react-flow__selection {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgb(234, 179, 8);
+}
+
+/* Multi-select nodes selection rectangle */
+.react-flow__nodesselection-rect {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgb(59, 130, 246) !important;
+  border-radius: 4px;
+}
+
+.dark .react-flow__nodesselection-rect {
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgb(234, 179, 8) !important;
+}
+
+/* Selected nodes border */
+.react-flow__node.selected {
+  box-shadow: 0 0 0 2px rgb(59, 130, 246);
+}
+
+.dark .react-flow__node.selected {
+  box-shadow: 0 0 0 2px rgb(234, 179, 8);
+}
+
+/* Edge hover effect */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 4;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* Make edges clickable */
+.react-flow__edge {
+  cursor: pointer;
+}
+
+.react-flow__edge-interaction {
+  stroke-width: 20;
+}
+
+/* Fix Radix ScrollArea viewport child expanding to content width in AI chat */
+.ai-chat-scroll > div {
+  display: block !important;
+}
+
+/* Skeleton: delayed fade-in (200ms delay) prevents brief flash on fast loads */
+@keyframes skeleton-fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Shimmer animation for progress bars */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Strategy mix slider (BeaconOptimizer) */
+.strategy-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+.strategy-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #6b7280;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+.strategy-slider:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.strategy-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #6b7280;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+.strategy-slider:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.strategy-slider::-webkit-slider-runnable-track {
+  height: 14px;
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.strategy-slider::-moz-range-track {
+  height: 14px;
+  background: transparent;
+  border-radius: 9999px;
+}

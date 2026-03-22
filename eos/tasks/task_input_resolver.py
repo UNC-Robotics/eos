@@ -1,5 +1,4 @@
 import copy
-from typing import Protocol
 
 from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
 from eos.configuration.utils import (
@@ -10,12 +9,9 @@ from eos.configuration.utils import (
 )
 from eos.experiments.experiment_manager import ExperimentManager
 from eos.database.abstract_sql_db_interface import AsyncDbSession
+from eos.tasks.entities.task import Task
 from eos.tasks.exceptions import EosTaskInputResolutionError
 from eos.tasks.task_manager import TaskManager
-
-
-class AsyncResolver(Protocol):
-    async def __call__(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef: ...
 
 
 class TaskInputResolver:
@@ -29,53 +25,56 @@ class TaskInputResolver:
         self._experiment_manager = experiment_manager
 
     async def resolve_task_inputs(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef:
-        """
-        Resolve all input references for a task.
-        """
-        return await self._apply_resolvers(
-            db,
-            experiment_name,
-            task,
-            [
-                self._resolve_parameters,
-                self._resolve_input_parameter_references,
-                self._resolve_input_resource_references,
-                self._resolve_input_device_references,
-            ],
-        )
-
-    async def _apply_resolvers(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef, resolvers: list[AsyncResolver]
-    ) -> TaskDef:
-        """
-        Apply a list of async resolver functions to the task config.
-        """
         config = copy.deepcopy(task)
-        for resolver in resolvers:
-            config = await resolver(db, experiment_name, config)
+        config = await self._resolve_parameters(db, experiment_name, config)
+
+        ref_tasks = await self._fetch_ref_tasks(db, experiment_name, config)
+        self._apply_parameter_references(ref_tasks, config)
+        self._apply_resource_references(ref_tasks, config)
+        self._apply_device_references(ref_tasks, config)
+
         return config
 
     async def resolve_parameters(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef:
-        """
-        Resolve parameters for a task.
-        """
-        return await self._apply_resolvers(db, experiment_name, task, [self._resolve_parameters])
+        config = copy.deepcopy(task)
+        return await self._resolve_parameters(db, experiment_name, config)
 
     async def resolve_input_parameter_references(
         self, db: AsyncDbSession, experiment_name: str, task: TaskDef
     ) -> TaskDef:
-        """
-        Resolve input parameter references for a task.
-        """
-        return await self._apply_resolvers(db, experiment_name, task, [self._resolve_input_parameter_references])
+        config = copy.deepcopy(task)
+        ref_tasks = await self._fetch_ref_tasks(db, experiment_name, config)
+        self._apply_parameter_references(ref_tasks, config)
+        return config
 
     async def resolve_input_resource_references(
         self, db: AsyncDbSession, experiment_name: str, task: TaskDef
     ) -> TaskDef:
-        """
-        Resolve input resource references for a task.
-        """
-        return await self._apply_resolvers(db, experiment_name, task, [self._resolve_input_resource_references])
+        config = copy.deepcopy(task)
+        ref_tasks = await self._fetch_ref_tasks(db, experiment_name, config)
+        self._apply_resource_references(ref_tasks, config)
+        return config
+
+    async def _fetch_ref_tasks(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> dict[str, Task]:
+        ref_names = self._collect_referenced_task_names(task)
+        if not ref_names:
+            return {}
+        task_lookup = await self._task_manager.get_tasks_by_experiments(db, [experiment_name], list(ref_names))
+        return {task_name: t for (_, task_name), t in task_lookup.items()}
+
+    @staticmethod
+    def _collect_referenced_task_names(task: TaskDef) -> set[str]:
+        ref_names: set[str] = set()
+        for param_value in task.parameters.values():
+            if is_parameter_reference(param_value):
+                ref_names.add(param_value.split(".")[0])
+        for resource_value in task.resources.values():
+            if isinstance(resource_value, str) and is_resource_reference(resource_value):
+                ref_names.add(resource_value.split(".")[0])
+        for device_value in task.devices.values():
+            if isinstance(device_value, str) and is_device_reference(device_value):
+                ref_names.add(device_value.split(".")[0])
+        return ref_names
 
     async def _resolve_parameters(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef:
         experiment = await self._experiment_manager.get_experiment(db, experiment_name)
@@ -92,17 +91,48 @@ class TaskInputResolver:
 
         return task
 
-    async def _resolve_input_parameter_references(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
-    ) -> TaskDef:
+    @staticmethod
+    def _resolve_reference(ref_tasks: dict[str, Task], ref_task_name: str, ref_name: str, ref_type: str) -> str | None:
+        ref_task = ref_tasks.get(ref_task_name)
+        if ref_task is None:
+            return None
+
+        if ref_type == "parameter":
+            if ref_name in (ref_task.output_parameters or {}):
+                return ref_task.output_parameters[ref_name]
+            if ref_name in (ref_task.input_parameters or {}):
+                return ref_task.input_parameters[ref_name]
+        elif ref_type == "resource":
+            if ref_name in (ref_task.output_resources or {}):
+                return ref_task.output_resources[ref_name].name
+
+        return None
+
+    @staticmethod
+    def _resolve_device_reference(
+        ref_tasks: dict[str, Task], ref_task_name: str, ref_device_name: str
+    ) -> DeviceAssignmentDef | None:
+        ref_task = ref_tasks.get(ref_task_name)
+        if ref_task is None:
+            return None
+
+        if ref_device_name in (ref_task.devices or {}):
+            device_info = ref_task.devices[ref_device_name]
+            if isinstance(device_info, dict):
+                return DeviceAssignmentDef(lab_name=device_info["lab_name"], name=device_info["name"])
+            if isinstance(device_info, DeviceAssignmentDef):
+                return device_info
+
+        return None
+
+    @staticmethod
+    def _apply_parameter_references(ref_tasks: dict[str, Task], task: TaskDef) -> None:
         for param_name, param_value in task.parameters.items():
             if not is_parameter_reference(param_value):
                 continue
 
             ref_task_name, ref_param_name = param_value.split(".")
-            resolved_value = await self._resolve_reference(
-                db, experiment_name, ref_task_name, ref_param_name, "parameter"
-            )
+            resolved_value = TaskInputResolver._resolve_reference(ref_tasks, ref_task_name, ref_param_name, "parameter")
 
             if resolved_value is not None:
                 task.parameters[param_name] = resolved_value
@@ -111,21 +141,17 @@ class TaskInputResolver:
                     f"Unresolved input parameter reference '{param_value}' in task '{task.name}'"
                 )
 
-        return task
-
-    async def _resolve_input_resource_references(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
-    ) -> TaskDef:
+    @staticmethod
+    def _apply_resource_references(ref_tasks: dict[str, Task], task: TaskDef) -> None:
         for resource_name, resource_value in task.resources.items():
-            # Only strings can be references; dynamic requests remain unchanged
             if not isinstance(resource_value, str):
                 continue
             if not is_resource_reference(resource_value):
                 continue
 
             ref_task_name, ref_resource_name = resource_value.split(".")
-            resolved_value = await self._resolve_reference(
-                db, experiment_name, ref_task_name, ref_resource_name, "resource"
+            resolved_value = TaskInputResolver._resolve_reference(
+                ref_tasks, ref_task_name, ref_resource_name, "resource"
             )
 
             if resolved_value is not None:
@@ -135,23 +161,16 @@ class TaskInputResolver:
                     f"Unresolved input resource reference '{resource_value}' in task '{task.name}'"
                 )
 
-        return task
-
-    async def _resolve_input_device_references(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
-    ) -> TaskDef:
-        """
-        Resolve device references (e.g., "task.device_name") to concrete TaskDeviceConfig.
-        """
+    @staticmethod
+    def _apply_device_references(ref_tasks: dict[str, Task], task: TaskDef) -> None:
         for device_name, device_value in task.devices.items():
-            # Only strings can be references; TaskDeviceConfig and DynamicTaskDeviceConfig remain unchanged
             if not isinstance(device_value, str):
                 continue
             if not is_device_reference(device_value):
                 continue
 
             ref_task_name, ref_device_name = device_value.split(".")
-            resolved_device = await self._resolve_device_reference(db, experiment_name, ref_task_name, ref_device_name)
+            resolved_device = TaskInputResolver._resolve_device_reference(ref_tasks, ref_task_name, ref_device_name)
 
             if resolved_device is not None:
                 task.devices[device_name] = resolved_device
@@ -159,38 +178,3 @@ class TaskInputResolver:
                 raise EosTaskInputResolutionError(
                     f"Unresolved input device reference '{device_value}' in task '{task.name}'"
                 )
-
-        return task
-
-    async def _resolve_device_reference(
-        self, db: AsyncDbSession, experiment_name: str, ref_task_name: str, ref_device_name: str
-    ) -> DeviceAssignmentDef | None:
-        """Look up the device allocated to a referenced task."""
-        ref_task = await self._task_manager.get_task(db, experiment_name, ref_task_name)
-
-        if ref_device_name in (ref_task.devices or {}):
-            device_info = ref_task.devices[ref_device_name]
-            # Devices are stored as dicts with lab_name and name after scheduling
-            if isinstance(device_info, dict):
-                return DeviceAssignmentDef(lab_name=device_info["lab_name"], name=device_info["name"])
-            if isinstance(device_info, DeviceAssignmentDef):
-                return device_info
-
-        return None
-
-    async def _resolve_reference(
-        self, db: AsyncDbSession, experiment_name: str, ref_task_name: str, ref_name: str, ref_type: str
-    ) -> str | None:
-        ref_task = await self._task_manager.get_task(db, experiment_name, ref_task_name)
-
-        if ref_type == "parameter":
-            if ref_name in (ref_task.output_parameters or {}):
-                return ref_task.output_parameters[ref_name]
-            ref_task = await self._task_manager.get_task(db, experiment_name, ref_task_name)
-            if ref_name in (ref_task.input_parameters or {}):
-                return ref_task.input_parameters[ref_name]
-        elif ref_type == "resource":
-            if ref_name in (ref_task.output_resources or {}):
-                return ref_task.output_resources[ref_name].name
-
-        return None

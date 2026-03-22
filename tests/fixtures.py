@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 from pathlib import Path
@@ -5,6 +6,7 @@ from pathlib import Path
 import pytest
 import ray
 import yaml
+from dotenv import load_dotenv
 
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
@@ -18,26 +20,21 @@ from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
 from eos.database.file_db_interface import FileDbInterface
 from eos.database.sqlite_db_interface import SqliteDbInterface
-from eos.allocation.allocation_manager import (
-    AllocationManager,
-)
+from eos.allocation.allocation_manager import AllocationManager
 from eos.allocation.entities.device_allocation import DeviceAllocationModel
-from eos.allocation.entities.resource_allocation import ResourceAllocationModel
+from eos.devices.entities.device import DeviceModel
 from sqlalchemy import delete
 from eos.scheduling.greedy_scheduler import GreedyScheduler
 from eos.scheduling.cpsat_scheduler import CpSatScheduler
 from eos.orchestration.work_signal import WorkSignal
-from eos.tasks.on_demand_task_executor import OnDemandTaskExecutor
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
 
-log.set_level("INFO")
+log.set_level("WARNING")
 
 
 def load_test_config() -> EosConfig:
     """Load the test configuration and return it as an EosConfig object."""
-    from dotenv import load_dotenv
-
     tests_dir = Path(__file__).resolve().parent
     load_dotenv(tests_dir / ".env")
 
@@ -125,7 +122,7 @@ def file_db_interface(eos_config, db_interface):
     return FileDbInterface(eos_config.file_db)
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def setup_lab_experiment(request, configuration_manager):
     lab_name, experiment_name = request.param
 
@@ -162,14 +159,46 @@ async def resource_manager(setup_lab_experiment, configuration_manager, db_inter
     return resource_manager
 
 
-@pytest.fixture
-async def device_manager(setup_lab_experiment, configuration_manager, db, db_interface, clear_db):
-    device_manager = DeviceManager(configuration_manager, db_interface)
+@pytest.fixture(scope="class")
+async def class_device_manager(setup_lab_experiment, configuration_manager, db_interface):
+    """Create device actors once per test class."""
+    # Clean up stale state from previous classes whose teardown may not have run
+    async with db_interface.get_async_session() as session:
+        await session.execute(delete(DeviceAllocationModel))
+        await session.execute(delete(DeviceModel))
+    for lab_name, lab in configuration_manager.labs.items():
+        for device_name in lab.devices:
+            with contextlib.suppress(ValueError):
+                ray.kill(ray.get_actor(f"{lab_name}.{device_name}"))
 
-    await device_manager.update_devices(db, loaded_labs=set(configuration_manager.labs.keys()))
-    yield device_manager
+    dm = DeviceManager(configuration_manager, db_interface)
+    async with db_interface.get_async_session() as session:
+        await dm.update_devices(session, loaded_labs=set(configuration_manager.labs.keys()))
+    yield dm
+    async with db_interface.get_async_session() as session:
+        await session.execute(delete(DeviceAllocationModel))
+        await dm.cleanup_device_actors(session)
+
+
+@pytest.fixture
+async def device_manager(class_device_manager, setup_lab_experiment, db, db_interface, clear_db):
+    """Function-scoped wrapper: reuses class-scoped actors, re-inserts device DB records."""
+    dm = class_device_manager
+    # Re-insert device records wiped by clear_db
+    for lab_name, lab in dm._configuration_manager.labs.items():
+        for device_name, lab_device in lab.devices.items():
+            db.add(
+                DeviceModel(
+                    name=device_name,
+                    lab_name=lab_name,
+                    type=lab_device.type,
+                    computer=lab_device.computer,
+                    meta=lab_device.meta or {},
+                )
+            )
+    await db.flush()
+    yield dm
     await db.execute(delete(DeviceAllocationModel))
-    await device_manager.cleanup_device_actors(db)
 
 
 @pytest.fixture
@@ -211,8 +240,8 @@ def task_executor(
     task_manager,
     device_manager,
     resource_manager,
-    allocation_manager,
     configuration_manager,
+    greedy_scheduler,
     db_interface,
     work_signal,
 ):
@@ -220,21 +249,11 @@ def task_executor(
         task_manager,
         device_manager,
         resource_manager,
-        allocation_manager,
         configuration_manager,
+        greedy_scheduler,
         db_interface,
         work_signal,
     )
-
-
-@pytest.fixture
-def on_demand_task_executor(
-    setup_lab_experiment,
-    task_executor,
-    task_manager,
-    configuration_manager,
-):
-    return OnDemandTaskExecutor(task_executor, task_manager, configuration_manager)
 
 
 @pytest.fixture

@@ -101,7 +101,7 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
             ],
             "constraints": [],
             "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 25,
+            "num_initial_samples": 10,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 

@@ -83,7 +83,12 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
             self._initial_samples_df = None
             return self._domain.inputs.sample(n=num_experiments, method=self._initial_sampling_method)
 
-        new_parameters_df = self._optimizer.ask(candidate_count=num_experiments)
+        try:
+            new_parameters_df = self._optimizer.ask(candidate_count=num_experiments, add_pending=True)
+        except ValueError as e:
+            if "Not enough experiments" in str(e):
+                return self._domain.inputs.sample(n=num_experiments, method=self._initial_sampling_method)
+            raise
 
         return new_parameters_df[self._input_names]
 
@@ -102,7 +107,30 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
         self._validate_sample(inputs_df, outputs_df)
         results_df = pd.concat([inputs_df, outputs_df], axis=1)
         self._optimizer.tell(results_df)
+        self._clear_reported_pending(inputs_df)
         self._num_samples_reported += len(results_df)
+
+    def _clear_reported_pending(self, inputs_df: pd.DataFrame) -> None:
+        """
+        Remove reported inputs from BoFire's pending candidates.
+
+        When results arrive for previously sampled points, those points are no longer
+        pending — the surrogate model now has their actual outcomes.
+        """
+        if self._optimizer.candidates is None or self._optimizer.candidates.empty:
+            return
+        pending = self._optimizer.candidates
+        merged = pending.merge(
+            inputs_df[self._input_names],
+            on=self._input_names,
+            how="left",
+            indicator=True,
+        )
+        remaining = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
+        if remaining.empty:
+            self._optimizer.reset_candidates()
+        else:
+            self._optimizer.set_candidates(remaining)
 
     def get_optimal_solutions(self) -> pd.DataFrame:
         experiments = self._optimizer.experiments

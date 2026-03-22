@@ -1,7 +1,8 @@
-import asyncio
-import time
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, UTC
+
+import networkx as nx
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.entities.task_def import DeviceAssignmentDef, TaskDef
@@ -9,37 +10,38 @@ from eos.configuration.experiment_graph import ExperimentGraph
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.devices.device_manager import DeviceManager
 from eos.devices.entities.device import DeviceStatus
-from eos.experiments.experiment_manager import ExperimentManager
 from eos.logging.logger import log
-from eos.allocation.entities.allocation_request import (
-    ActiveAllocationRequest,
-    AllocationRequest,
-    AllocationType,
-    AllocationRequestStatus,
-)
-from eos.allocation.exceptions import EosAllocationRequestError
 from eos.allocation.allocation_manager import AllocationManager
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.scheduling.exceptions import EosSchedulerRegistrationError
+from eos.experiments.experiment_manager import ExperimentManager
+from eos.tasks.entities.task import TaskSubmission
 from eos.tasks.task_input_resolver import TaskInputResolver
 from eos.tasks.task_manager import TaskManager
 from eos.utils.async_rlock import AsyncRLock
 
 
 @dataclass
-class AllocationCheckResult:
-    """Result of checking an existing allocation request."""
+class AllocationEntry:
+    """A single device or resource allocation tracked by the scheduler."""
 
-    success: bool
-    request: ActiveAllocationRequest | None
-    should_continue: bool
+    owner: str
+    experiment_name: str | None
+    hold_on_complete: bool = False
+    held: bool = False
+
+
+@dataclass
+class PendingOnDemandTask:
+    """An on-demand task queued for scheduling."""
+
+    submission: TaskSubmission
+    submitted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class BaseScheduler(AbstractScheduler, ABC):
-    """
-    This base scheduler contains common logic shared by multiple scheduler implementations.
-    """
+    """Base scheduler with unified allocation index, first-class holds, and on-demand task support."""
 
     def __init__(
         self,
@@ -55,334 +57,320 @@ class BaseScheduler(AbstractScheduler, ABC):
         self._device_manager = device_manager
         self._allocation_manager = allocation_manager
 
-        # Mapping: experiment_name -> (experiment_type, experiment_graph)
         self._registered_experiments: dict[str, tuple[str, ExperimentGraph]] = {}
 
-        # Mapping: experiment_name -> {task_name -> ActiveAllocationRequest}
-        self._allocated_resources: dict[str, dict[str, ActiveAllocationRequest]] = {}
+        # Allocation index — single source of truth for what's locked
+        self._device_index: dict[tuple[str, str], AllocationEntry] = {}
+        self._resource_index: dict[str, AllocationEntry] = {}
 
-        # Fast O(1) conflict indices for pending/active allocation requests managed by this scheduler.
-        # Keys:
-        #   - device: (lab_name, device_name) -> (experiment_name, task_name)
-        #   - resource: resource_name -> (experiment_name, task_name)
-        self._pending_device_index: dict[tuple[str, str], tuple[str, str]] = {}
-        self._pending_resource_index: dict[str, tuple[str, str]] = {}
+        self._on_demand_queue: list[PendingOnDemandTask] = []
 
-        # Hot caches (with TTL) to avoid rebuilding pools every request.
-        self._active_device_cache: dict[str, list[tuple[str, str]]] = {}
-        self._active_device_cache_expiry: float = 0.0
-        self._active_device_cache_ttl: float = 0.5  # seconds; tunable via update_parameters
+        # Per-cycle caches (cleared each cycle)
+        self._active_devices_cache: dict[str, list[tuple[str, str]]] | None = None
+        self._active_device_set_cache: set[tuple[str, str]] | None = None
+        self._completed_tasks_cache: dict[str, set[str]] = {}
+        self._current_completed_tasks: set[str] | None = None
 
-        # Config-derived caches (invalidate on demand)
-        self._resources_by_type_cache: dict[str, list[str]] | None = None
-        self._resources_by_type_with_labs_cache: dict[str, list[tuple[str, str]]] | None = None
+        # Permanent caches (cleared on unregister)
+        self._topo_sorted_cache: dict[str, list[str]] = {}
+        self._all_tasks_cache: dict[str, set[str]] = {}
+        self._ancestors_cache: dict[str, dict[str, set[str]]] = {}
+
+        # Lab-derived caches (invalidated when loaded labs change)
+        self._resources_cache: dict[str, list[str]] | None = None
+        self._resources_with_labs_cache: dict[str, list[tuple[str, str]]] | None = None
+        self._cached_lab_names: frozenset[str] | None = None
 
         self._lock = AsyncRLock()
 
     async def register_experiment(
         self, experiment_name: str, experiment_type: str, experiment_graph: ExperimentGraph
     ) -> None:
-        """
-        Register an experiment by checking that the experiment type exists and storing its graph.
-        """
         async with self._lock:
             if experiment_type not in self._configuration_manager.experiments:
                 raise EosSchedulerRegistrationError(f"Experiment type '{experiment_type}' does not exist.")
             self._registered_experiments[experiment_name] = (experiment_type, experiment_graph)
+            self._topo_sorted_cache[experiment_name] = experiment_graph.get_topologically_sorted_tasks()
+            task_graph = experiment_graph.get_task_graph()
+            self._all_tasks_cache[experiment_name] = set(task_graph.nodes)
+            self._ancestors_cache[experiment_name] = {t: nx.ancestors(task_graph, t) for t in task_graph.nodes}
 
     async def unregister_experiment(self, db: AsyncDbSession, experiment_name: str) -> None:
-        """
-        Unregister an experiment and release its allocations.
-        """
         async with self._lock:
             if experiment_name not in self._registered_experiments:
                 raise EosSchedulerRegistrationError(f"Experiment {experiment_name} is not registered.")
             del self._registered_experiments[experiment_name]
+            self._topo_sorted_cache.pop(experiment_name, None)
+            self._all_tasks_cache.pop(experiment_name, None)
+            self._ancestors_cache.pop(experiment_name, None)
+            self._completed_tasks_cache.pop(experiment_name, None)
             await self._release_experiment_allocations(db, experiment_name)
 
-    async def _release_task_allocations(self, db: AsyncDbSession, experiment_name: str, task_name: str) -> None:
-        """
-        Release allocations for a given task.
-        """
-        active_request = self._allocated_resources.get(experiment_name, {}).pop(task_name, None)
-        if active_request:
-            # Drop from indices first, regardless of DB outcome
-            self._unregister_allocation_from_indices(active_request)
-            try:
-                await self._allocation_manager.release_allocations(db, active_request)
-            except EosAllocationRequestError as e:
-                log.error(f"Error releasing resources for task {task_name} in experiment {experiment_name}: {e!s}")
+    async def is_experiment_completed(self, db: AsyncDbSession, experiment_name: str) -> bool:
+        if experiment_name not in self._registered_experiments:
+            raise Exception(f"Cannot check completion of unregistered experiment {experiment_name}.")
+        all_tasks = self._all_tasks_cache[experiment_name]
+        completed_tasks = await self._experiment_manager.get_completed_tasks(db, experiment_name)
+        self._completed_tasks_cache[experiment_name] = completed_tasks
+        return all_tasks.issubset(completed_tasks)
 
-    async def _release_experiment_allocations(self, db: AsyncDbSession, experiment_name: str) -> None:
-        """
-        Release allocations for all tasks belonging to an experiment.
-        """
-        task_names = list(self._allocated_resources.get(experiment_name, {}).keys())
-        for task_name in task_names:
-            await self._release_task_allocations(db, experiment_name, task_name)
-        self._allocated_resources.pop(experiment_name, None)
+    async def update_parameters(self, parameters: dict) -> None:
+        pass
 
-    def _invalidate_device_cache(self) -> None:
-        """Invalidate the active device pool cache."""
-        self._active_device_cache_expiry = 0.0
+    async def release_task(self, db: AsyncDbSession, task_name: str, experiment_name: str | None = None) -> None:
+        async with self._lock:
+            if experiment_name is None:
+                await self._release_on_demand_task(db, task_name)
+            elif experiment_name not in self._registered_experiments:
+                self._remove_task_from_indices(task_name, experiment_name)
+            else:
+                await self._release_experiment_task(db, task_name, experiment_name)
 
-    def _invalidate_resource_caches(self) -> None:
-        """Invalidate the resource type caches."""
-        self._resources_by_type_cache = None
-        self._resources_by_type_with_labs_cache = None
+    async def _release_experiment_task(self, db: AsyncDbSession, task_name: str, experiment_name: str) -> None:
+        """Release allocations for a completed experiment task, applying holds where configured."""
+        _, exp_graph = self._registered_experiments[experiment_name]
 
-    def _invalidate_all_caches(self) -> None:
-        """Invalidate all scheduler caches (devices and resources)."""
-        self._invalidate_device_cache()
-        self._invalidate_resource_caches()
+        completed = self._current_completed_tasks
+        if completed is None:
+            completed = await self._experiment_manager.get_completed_tasks(db, experiment_name)
 
-    async def _compute_active_devices_by_type(self, db: AsyncDbSession) -> dict[str, list[tuple[str, str]]]:
-        """
-        Build a map of active (lab_name, device_name) by device type from configuration + device statuses.
-        """
-        devices_by_type: dict[str, list[tuple[str, str]]] = {}
-        labs = getattr(self._configuration_manager, "labs", {})
-        for lab_name, lab_cfg in labs.items():
-            for device_name, dev_cfg in lab_cfg.devices.items():
-                try:
-                    device = await self._device_manager.get_device(db, lab_name, device_name)
-                    if device.status == DeviceStatus.INACTIVE:
-                        continue
-                except Exception as e:
-                    log.debug(f"Failed to get device {device_name} in lab {lab_name}, skipping: {e}")
+        graph = exp_graph.get_graph()
+        has_pending_successors = any(
+            graph.nodes[s].get("node_type") == "task" and s not in completed for s in graph.successors(task_name)
+        )
+
+        devices_to_release = []
+        devices_to_hold = []
+        resources_to_release = []
+        resources_to_hold = []
+
+        self._partition_allocations(
+            self._device_index,
+            task_name,
+            experiment_name,
+            has_pending_successors,
+            devices_to_hold,
+            devices_to_release,
+            "device",
+        )
+        self._partition_allocations(
+            self._resource_index,
+            task_name,
+            experiment_name,
+            has_pending_successors,
+            resources_to_hold,
+            resources_to_release,
+            "resource",
+        )
+
+        if devices_to_hold:
+            await self._allocation_manager.mark_devices_held(db, devices_to_hold)
+        if resources_to_hold:
+            await self._allocation_manager.mark_resources_held(db, resources_to_hold)
+        if devices_to_release:
+            await self._allocation_manager.deallocate_devices(db, devices_to_release)
+        if resources_to_release:
+            await self._allocation_manager.deallocate_resources(db, resources_to_release)
+
+    def _partition_allocations(
+        self,
+        index: dict,
+        task_name: str,
+        experiment_name: str,
+        has_pending_successors: bool,
+        hold_list: list,
+        release_list: list,
+        kind: str,
+    ) -> None:
+        """Partition allocations for a task into hold vs release lists."""
+        for key, entry in list(index.items()):
+            if entry.owner != task_name or entry.experiment_name != experiment_name:
+                continue
+            if entry.hold_on_complete and has_pending_successors:
+                entry.held = True
+                hold_list.append(key)
+                log.debug(
+                    "Holding %s %s for completed task '%s' in experiment '%s'.",
+                    kind,
+                    key,
+                    task_name,
+                    experiment_name,
+                )
+            else:
+                del index[key]
+                release_list.append(key)
+
+    async def submit_on_demand_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> ScheduledTask | None:
+        async with self._lock:
+            scheduled = await self._try_schedule_on_demand(db, task_submission)
+            if scheduled:
+                return scheduled
+
+            self._on_demand_queue.append(PendingOnDemandTask(submission=task_submission))
+            log.debug("On-demand task '%s' queued (resources unavailable).", task_submission.name)
+            return None
+
+    async def process_pending_on_demand(self, db: AsyncDbSession) -> list[tuple[TaskSubmission, ScheduledTask]]:
+        async with self._lock:
+            if not self._on_demand_queue:
+                return []
+
+            scheduled: list[tuple[TaskSubmission, ScheduledTask]] = []
+            remaining = []
+            now = datetime.now(UTC)
+
+            for pending in self._on_demand_queue:
+                elapsed = (now - pending.submitted_at).total_seconds()
+                if elapsed > pending.submission.allocation_timeout:
+                    log.warning(
+                        "On-demand task '%s' timed out after %.1fs.",
+                        pending.submission.name,
+                        elapsed,
+                    )
                     continue
-                devices_by_type.setdefault(dev_cfg.type, []).append((lab_name, device_name))
-        return devices_by_type
 
-    async def _active_devices_by_type(self, db: AsyncDbSession) -> dict[str, list[tuple[str, str]]]:
-        """
-        Cached active device pool by type with a short TTL to avoid excessive DB I/O
-        in the spin loop. The TTL is tunable via update_parameters().
-        """
-        now = time.monotonic()
-        if self._active_device_cache and now < self._active_device_cache_expiry:
-            return self._active_device_cache
-        devices_by_type = await self._compute_active_devices_by_type(db)
-        self._active_device_cache = devices_by_type
-        self._active_device_cache_expiry = now + self._active_device_cache_ttl
-        return devices_by_type
+                result = await self._try_schedule_on_demand(db, pending.submission)
+                if result:
+                    scheduled.append((pending.submission, result))
+                else:
+                    remaining.append(pending)
 
-    def _resources_by_type(self) -> dict[str, list[str]]:
-        """Cached map of resource_name by resource type (config-derived)."""
-        if self._resources_by_type_cache is not None:
-            return self._resources_by_type_cache
-        resources_by_type: dict[str, list[str]] = {}
-        labs = getattr(self._configuration_manager, "labs", {})
-        for _lab_name, lab_cfg in labs.items():
-            for resource_name, resource_cfg in lab_cfg.resources.items():
-                resources_by_type.setdefault(resource_cfg.type, []).append(resource_name)
-        self._resources_by_type_cache = resources_by_type
-        return resources_by_type
+            self._on_demand_queue = remaining
+            return scheduled
 
-    def _resources_by_type_with_labs(self) -> dict[str, list[tuple[str, str]]]:
-        """Build a map from resource type to list of (lab_name, resource_name) pairs.
+    async def _try_schedule_on_demand(self, db: AsyncDbSession, submission: TaskSubmission) -> ScheduledTask | None:
+        devices = submission.devices
+        resources = submission.input_resources or {}
 
-        Useful for schedulers that need to filter by allowed labs or otherwise use lab context.
-        """
-        if self._resources_by_type_with_labs_cache is not None:
-            return self._resources_by_type_with_labs_cache
-        resources_by_type: dict[str, list[tuple[str, str]]] = {}
-        labs = getattr(self._configuration_manager, "labs", {})
-        for lab_name, lab_cfg in labs.items():
-            for resource_name, resource_cfg in lab_cfg.resources.items():
-                resources_by_type.setdefault(resource_cfg.type, []).append((lab_name, resource_name))
-        self._resources_by_type_with_labs_cache = resources_by_type
-        return resources_by_type
+        for dev in devices.values():
+            if not self._is_device_available(dev.lab_name, dev.name, submission.name, None):
+                return None
+
+        for resource in resources.values():
+            if not self._is_resource_available(resource.name, submission.name, None):
+                return None
+
+        device_pairs = [(dev.lab_name, dev.name) for dev in devices.values()]
+        resource_names = [r.name for r in resources.values()]
+
+        if device_pairs:
+            await self._allocation_manager.allocate_devices(db, device_pairs, submission.name)
+            for dev in devices.values():
+                self._device_index[(dev.lab_name, dev.name)] = AllocationEntry(
+                    owner=submission.name, experiment_name=None
+                )
+
+        if resource_names:
+            await self._allocation_manager.allocate_resources(db, resource_names, submission.name)
+            for resource in resources.values():
+                self._resource_index[resource.name] = AllocationEntry(owner=submission.name, experiment_name=None)
+
+        return ScheduledTask(
+            name=submission.name,
+            experiment_name=None,
+            devices=devices,
+            resources={k: r.name for k, r in resources.items()},
+        )
+
+    def _is_device_available(
+        self,
+        lab_name: str,
+        device_name: str,
+        task_name: str,
+        experiment_name: str | None,
+        completed_tasks: set[str] | None = None,
+    ) -> bool:
+        """Check if a device is available for a task. Held devices are transparent to same-experiment successors."""
+        entry = self._device_index.get((lab_name, device_name))
+        if not entry:
+            return True
+        if entry.owner == task_name and entry.experiment_name == experiment_name:
+            return True
+
+        return self._is_hold_transparent(entry, task_name, experiment_name, completed_tasks)
+
+    def _is_resource_available(
+        self,
+        resource_name: str,
+        task_name: str,
+        experiment_name: str | None,
+        completed_tasks: set[str] | None = None,
+    ) -> bool:
+        """Check if a resource is available for a task. Held resources are transparent to same-experiment successors."""
+        entry = self._resource_index.get(resource_name)
+        if not entry:
+            return True
+        if entry.owner == task_name and entry.experiment_name == experiment_name:
+            return True
+
+        return self._is_hold_transparent(entry, task_name, experiment_name, completed_tasks)
+
+    def _is_hold_transparent(
+        self,
+        entry: AllocationEntry,
+        task_name: str,
+        experiment_name: str | None,
+        completed_tasks: set[str] | None = None,
+    ) -> bool:
+        """Check if a held allocation is transparent (available) to a successor task."""
+        effective_completed = completed_tasks if completed_tasks is not None else self._current_completed_tasks
+        return bool(
+            entry.held
+            and effective_completed
+            and entry.experiment_name == experiment_name
+            and experiment_name is not None
+            and entry.owner in effective_completed
+            and entry.owner in self._ancestors_cache.get(experiment_name, {}).get(task_name, set())
+        )
+
+    async def _check_device_active(self, db: AsyncDbSession, lab_name: str, device_name: str, task_name: str) -> bool:
+        """Check if device is active (not inactive)."""
+        if self._active_device_set_cache is not None:
+            if (lab_name, device_name) not in self._active_device_set_cache:
+                log.warning("Device %s in lab %s is inactive (requested by task %s).", device_name, lab_name, task_name)
+                return False
+            return True
+
+        device = await self._device_manager.get_device(db, lab_name, device_name)
+        if device.status == DeviceStatus.INACTIVE:
+            log.warning("Device %s in lab %s is inactive (requested by task %s).", device_name, lab_name, task_name)
+            return False
+        return True
 
     async def _resolve_task(
-        self,
-        db: AsyncDbSession,
-        experiment_name: str,
-        experiment_graph: ExperimentGraph,
-        task_name: str,
+        self, db: AsyncDbSession, experiment_name: str, experiment_graph: ExperimentGraph, task_name: str
     ) -> TaskDef:
-        """Get Task and resolve resource input references."""
         task = experiment_graph.get_task(task_name)
         return await self._task_input_resolver.resolve_input_resource_references(db, experiment_name, task)
 
-    async def _release_completed_allocations(self, db: AsyncDbSession, completed_by_exp: dict[str, set[str]]) -> None:
-        """Release allocations for tasks completed across experiments."""
-        await asyncio.gather(
-            *[
-                self._release_task_allocations(db, exp_name, task_name)
-                for exp_name, completed in completed_by_exp.items()
-                for task_name in completed.intersection(set(self._allocated_resources.get(exp_name, {})))
-            ]
-        )
-
-    async def _get_experiment_priorities(self, db: AsyncDbSession, experiment_names: list[str]) -> dict[str, int]:
-        """Fetch priorities for a set of experiments."""
-        if not experiment_names:
-            return {}
-        experiments = await asyncio.gather(
-            *[self._experiment_manager.get_experiment(db, name) for name in experiment_names], return_exceptions=False
-        )
-        return {name: exp.priority for name, exp in zip(experiment_names, experiments, strict=True)}
-
-    @staticmethod
-    def _check_task_dependencies_met(
-        task_name: str, completed_tasks: set[str], experiment_graph: ExperimentGraph
-    ) -> bool:
-        """
-        Check whether all dependencies of a task have been completed.
-        """
-        dependencies = experiment_graph.get_task_dependencies(task_name)
-        return all(dep in completed_tasks for dep in dependencies)
-
-    async def _check_device_available(
-        self, db: AsyncDbSession, task: TaskDef, experiment_name: str, task_device: DeviceAssignmentDef
-    ) -> bool:
-        """
-        A device is available if it is active and either unallocated or allocated to this task.
-        Also checks pending allocation requests to prevent multiple experiments from requesting the same device.
-        """
-        # Fast path: conflicting pending request owned by another task?
-        owner = self._pending_device_index.get((task_device.lab_name, task_device.name))
-        if owner and owner != (experiment_name, task.name):
-            return False
-
-        device = await self._device_manager.get_device(db, task_device.lab_name, task_device.name)
-        if device.status == DeviceStatus.INACTIVE:
-            log.warning(
-                "Device %s in lab %s is inactive (requested by task %s).",
-                task_device.name,
-                task_device.lab_name,
-                task.name,
-            )
-            return False
-
-        # Check if device is already allocated
-        allocation = await self._allocation_manager.get_device_allocation(db, task_device.lab_name, task_device.name)
-        if allocation:
-            return allocation.owner == task.name and allocation.experiment_name == experiment_name
-
-        # Pending requests already indexed above; allocated requests are handled by DB check.
-        return True
-
-    async def _check_resource_available(
-        self, db: AsyncDbSession, task: TaskDef, experiment_name: str, resource_name: str
-    ) -> bool:
-        """
-        A resource is available if it is unallocated or allocated to the requesting task.
-        Also checks pending allocation requests to prevent multiple experiments from requesting the same resource.
-        """
-        # Fast path: conflicting pending request owned by another task?
-        owner = self._pending_resource_index.get(resource_name)
-        if owner and owner != (experiment_name, task.name):
-            return False
-
-        # Check if resource is already allocated
-        allocation = await self._allocation_manager.get_resource_allocation(db, resource_name)
-        if allocation:
-            return allocation.owner == task.name and allocation.experiment_name == experiment_name
-
-        return True
-
-    async def _check_resources_available(
-        self,
-        db: AsyncDbSession,
-        experiment_name: str,
-        task: TaskDef,
-        assigned_devices: dict[str, DeviceAssignmentDef],
-    ) -> bool:
-        """
-        Check that all assigned devices and required resources are available.
-        """
-        if assigned_devices:
-            checks = [self._check_device_available(db, task, experiment_name, dev) for dev in assigned_devices.values()]
-            if not all(await asyncio.gather(*checks)):
-                return False
-
-        if task.resources:
-            resource_checks = [
-                self._check_resource_available(db, task, experiment_name, resource_name)
-                for resource_name in task.resources.values()
-            ]
-            if not all(await asyncio.gather(*resource_checks)):
-                return False
-
-        return True
-
-    async def _finalize_scheduling(
-        self,
-        db: AsyncDbSession,
-        experiment_name: str,
-        task_name: str,
-        task: TaskDef,
-        assigned_devices: dict[str, DeviceAssignmentDef],
-    ) -> ScheduledTask | None:
-        """
-        Given a task and its concrete device assignments, verify availability, allocate resources and
-        build the ScheduledTask. Returns None if resources are unavailable or allocation not granted.
-        """
-        if not await self._check_resources_available(db, experiment_name, task, assigned_devices):
-            return None
-
-        success, allocated_request = await self._allocate_task_resources(
-            db, experiment_name, task_name, task, assigned_devices
-        )
-        if not success:
-            return None
-
-        return ScheduledTask(
-            name=task_name,
-            experiment_name=experiment_name,
-            devices=assigned_devices,
-            resources=task.resources,
-            allocations=allocated_request,
-        )
-
-    async def is_experiment_completed(self, db: AsyncDbSession, experiment_name: str) -> bool:
-        """
-        Check if every task in the experiment graph has been completed.
-        """
-        if experiment_name not in self._registered_experiments:
-            raise Exception(f"Cannot check completion of unregistered experiment {experiment_name}.")
-        _, experiment_graph = self._registered_experiments[experiment_name]
-        all_tasks = set(experiment_graph.get_task_graph().nodes)
-        completed_tasks = set(await self._experiment_manager.get_completed_tasks(db, experiment_name))
-        return all_tasks.issubset(completed_tasks)
-
     async def _build_resolved_resources(
-        self,
-        db: AsyncDbSession,
-        experiment_name: str,
-        task: TaskDef,
+        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
     ) -> dict[str, str] | None:
-        """
-        Default resource resolution: accept only explicit (non-reference) strings.
-        Subclasses override to handle dynamic resource selection.
-        Return None to defer scheduling if resources cannot be resolved now.
-        """
+        """Default: accept only explicit string resources. Subclasses override for dynamic."""
         resolved: dict[str, str] = {}
         for name, value in task.resources.items():
             if isinstance(value, str):
                 resolved[name] = value
             else:
-                # Base scheduler cannot resolve dynamic resource requests
                 return None
         return resolved
 
     async def _build_assigned_devices(
-        self,
-        db: AsyncDbSession,
-        experiment_name: str,
-        task: TaskDef,
+        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
     ) -> dict[str, DeviceAssignmentDef] | None:
-        """
-        Default device resolution: use only explicitly-declared devices.
-        Subclasses override to support dynamic devices and references.
-        """
+        """Default: use only explicitly-declared devices. Subclasses override for dynamic/reference."""
         return {
             device_name: DeviceAssignmentDef(lab_name=dev.lab_name, name=dev.name)
             for device_name, dev in task.devices.items()
             if isinstance(dev, DeviceAssignmentDef)
         }
+
+    @staticmethod
+    def _check_task_dependencies_met(
+        task_name: str, completed_tasks: set[str], experiment_graph: ExperimentGraph
+    ) -> bool:
+        dependencies = experiment_graph.get_task_dependencies(task_name)
+        return all(dep in completed_tasks for dep in dependencies)
 
     async def _check_and_allocate_resources(
         self,
@@ -392,153 +380,211 @@ class BaseScheduler(AbstractScheduler, ABC):
         completed_tasks: set[str],
         experiment_graph: ExperimentGraph,
     ) -> ScheduledTask | None:
-        """
-        Template method: verify readiness, resolve resources/devices, then finalize scheduling.
-        Subclasses customize resolution via _build_resolved_resources/_build_assigned_devices or availability checks.
-        """
+        """Verify readiness, resolve resources/devices, allocate, and return ScheduledTask."""
         if not self._check_task_dependencies_met(task_name, completed_tasks, experiment_graph):
             return None
 
-        task: TaskDef = await self._resolve_task(db, experiment_name, experiment_graph, task_name)
+        task = await self._resolve_task(db, experiment_name, experiment_graph, task_name)
 
         resolved_resources = await self._build_resolved_resources(db, experiment_name, task)
         if resolved_resources is None:
+            log.warning(
+                "EXP '%s' - Cannot resolve resources for task '%s'. Check that required labs are loaded.",
+                experiment_name,
+                task_name,
+            )
             return None
         task.resources = resolved_resources
 
         assigned_devices = await self._build_assigned_devices(db, experiment_name, task)
         if assigned_devices is None:
+            log.warning(
+                "EXP '%s' - Cannot resolve devices for task '%s'. Check that required labs are loaded.",
+                experiment_name,
+                task_name,
+            )
             return None
 
-        return await self._finalize_scheduling(db, experiment_name, task_name, task, assigned_devices)
+        return await self._finalize_scheduling(db, experiment_name, task_name, task, assigned_devices, completed_tasks)
 
-    async def update_parameters(self, parameters: dict) -> None:
-        """
-        Base implementation: support cache tuning and invalidation.
-        Subclasses can extend this, but should call super().
-        """
-        # TTL for active device pool cache
-        ttl = parameters.get("device_pool_cache_ttl")
-        if isinstance(ttl, int | float) and ttl >= 0:
-            self._active_device_cache_ttl = float(ttl)
-            self._invalidate_device_cache()
-        # Explicit invalidation (e.g., labs reloaded)
-        if parameters.get("invalidate_caches"):
-            self._invalidate_all_caches()
-
-    def _cleanup_completed_request(
-        self, experiment_name: str, task_name: str, request: ActiveAllocationRequest
-    ) -> None:
-        """Remove tracking and indices for a completed/aborted allocation request."""
-        self._unregister_allocation_from_indices(request)
-        del self._allocated_resources[experiment_name][task_name]
-
-    async def _handle_existing_allocation_request(
-        self, db: AsyncDbSession, experiment_name: str, task_name: str, existing_request: ActiveAllocationRequest
-    ) -> AllocationCheckResult:
-        """
-        Check and update an existing allocation request.
-
-        Returns AllocationCheckResult with:
-        - success: True if allocation is ready
-        - request: The active allocation request if available
-        - should_continue: False means we found a result and should return immediately
-        """
-        current_request = await self._allocation_manager.get_active_request(db, existing_request.id)
-        if current_request:
-            self._allocated_resources[experiment_name][task_name] = current_request
-            if current_request.status == AllocationRequestStatus.ALLOCATED:
-                return AllocationCheckResult(success=True, request=current_request, should_continue=False)
-            # Request is still pending, don't create a duplicate
-            return AllocationCheckResult(success=False, request=None, should_continue=False)
-        # Request was completed/aborted, clean up and continue
-        self._cleanup_completed_request(experiment_name, task_name, existing_request)
-        return AllocationCheckResult(success=False, request=None, should_continue=True)
-
-    def _register_allocation_in_indices(
-        self, experiment_name: str, task_name: str, allocated_request: ActiveAllocationRequest
-    ) -> None:
-        """Register allocation in fast conflict indices."""
-        for alloc in allocated_request.allocations:
-            if alloc.allocation_type == AllocationType.DEVICE:
-                self._pending_device_index[(alloc.lab_name, alloc.name)] = (experiment_name, task_name)
-            elif alloc.allocation_type == AllocationType.RESOURCE:
-                self._pending_resource_index[alloc.name] = (experiment_name, task_name)
-
-    def _unregister_allocation_from_indices(self, allocated_request: ActiveAllocationRequest) -> None:
-        """Remove allocation from fast conflict indices."""
-        for alloc in allocated_request.allocations:
-            if alloc.allocation_type == AllocationType.DEVICE:
-                self._pending_device_index.pop((alloc.lab_name, alloc.name), None)
-            elif alloc.allocation_type == AllocationType.RESOURCE:
-                self._pending_resource_index.pop(alloc.name, None)
-
-    def _update_allocation_indices(
-        self, experiment_name: str, task_name: str, allocated_request: ActiveAllocationRequest
-    ) -> None:
-        """
-        Register/update fast conflict indices for an allocation request.
-
-        Deprecated: use _register_allocation_in_indices instead.
-        """
-        self._register_allocation_in_indices(experiment_name, task_name, allocated_request)
-
-    async def _create_allocation_request(
+    async def _finalize_scheduling(
         self,
         db: AsyncDbSession,
         experiment_name: str,
         task_name: str,
         task: TaskDef,
         assigned_devices: dict[str, DeviceAssignmentDef],
-    ) -> AllocationRequest:
-        """Build an allocation request for the given task configuration."""
-        experiment = await self._experiment_manager.get_experiment(db, experiment_name)
-        request = AllocationRequest(
-            requester=task_name,
-            experiment_name=experiment_name,
-            priority=experiment.priority,
-            reason=f"Allocations required for task '{task_name}'",
-        )
+        completed_tasks: set[str] | None = None,
+    ) -> ScheduledTask | None:
         for dev in assigned_devices.values():
-            request.add_allocation(dev.name, dev.lab_name, AllocationType.DEVICE)
+            if not self._is_device_available(dev.lab_name, dev.name, task_name, experiment_name, completed_tasks):
+                return None
+            if not await self._check_device_active(db, dev.lab_name, dev.name, task_name):
+                return None
+
         for resource_name in task.resources.values():
-            request.add_allocation(resource_name, "", AllocationType.RESOURCE)
-        return request
+            if not self._is_resource_available(resource_name, task_name, experiment_name, completed_tasks):
+                return None
 
-    async def _allocate_task_resources(
-        self,
-        db: AsyncDbSession,
-        experiment_name: str,
-        task_name: str,
-        task: TaskDef,
-        assigned_devices: dict[str, DeviceAssignmentDef],
-    ) -> tuple[bool, ActiveAllocationRequest | None]:
-        """
-        Allocate devices and resources for a task using the provided concrete device assignments and resources.
+        device_pairs = [(dev.lab_name, dev.name) for dev in assigned_devices.values()]
+        if device_pairs:
+            await self._allocation_manager.allocate_devices(db, device_pairs, task_name, experiment_name)
+            for slot, dev in assigned_devices.items():
+                self._device_index[(dev.lab_name, dev.name)] = AllocationEntry(
+                    owner=task_name,
+                    experiment_name=experiment_name,
+                    hold_on_complete=task.device_holds.get(slot, False),
+                )
 
-        Returns: (success, allocated_request)
-        """
-        if not assigned_devices and not task.resources:
-            return True, None
+        resource_names = list(task.resources.values())
+        if resource_names:
+            await self._allocation_manager.allocate_resources(db, resource_names, task_name, experiment_name)
+            for slot, res_name in task.resources.items():
+                self._resource_index[res_name] = AllocationEntry(
+                    owner=task_name,
+                    experiment_name=experiment_name,
+                    hold_on_complete=task.resource_holds.get(slot, False),
+                )
 
-        # Check if there's already a pending or allocated request for this task
-        existing_request = self._allocated_resources.get(experiment_name, {}).get(task_name)
-        if existing_request:
-            result = await self._handle_existing_allocation_request(db, experiment_name, task_name, existing_request)
-            if not result.should_continue:
-                return result.success, result.request
+        return ScheduledTask(
+            name=task_name,
+            experiment_name=experiment_name,
+            devices=assigned_devices,
+            resources=task.resources,
+        )
 
-        # Build and submit the allocation request
-        request = await self._create_allocation_request(db, experiment_name, task_name, task, assigned_devices)
+    async def _release_on_demand_task(self, db: AsyncDbSession, task_name: str) -> None:
+        """Release all allocations for an on-demand task (no holds)."""
+        devices_to_release = [
+            key
+            for key, entry in self._device_index.items()
+            if entry.owner == task_name and entry.experiment_name is None
+        ]
+        resources_to_release = [
+            name
+            for name, entry in self._resource_index.items()
+            if entry.owner == task_name and entry.experiment_name is None
+        ]
 
-        try:
-            allocated_request = await self._allocation_manager.request_allocations(db, request, lambda _: None)
-            self._allocated_resources.setdefault(experiment_name, {})[task_name] = allocated_request
-            self._update_allocation_indices(experiment_name, task_name, allocated_request)
+        for key in devices_to_release:
+            del self._device_index[key]
+        for name in resources_to_release:
+            del self._resource_index[name]
 
-            if allocated_request.status == AllocationRequestStatus.ALLOCATED:
-                return True, allocated_request
-            return False, None
-        except Exception as e:
-            log.warning(f"Error requesting allocations for task '{task_name}' in experiment '{experiment_name}': {e}")
-            return False, None
+        if devices_to_release:
+            await self._allocation_manager.deallocate_devices(db, devices_to_release)
+        if resources_to_release:
+            await self._allocation_manager.deallocate_resources(db, resources_to_release)
+
+    async def _release_experiment_allocations(self, db: AsyncDbSession, experiment_name: str) -> None:
+        """Release all allocations (including holds) for an experiment."""
+        devices_to_release = [
+            key for key, entry in self._device_index.items() if entry.experiment_name == experiment_name
+        ]
+        resources_to_release = [
+            name for name, entry in self._resource_index.items() if entry.experiment_name == experiment_name
+        ]
+
+        for key in devices_to_release:
+            del self._device_index[key]
+        for name in resources_to_release:
+            del self._resource_index[name]
+
+        if devices_to_release:
+            await self._allocation_manager.deallocate_devices(db, devices_to_release)
+        if resources_to_release:
+            await self._allocation_manager.deallocate_resources(db, resources_to_release)
+
+    def _remove_task_from_indices(self, task_name: str, experiment_name: str | None) -> None:
+        """Remove a task's entries from indices without DB cleanup."""
+        self._device_index = {
+            k: v
+            for k, v in self._device_index.items()
+            if not (v.owner == task_name and v.experiment_name == experiment_name)
+        }
+        self._resource_index = {
+            k: v
+            for k, v in self._resource_index.items()
+            if not (v.owner == task_name and v.experiment_name == experiment_name)
+        }
+
+    async def _release_completed_allocations(self, db: AsyncDbSession, completed_by_exp: dict[str, set[str]]) -> None:
+        tasks_to_release: set[tuple[str, str]] = set()
+        for entry in self._device_index.values():
+            if (
+                not entry.held
+                and entry.experiment_name in completed_by_exp
+                and entry.owner in completed_by_exp[entry.experiment_name]
+            ):
+                tasks_to_release.add((entry.experiment_name, entry.owner))
+        for entry in self._resource_index.values():
+            if (
+                not entry.held
+                and entry.experiment_name in completed_by_exp
+                and entry.owner in completed_by_exp[entry.experiment_name]
+            ):
+                tasks_to_release.add((entry.experiment_name, entry.owner))
+
+        for exp_name, task_name in tasks_to_release:
+            await self.release_task(db, task_name, exp_name)
+
+    async def _active_devices_by_type(self, db: AsyncDbSession) -> dict[str, list[tuple[str, str]]]:
+        if self._active_devices_cache is not None:
+            return self._active_devices_cache
+
+        all_devices = await self._device_manager.get_devices(db)
+        inactive = {(d.lab_name, d.name) for d in all_devices if d.status == DeviceStatus.INACTIVE}
+
+        devices_by_type: dict[str, list[tuple[str, str]]] = {}
+        active_device_set: set[tuple[str, str]] = set()
+        labs = getattr(self._configuration_manager, "labs", {})
+        for lab_name, lab_cfg in labs.items():
+            for device_name, dev_cfg in lab_cfg.devices.items():
+                if (lab_name, device_name) in inactive:
+                    continue
+                devices_by_type.setdefault(dev_cfg.type, []).append((lab_name, device_name))
+                active_device_set.add((lab_name, device_name))
+
+        self._active_devices_cache = devices_by_type
+        self._active_device_set_cache = active_device_set
+        return devices_by_type
+
+    def _check_lab_cache_validity(self) -> None:
+        current_labs = frozenset(getattr(self._configuration_manager, "labs", {}).keys())
+        if current_labs != self._cached_lab_names:
+            self._resources_cache = None
+            self._resources_with_labs_cache = None
+            self._cached_lab_names = current_labs
+
+    def _resources_by_type(self) -> dict[str, list[str]]:
+        self._check_lab_cache_validity()
+        if self._resources_cache is not None:
+            return self._resources_cache
+
+        resources_by_type: dict[str, list[str]] = {}
+        labs = getattr(self._configuration_manager, "labs", {})
+        for _lab_name, lab_cfg in labs.items():
+            for resource_name, resource_cfg in lab_cfg.resources.items():
+                resources_by_type.setdefault(resource_cfg.type, []).append(resource_name)
+        self._resources_cache = resources_by_type
+        return resources_by_type
+
+    def _resources_by_type_with_labs(self) -> dict[str, list[tuple[str, str]]]:
+        self._check_lab_cache_validity()
+        if self._resources_with_labs_cache is not None:
+            return self._resources_with_labs_cache
+
+        resources_by_type: dict[str, list[tuple[str, str]]] = {}
+        labs = getattr(self._configuration_manager, "labs", {})
+        for lab_name, lab_cfg in labs.items():
+            for resource_name, resource_cfg in lab_cfg.resources.items():
+                resources_by_type.setdefault(resource_cfg.type, []).append((lab_name, resource_name))
+        self._resources_with_labs_cache = resources_by_type
+        return resources_by_type
+
+    async def _get_experiment_priorities(self, db: AsyncDbSession, experiment_names: list[str]) -> dict[str, int]:
+        return await self._experiment_manager.get_experiment_priorities(db, experiment_names)
+
+    def _clear_per_cycle_caches(self) -> None:
+        self._active_devices_cache = None
+        self._active_device_set_cache = None

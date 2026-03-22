@@ -51,7 +51,6 @@ class TestExperimentExecutor:
             db_interface=db_interface,
         )
 
-    @pytest.mark.asyncio
     async def test_start_experiment(self, db, experiment_executor, experiment_manager):
         await experiment_executor.start_experiment(db)
 
@@ -60,7 +59,6 @@ class TestExperimentExecutor:
         assert experiment.name == EXPERIMENT_NAME
         assert experiment.status == ExperimentStatus.RUNNING
 
-    @pytest.mark.asyncio
     async def test_task_output_registration(
         self, experiment_executor, allocation_manager, task_executor, task_manager, db_interface
     ):
@@ -78,7 +76,6 @@ class TestExperimentExecutor:
             task = await task_manager.get_task(db, EXPERIMENT_NAME, "mixing")
         assert task.output_parameters["mixing_time"] == PARAMETERS["mixing"]["time"]
 
-    @pytest.mark.asyncio
     async def test_resolve_input_parameter_references_and_dynamic_parameters(
         self, experiment_executor, allocation_manager, task_executor, task_manager, db_interface
     ):
@@ -113,7 +110,6 @@ class TestExperimentExecutor:
             ExperimentStatus.RUNNING,
         ],
     )
-    @pytest.mark.asyncio
     async def test_handle_existing_experiment(self, db, experiment_executor, experiment_manager, experiment_status):
         await experiment_manager.create_experiment(db, experiment_executor._experiment_submission)
         await experiment_manager._set_experiment_status(db, EXPERIMENT_NAME, experiment_status)

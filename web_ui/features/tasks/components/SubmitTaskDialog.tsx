@@ -1,0 +1,384 @@
+'use client';
+
+import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Eraser } from 'lucide-react';
+import { BaseSubmitDialog } from '@/components/dialogs/BaseSubmitDialog';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Textarea } from '@/components/ui/Textarea';
+import { Button } from '@/components/ui/Button';
+import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
+import { submitTask } from '@/features/tasks/api/tasks';
+import { getTaskPlugins } from '@/features/management/api/taskPlugins';
+import { TaskDeviceAssignment } from './TaskDeviceAssignment';
+import { TaskResourceAssignment } from './TaskResourceAssignment';
+import { TaskParameterFields } from './TaskParameterFields';
+import { serializeDeviceAssignment, serializeResourceAssignment } from '@/lib/utils/assignment-utils';
+import { validateParameter } from '@/lib/validation/parameter-validation';
+import type { TaskDefinition, Task } from '@/lib/types/api';
+import type { TaskSpec, DeviceAssignment, ResourceAssignment, ParameterSpec } from '@/lib/types/experiment';
+import type { LabSpec } from '@/lib/api/specs';
+
+const taskFormSchema = z.object({
+  name: z.string().min(1, 'Task name is required'),
+  type: z.string().min(1, 'Task type is required'),
+  priority: z.number().min(0),
+  allocation_timeout: z.number().min(0),
+  meta: z.string().optional(),
+});
+
+type TaskFormValues = z.infer<typeof taskFormSchema>;
+
+interface SubmitTaskDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  taskSpecs: Record<string, TaskSpec>;
+  labSpecs: Record<string, LabSpec>;
+  initialTask?: Task | null;
+}
+
+export function SubmitTaskDialog({ open, onOpenChange, taskSpecs, labSpecs, initialTask }: SubmitTaskDialogProps) {
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [taskTypes, setTaskTypes] = React.useState<ComboboxOption[]>([]);
+  const [selectedTaskSpec, setSelectedTaskSpec] = React.useState<TaskSpec | null>(null);
+
+  // Visual editor state
+  const [devices, setDevices] = React.useState<Record<string, DeviceAssignment>>({});
+  const [inputParameters, setInputParameters] = React.useState<Record<string, unknown>>({});
+  const [inputResources, setInputResources] = React.useState<Record<string, ResourceAssignment>>({});
+
+  // Track if we've already populated from initialTask to prevent re-population
+  const populatedFromTaskRef = React.useRef<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+    setValue,
+  } = useForm<TaskFormValues>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues: {
+      name: '',
+      type: '',
+      priority: 0,
+      allocation_timeout: 600,
+      meta: '',
+    },
+  });
+
+  const taskType = watch('type');
+  const allLabNames = React.useMemo(() => Object.keys(labSpecs), [labSpecs]);
+
+  // Fetch task types on mount
+  React.useEffect(() => {
+    getTaskPlugins()
+      .then((plugins) => {
+        const options: ComboboxOption[] = plugins.map((plugin) => ({
+          value: plugin.type,
+          label: plugin.type,
+          description: plugin.description,
+        }));
+        setTaskTypes(options);
+      })
+      .catch((err) => {
+        console.error('Failed to load task types:', err);
+        setTaskTypes([]);
+      });
+  }, []);
+
+  // Populate form when initialTask changes (for cloning)
+  React.useEffect(() => {
+    if (initialTask && populatedFromTaskRef.current !== initialTask.name) {
+      // Mark that we've populated from this task
+      populatedFromTaskRef.current = initialTask.name;
+
+      // Populate form fields
+      setValue('name', `${initialTask.name}_clone`);
+      setValue('type', initialTask.type);
+      setValue('priority', initialTask.priority ?? 0);
+      setValue('allocation_timeout', initialTask.allocation_timeout ?? 0);
+      setValue(
+        'meta',
+        initialTask.meta && Object.keys(initialTask.meta).length > 0 ? JSON.stringify(initialTask.meta, null, 2) : ''
+      );
+
+      // Populate devices
+      if (initialTask.devices && Object.keys(initialTask.devices).length > 0) {
+        setDevices(initialTask.devices as unknown as Record<string, DeviceAssignment>);
+      } else {
+        setDevices({});
+      }
+
+      // Populate parameters
+      if (initialTask.input_parameters) {
+        setInputParameters(initialTask.input_parameters);
+      } else {
+        setInputParameters({});
+      }
+
+      // Populate resources
+      if (initialTask.input_resources && Object.keys(initialTask.input_resources).length > 0) {
+        setInputResources(initialTask.input_resources as Record<string, ResourceAssignment>);
+      } else {
+        setInputResources({});
+      }
+    }
+  }, [initialTask, setValue]);
+
+  // Load task spec when type changes
+  React.useEffect(() => {
+    if (taskType && taskSpecs[taskType]) {
+      const spec = taskSpecs[taskType];
+      setSelectedTaskSpec(spec);
+
+      // Only initialize empty values if we don't have any existing values
+      // (i.e., user just selected a new task type)
+      const hasExistingDevices = Object.keys(devices).length > 0;
+      const hasExistingParams = Object.keys(inputParameters).length > 0;
+      const hasExistingResources = Object.keys(inputResources).length > 0;
+
+      if (!hasExistingDevices && !hasExistingParams && !hasExistingResources) {
+        // Initialize with empty static assignments
+        if (spec.input_devices) {
+          const initialDevices: Record<string, DeviceAssignment> = {};
+          Object.keys(spec.input_devices).forEach((deviceName) => {
+            initialDevices[deviceName] = { lab_name: '', name: '' };
+          });
+          setDevices(initialDevices);
+        }
+
+        if (spec.input_resources) {
+          const initialResources: Record<string, ResourceAssignment> = {};
+          Object.keys(spec.input_resources).forEach((resourceName) => {
+            initialResources[resourceName] = '';
+          });
+          setInputResources(initialResources);
+        }
+      }
+    } else {
+      setSelectedTaskSpec(null);
+    }
+  }, [taskType, taskSpecs, devices, inputParameters, inputResources]);
+
+  const handleClear = () => {
+    reset({
+      name: '',
+      type: '',
+      priority: 0,
+      allocation_timeout: 600,
+      meta: '',
+    });
+    setDevices({});
+    setInputParameters({});
+    setInputResources({});
+    setSelectedTaskSpec(null);
+    setError(null);
+    populatedFromTaskRef.current = null; // Reset so we can clone again if needed
+  };
+
+  const onSubmit = async (data: TaskFormValues) => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const submittedDevices: Record<string, unknown> = {};
+      let input_parameters: Record<string, unknown> | null = null;
+      let input_resources: Record<string, unknown> | null = null;
+
+      // Handle devices - serialize device assignments from state
+      if (selectedTaskSpec?.input_devices) {
+        Object.entries(devices).forEach(([name, assignment]) => {
+          submittedDevices[name] = serializeDeviceAssignment(assignment);
+        });
+      }
+
+      // Validate and handle parameters
+      if (selectedTaskSpec?.input_parameters) {
+        const validationErrors: string[] = [];
+        const filteredParams: Record<string, unknown> = {};
+
+        // Validate all parameters
+        Object.entries(selectedTaskSpec.input_parameters).forEach(([name, spec]) => {
+          const value = inputParameters[name];
+          const result = validateParameter(value, spec as ParameterSpec);
+          if (!result.valid) {
+            validationErrors.push(`${name}: ${result.error}`);
+          } else if (value !== undefined && value !== null && value !== '') {
+            filteredParams[name] = value;
+          }
+        });
+
+        if (validationErrors.length > 0) {
+          setError(`Parameter validation failed:\n${validationErrors.join('\n')}`);
+          setIsSubmitting(false);
+          return;
+        }
+
+        input_parameters = Object.keys(filteredParams).length > 0 ? filteredParams : null;
+      }
+
+      // Handle resources - serialize resource assignments
+      if (selectedTaskSpec?.input_resources) {
+        const serializedResources: Record<string, unknown> = {};
+        Object.entries(inputResources).forEach(([name, assignment]) => {
+          serializedResources[name] = serializeResourceAssignment(assignment);
+        });
+        input_resources = Object.keys(serializedResources).length > 0 ? serializedResources : null;
+      }
+
+      // Parse metadata (always JSON)
+      const meta = data.meta ? JSON.parse(data.meta) : {};
+
+      const taskDefinition: TaskDefinition = {
+        name: data.name,
+        type: data.type,
+        experiment_name: null,
+        priority: data.priority,
+        allocation_timeout: data.allocation_timeout,
+        devices: submittedDevices as unknown as TaskDefinition['devices'],
+        input_parameters,
+        input_resources,
+        meta,
+      };
+
+      const result = await submitTask(taskDefinition);
+
+      if (result.success) {
+        onOpenChange(false); // Just close the dialog, keep all values
+      } else {
+        setError(result.error || 'Failed to submit task');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid input in one of the fields');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <BaseSubmitDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Submit New Task"
+      submitLabel="Submit Task"
+      isSubmitting={isSubmitting}
+      error={error}
+      onSubmit={handleSubmit(onSubmit)}
+      headerActions={
+        <Button variant="outline" size="sm" onClick={handleClear} className="gap-2">
+          <Eraser className="w-4 h-4" />
+          Clear
+        </Button>
+      }
+    >
+      <div className="space-y-2">
+        <Label htmlFor="name">Task Name *</Label>
+        <Input id="name" {...register('name')} error={errors.name?.message} placeholder="my_task" />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="type">Task Type *</Label>
+        <Combobox
+          options={taskTypes}
+          value={taskType}
+          onChange={(value) => setValue('type', value, { shouldValidate: true })}
+          placeholder="Select task type"
+          searchPlaceholder="Search task types..."
+          emptyText="No task types found"
+        />
+        {errors.type && <p className="text-sm text-red-600">{errors.type.message}</p>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="priority">Priority</Label>
+          <Input
+            id="priority"
+            type="number"
+            {...register('priority', { valueAsNumber: true })}
+            error={errors.priority?.message}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="allocation_timeout">Allocation Timeout (seconds)</Label>
+          <Input
+            id="allocation_timeout"
+            type="number"
+            {...register('allocation_timeout', { valueAsNumber: true })}
+            error={errors.allocation_timeout?.message}
+          />
+        </div>
+      </div>
+
+      {/* Devices Section */}
+      {selectedTaskSpec?.input_devices && Object.keys(selectedTaskSpec.input_devices).length > 0 && (
+        <div className="space-y-2">
+          <Label>Input Devices *</Label>
+          <div className="space-y-2.5">
+            {Object.entries(selectedTaskSpec.input_devices).map(([name, spec]) => (
+              <TaskDeviceAssignment
+                key={name}
+                deviceName={name}
+                deviceSpec={spec}
+                value={devices[name]}
+                onChange={(value) => setDevices({ ...devices, [name]: value })}
+                labSpecs={labSpecs}
+                selectedLabs={allLabNames}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Parameters Section */}
+      {selectedTaskSpec?.input_parameters && Object.keys(selectedTaskSpec.input_parameters).length > 0 && (
+        <div className="space-y-2">
+          <Label>Input Parameters</Label>
+          <TaskParameterFields
+            parameters={selectedTaskSpec.input_parameters}
+            values={inputParameters}
+            onChange={(name, value) => setInputParameters({ ...inputParameters, [name]: value })}
+          />
+        </div>
+      )}
+
+      {/* Resources Section */}
+      {selectedTaskSpec?.input_resources && Object.keys(selectedTaskSpec.input_resources).length > 0 && (
+        <div className="space-y-2">
+          <Label>Input Resources</Label>
+          <div className="space-y-2.5">
+            {Object.entries(selectedTaskSpec.input_resources).map(([name, spec]) => (
+              <TaskResourceAssignment
+                key={name}
+                resourceName={name}
+                resourceSpec={spec}
+                value={inputResources[name]}
+                onChange={(value) => setInputResources({ ...inputResources, [name]: value })}
+                labSpecs={labSpecs}
+                selectedLabs={allLabNames}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Metadata Section (always JSON) */}
+      <div className="space-y-2">
+        <Label htmlFor="meta">Metadata (JSON)</Label>
+        <Textarea
+          id="meta"
+          {...register('meta')}
+          error={errors.meta?.message}
+          placeholder='{"description": "Test task"}'
+        />
+      </div>
+    </BaseSubmitDialog>
+  );
+}
