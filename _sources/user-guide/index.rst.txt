@@ -20,12 +20,15 @@ User Guide
     experiments
     campaigns
     optimizers
+    beacon_optimizer
     scheduling
 
 .. toctree::
     :caption: Interfaces
 
+    web_ui
     rest_api
+    mcp
 
 .. toctree::
     :caption: Advanced

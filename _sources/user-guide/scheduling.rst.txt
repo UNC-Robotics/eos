@@ -131,8 +131,140 @@ For workflows that must run some tasks **back-to-back** without gaps (e.g., a ti
 .. note::
    The greedy scheduler does not support task groups.
 
-Comparion table
----------------
+Device and resource holds
+-------------------------
+When a task completes, its devices and resources are normally released immediately. In a multi-experiment
+environment another experiment could claim those resources before the successor task is scheduled. **Holds**
+prevent this by keeping the allocation locked until a successor in the same experiment picks it up.
+
+Add ``hold: true`` to any device or resource slot to enable holding:
+
+.. code-block:: yaml
+
+    tasks:
+      - name: setup
+        type: Noop
+        devices:
+          held_device:
+            lab_name: abstract_lab
+            name: D2
+            hold: true              # retain D2 after setup completes
+
+      - name: process
+        dependencies: [setup]
+        devices:
+          held_device:
+            ref: setup.held_device
+            hold: true              # keep holding for the next successor
+
+      - name: cleanup
+        dependencies: [process]
+        devices:
+          held_device: setup.held_device  # no hold, released after cleanup
+
+**How holds work**
+
+1. When a task with ``hold: true`` completes and has pending successors, its allocation is marked *held*
+   rather than released.
+2. Held allocations are **transparent** to successor tasks in the same experiment: they see the device or
+   resource as available.
+3. The hold is released when a successor picks it up without setting ``hold: true``, when no pending
+   successors remain, or when the experiment ends.
+
+Holds work with every assignment type: specific devices (``lab_name``/``name``), dynamic devices
+(``allocation_type: dynamic``), device references, specific resources, dynamic resources, and
+resource references. Use the ``ref:`` object form (instead of the short string form) when you need to
+combine a reference with ``hold: true``.
+
+.. code-block:: yaml
+
+    # Dynamic device with hold
+    devices:
+      analyzer:
+        allocation_type: dynamic
+        device_type: color_analyzer
+        hold: true
+
+    # Dynamic resource with hold
+    resources:
+      beaker:
+        allocation_type: dynamic
+        resource_type: beaker
+        hold: true
+
+Both schedulers fully support holds.
+
+.. tip::
+   See :doc:`references` for details on passing devices and resources between tasks.
+
+Experiment priorities
+---------------------
+Each experiment has an integer priority (default **0**; higher values = higher importance). Priority is set at
+submission time via the REST API or a campaign definition, not in ``experiment.yml``.
+
+- **CP-SAT**: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
+  that higher-priority experiments get earlier task start times.
+- **Greedy**: processes experiments in priority order each scheduling cycle, giving higher-priority experiments
+  first pick of available devices and resources.
+
+CP-SAT parameters
+-----------------
+The CP-SAT scheduler exposes solver parameters that can be tuned for large or complex problem instances:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 15 50
+
+   * - Parameter
+     - Default
+     - Description
+   * - ``max_time_in_seconds``
+     - 15.0
+     - Maximum solver time per scheduling cycle (seconds).
+   * - ``num_search_workers``
+     - 4
+     - Number of CPU threads used by the solver.
+
+.. note::
+   The defaults work well for most workloads. Increase ``max_time_in_seconds`` for very large experiment
+   graphs where the solver needs more time to find a good schedule.
+
+Scheduling simulation
+---------------------
+EOS provides a discrete-event simulator (``eos sim``) for testing scheduler behavior offline without running
+actual hardware. It is useful for comparing greedy vs. CP-SAT, estimating throughput, and identifying
+bottlenecks.
+
+.. code-block:: bash
+
+    eos sim sim_config.yml --scheduler cpsat --jitter 0.1 --seed 42 --verbose
+
+**CLI options**
+
+- ``--scheduler / -s``: ``greedy`` (default) or ``cpsat``.
+- ``--jitter``: fraction of duration variance (e.g., ``0.1`` = ±10 %).
+- ``--seed``: random seed for reproducible runs.
+- ``--verbose / -v``: print scheduling decisions.
+- ``--user-dir / -u``: path to EOS packages directory (default ``./user``).
+
+**Simulation config**
+
+:bdg-primary:`sim_config.yml`
+
+.. code-block:: yaml
+
+    packages:
+      - my_package
+    experiments:
+      - type: my_experiment
+        iterations: 10
+        max_concurrent: 3
+
+**Output** includes a timeline of task START/DONE events, per-device and per-resource utilization percentages,
+parallelism metrics (max and average concurrent tasks), and scheduler overhead statistics.
+
+Comparison table
+----------------
 .. list-table::
    :header-rows: 1
    :widths: 28 36 36
@@ -146,6 +278,9 @@ Comparion table
    * - Optimization goal
      - ✅ Start tasks ASAP
      - ✅ Minimize experiment durations
+   * - Device/resource holds
+     - ✅ Supported
+     - ✅ Supported
    * - Task groups
      - ❌ Not supported
      - ✅ Supported

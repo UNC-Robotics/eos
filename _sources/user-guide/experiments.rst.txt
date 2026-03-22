@@ -31,7 +31,9 @@ YAML File (experiment.yml)
 Defines the experiment.
 Specifies the experiment type, labs, and tasks
 
-Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:
+Below is the experiment YAML file for the :doc:`color mixing <color_mixing>` example.
+It uses a ``color_station`` device that handles both mixing and analysis, a ``robot_arm`` for moving containers,
+and a ``cleaning_station`` for cleanup:
 
 :bdg-primary:`experiment.yml`
 
@@ -45,14 +47,16 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
     tasks:
       - name: retrieve_container
+        type: Retrieve Container
+        desc: Get a container from storage and move it to the color dispenser
+        duration: 5
         devices:
           robot_arm:
             lab_name: color_lab
             name: robot_arm
-          color_mixer:
+          color_station:
             allocation_type: dynamic
-            device_type: color_mixer
-            allowed_labs: [color_lab]
+            device_type: color_station
         resources:
           beaker:
             allocation_type: dynamic
@@ -60,8 +64,11 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: []
 
       - name: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
+        duration: 20
         devices:
-          color_mixer: retrieve_container.color_mixer
+          color_station: retrieve_container.color_station
         resources:
           beaker: retrieve_container.beaker
         parameters:
@@ -77,28 +84,20 @@ Below is an example experiment YAML file for an experiment to optimize parameter
           mixing_speed: eos_dynamic
         dependencies: [retrieve_container]
 
-      - name: move_container_to_analyzer
+      - name: analyze_color
+        type: Analyze Color
+        desc: Analyze the color of the solution in the container and output the RGB values
+        duration: 2
         devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          color_mixer: mix_colors.color_mixer
-          color_analyzer:
-            allocation_type: dynamic
-            device_type: color_analyzer
-            allowed_labs: [color_lab]
+          color_station: mix_colors.color_station
         resources:
           beaker: mix_colors.beaker
         dependencies: [mix_colors]
 
-      - name: analyze_color
-        devices:
-          color_analyzer: move_container_to_analyzer.color_analyzer
-        resources:
-          beaker: move_container_to_analyzer.beaker
-        dependencies: [move_container_to_analyzer]
-
       - name: score_color
+        type: Score Color
+        desc: Score the color based on the RGB values
+        duration: 1
         parameters:
           red: analyze_color.red
           green: analyze_color.green
@@ -109,6 +108,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: [analyze_color]
 
       - name: empty_container
+        type: Empty Container
+        desc: Empty the container and move it to the cleaning station
+        duration: 5
         devices:
           robot_arm:
             lab_name: color_lab
@@ -124,6 +126,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: [analyze_color]
 
       - name: clean_container
+        type: Clean Container
+        desc: Clean the container by rinsing it with distilled water
+        duration: 5
         devices:
           cleaning_station: empty_container.cleaning_station
         resources:
@@ -133,6 +138,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: [empty_container]
 
       - name: store_container
+        type: Store Container
+        desc: Store the container back in the container storage
+        duration: 5
         devices:
           robot_arm:
             lab_name: color_lab
@@ -163,14 +171,16 @@ Now let's look at the first task in the experiment:
 .. code-block:: yaml
 
     - name: retrieve_container
+      type: Retrieve Container
+      desc: Get a container from storage and move it to the color dispenser
+      duration: 5
       devices:
         robot_arm:
           lab_name: color_lab
           name: robot_arm
-        color_mixer:
+        color_station:
           allocation_type: dynamic
-          device_type: color_mixer
-          allowed_labs: [color_lab]
+          device_type: color_station
       resources:
         beaker:
           allocation_type: dynamic
@@ -180,7 +190,7 @@ Now let's look at the first task in the experiment:
 The first task is named ``retrieve_container``.
 This task demonstrates several key concepts:
 
-**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_mixer``).
+**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_station``).
 These names are used by the task implementation to access the device.
 
 **Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
@@ -193,16 +203,15 @@ These names are used by the task implementation to access the device.
 
 This tells EOS to use the specific robot arm device from the color_lab.
 
-**Dynamic Device Allocation**: The ``color_mixer`` uses dynamic allocation:
+**Dynamic Device Allocation**: The ``color_station`` uses dynamic allocation:
 
 .. code-block:: yaml
 
-    color_mixer:
+    color_station:
       allocation_type: dynamic
-      device_type: color_mixer
-      allowed_labs: [color_lab]
+      device_type: color_station
 
-The scheduler will automatically select an available ``color_mixer`` device from ``color_lab`` when this task is ready to execute.
+The scheduler will automatically select an available ``color_station`` device from the experiment's labs when this task is ready to execute.
 
 **Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
 
@@ -211,8 +220,11 @@ Let's look at the next task:
 .. code-block:: yaml
 
     - name: mix_colors
+      type: Mix Colors
+      desc: Mix the colors in the container
+      duration: 20
       devices:
-        color_mixer: retrieve_container.color_mixer
+        color_station: retrieve_container.color_station
       resources:
         beaker: retrieve_container.beaker
       parameters:
@@ -230,8 +242,8 @@ Let's look at the next task:
 
 This task demonstrates **device and resource references**:
 
-**Device Reference**: ``color_mixer: retrieve_container.color_mixer`` tells EOS that this task must use the same color_mixer device
-that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same mixer where it was placed.
+**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS that this task must use the same color_station device
+that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same station where it was placed.
 
 **Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
 
@@ -243,14 +255,17 @@ The ``analyze_color`` task shows another device reference:
 .. code-block:: yaml
 
     - name: analyze_color
+      type: Analyze Color
+      desc: Analyze the color of the solution in the container and output the RGB values
+      duration: 2
       devices:
-        color_analyzer: move_container_to_analyzer.color_analyzer
+        color_station: mix_colors.color_station
       resources:
-        beaker: move_container_to_analyzer.beaker
-      dependencies: [move_container_to_analyzer]
+        beaker: mix_colors.beaker
+      dependencies: [mix_colors]
 
-Here, ``color_analyzer`` references the dynamically allocated analyzer from the ``move_container_to_analyzer`` task,
-ensuring the analysis happens at the same analyzer where the beaker was moved.
+Here, ``color_station`` references the same station from the ``mix_colors`` task,
+ensuring the analysis happens at the same station where the color was mixed.
 
 Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -290,7 +305,7 @@ As an example, below is the optimizer file for the color mixing experiment:
             ],
             "constraints": [],
             "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 50,
+            "num_initial_samples": 10,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 

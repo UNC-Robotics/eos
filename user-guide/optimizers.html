@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Optimizers &#8212; EOS - Experiment Orchestration System</title>
+    <title>Optimizers &#8212; EOS</title>
   
   
   
@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=6141b7d8" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -41,16 +41,16 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=ff8529b6"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=9b4af9f2"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/optimizers';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Scheduling" href="scheduling.html" />
+    <link rel="next" title="Beacon Optimizer" href="beacon_optimizer.html" />
     <link rel="prev" title="Campaigns" href="campaigns.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -323,11 +323,14 @@
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Optimizers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
 <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -451,7 +454,7 @@ Below is an example:</p>
         <span class="p">],</span>
         <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">[],</span>
         <span class="s2">&quot;acquisition_function&quot;</span><span class="p">:</span> <span class="n">qUCB</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
         <span class="s2">&quot;initial_sampling_method&quot;</span><span class="p">:</span> <span class="n">SamplingMethodEnum</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
     <span class="p">}</span>
 
@@ -464,8 +467,11 @@ This function must return:</p>
 <li><p>The constructor arguments to make an optimizer class instance</p></li>
 <li><p>The class type of the optimizer</p></li>
 </ol>
-<p>In this example, we use EOS’ built-in Bayesian optimizer.
-However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
+<p>In this example, we use EOS’ built-in Bayesian optimizer.</p>
+<p>For most use cases, we recommend the <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a>, which combines Bayesian optimization with
+AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
+constraints) but adds an AI agent that reasons about experimental history to suggest smarter experiments.</p>
+<p>It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
 the class type from <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -595,11 +601,11 @@ where needed.</p>
       </div>
     </a>
     <a class="right-next"
-       href="scheduling.html"
+       href="beacon_optimizer.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Scheduling</p>
+        <p class="prev-next-title">Beacon Optimizer</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -656,7 +662,7 @@ where needed.</p>
 
   <p class="copyright">
     
-      © Copyright 2025, UNC Robotics.
+      © Copyright 2026, UNC Robotics.
       <br/>
     
   </p>
@@ -665,7 +671,7 @@ where needed.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

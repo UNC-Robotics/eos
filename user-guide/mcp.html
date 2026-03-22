@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; EOS</title>
+    <title>MCP Server &#8212; EOS</title>
   
   
   
@@ -47,11 +47,11 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/installation';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/mcp';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Infrastructure Setup" href="infrastructure_setup.html" />
-    <link rel="prev" title="User Guide" href="index.html" />
+    <link rel="next" title="SiLA 2 Integration" href="sila2_integration.html" />
+    <link rel="prev" title="REST API" href="rest_api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -307,8 +307,8 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Installation</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a></li>
 </ul>
@@ -327,10 +327,10 @@
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">MCP Server</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -383,7 +383,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Installation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">MCP Server</span></li>
   </ul>
 </nav>
 </div>
@@ -400,99 +400,73 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>EOS should be installed on a central laboratory computer that is easily accessible.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>EOS requires bi-directional network access to any computers used for automation.</p>
-<p>Using an isolated laboratory network for security and performance is strongly recommended.
-See <a class="reference internal" href="infrastructure_setup.html"><span class="doc">infrastructure setup</span></a> for details.</p>
+  <section id="mcp-server">
+<h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading">#</a></h1>
+<p>EOS exposes a <a class="reference external" href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server through its web UI.
+This allows AI assistants like Claude to interact with EOS directly, querying experiments, submitting campaigns, inspecting devices, and more.</p>
+<p>Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
+“check the status of my campaign”, “submit 10 multiplication experiments”, or “what functions does the pipette support?”</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The MCP endpoint currently has no authentication.
+Only expose it in trusted environments (local network or behind a reverse proxy with auth).</p>
 </div>
-<p>EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
-Docker Compose file to set up these services.</p>
-<section id="install-uv">
-<h2>1. Install uv<a class="headerlink" href="#install-uv" title="Link to this heading">#</a></h2>
-<p>uv manages dependencies for EOS.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
-Linux/Mac</label><div class="sd-tab-content docutils">
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+<section id="connecting">
+<h2>Connecting<a class="headerlink" href="#connecting" title="Link to this heading">#</a></h2>
+<p>The MCP server is available at <code class="docutils literal notranslate"><span class="pre">http://&lt;web-ui-host&gt;:3000/api/mcp</span></code> using the Streamable HTTP transport.</p>
+<section id="claude-code">
+<h3>Claude Code<a class="headerlink" href="#claude-code" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>claude<span class="w"> </span>mcp<span class="w"> </span>add<span class="w"> </span>EOS<span class="w"> </span>http://localhost:3000/api/mcp<span class="w"> </span>--transport<span class="w"> </span>http
 </pre></div>
-</div>
-</div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Windows</label><div class="sd-tab-content docutils">
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>powershell<span class="w"> </span>-ExecutionPolicy<span class="w"> </span>ByPass<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
-</pre></div>
-</div>
-</div>
 </div>
 </section>
-<section id="install-eos">
-<h2>2. Install EOS<a class="headerlink" href="#install-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone repository</span>
-git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-Robotics/eos
-<span class="nb">cd</span><span class="w"> </span>eos
+<section id="claude-desktop">
+<h3>Claude Desktop<a class="headerlink" href="#claude-desktop" title="Link to this heading">#</a></h3>
+<p>Add to your <code class="docutils literal notranslate"><span class="pre">claude_desktop_config.json</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;EOS&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://localhost:3000/api/mcp&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;transport&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;streamable-http&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="other-mcp-clients">
+<h3>Other MCP Clients<a class="headerlink" href="#other-mcp-clients" title="Link to this heading">#</a></h3>
+<p>Point any MCP-compatible client to <code class="docutils literal notranslate"><span class="pre">http://localhost:3000/api/mcp</span></code> with the <strong>Streamable HTTP</strong> transport.
+Replace <code class="docutils literal notranslate"><span class="pre">localhost:3000</span></code> with your web UI host and port if different.</p>
+</section>
+</section>
+<section id="capabilities">
+<h2>Capabilities<a class="headerlink" href="#capabilities" title="Link to this heading">#</a></h2>
+<p>The MCP server exposes 50 tools across the following categories:</p>
+<ul class="simple">
+<li><p><strong>Campaigns, Experiments, Tasks</strong> – List, inspect, submit, and cancel at every level of the execution hierarchy.</p></li>
+<li><p><strong>Definitions</strong> – Browse loaded task types, device types, lab layouts, and experiment workflows.</p></li>
+<li><p><strong>Management</strong> – Load, unload, and reload labs, experiments, devices, and packages.</p></li>
+<li><p><strong>Optimizer</strong> – Query optimizer state, update runtime parameters, and provide expert insights.</p></li>
+<li><p><strong>Devices</strong> – List devices, inspect state, discover available RPC functions, and call them directly.</p></li>
+<li><p><strong>SQL</strong> – Run read-only queries against the EOS database.</p></li>
+<li><p><strong>Filesystem</strong> – Browse packages and read entity configuration files (YAML, Python).</p></li>
+</ul>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h2>
+<p>These examples show natural language prompts you might give an AI assistant connected to EOS via MCP.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Show me the status of the catalyst_screening campaign and list all completed experiments&quot;
 
-<span class="c1"># Create and activate virtual environment</span>
-uv<span class="w"> </span>venv
-<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+&quot;Submit a color mixing experiment targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis&quot;
 
-<span class="c1"># Install dependencies</span>
-uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
-</pre></div>
-</div>
-</section>
-<section id="configure-eos">
-<h2>3. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set environment variables</span>
-cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit .env file and provide values</span>
+&quot;What devices are available in the wet lab? What functions does the liquid handler support?&quot;
 
-<span class="c1"># Configure EOS</span>
-cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
-<span class="c1"># Edit config.yml and provide values</span>
+&quot;How did the yield change across the last 10 experiments in the solubility campaign?&quot;
+
+&quot;Reload the experiment definitions, I just updated the YAML for the pH optimization workflow&quot;
 </pre></div>
 </div>
-</section>
-<section id="launch-external-services">
-<h2>4. Launch External Services<a class="headerlink" href="#launch-external-services" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start external services (PostgreSQL and SeaweedFS)</span>
-docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-</pre></div>
-</div>
-</section>
-<section id="start-eos">
-<h2>5. Start EOS<a class="headerlink" href="#start-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>start
-</pre></div>
-</div>
-<p>By default, EOS loads the “multiplication_lab” laboratory and “optimize_multiplication” experiment from an example
-package. You can modify this in the configuration file.</p>
-</section>
-<section id="install-the-web-ui">
-<h2>6. Install the Web UI<a class="headerlink" href="#install-the-web-ui" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
-npm<span class="w"> </span>install
-</pre></div>
-</div>
-</section>
-<section id="configure-the-web-ui">
-<h2>7. Configure the Web UI<a class="headerlink" href="#configure-the-web-ui" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit .env and provide values</span>
-</pre></div>
-</div>
-</section>
-<section id="start-the-web-ui-in-a-new-terminal">
-<h2>8. Start the Web UI (in a new terminal)<a class="headerlink" href="#start-the-web-ui-in-a-new-terminal" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>ui
-</pre></div>
-</div>
-<p>The web UI is available at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>.</p>
 </section>
 </section>
 
@@ -507,20 +481,20 @@ npm<span class="w"> </span>install
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="rest_api.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">User Guide</p>
+        <p class="prev-next-title">REST API</p>
       </div>
     </a>
     <a class="right-next"
-       href="infrastructure_setup.html"
+       href="sila2_integration.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Infrastructure Setup</p>
+        <p class="prev-next-title">SiLA 2 Integration</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -543,14 +517,14 @@ npm<span class="w"> </span>install
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-uv">1. Install uv</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-eos">2. Install EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">3. Configure EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-external-services">4. Launch External Services</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-eos">5. Start EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-the-web-ui">6. Install the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-the-web-ui">7. Configure the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-web-ui-in-a-new-terminal">8. Start the Web UI (in a new terminal)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#connecting">Connecting</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#claude-code">Claude Code</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#claude-desktop">Claude Desktop</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other-mcp-clients">Other MCP Clients</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#capabilities">Capabilities</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
 </ul>
   </nav></div>
 

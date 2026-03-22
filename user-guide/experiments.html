@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Experiments &#8212; EOS - Experiment Orchestration System</title>
+    <title>Experiments &#8212; EOS</title>
   
   
   
@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=6141b7d8" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -41,9 +41,9 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=ff8529b6"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=9b4af9f2"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
@@ -323,11 +323,14 @@
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
 <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -427,7 +430,9 @@ Tasks can reference input/output parameters, devices, and resources from other t
 <h3>YAML File (experiment.yml)<a class="headerlink" href="#yaml-file-experiment-yml" title="Link to this heading">#</a></h3>
 <p>Defines the experiment.
 Specifies the experiment type, labs, and tasks</p>
-<p>Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:</p>
+<p>Below is the experiment YAML file for the <a class="reference internal" href="color_mixing.html"><span class="doc">color mixing</span></a> example.
+It uses a <code class="docutils literal notranslate"><span class="pre">color_station</span></code> device that handles both mixing and analysis, a <code class="docutils literal notranslate"><span class="pre">robot_arm</span></code> for moving containers,
+and a <code class="docutils literal notranslate"><span class="pre">cleaning_station</span></code> for cleanup:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
@@ -437,14 +442,16 @@ Specifies the experiment type, labs, and tasks</p>
 
 <span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a container from storage and move it to the color dispenser</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">robot_arm</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
-<span class="w">      </span><span class="nt">color_mixer</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">color_station</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
-<span class="w">        </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
-<span class="w">        </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_station</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">beaker</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
@@ -452,8 +459,11 @@ Specifies the experiment type, labs, and tasks</p>
 <span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix Colors</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix the colors in the container</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">color_mixer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.color_mixer</span>
+<span class="w">      </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.color_station</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.beaker</span>
 <span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
@@ -469,28 +479,20 @@ Specifies the experiment type, labs, and tasks</p>
 <span class="w">      </span><span class="nt">mixing_speed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
 <span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">retrieve_container</span><span class="p p-Indicator">]</span>
 
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of the solution in the container and output the RGB values</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">robot_arm</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
-<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
-<span class="w">      </span><span class="nt">color_mixer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.color_mixer</span>
-<span class="w">      </span><span class="nt">color_analyzer</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
-<span class="w">        </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
-<span class="w">        </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.color_station</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.beaker</span>
 <span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mix_colors</span><span class="p p-Indicator">]</span>
 
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
-<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">color_analyzer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer.color_analyzer</span>
-<span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer.beaker</span>
-<span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">move_container_to_analyzer</span><span class="p p-Indicator">]</span>
-
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Color</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score the color based on the RGB values</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 <span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">red</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.red</span>
 <span class="w">      </span><span class="nt">green</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.green</span>
@@ -501,6 +503,9 @@ Specifies the experiment type, labs, and tasks</p>
 <span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">analyze_color</span><span class="p p-Indicator">]</span>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">empty_container</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty Container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Empty the container and move it to the cleaning station</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">robot_arm</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -516,6 +521,9 @@ Specifies the experiment type, labs, and tasks</p>
 <span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">analyze_color</span><span class="p p-Indicator">]</span>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">clean_container</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean Container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Clean the container by rinsing it with distilled water</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">cleaning_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">empty_container.cleaning_station</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
@@ -525,6 +533,9 @@ Specifies the experiment type, labs, and tasks</p>
 <span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">empty_container</span><span class="p p-Indicator">]</span>
 
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">store_container</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store Container</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Store the container back in the container storage</span>
+<span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">robot_arm</span><span class="p">:</span>
 <span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -550,14 +561,16 @@ When an experiment is running then there are instances of the experiment with di
 Each experiment also requires one or more labs.</p>
 <p>Now let’s look at the first task in the experiment:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a container from storage and move it to the color dispenser</span>
+<span class="w">  </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 <span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">robot_arm</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_arm</span>
-<span class="w">    </span><span class="nt">color_mixer</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">color_station</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
-<span class="w">      </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
-<span class="w">      </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_station</span>
 <span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">beaker</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
@@ -567,7 +580,7 @@ Each experiment also requires one or more labs.</p>
 </div>
 <p>The first task is named <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code>.
 This task demonstrates several key concepts:</p>
-<p><strong>Named Devices</strong>: Devices are specified as a dictionary where each key is a named reference (e.g., <code class="docutils literal notranslate"><span class="pre">robot_arm</span></code>, <code class="docutils literal notranslate"><span class="pre">color_mixer</span></code>).
+<p><strong>Named Devices</strong>: Devices are specified as a dictionary where each key is a named reference (e.g., <code class="docutils literal notranslate"><span class="pre">robot_arm</span></code>, <code class="docutils literal notranslate"><span class="pre">color_station</span></code>).
 These names are used by the task implementation to access the device.</p>
 <p><strong>Specific Device Allocation</strong>: The <code class="docutils literal notranslate"><span class="pre">robot_arm</span></code> device is explicitly assigned:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">robot_arm</span><span class="p">:</span>
@@ -576,19 +589,21 @@ These names are used by the task implementation to access the device.</p>
 </pre></div>
 </div>
 <p>This tells EOS to use the specific robot arm device from the color_lab.</p>
-<p><strong>Dynamic Device Allocation</strong>: The <code class="docutils literal notranslate"><span class="pre">color_mixer</span></code> uses dynamic allocation:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">color_mixer</span><span class="p">:</span>
+<p><strong>Dynamic Device Allocation</strong>: The <code class="docutils literal notranslate"><span class="pre">color_station</span></code> uses dynamic allocation:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">color_station</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
-<span class="w">  </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixer</span>
-<span class="w">  </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_station</span>
 </pre></div>
 </div>
-<p>The scheduler will automatically select an available <code class="docutils literal notranslate"><span class="pre">color_mixer</span></code> device from <code class="docutils literal notranslate"><span class="pre">color_lab</span></code> when this task is ready to execute.</p>
+<p>The scheduler will automatically select an available <code class="docutils literal notranslate"><span class="pre">color_station</span></code> device from the experiment’s labs when this task is ready to execute.</p>
 <p><strong>Dynamic Resource Allocation</strong>: The <code class="docutils literal notranslate"><span class="pre">beaker</span></code> resource is dynamically allocated from available beakers of type <code class="docutils literal notranslate"><span class="pre">beaker</span></code>.</p>
 <p>Let’s look at the next task:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix Colors</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix the colors in the container</span>
+<span class="w">  </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 <span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">color_mixer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.color_mixer</span>
+<span class="w">    </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.color_station</span>
 <span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.beaker</span>
 <span class="w">  </span><span class="nt">parameters</span><span class="p">:</span>
@@ -606,22 +621,25 @@ These names are used by the task implementation to access the device.</p>
 </pre></div>
 </div>
 <p>This task demonstrates <strong>device and resource references</strong>:</p>
-<p><strong>Device Reference</strong>: <code class="docutils literal notranslate"><span class="pre">color_mixer:</span> <span class="pre">retrieve_container.color_mixer</span></code> tells EOS that this task must use the same color_mixer device
-that was allocated to the <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> task. This ensures that the beaker stays at the same mixer where it was placed.</p>
+<p><strong>Device Reference</strong>: <code class="docutils literal notranslate"><span class="pre">color_station:</span> <span class="pre">retrieve_container.color_station</span></code> tells EOS that this task must use the same color_station device
+that was allocated to the <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> task. This ensures that the beaker stays at the same station where it was placed.</p>
 <p><strong>Resource Reference</strong>: <code class="docutils literal notranslate"><span class="pre">beaker:</span> <span class="pre">retrieve_container.beaker</span></code> passes the beaker resource from the previous task to this one.</p>
 <p><strong>Dynamic Parameters</strong>: The mixing parameters are set to <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>, which is a special keyword in EOS for defining dynamic parameters.
 These must be specified either by the user or an optimizer before an experiment can be executed.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">analyze_color</span></code> task shows another device reference:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
+<span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze the color of the solution in the container and output the RGB values</span>
+<span class="w">  </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 <span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">color_analyzer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer.color_analyzer</span>
+<span class="w">    </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.color_station</span>
 <span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">move_container_to_analyzer.beaker</span>
-<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">move_container_to_analyzer</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.beaker</span>
+<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mix_colors</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p>Here, <code class="docutils literal notranslate"><span class="pre">color_analyzer</span></code> references the dynamically allocated analyzer from the <code class="docutils literal notranslate"><span class="pre">move_container_to_analyzer</span></code> task,
-ensuring the analysis happens at the same analyzer where the beaker was moved.</p>
+<p>Here, <code class="docutils literal notranslate"><span class="pre">color_station</span></code> references the same station from the <code class="docutils literal notranslate"><span class="pre">mix_colors</span></code> task,
+ensuring the analysis happens at the same station where the color was mixed.</p>
 </section>
 <section id="optimizer-file-optimizer-py">
 <h3>Optimizer File (optimizer.py)<a class="headerlink" href="#optimizer-file-optimizer-py" title="Link to this heading">#</a></h3>
@@ -656,7 +674,7 @@ ensuring the analysis happens at the same analyzer where the beaker was moved.</
         <span class="p">],</span>
         <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">[],</span>
         <span class="s2">&quot;acquisition_function&quot;</span><span class="p">:</span> <span class="n">qUCB</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>
+        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
         <span class="s2">&quot;initial_sampling_method&quot;</span><span class="p">:</span> <span class="n">SamplingMethodEnum</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
     <span class="p">}</span>
 
@@ -748,7 +766,7 @@ ensuring the analysis happens at the same analyzer where the beaker was moved.</
 
   <p class="copyright">
     
-      © Copyright 2025, UNC Robotics.
+      © Copyright 2026, UNC Robotics.
       <br/>
     
   </p>
@@ -757,7 +775,7 @@ ensuring the analysis happens at the same analyzer where the beaker was moved.</
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

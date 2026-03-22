@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>REST API &#8212; EOS - Experiment Orchestration System</title>
+    <title>REST API &#8212; EOS</title>
   
   
   
@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=6141b7d8" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -41,17 +41,17 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=ff8529b6"></script>
-    <script src="../_static/doctools.js?v=9bcbadda"></script>
-    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/documentation_options.js?v=9b4af9f2"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/rest_api';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="SiLA 2 Integration" href="sila2_integration.html" />
-    <link rel="prev" title="Scheduling" href="scheduling.html" />
+    <link rel="next" title="MCP Server" href="mcp.html" />
+    <link rel="prev" title="Web UI" href="web_ui.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -323,11 +323,14 @@
 <li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
 <ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">REST API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -409,24 +412,150 @@ Example functions include:</p>
 </ul>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Be careful about who accesses the REST API.
-The REST API currently has no authentication.</p>
-<p>Only use it internally in its current state.
-If you need to make it accessible over the web use a VPN and set up a firewall.</p>
-<p>EOS will likely have control over expensive (and potentially dangerous) hardware and unchecked REST API access could
-have severe consequences.</p>
+<p>The REST API has no authentication. Only expose it on trusted networks.
+Use a VPN or reverse proxy with auth if remote access is needed.</p>
 </div>
+<section id="submitting-experiments">
+<h2>Submitting Experiments<a class="headerlink" href="#submitting-experiments" title="Link to this heading">#</a></h2>
+<p>Submit an experiment for execution. All dynamic parameters (<code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>) must be provided via <code class="docutils literal notranslate"><span class="pre">parameters</span></code>.</p>
+<p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/experiments</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/experiments<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">          &quot;name&quot;: &quot;my_experiment_1&quot;,</span>
+<span class="s1">          &quot;type&quot;: &quot;color_mixing&quot;,</span>
+<span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
+<span class="s1">          &quot;priority&quot;: 0,</span>
+<span class="s1">          &quot;parameters&quot;: {</span>
+<span class="s1">            &quot;mix_colors&quot;: {</span>
+<span class="s1">                &quot;cyan_volume&quot;: 10.0,</span>
+<span class="s1">                &quot;cyan_strength&quot;: 50.0,</span>
+<span class="s1">                &quot;magenta_volume&quot;: 5.0,</span>
+<span class="s1">                &quot;magenta_strength&quot;: 30.0,</span>
+<span class="s1">                &quot;yellow_volume&quot;: 8.0,</span>
+<span class="s1">                &quot;yellow_strength&quot;: 40.0,</span>
+<span class="s1">                &quot;black_volume&quot;: 2.0,</span>
+<span class="s1">                &quot;black_strength&quot;: 20.0,</span>
+<span class="s1">                &quot;mixing_time&quot;: 15,</span>
+<span class="s1">                &quot;mixing_speed&quot;: 150</span>
+<span class="s1">            },</span>
+<span class="s1">            &quot;score_color&quot;: {</span>
+<span class="s1">                &quot;target_color&quot;: [47, 181, 49]</span>
+<span class="s1">            }</span>
+<span class="s1">          }</span>
+<span class="s1">    }&#39;</span>
+</pre></div>
+</div>
+</section>
+<section id="submitting-campaigns">
+<h2>Submitting Campaigns<a class="headerlink" href="#submitting-campaigns" title="Link to this heading">#</a></h2>
+<p>Submit a campaign to run an experiment multiple times, optionally with optimizer-driven parameter selection.</p>
+<p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/campaigns</span></code></p>
+<p><strong>With optimization</strong> (optimizer proposes parameters each iteration):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">          &quot;name&quot;: &quot;color_optimization&quot;,</span>
+<span class="s1">          &quot;experiment_type&quot;: &quot;color_mixing&quot;,</span>
+<span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
+<span class="s1">          &quot;priority&quot;: 0,</span>
+<span class="s1">          &quot;max_experiments&quot;: 100,</span>
+<span class="s1">          &quot;max_concurrent_experiments&quot;: 3,</span>
+<span class="s1">          &quot;optimize&quot;: true,</span>
+<span class="s1">          &quot;optimizer_ip&quot;: &quot;127.0.0.1&quot;,</span>
+<span class="s1">          &quot;global_parameters&quot;: {</span>
+<span class="s1">            &quot;score_color&quot;: {</span>
+<span class="s1">                &quot;target_color&quot;: [47, 181, 49]</span>
+<span class="s1">            }</span>
+<span class="s1">          }</span>
+<span class="s1">    }&#39;</span>
+</pre></div>
+</div>
+<p><strong>Without optimization</strong> (user provides all parameters):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">          &quot;name&quot;: &quot;color_sweep&quot;,</span>
+<span class="s1">          &quot;experiment_type&quot;: &quot;color_mixing&quot;,</span>
+<span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
+<span class="s1">          &quot;max_experiments&quot;: 3,</span>
+<span class="s1">          &quot;max_concurrent_experiments&quot;: 1,</span>
+<span class="s1">          &quot;optimize&quot;: false,</span>
+<span class="s1">          &quot;experiment_parameters&quot;: [</span>
+<span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 5, &quot;cyan_strength&quot;: 50, &quot;magenta_volume&quot;: 0, &quot;magenta_strength&quot;: 0, &quot;yellow_volume&quot;: 0, &quot;yellow_strength&quot;: 0, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [0, 200, 200]}},</span>
+<span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 0, &quot;cyan_strength&quot;: 0, &quot;magenta_volume&quot;: 5, &quot;magenta_strength&quot;: 50, &quot;yellow_volume&quot;: 0, &quot;yellow_strength&quot;: 0, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [200, 0, 200]}},</span>
+<span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 0, &quot;cyan_strength&quot;: 0, &quot;magenta_volume&quot;: 0, &quot;magenta_strength&quot;: 0, &quot;yellow_volume&quot;: 5, &quot;yellow_strength&quot;: 50, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [200, 200, 0]}}</span>
+<span class="s1">          ]</span>
+<span class="s1">    }&#39;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">optimize</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">experiment_parameters</span></code> must have exactly <code class="docutils literal notranslate"><span class="pre">max_experiments</span></code> entries.</p>
+</div>
+</section>
+<section id="submitting-on-demand-tasks">
+<h2>Submitting On-Demand Tasks<a class="headerlink" href="#submitting-on-demand-tasks" title="Link to this heading">#</a></h2>
+<p>Submit a single task for execution outside of an experiment.</p>
+<p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tasks</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/tasks<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">          &quot;name&quot;: &quot;test_mix&quot;,</span>
+<span class="s1">          &quot;type&quot;: &quot;Mix Colors&quot;,</span>
+<span class="s1">          &quot;devices&quot;: {</span>
+<span class="s1">            &quot;color_station&quot;: {</span>
+<span class="s1">              &quot;lab_name&quot;: &quot;color_lab&quot;,</span>
+<span class="s1">              &quot;name&quot;: &quot;color_station_1&quot;</span>
+<span class="s1">            }</span>
+<span class="s1">          },</span>
+<span class="s1">          &quot;input_parameters&quot;: {</span>
+<span class="s1">            &quot;cyan_volume&quot;: 10.0,</span>
+<span class="s1">            &quot;cyan_strength&quot;: 50.0,</span>
+<span class="s1">            &quot;magenta_volume&quot;: 5.0,</span>
+<span class="s1">            &quot;magenta_strength&quot;: 30.0,</span>
+<span class="s1">            &quot;yellow_volume&quot;: 8.0,</span>
+<span class="s1">            &quot;yellow_strength&quot;: 40.0,</span>
+<span class="s1">            &quot;black_volume&quot;: 2.0,</span>
+<span class="s1">            &quot;black_strength&quot;: 20.0,</span>
+<span class="s1">            &quot;mixing_time&quot;: 15,</span>
+<span class="s1">            &quot;mixing_speed&quot;: 150</span>
+<span class="s1">          }</span>
+<span class="s1">    }&#39;</span>
+</pre></div>
+</div>
+</section>
+<section id="cancelling">
+<h2>Cancelling<a class="headerlink" href="#cancelling" title="Link to this heading">#</a></h2>
+<p>Cancel a running experiment or campaign:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cancel an experiment</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/experiments/my_experiment_1/cancel
+
+<span class="c1"># Cancel a campaign</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimization/cancel
+</pre></div>
+</div>
+</section>
+<section id="querying-status">
+<h2>Querying Status<a class="headerlink" href="#querying-status" title="Link to this heading">#</a></h2>
+<p>Get the status of experiments and campaigns:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get experiment details</span>
+curl<span class="w"> </span>http://localhost:8070/api/experiments/my_experiment_1
+
+<span class="c1"># Get campaign details</span>
+curl<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimization
+</pre></div>
+</div>
+</section>
 <section id="device-rpc">
 <h2>Device RPC<a class="headerlink" href="#device-rpc" title="Link to this heading">#</a></h2>
 <p>EOS provides an RPC endpoint to call device functions directly through the REST API.</p>
 <p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/rpc/{lab_id}/{device_id}/{function_name}</span></code></p>
-<p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">&quot;http://localhost:8070/api/rpc/my_lab/pipette/aspirate&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;volume&quot;: 50, &quot;location&quot;: &quot;A1&quot;}&#39;</span>
 </pre></div>
 </div>
-<p><strong>Parameters:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">lab_id</span></code>: The laboratory ID</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">device_id</span></code>: The device ID within the lab</p></li>
@@ -460,20 +589,20 @@ have severe consequences.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="scheduling.html"
+       href="web_ui.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Scheduling</p>
+        <p class="prev-next-title">Web UI</p>
       </div>
     </a>
     <a class="right-next"
-       href="sila2_integration.html"
+       href="mcp.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">SiLA 2 Integration</p>
+        <p class="prev-next-title">MCP Server</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -496,6 +625,11 @@ have severe consequences.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-experiments">Submitting Experiments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-campaigns">Submitting Campaigns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-on-demand-tasks">Submitting On-Demand Tasks</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cancelling">Cancelling</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#querying-status">Querying Status</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-rpc">Device RPC</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a></li>
 </ul>
@@ -526,7 +660,7 @@ have severe consequences.</p>
 
   <p class="copyright">
     
-      © Copyright 2025, UNC Robotics.
+      © Copyright 2026, UNC Robotics.
       <br/>
     
   </p>
@@ -535,7 +669,7 @@ have severe consequences.</p>
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

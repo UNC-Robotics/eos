@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Installation &#8212; EOS</title>
+    <title>Web UI &#8212; EOS</title>
   
   
   
@@ -47,11 +47,11 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/installation';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/web_ui';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Infrastructure Setup" href="infrastructure_setup.html" />
-    <link rel="prev" title="User Guide" href="index.html" />
+    <link rel="next" title="REST API" href="rest_api.html" />
+    <link rel="prev" title="Scheduling" href="scheduling.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -307,8 +307,8 @@
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
-<ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Installation</a></li>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a></li>
 <li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a></li>
 </ul>
@@ -327,8 +327,8 @@
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
-<ul class="nav bd-sidenav">
-<li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
 </ul>
@@ -383,7 +383,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Installation</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Web UI</span></li>
   </ul>
 </nav>
 </div>
@@ -400,99 +400,87 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>EOS should be installed on a central laboratory computer that is easily accessible.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>EOS requires bi-directional network access to any computers used for automation.</p>
-<p>Using an isolated laboratory network for security and performance is strongly recommended.
-See <a class="reference internal" href="infrastructure_setup.html"><span class="doc">infrastructure setup</span></a> for details.</p>
-</div>
-<p>EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
-Docker Compose file to set up these services.</p>
-<section id="install-uv">
-<h2>1. Install uv<a class="headerlink" href="#install-uv" title="Link to this heading">#</a></h2>
-<p>uv manages dependencies for EOS.</p>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
-Linux/Mac</label><div class="sd-tab-content docutils">
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
-</pre></div>
-</div>
-</div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Windows</label><div class="sd-tab-content docutils">
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>powershell<span class="w"> </span>-ExecutionPolicy<span class="w"> </span>ByPass<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
-</pre></div>
-</div>
-</div>
-</div>
+  <section id="web-ui">
+<h1>Web UI<a class="headerlink" href="#web-ui" title="Link to this heading">#</a></h1>
+<p>EOS includes a rich web UI for visually designing experiments, monitoring execution, controlling devices,
+browsing results, and more. It connects to the EOS orchestrator and provides real-time updates.</p>
+<p>Access it at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code> (default host and port).</p>
+<figure class="align-center" id="id1">
+<img alt="../_images/eos-ui.png" src="../_images/eos-ui.png" />
+<figcaption>
+<p><span class="caption-text">Screenshot of the EOS web UI editor view.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<section id="editor">
+<h2>Editor<a class="headerlink" href="#editor" title="Link to this heading">#</a></h2>
+<p>The editor is the central workspace for designing and building EOS packages.</p>
+<ul class="simple">
+<li><p>Visual experiment designer with interactive task graphs showing dependencies and data flow</p></li>
+<li><p>Build experiments by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters</p></li>
+<li><p>Seamless switching between visual and code views (changes sync both ways)</p></li>
+<li><p>Reload tasks, devices, labs, and experiments without restarting EOS</p></li>
+<li><p>Syntax-highlighted code editing for YAML configs and Python code</p></li>
+<li><p>Package file tree for creating, renaming, and deleting entities</p></li>
+</ul>
 </section>
-<section id="install-eos">
-<h2>2. Install EOS<a class="headerlink" href="#install-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone repository</span>
-git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-Robotics/eos
-<span class="nb">cd</span><span class="w"> </span>eos
-
-<span class="c1"># Create and activate virtual environment</span>
-uv<span class="w"> </span>venv
-<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
-
-<span class="c1"># Install dependencies</span>
-uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
-</pre></div>
-</div>
+<section id="tasks">
+<h2>Tasks<a class="headerlink" href="#tasks" title="Link to this heading">#</a></h2>
+<p>The tasks view manages individual task submissions.</p>
+<ul class="simple">
+<li><p>Submit tasks using specific devices and input parameters</p></li>
+<li><p>Clone previous tasks for easy re-submission</p></li>
+</ul>
 </section>
-<section id="configure-eos">
-<h2>3. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set environment variables</span>
-cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit .env file and provide values</span>
-
-<span class="c1"># Configure EOS</span>
-cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
-<span class="c1"># Edit config.yml and provide values</span>
-</pre></div>
-</div>
+<section id="experiments">
+<h2>Experiments<a class="headerlink" href="#experiments" title="Link to this heading">#</a></h2>
+<p>The experiments view tracks individual experiment execution.</p>
+<ul class="simple">
+<li><p>Submit experiments with specific task parameters</p></li>
+<li><p>Visual task flow graph with real-time status updates (pending, running, completed, failed)</p></li>
+<li><p>Inspect task inputs, outputs, devices, and timing</p></li>
+</ul>
 </section>
-<section id="launch-external-services">
-<h2>4. Launch External Services<a class="headerlink" href="#launch-external-services" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start external services (PostgreSQL and SeaweedFS)</span>
-docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-</pre></div>
-</div>
+<section id="campaigns">
+<h2>Campaigns<a class="headerlink" href="#campaigns" title="Link to this heading">#</a></h2>
+<p>The campaigns view manages repeated experiment execution and optimization.</p>
+<ul class="simple">
+<li><p>Submit campaigns with parameters as JSON/CSV, or via optimizer sampling</p></li>
+<li><p>Configure optimizer settings when optimization is enabled</p></li>
+<li><p>Monitor progress with optimization charts and Pareto front visualization</p></li>
+<li><p>Configurable auto-refresh intervals across all views</p></li>
+</ul>
 </section>
-<section id="start-eos">
-<h2>5. Start EOS<a class="headerlink" href="#start-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>start
-</pre></div>
-</div>
-<p>By default, EOS loads the “multiplication_lab” laboratory and “optimize_multiplication” experiment from an example
-package. You can modify this in the configuration file.</p>
+<section id="device-inspector">
+<h2>Device Inspector<a class="headerlink" href="#device-inspector" title="Link to this heading">#</a></h2>
+<p>The device inspector provides direct device interaction, especially useful for debugging and testing.</p>
+<ul class="simple">
+<li><p>Live device state monitoring</p></li>
+<li><p>Discover available RPC functions and their signatures</p></li>
+<li><p>Call device functions directly with specific parameter inputs</p></li>
+<li><p>View call history and results</p></li>
+</ul>
 </section>
-<section id="install-the-web-ui">
-<h2>6. Install the Web UI<a class="headerlink" href="#install-the-web-ui" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
-npm<span class="w"> </span>install
-</pre></div>
-</div>
+<section id="files">
+<h2>Files<a class="headerlink" href="#files" title="Link to this heading">#</a></h2>
+<p>The file browser provides access to EOS object storage (S3-compatible).</p>
+<ul class="simple">
+<li><p>Upload, download, delete, and search files</p></li>
+</ul>
 </section>
-<section id="configure-the-web-ui">
-<h2>7. Configure the Web UI<a class="headerlink" href="#configure-the-web-ui" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit .env and provide values</span>
-</pre></div>
-</div>
+<section id="management">
+<h2>Management<a class="headerlink" href="#management" title="Link to this heading">#</a></h2>
+<p>The management view handles system configuration.</p>
+<ul class="simple">
+<li><p><strong>Packages</strong> – Installed packages and their status</p></li>
+<li><p><strong>Labs</strong> – Load, unload, and reload laboratory configurations</p></li>
+<li><p><strong>Devices</strong> – Device health status and lab assignments</p></li>
+<li><p><strong>Task Plugins</strong> – Available task types and their parameter specs</p></li>
+<li><p><strong>Experiment Types</strong> – Load, unload, and reload experiment configurations</p></li>
+</ul>
 </section>
-<section id="start-the-web-ui-in-a-new-terminal">
-<h2>8. Start the Web UI (in a new terminal)<a class="headerlink" href="#start-the-web-ui-in-a-new-terminal" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>ui
-</pre></div>
-</div>
-<p>The web UI is available at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>.</p>
+<section id="logs">
+<h2>Logs<a class="headerlink" href="#logs" title="Link to this heading">#</a></h2>
+<p>A log panel accessible from the sidebar streams orchestrator logs in real time.</p>
 </section>
 </section>
 
@@ -507,20 +495,20 @@ npm<span class="w"> </span>install
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="scheduling.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">User Guide</p>
+        <p class="prev-next-title">Scheduling</p>
       </div>
     </a>
     <a class="right-next"
-       href="infrastructure_setup.html"
+       href="rest_api.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Infrastructure Setup</p>
+        <p class="prev-next-title">REST API</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -543,14 +531,14 @@ npm<span class="w"> </span>install
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-uv">1. Install uv</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-eos">2. Install EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">3. Configure EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-external-services">4. Launch External Services</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-eos">5. Start EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-the-web-ui">6. Install the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-the-web-ui">7. Configure the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-web-ui-in-a-new-terminal">8. Start the Web UI (in a new terminal)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#editor">Editor</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks">Tasks</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiments">Experiments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#campaigns">Campaigns</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-inspector">Device Inspector</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#files">Files</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#management">Management</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#logs">Logs</a></li>
 </ul>
   </nav></div>
 

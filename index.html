@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>The Experiment Orchestration System (EOS) &#8212; EOS - Experiment Orchestration System</title>
+    <title>The Experiment Orchestration System (EOS) &#8212; EOS</title>
   
   
   
@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=6141b7d8" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=0d43f618" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -41,9 +41,9 @@
   <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=ff8529b6"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/documentation_options.js?v=9b4af9f2"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
     <script src="_static/design-tabs.js?v=f930bc37"></script>
@@ -328,21 +328,31 @@
                   
   <section id="the-experiment-orchestration-system-eos">
 <h1>The Experiment Orchestration System (EOS)<a class="headerlink" href="#the-experiment-orchestration-system-eos" title="Link to this heading">#</a></h1>
-<p>EOS is a comprehensive software framework and runtime for laboratory automation, designed
+<p>EOS is a software framework and runtime for laboratory automation, designed
 to serve as the foundation for one or more automated or self-driving labs (SDLs).</p>
-<p>EOS provides:</p>
+<p><strong>Core</strong></p>
 <ul class="simple">
-<li><p>A common framework to implement laboratory automation</p></li>
-<li><p>A plugin system for defining labs, devices, experiments, tasks, and optimizers</p></li>
-<li><p>A package system for sharing and reusing code and resources across the community</p></li>
-<li><p>Extensive static and dynamic validation of experiments, task parameters, and more</p></li>
-<li><p>A runtime for executing tasks, experiments, and experiment campaigns</p></li>
-<li><p>A central authoritative orchestrator that can communicate with and control multiple devices</p></li>
-<li><p>Distributed task execution and optimization using the Ray framework</p></li>
-<li><p>Built-in Bayesian experiment parameter optimization</p></li>
-<li><p>Optimized task scheduling</p></li>
-<li><p>Device and sample container allocation system to prevent conflicts</p></li>
-<li><p>Result aggregation such as automatic output file storage</p></li>
+<li><p>Plugin system for defining labs, devices, tasks, experiments, and optimizers</p></li>
+<li><p>Package system for sharing and reusing automation code</p></li>
+<li><p>Validation of experiments, parameters, and configurations at load time and runtime</p></li>
+</ul>
+<p><strong>Execution &amp; Scheduling</strong></p>
+<ul class="simple">
+<li><p>Central orchestrator that coordinates devices and experiments across multiple computers</p></li>
+<li><p>Intelligent task scheduling with dynamic device and resource allocation</p></li>
+<li><p>Scheduling simulation for testing strategies offline without hardware</p></li>
+</ul>
+<p><strong>Optimization</strong></p>
+<ul class="simple">
+<li><p>Built-in Bayesian optimization for experiment campaigns, with single and multi-objective support</p></li>
+<li><p>Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning</p></li>
+</ul>
+<p><strong>Interfaces</strong></p>
+<ul class="simple">
+<li><p>Web UI with visual experiment editor, real-time monitoring, device inspector, and file browser</p></li>
+<li><p>REST API with OpenAPI documentation</p></li>
+<li><p>MCP server for connecting AI assistants</p></li>
+<li><p>SiLA 2 instrument protocol integration</p></li>
 </ul>
 <figure class="align-center">
 <img alt="Major features of EOS" src="_images/eos-features.png" />
@@ -363,8 +373,11 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
 <li class="toctree-l2"><a class="reference internal" href="user-guide/experiments.html">Experiments</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/campaigns.html">Campaigns</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/optimizers.html">Optimizers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/beacon_optimizer.html">Beacon Optimizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/scheduling.html">Scheduling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/web_ui.html">Web UI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/rest_api.html">REST API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user-guide/mcp.html">MCP Server</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/sila2_integration.html">SiLA 2 Integration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/jinja2_templating.html">Jinja2 Templating</a></li>
 <li class="toctree-l2"><a class="reference internal" href="user-guide/color_mixing.html">Color Mixing</a></li>
@@ -423,7 +436,7 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
 
   <p class="copyright">
     
-      © Copyright 2025, UNC Robotics.
+      © Copyright 2026, UNC Robotics.
       <br/>
     
   </p>
@@ -432,7 +445,7 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
         <div class="footer-item">
 
   <p class="sphinx-version">
-    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
     <br/>
   </p>
 </div>

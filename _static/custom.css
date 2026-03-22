@@ -2,6 +2,11 @@
   max-width: 100rem;  /* default is 88rem */
 }
 
+/* Prevent pydata theme from dimming figure images in dark mode */
+html[data-theme=dark] figure img:not(.only-dark) {
+  filter: none !important;
+}
+
 @media screen and (max-width: 541px) {
     .title.logo__title {
         display: none;

@@ -6,22 +6,32 @@
 The Experiment Orchestration System (EOS)
 =========================================
 
-EOS is a comprehensive software framework and runtime for laboratory automation, designed
+EOS is a software framework and runtime for laboratory automation, designed
 to serve as the foundation for one or more automated or self-driving labs (SDLs).
 
-EOS provides:
+**Core**
 
-* A common framework to implement laboratory automation
-* A plugin system for defining labs, devices, experiments, tasks, and optimizers
-* A package system for sharing and reusing code and resources across the community
-* Extensive static and dynamic validation of experiments, task parameters, and more
-* A runtime for executing tasks, experiments, and experiment campaigns
-* A central authoritative orchestrator that can communicate with and control multiple devices
-* Distributed task execution and optimization using the Ray framework
-* Built-in Bayesian experiment parameter optimization
-* Optimized task scheduling
-* Device and sample container allocation system to prevent conflicts
-* Result aggregation such as automatic output file storage
+* Plugin system for defining labs, devices, tasks, experiments, and optimizers
+* Package system for sharing and reusing automation code
+* Validation of experiments, parameters, and configurations at load time and runtime
+
+**Execution & Scheduling**
+
+* Central orchestrator that coordinates devices and experiments across multiple computers
+* Intelligent task scheduling with dynamic device and resource allocation
+* Scheduling simulation for testing strategies offline without hardware
+
+**Optimization**
+
+* Built-in Bayesian optimization for experiment campaigns, with single and multi-objective support
+* Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
+
+**Interfaces**
+
+* Web UI with visual experiment editor, real-time monitoring, device inspector, and file browser
+* REST API with OpenAPI documentation
+* MCP server for connecting AI assistants
+* SiLA 2 instrument protocol integration
 
 .. figure:: _static/img/eos-features.png
    :alt: Major features of EOS
@@ -58,12 +68,15 @@ User Guide
     experiments
     campaigns
     optimizers
+    beacon_optimizer
     scheduling
 
 .. toctree::
     :caption: Interfaces
 
+    web_ui
     rest_api
+    mcp
 
 .. toctree::
     :caption: Advanced
@@ -76,6 +89,192 @@ User Guide
 
     color_mixing
 
+# File: user-guide/beacon_optimizer.rst
+================================================================================
+
+Beacon Optimizer
+================
+The Beacon optimizer combines Bayesian optimization with AI-driven reasoning.
+At each sampling step, it probabilistically selects between an acquisition function and an AI model
+that reasons about experimental data to suggest new parameters.
+
+How It Works
+------------
+A weighted coin flip decides which strategy is used:
+
+* **Bayesian**: Uses an acquisition function over a surrogate model.
+* **AI**: Sends experimental history and domain constraints to an AI model that reasons about patterns
+  and suggests experiments. Suggestions are validated against the domain before being accepted.
+
+If the AI fails, Beacon falls back to Bayesian sampling automatically.
+Both strategies share the same result history.
+
+Why Hybrid?
+~~~~~~~~~~~
+* Bayesian optimizers treat the objective as a black box — AI can apply domain reasoning to make informed jumps.
+* AI models can hallucinate — the Bayesian component provides a mathematically grounded baseline.
+* The probabilistic mixing lets each strategy compensate for the other's weaknesses.
+
+Setting Up
+----------
+Modify your experiment's ``optimizer.py`` to return ``BeaconOptimizer``:
+
+:bdg-primary:`optimizer.py`
+
+.. code-block:: python
+
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
+    from bofire.data_models.enum import SamplingMethodEnum
+    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.objectives.identity import MinimizeObjective
+
+    from eos.optimization.beacon_optimizer import BeaconOptimizer
+    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+
+
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
+        constructor_args = {
+            "inputs": [
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+            ],
+            "outputs": [
+                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+            ],
+            "constraints": [],
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 2,
+            "initial_sampling_method": SamplingMethodEnum.SOBOL,
+            "p_bayesian": 0.5,
+            "p_ai": 0.5,
+            "ai_model": "claude-agent-sdk:sonnet",
+            "ai_model_settings": {
+                "effort": "high",
+            },
+            "ai_additional_context": "The loss is euclidean distance of RGB components.",
+        }
+
+        return constructor_args, BeaconOptimizer
+
+.. note::
+    Domain parameters (``inputs``, ``outputs``, ``constraints``, etc.) work identically to
+    ``BayesianSequentialOptimizer``. See the :doc:`optimizers` page for details.
+
+Parameter Reference
+-------------------
+
+Strategy Mix
+~~~~~~~~~~~~
+The **Bayesian / AI** slider controls the probability of each strategy at each sampling step.
+Default is 50/50. Fully **AI** makes Beacon AI-driven; fully **Bayesian** disables the AI agent.
+
+AI Model
+~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Field
+     - Default
+     - Description
+   * - **Model**
+     - ``claude-agent-sdk:sonnet``
+     - Select from the dropdown or type a custom ``provider:model`` value.
+   * - **Model Settings**
+     - (empty)
+     - JSON settings, e.g., ``{"temperature": 0.3}``.
+   * - **Retries**
+     - ``3``
+     - Max retries for invalid AI suggestions.
+
+**Model** examples:
+
+* ``claude-agent-sdk:sonnet`` — Claude Sonnet via Agent SDK **(recommended)**
+* ``anthropic:claude-sonnet-4-6`` — Claude Sonnet 4.6 (requires ``ANTHROPIC_API_KEY``)
+* ``openai:gpt-5.4`` — GPT-5.4 (requires ``OPENAI_API_KEY``)
+* ``google-gla:gemini-3.1-pro-preview`` — Gemini 3.1 Pro (requires ``GOOGLE_API_KEY``)
+* ``ollama:qwen3.5:9b`` — Qwen 3.5 9B via Ollama (no API key, see below)
+
+.. tip::
+    The ``claude-agent-sdk`` provider is recommended. It uses Claude Code's agentic harness with
+    Claude's frontier reasoning capabilities. Authenticates via a Claude subscription
+    (``~/.claude`` credentials) or an ``ANTHROPIC_API_KEY``.
+
+AI Context
+~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 15 65
+
+   * - Field
+     - Default
+     - Description
+   * - **History Size**
+     - ``50``
+     - Number of recent experiments included in the AI prompt.
+   * - **Additional Context**
+     - (empty)
+     - Free-text domain knowledge for the AI.
+   * - **Additional Parameters**
+     - (empty)
+     - Extra result columns shown to the AI as context (not optimized).
+       Example: ``analyze_color.red, analyze_color.green, analyze_color.blue``
+
+Claude Agent SDK
+----------------
+The ``claude-agent-sdk`` provider authenticates via Claude Code CLI credentials (``~/.claude``)
+or an ``ANTHROPIC_API_KEY``.
+
+Install the dependency:
+
+.. code-block:: shell
+
+    uv pip install --group claude_agent_sdk
+
+Then set **Model** to ``claude-agent-sdk:sonnet`` (or ``opus``, ``haiku``).
+
+Using Local Models with Ollama
+------------------------------
+Beacon supports local LLMs via `Ollama <https://ollama.com>`_.
+
+**1. Start Ollama** with sufficient context length:
+
+.. code-block:: shell
+
+    OLLAMA_CONTEXT_LENGTH=32000 ollama serve
+
+**2. Pull a model:**
+
+.. code-block:: shell
+
+    ollama pull qwen3.5:9b
+
+**3. Configure** in the web UI:
+
+* **Model** — ``ollama:qwen3.5:9b``
+* **Model Settings** — ``{"temperature": 0.3}``
+
+
+Runtime Parameters
+------------------
+These can be changed at runtime via the REST API or the web UI without restarting a campaign:
+strategy mix, history size, and additional context.
+
+Expert Insights
+~~~~~~~~~~~~~~~
+Send domain knowledge to the AI agent during a running campaign via the web UI or REST API:
+
+.. code-block:: shell
+
+    curl -X POST http://localhost:8070/campaigns/my_campaign/optimizer/insight \
+      -H "Content-Type: application/json" \
+      -d '{"insight": "High mixing speed causes foaming, avoid values above 180."}'
+
+Insights are included in the next AI prompt and persisted across campaign resumes.
 # File: user-guide/campaigns.rst
 ================================================================================
 
@@ -182,7 +381,7 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
             ],
             "constraints": [],
             "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 25,
+            "num_initial_samples": 10,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 
@@ -904,7 +1103,9 @@ YAML File (experiment.yml)
 Defines the experiment.
 Specifies the experiment type, labs, and tasks
 
-Below is an example experiment YAML file for an experiment to optimize parameters to synthesize a specific color:
+Below is the experiment YAML file for the :doc:`color mixing <color_mixing>` example.
+It uses a ``color_station`` device that handles both mixing and analysis, a ``robot_arm`` for moving containers,
+and a ``cleaning_station`` for cleanup:
 
 :bdg-primary:`experiment.yml`
 
@@ -918,14 +1119,16 @@ Below is an example experiment YAML file for an experiment to optimize parameter
 
     tasks:
       - name: retrieve_container
+        type: Retrieve Container
+        desc: Get a container from storage and move it to the color dispenser
+        duration: 5
         devices:
           robot_arm:
             lab_name: color_lab
             name: robot_arm
-          color_mixer:
+          color_station:
             allocation_type: dynamic
-            device_type: color_mixer
-            allowed_labs: [color_lab]
+            device_type: color_station
         resources:
           beaker:
             allocation_type: dynamic
@@ -933,8 +1136,11 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: []
 
       - name: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
+        duration: 20
         devices:
-          color_mixer: retrieve_container.color_mixer
+          color_station: retrieve_container.color_station
         resources:
           beaker: retrieve_container.beaker
         parameters:
@@ -950,28 +1156,20 @@ Below is an example experiment YAML file for an experiment to optimize parameter
           mixing_speed: eos_dynamic
         dependencies: [retrieve_container]
 
-      - name: move_container_to_analyzer
+      - name: analyze_color
+        type: Analyze Color
+        desc: Analyze the color of the solution in the container and output the RGB values
+        duration: 2
         devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          color_mixer: mix_colors.color_mixer
-          color_analyzer:
-            allocation_type: dynamic
-            device_type: color_analyzer
-            allowed_labs: [color_lab]
+          color_station: mix_colors.color_station
         resources:
           beaker: mix_colors.beaker
         dependencies: [mix_colors]
 
-      - name: analyze_color
-        devices:
-          color_analyzer: move_container_to_analyzer.color_analyzer
-        resources:
-          beaker: move_container_to_analyzer.beaker
-        dependencies: [move_container_to_analyzer]
-
       - name: score_color
+        type: Score Color
+        desc: Score the color based on the RGB values
+        duration: 1
         parameters:
           red: analyze_color.red
           green: analyze_color.green
@@ -982,6 +1180,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: [analyze_color]
 
       - name: empty_container
+        type: Empty Container
+        desc: Empty the container and move it to the cleaning station
+        duration: 5
         devices:
           robot_arm:
             lab_name: color_lab
@@ -997,6 +1198,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: [analyze_color]
 
       - name: clean_container
+        type: Clean Container
+        desc: Clean the container by rinsing it with distilled water
+        duration: 5
         devices:
           cleaning_station: empty_container.cleaning_station
         resources:
@@ -1006,6 +1210,9 @@ Below is an example experiment YAML file for an experiment to optimize parameter
         dependencies: [empty_container]
 
       - name: store_container
+        type: Store Container
+        desc: Store the container back in the container storage
+        duration: 5
         devices:
           robot_arm:
             lab_name: color_lab
@@ -1036,14 +1243,16 @@ Now let's look at the first task in the experiment:
 .. code-block:: yaml
 
     - name: retrieve_container
+      type: Retrieve Container
+      desc: Get a container from storage and move it to the color dispenser
+      duration: 5
       devices:
         robot_arm:
           lab_name: color_lab
           name: robot_arm
-        color_mixer:
+        color_station:
           allocation_type: dynamic
-          device_type: color_mixer
-          allowed_labs: [color_lab]
+          device_type: color_station
       resources:
         beaker:
           allocation_type: dynamic
@@ -1053,7 +1262,7 @@ Now let's look at the first task in the experiment:
 The first task is named ``retrieve_container``.
 This task demonstrates several key concepts:
 
-**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_mixer``).
+**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_station``).
 These names are used by the task implementation to access the device.
 
 **Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
@@ -1066,16 +1275,15 @@ These names are used by the task implementation to access the device.
 
 This tells EOS to use the specific robot arm device from the color_lab.
 
-**Dynamic Device Allocation**: The ``color_mixer`` uses dynamic allocation:
+**Dynamic Device Allocation**: The ``color_station`` uses dynamic allocation:
 
 .. code-block:: yaml
 
-    color_mixer:
+    color_station:
       allocation_type: dynamic
-      device_type: color_mixer
-      allowed_labs: [color_lab]
+      device_type: color_station
 
-The scheduler will automatically select an available ``color_mixer`` device from ``color_lab`` when this task is ready to execute.
+The scheduler will automatically select an available ``color_station`` device from the experiment's labs when this task is ready to execute.
 
 **Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
 
@@ -1084,8 +1292,11 @@ Let's look at the next task:
 .. code-block:: yaml
 
     - name: mix_colors
+      type: Mix Colors
+      desc: Mix the colors in the container
+      duration: 20
       devices:
-        color_mixer: retrieve_container.color_mixer
+        color_station: retrieve_container.color_station
       resources:
         beaker: retrieve_container.beaker
       parameters:
@@ -1103,8 +1314,8 @@ Let's look at the next task:
 
 This task demonstrates **device and resource references**:
 
-**Device Reference**: ``color_mixer: retrieve_container.color_mixer`` tells EOS that this task must use the same color_mixer device
-that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same mixer where it was placed.
+**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS that this task must use the same color_station device
+that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same station where it was placed.
 
 **Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
 
@@ -1116,14 +1327,17 @@ The ``analyze_color`` task shows another device reference:
 .. code-block:: yaml
 
     - name: analyze_color
+      type: Analyze Color
+      desc: Analyze the color of the solution in the container and output the RGB values
+      duration: 2
       devices:
-        color_analyzer: move_container_to_analyzer.color_analyzer
+        color_station: mix_colors.color_station
       resources:
-        beaker: move_container_to_analyzer.beaker
-      dependencies: [move_container_to_analyzer]
+        beaker: mix_colors.beaker
+      dependencies: [mix_colors]
 
-Here, ``color_analyzer`` references the dynamically allocated analyzer from the ``move_container_to_analyzer`` task,
-ensuring the analysis happens at the same analyzer where the beaker was moved.
+Here, ``color_station`` references the same station from the ``mix_colors`` task,
+ensuring the analysis happens at the same station where the color was mixed.
 
 Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1163,7 +1377,7 @@ As an example, below is the optimizer file for the color mixing experiment:
             ],
             "constraints": [],
             "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 50,
+            "num_initial_samples": 10,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 
@@ -1242,7 +1456,7 @@ uv manages dependencies for EOS.
     source .venv/bin/activate
 
     # Install dependencies
-    uv sync
+    uv sync --all-groups
 
 3. Configure EOS
 ^^^^^^^^^^^^^^^^
@@ -1274,6 +1488,31 @@ uv manages dependencies for EOS.
 
 By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
 package. You can modify this in the configuration file.
+
+6. Install the Web UI
+^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    cd web_ui
+    npm install
+
+7. Configure the Web UI
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    cp .env.example .env
+    # Edit .env and provide values
+
+8. Start the Web UI (in a new terminal)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    eos ui
+
+The web UI is available at ``http://localhost:3000``.
 
 # File: user-guide/jinja2_templating.rst
 ================================================================================
@@ -1593,35 +1832,42 @@ Each device must have a unique name inside the lab and must be defined in the ``
       spin_coater:
         desc: Spin coater for depositing perovskite and transport layers
         type: spin_coater
-        location: glovebox
         computer: eos_computer
+
+        meta:
+          location: glovebox
 
       uv_ozone_cleaner:
         desc: UV-Ozone cleaner for substrate treatment
         type: uv_ozone_cleaner
-        location: fume_hood
         computer: eos_computer
+
+        meta:
+          location: fume_hood
 
       thermal_evaporator:
         desc: Thermal evaporator for metal electrode deposition
         type: thermal_evaporator
-        location: evaporation_chamber
         computer: eos_computer
+
         init_parameters:
           max_temperature: 1000C
           materials: [Au, Ag, Al]
 
+        meta:
+          location: evaporation_chamber
+
 **type**: Every device must have a type, which matches a device specification (e.g., defined in the ``devices`` subdirectory
 of an EOS package).
 There can be multiple devices with different names of the same type.
-
-**location** (optional): The location where the device is at.
 
 **computer**: The computer that controls the device.
 If not "eos_computer", the computer must be defined in the "computers" section.
 
 **init_parameters** (optional): Parameters required to initialize the device.
 These parameters are defined in the device specification and can be overridden here.
+
+**meta** (optional): A dictionary of arbitrary metadata for the device instance (e.g., ``location``).
 
 Resources (Optional)
 """"""""""""""""""""
@@ -1670,6 +1916,89 @@ Resources are defined using two sections in the laboratory YAML file:
 * Each resource has a unique name (e.g., ``precursor_vial_1``)
 * **type**: The resource type (must match a defined ``resource_type``)
 * **meta** (optional): Instance-specific metadata, which overrides or extends the resource type's meta (e.g., current location)
+
+# File: user-guide/mcp.rst
+================================================================================
+
+MCP Server
+==========
+EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI.
+This allows AI assistants like Claude to interact with EOS directly, querying experiments, submitting campaigns, inspecting devices, and more.
+
+Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
+"check the status of my campaign", "submit 10 multiplication experiments", or "what functions does the pipette support?"
+
+.. warning::
+
+    The MCP endpoint currently has no authentication.
+    Only expose it in trusted environments (local network or behind a reverse proxy with auth).
+
+
+Connecting
+----------
+
+The MCP server is available at ``http://<web-ui-host>:3000/api/mcp`` using the Streamable HTTP transport.
+
+Claude Code
+~~~~~~~~~~~
+
+.. code-block:: bash
+
+    claude mcp add EOS http://localhost:3000/api/mcp --transport http
+
+Claude Desktop
+~~~~~~~~~~~~~~
+
+Add to your ``claude_desktop_config.json``:
+
+.. code-block:: json
+
+    {
+      "mcpServers": {
+        "EOS": {
+          "url": "http://localhost:3000/api/mcp",
+          "transport": "streamable-http"
+        }
+      }
+    }
+
+Other MCP Clients
+~~~~~~~~~~~~~~~~~
+
+Point any MCP-compatible client to ``http://localhost:3000/api/mcp`` with the **Streamable HTTP** transport.
+Replace ``localhost:3000`` with your web UI host and port if different.
+
+
+Capabilities
+------------
+
+The MCP server exposes 50 tools across the following categories:
+
+* **Campaigns, Experiments, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
+* **Definitions** -- Browse loaded task types, device types, lab layouts, and experiment workflows.
+* **Management** -- Load, unload, and reload labs, experiments, devices, and packages.
+* **Optimizer** -- Query optimizer state, update runtime parameters, and provide expert insights.
+* **Devices** -- List devices, inspect state, discover available RPC functions, and call them directly.
+* **SQL** -- Run read-only queries against the EOS database.
+* **Filesystem** -- Browse packages and read entity configuration files (YAML, Python).
+
+
+Examples
+--------
+
+These examples show natural language prompts you might give an AI assistant connected to EOS via MCP.
+
+.. code-block:: text
+
+    "Show me the status of the catalyst_screening campaign and list all completed experiments"
+
+    "Submit a color mixing experiment targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
+
+    "What devices are available in the wet lab? What functions does the liquid handler support?"
+
+    "How did the yield change across the last 10 experiments in the solubility campaign?"
+
+    "Reload the experiment definitions, I just updated the YAML for the pH optimization workflow"
 
 # File: user-guide/multi_computer_setup.rst
 ================================================================================
@@ -1789,7 +2118,7 @@ Below is an example:
             ],
             "constraints": [],
             "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 25,
+            "num_initial_samples": 10,
             "initial_sampling_method": SamplingMethodEnum.SOBOL,
         }
 
@@ -1802,7 +2131,12 @@ This function must return:
 #. The class type of the optimizer
 
 In this example, we use EOS' built-in Bayesian optimizer.
-However, it is also possible to define custom optimizers in this file, and simply return the constructor arguments and
+
+For most use cases, we recommend the :doc:`beacon_optimizer`, which combines Bayesian optimization with
+AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
+constraints) but adds an AI agent that reasons about experimental history to suggest smarter experiments.
+
+It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
 the class type from ``eos_create_campaign_optimizer``.
 
 .. note::
@@ -2212,14 +2546,156 @@ Example functions include:
 
 .. warning::
 
-    Be careful about who accesses the REST API.
-    The REST API currently has no authentication.
+    The REST API has no authentication. Only expose it on trusted networks.
+    Use a VPN or reverse proxy with auth if remote access is needed.
 
-    Only use it internally in its current state.
-    If you need to make it accessible over the web use a VPN and set up a firewall.
 
-    EOS will likely have control over expensive (and potentially dangerous) hardware and unchecked REST API access could
-    have severe consequences.
+Submitting Experiments
+----------------------
+Submit an experiment for execution. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
+
+**Endpoint:** ``POST /api/experiments``
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8070/api/experiments \
+         -H "Content-Type: application/json" \
+         -d '{
+              "name": "my_experiment_1",
+              "type": "color_mixing",
+              "owner": "alice",
+              "priority": 0,
+              "parameters": {
+                "mix_colors": {
+                    "cyan_volume": 10.0,
+                    "cyan_strength": 50.0,
+                    "magenta_volume": 5.0,
+                    "magenta_strength": 30.0,
+                    "yellow_volume": 8.0,
+                    "yellow_strength": 40.0,
+                    "black_volume": 2.0,
+                    "black_strength": 20.0,
+                    "mixing_time": 15,
+                    "mixing_speed": 150
+                },
+                "score_color": {
+                    "target_color": [47, 181, 49]
+                }
+              }
+        }'
+
+
+Submitting Campaigns
+--------------------
+Submit a campaign to run an experiment multiple times, optionally with optimizer-driven parameter selection.
+
+**Endpoint:** ``POST /api/campaigns``
+
+**With optimization** (optimizer proposes parameters each iteration):
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8070/api/campaigns \
+         -H "Content-Type: application/json" \
+         -d '{
+              "name": "color_optimization",
+              "experiment_type": "color_mixing",
+              "owner": "alice",
+              "priority": 0,
+              "max_experiments": 100,
+              "max_concurrent_experiments": 3,
+              "optimize": true,
+              "optimizer_ip": "127.0.0.1",
+              "global_parameters": {
+                "score_color": {
+                    "target_color": [47, 181, 49]
+                }
+              }
+        }'
+
+**Without optimization** (user provides all parameters):
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8070/api/campaigns \
+         -H "Content-Type: application/json" \
+         -d '{
+              "name": "color_sweep",
+              "experiment_type": "color_mixing",
+              "owner": "alice",
+              "max_experiments": 3,
+              "max_concurrent_experiments": 1,
+              "optimize": false,
+              "experiment_parameters": [
+                {"mix_colors": {"cyan_volume": 5, "cyan_strength": 50, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [0, 200, 200]}},
+                {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 5, "magenta_strength": 50, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 0, 200]}},
+                {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 5, "yellow_strength": 50, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 200, 0]}}
+              ]
+        }'
+
+.. note::
+
+    When ``optimize`` is ``false``, ``experiment_parameters`` must have exactly ``max_experiments`` entries.
+
+
+Submitting On-Demand Tasks
+--------------------------
+Submit a single task for execution outside of an experiment.
+
+**Endpoint:** ``POST /api/tasks``
+
+.. code-block:: bash
+
+    curl -X POST http://localhost:8070/api/tasks \
+         -H "Content-Type: application/json" \
+         -d '{
+              "name": "test_mix",
+              "type": "Mix Colors",
+              "devices": {
+                "color_station": {
+                  "lab_name": "color_lab",
+                  "name": "color_station_1"
+                }
+              },
+              "input_parameters": {
+                "cyan_volume": 10.0,
+                "cyan_strength": 50.0,
+                "magenta_volume": 5.0,
+                "magenta_strength": 30.0,
+                "yellow_volume": 8.0,
+                "yellow_strength": 40.0,
+                "black_volume": 2.0,
+                "black_strength": 20.0,
+                "mixing_time": 15,
+                "mixing_speed": 150
+              }
+        }'
+
+
+Cancelling
+----------
+Cancel a running experiment or campaign:
+
+.. code-block:: bash
+
+    # Cancel an experiment
+    curl -X POST http://localhost:8070/api/experiments/my_experiment_1/cancel
+
+    # Cancel a campaign
+    curl -X POST http://localhost:8070/api/campaigns/color_optimization/cancel
+
+
+Querying Status
+---------------
+Get the status of experiments and campaigns:
+
+.. code-block:: bash
+
+    # Get experiment details
+    curl http://localhost:8070/api/experiments/my_experiment_1
+
+    # Get campaign details
+    curl http://localhost:8070/api/campaigns/color_optimization
 
 
 Device RPC
@@ -2228,15 +2704,11 @@ EOS provides an RPC endpoint to call device functions directly through the REST 
 
 **Endpoint:** ``POST /api/rpc/{lab_id}/{device_id}/{function_name}``
 
-**Usage:**
-
 .. code-block:: bash
 
     curl -X POST "http://localhost:8070/api/rpc/my_lab/pipette/aspirate" \
          -H "Content-Type: application/json" \
          -d '{"volume": 50, "location": "A1"}'
-
-**Parameters:**
 
 * ``lab_id``: The laboratory ID
 * ``device_id``: The device ID within the lab
@@ -2258,7 +2730,6 @@ The REST API is documented using `OpenAPI <https://swagger.io/specification/>`_ 
     http://localhost:8070/docs
 
 or whatever host and port you have configured for the REST API server.
-
 # File: user-guide/scheduling.rst
 ================================================================================
 
@@ -2395,8 +2866,140 @@ For workflows that must run some tasks **back-to-back** without gaps (e.g., a ti
 .. note::
    The greedy scheduler does not support task groups.
 
-Comparion table
----------------
+Device and resource holds
+-------------------------
+When a task completes, its devices and resources are normally released immediately. In a multi-experiment
+environment another experiment could claim those resources before the successor task is scheduled. **Holds**
+prevent this by keeping the allocation locked until a successor in the same experiment picks it up.
+
+Add ``hold: true`` to any device or resource slot to enable holding:
+
+.. code-block:: yaml
+
+    tasks:
+      - name: setup
+        type: Noop
+        devices:
+          held_device:
+            lab_name: abstract_lab
+            name: D2
+            hold: true              # retain D2 after setup completes
+
+      - name: process
+        dependencies: [setup]
+        devices:
+          held_device:
+            ref: setup.held_device
+            hold: true              # keep holding for the next successor
+
+      - name: cleanup
+        dependencies: [process]
+        devices:
+          held_device: setup.held_device  # no hold, released after cleanup
+
+**How holds work**
+
+1. When a task with ``hold: true`` completes and has pending successors, its allocation is marked *held*
+   rather than released.
+2. Held allocations are **transparent** to successor tasks in the same experiment: they see the device or
+   resource as available.
+3. The hold is released when a successor picks it up without setting ``hold: true``, when no pending
+   successors remain, or when the experiment ends.
+
+Holds work with every assignment type: specific devices (``lab_name``/``name``), dynamic devices
+(``allocation_type: dynamic``), device references, specific resources, dynamic resources, and
+resource references. Use the ``ref:`` object form (instead of the short string form) when you need to
+combine a reference with ``hold: true``.
+
+.. code-block:: yaml
+
+    # Dynamic device with hold
+    devices:
+      analyzer:
+        allocation_type: dynamic
+        device_type: color_analyzer
+        hold: true
+
+    # Dynamic resource with hold
+    resources:
+      beaker:
+        allocation_type: dynamic
+        resource_type: beaker
+        hold: true
+
+Both schedulers fully support holds.
+
+.. tip::
+   See :doc:`references` for details on passing devices and resources between tasks.
+
+Experiment priorities
+---------------------
+Each experiment has an integer priority (default **0**; higher values = higher importance). Priority is set at
+submission time via the REST API or a campaign definition, not in ``experiment.yml``.
+
+- **CP-SAT**: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
+  that higher-priority experiments get earlier task start times.
+- **Greedy**: processes experiments in priority order each scheduling cycle, giving higher-priority experiments
+  first pick of available devices and resources.
+
+CP-SAT parameters
+-----------------
+The CP-SAT scheduler exposes solver parameters that can be tuned for large or complex problem instances:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 35 15 50
+
+   * - Parameter
+     - Default
+     - Description
+   * - ``max_time_in_seconds``
+     - 15.0
+     - Maximum solver time per scheduling cycle (seconds).
+   * - ``num_search_workers``
+     - 4
+     - Number of CPU threads used by the solver.
+
+.. note::
+   The defaults work well for most workloads. Increase ``max_time_in_seconds`` for very large experiment
+   graphs where the solver needs more time to find a good schedule.
+
+Scheduling simulation
+---------------------
+EOS provides a discrete-event simulator (``eos sim``) for testing scheduler behavior offline without running
+actual hardware. It is useful for comparing greedy vs. CP-SAT, estimating throughput, and identifying
+bottlenecks.
+
+.. code-block:: bash
+
+    eos sim sim_config.yml --scheduler cpsat --jitter 0.1 --seed 42 --verbose
+
+**CLI options**
+
+- ``--scheduler / -s``: ``greedy`` (default) or ``cpsat``.
+- ``--jitter``: fraction of duration variance (e.g., ``0.1`` = ±10 %).
+- ``--seed``: random seed for reproducible runs.
+- ``--verbose / -v``: print scheduling decisions.
+- ``--user-dir / -u``: path to EOS packages directory (default ``./user``).
+
+**Simulation config**
+
+:bdg-primary:`sim_config.yml`
+
+.. code-block:: yaml
+
+    packages:
+      - my_package
+    experiments:
+      - type: my_experiment
+        iterations: 10
+        max_concurrent: 3
+
+**Output** includes a timeline of task START/DONE events, per-device and per-resource utilization percentages,
+parallelism metrics (max and average concurrent tasks), and scheduler overhead statistics.
+
+Comparison table
+----------------
 .. list-table::
    :header-rows: 1
    :widths: 28 36 36
@@ -2410,6 +3013,9 @@ Comparion table
    * - Optimization goal
      - ✅ Start tasks ASAP
      - ✅ Minimize experiment durations
+   * - Device/resource holds
+     - ✅ Supported
+     - ✅ Supported
    * - Task groups
      - ❌ Not supported
      - ✅ Supported
@@ -2948,4 +3554,91 @@ The function takes three arguments:
     Keys are the parameter names and values are the parameter values.
 #. ``resources``: A dictionary of the input resources.
     Keys are the resource names and values are ``Resource`` objects.
+
+# File: user-guide/web_ui.rst
+================================================================================
+
+Web UI
+======
+EOS includes a rich web UI for visually designing experiments, monitoring execution, controlling devices,
+browsing results, and more. It connects to the EOS orchestrator and provides real-time updates.
+
+Access it at ``http://localhost:3000`` (default host and port).
+
+.. figure:: /_static/img/eos-ui.png
+   :align: center
+
+   Screenshot of the EOS web UI editor view.
+
+
+Editor
+------
+The editor is the central workspace for designing and building EOS packages.
+
+* Visual experiment designer with interactive task graphs showing dependencies and data flow
+* Build experiments by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
+* Seamless switching between visual and code views (changes sync both ways)
+* Reload tasks, devices, labs, and experiments without restarting EOS
+* Syntax-highlighted code editing for YAML configs and Python code
+* Package file tree for creating, renaming, and deleting entities
+
+
+Tasks
+-----
+The tasks view manages individual task submissions.
+
+* Submit tasks using specific devices and input parameters
+* Clone previous tasks for easy re-submission
+
+
+Experiments
+-----------
+The experiments view tracks individual experiment execution.
+
+* Submit experiments with specific task parameters
+* Visual task flow graph with real-time status updates (pending, running, completed, failed)
+* Inspect task inputs, outputs, devices, and timing
+
+
+Campaigns
+---------
+The campaigns view manages repeated experiment execution and optimization.
+
+* Submit campaigns with parameters as JSON/CSV, or via optimizer sampling
+* Configure optimizer settings when optimization is enabled
+* Monitor progress with optimization charts and Pareto front visualization
+* Configurable auto-refresh intervals across all views
+
+
+Device Inspector
+----------------
+The device inspector provides direct device interaction, especially useful for debugging and testing.
+
+* Live device state monitoring
+* Discover available RPC functions and their signatures
+* Call device functions directly with specific parameter inputs
+* View call history and results
+
+
+Files
+-----
+The file browser provides access to EOS object storage (S3-compatible).
+
+* Upload, download, delete, and search files
+
+
+Management
+----------
+The management view handles system configuration.
+
+* **Packages** -- Installed packages and their status
+* **Labs** -- Load, unload, and reload laboratory configurations
+* **Devices** -- Device health status and lab assignments
+* **Task Plugins** -- Available task types and their parameter specs
+* **Experiment Types** -- Load, unload, and reload experiment configurations
+
+
+Logs
+----
+A log panel accessible from the sidebar streams orchestrator logs in real time.
 

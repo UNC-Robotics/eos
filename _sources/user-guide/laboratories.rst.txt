@@ -190,35 +190,42 @@ Each device must have a unique name inside the lab and must be defined in the ``
       spin_coater:
         desc: Spin coater for depositing perovskite and transport layers
         type: spin_coater
-        location: glovebox
         computer: eos_computer
+
+        meta:
+          location: glovebox
 
       uv_ozone_cleaner:
         desc: UV-Ozone cleaner for substrate treatment
         type: uv_ozone_cleaner
-        location: fume_hood
         computer: eos_computer
+
+        meta:
+          location: fume_hood
 
       thermal_evaporator:
         desc: Thermal evaporator for metal electrode deposition
         type: thermal_evaporator
-        location: evaporation_chamber
         computer: eos_computer
+
         init_parameters:
           max_temperature: 1000C
           materials: [Au, Ag, Al]
 
+        meta:
+          location: evaporation_chamber
+
 **type**: Every device must have a type, which matches a device specification (e.g., defined in the ``devices`` subdirectory
 of an EOS package).
 There can be multiple devices with different names of the same type.
-
-**location** (optional): The location where the device is at.
 
 **computer**: The computer that controls the device.
 If not "eos_computer", the computer must be defined in the "computers" section.
 
 **init_parameters** (optional): Parameters required to initialize the device.
 These parameters are defined in the device specification and can be overridden here.
+
+**meta** (optional): A dictionary of arbitrary metadata for the device instance (e.g., ``location``).
 
 Resources (Optional)
 """"""""""""""""""""

@@ -45,7 +45,7 @@ uv manages dependencies for EOS.
     source .venv/bin/activate
 
     # Install dependencies
-    uv sync
+    uv sync --all-groups
 
 3. Configure EOS
 ^^^^^^^^^^^^^^^^
@@ -77,3 +77,28 @@ uv manages dependencies for EOS.
 
 By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
 package. You can modify this in the configuration file.
+
+6. Install the Web UI
+^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    cd web_ui
+    npm install
+
+7. Configure the Web UI
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    cp .env.example .env
+    # Edit .env and provide values
+
+8. Start the Web UI (in a new terminal)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    eos ui
+
+The web UI is available at ``http://localhost:3000``.
