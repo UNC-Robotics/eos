@@ -5,6 +5,8 @@ import { getPackages } from '@/features/management/api/packages';
 import { getTaskPlugins } from '@/features/management/api/taskPlugins';
 import { getExperimentTypes } from '@/features/management/api/experimentTypes';
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: 'System Management - EOS',
   description: 'Manage packages, devices, labs, task plugins, and experiment types',

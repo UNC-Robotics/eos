@@ -3,6 +3,8 @@ import { TasksTable } from '@/features/tasks/components/TasksTable';
 import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
 import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
 
+export const dynamic = "force-dynamic";
+
 export default async function TasksPage() {
   const [tasks, rawTaskSpecs, labSpecs] = await Promise.all([
     getTasks(),

@@ -5,6 +5,8 @@ import { getExperimentWithTaskStatuses } from '@/features/experiments/api/experi
 import { getExperimentSpecs } from '@/lib/api/specs';
 import { ExperimentExecutionView } from '@/features/experiments/components/ExperimentExecutionView';
 
+export const dynamic = "force-dynamic";
+
 interface ExperimentDetailPageProps {
   params: Promise<{
     experimentName: string;

@@ -3,6 +3,8 @@ import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
 import type { Package, EntityType } from '@/lib/types/filesystem';
 import type { ParameterSpec } from '@/lib/types/experiment';
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: 'Editor',
   description: 'Edit EOS packages, experiments, devices, tasks, and labs',

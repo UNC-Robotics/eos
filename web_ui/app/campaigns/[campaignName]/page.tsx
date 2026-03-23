@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { getCampaignWithDetails } from '@/features/campaigns/api/campaignDetails';
 import { CampaignExecutionView } from '@/features/campaigns/components/CampaignExecutionView';
 
+export const dynamic = "force-dynamic";
+
 interface CampaignDetailPageProps {
   params: Promise<{
     campaignName: string;

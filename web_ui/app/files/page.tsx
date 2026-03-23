@@ -1,6 +1,8 @@
 import { browseFiles } from '@/features/files/api/files';
 import { FileBrowser } from '@/features/files/components/FileBrowser';
 
+export const dynamic = "force-dynamic";
+
 export default async function FilesPage() {
   const initialData = await browseFiles('');
 
