@@ -1,0 +1,23 @@
+services:
+  eos-web-ui:
+    build: .
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ORCHESTRATOR_API_URL: ${ORCHESTRATOR_API_URL}
+      USER_DIR: /app/user
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      EOS_S3_BUCKET: ${EOS_S3_BUCKET}
+      EOS_S3_ENDPOINT_URL: ${EOS_S3_ENDPOINT_URL}
+      EOS_S3_ACCESS_KEY_ID: ${EOS_S3_ACCESS_KEY_ID}
+      EOS_S3_SECRET_ACCESS_KEY: ${EOS_S3_SECRET_ACCESS_KEY}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ${USER_DIR}:/app/user
+    networks:
+      - eos_network
+
+networks:
+  eos_network:
+    name: eos_network
+    driver: bridge
