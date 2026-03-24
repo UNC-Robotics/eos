@@ -4,7 +4,7 @@ import { getExperimentSpecs, getTaskSpecs } from '@/lib/api/specs';
 import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
 
 export default async function CampaignsPage() {
-  const [campaigns, experimentSpecs, rawTaskSpecs] = await Promise.all([
+  const [initialData, experimentSpecs, rawTaskSpecs] = await Promise.all([
     getCampaigns(),
     getExperimentSpecs(true),
     getTaskSpecs(),
@@ -51,7 +51,7 @@ export default async function CampaignsPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <CampaignsTable initialCampaigns={campaigns} experimentSpecs={experimentSpecs} taskSpecs={taskSpecs} />
+      <CampaignsTable initialData={initialData} experimentSpecs={experimentSpecs} taskSpecs={taskSpecs} />
     </div>
   );
 }

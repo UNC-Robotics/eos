@@ -151,10 +151,7 @@ export function Toolbar({ labSpecs, onAutoLayout, onExportImage, onValidate }: T
           <span>Export Image</span>
         </button>
 
-        <OptimizerButton
-          onClick={() => setIsOptimizerPanelOpen(!isOptimizerPanelOpen)}
-          isOpen={isOptimizerPanelOpen}
-        />
+        <OptimizerButton onClick={() => setIsOptimizerPanelOpen(!isOptimizerPanelOpen)} isOpen={isOptimizerPanelOpen} />
       </div>
     </div>
   );

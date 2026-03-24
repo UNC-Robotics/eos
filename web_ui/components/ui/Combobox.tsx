@@ -148,14 +148,10 @@ export function Combobox({
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                  {value === searchQuery.trim() && (
-                    <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  )}
+                  {value === searchQuery.trim() && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
                 </span>
                 <div className="ml-3 flex flex-col items-start min-w-0 flex-1">
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    Use: {searchQuery.trim()}
-                  </span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Use: {searchQuery.trim()}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">Custom model</span>
                 </div>
               </button>

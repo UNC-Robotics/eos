@@ -38,9 +38,17 @@ interface SubmitTaskDialogProps {
   taskSpecs: Record<string, TaskSpec>;
   labSpecs: Record<string, LabSpec>;
   initialTask?: Task | null;
+  generateCloneName: (name: string) => Promise<string>;
 }
 
-export function SubmitTaskDialog({ open, onOpenChange, taskSpecs, labSpecs, initialTask }: SubmitTaskDialogProps) {
+export function SubmitTaskDialog({
+  open,
+  onOpenChange,
+  taskSpecs,
+  labSpecs,
+  initialTask,
+  generateCloneName,
+}: SubmitTaskDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [taskTypes, setTaskTypes] = React.useState<ComboboxOption[]>([]);
@@ -99,7 +107,7 @@ export function SubmitTaskDialog({ open, onOpenChange, taskSpecs, labSpecs, init
       populatedFromTaskRef.current = initialTask.name;
 
       // Populate form fields
-      setValue('name', `${initialTask.name}_clone`);
+      generateCloneName(initialTask.name).then((name) => setValue('name', name));
       setValue('type', initialTask.type);
       setValue('priority', initialTask.priority ?? 0);
       setValue('allocation_timeout', initialTask.allocation_timeout ?? 0);
@@ -129,7 +137,7 @@ export function SubmitTaskDialog({ open, onOpenChange, taskSpecs, labSpecs, init
         setInputResources({});
       }
     }
-  }, [initialTask, setValue]);
+  }, [initialTask, generateCloneName, setValue]);
 
   // Load task spec when type changes
   React.useEffect(() => {

@@ -58,15 +58,11 @@ export function parseExperimentParametersCsv(csv: string): ExperimentParams {
   // Validate dot notation headers
   for (const header of headers) {
     if (!header.includes('.')) {
-      throw new Error(
-        `Invalid column header "${header}": expected dot notation "task_name.param_name"`
-      );
+      throw new Error(`Invalid column header "${header}": expected dot notation "task_name.param_name"`);
     }
     const parts = header.split('.');
     if (parts.length !== 2 || !parts[0] || !parts[1]) {
-      throw new Error(
-        `Invalid column header "${header}": expected exactly "task_name.param_name"`
-      );
+      throw new Error(`Invalid column header "${header}": expected exactly "task_name.param_name"`);
     }
   }
 
@@ -137,8 +133,8 @@ export function parseExperimentParameters(text: string): ExperimentParams {
     } catch {
       throw new Error(
         'Could not parse experiment parameters as JSON or CSV. ' +
-        'JSON should be an array like [{"task": {"param": value}}]. ' +
-        'CSV should have dot-notation headers like "task.param".'
+          'JSON should be an array like [{"task": {"param": value}}]. ' +
+          'CSV should have dot-notation headers like "task.param".'
       );
     }
   }

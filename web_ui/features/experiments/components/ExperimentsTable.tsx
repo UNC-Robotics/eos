@@ -11,9 +11,12 @@ import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { ExperimentDetail } from './shared';
 import { DROPDOWN_ITEM } from '../styles';
 import type { Experiment } from '@/lib/types/api';
+import type { PaginatedResult } from '@/lib/db/queries';
 import type { TaskSpec } from '@/lib/types/experiment';
 import type { ExperimentSpec, LabSpec } from '@/lib/api/specs';
 import { cancelExperiment, getExperiments } from '@/features/experiments/api/experiments';
+import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
+import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitExperimentDialog } from './SubmitExperimentDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
@@ -27,19 +30,21 @@ const EXPERIMENTS_POLLING_INTERVALS = [
   { label: '1m', value: 60000 },
 ];
 
+const EXPERIMENT_COLUMN_ID_MAP: Record<string, string> = {
+  created_at: 'createdAt',
+};
+
 interface ExperimentsTableProps {
-  initialExperiments: Experiment[];
+  initialData: PaginatedResult<Experiment>;
   experimentSpecs: Record<string, ExperimentSpec>;
   taskSpecs: Record<string, TaskSpec>;
   labSpecs: Record<string, LabSpec>;
 }
 
-export function ExperimentsTable({ initialExperiments, experimentSpecs, taskSpecs, labSpecs }: ExperimentsTableProps) {
+export function ExperimentsTable({ initialData, experimentSpecs, taskSpecs, labSpecs }: ExperimentsTableProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
-  const [experiments, setExperiments] = React.useState<Experiment[]>(initialExperiments);
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [pollingInterval, setPollingInterval] = React.useState(5000); // Default: 5s
+  const [pollingInterval, setPollingInterval] = React.useState(5000);
   const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
   const [cancellingExperiment, setCancellingExperiment] = React.useState<string | null>(null);
   const [selectedExperiment, setSelectedExperiment] = React.useState<Experiment | null>(null);
@@ -47,9 +52,29 @@ export function ExperimentsTable({ initialExperiments, experimentSpecs, taskSpec
   const [experimentToClone, setExperimentToClone] = React.useState<Experiment | null>(null);
   const [experimentToCancel, setExperimentToCancel] = React.useState<string | null>(null);
 
+  const serverTable = useServerTable({
+    fetchFn: getExperiments,
+    initialData,
+    columnIdMap: EXPERIMENT_COLUMN_ID_MAP,
+  });
+
+  React.useEffect(() => {
+    if (pollingInterval === 0) return;
+    const intervalId = setInterval(() => {
+      serverTable.refresh();
+    }, pollingInterval);
+    return () => clearInterval(intervalId);
+  }, [pollingInterval, serverTable.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => {
+    if (selectedExperiment) {
+      const updated = serverTable.data.find((e) => e.name === selectedExperiment.name);
+      if (updated) setSelectedExperiment(updated);
+    }
+  }, [serverTable.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCancelExperiment = async () => {
     if (!experimentToCancel) return;
-
     setCancellingExperiment(experimentToCancel);
     try {
       const result = await cancelExperiment(experimentToCancel);
@@ -78,44 +103,8 @@ export function ExperimentsTable({ initialExperiments, experimentSpecs, taskSpec
 
   const handleCloseSubmitDialog = (open: boolean) => {
     setSubmitDialogOpen(open);
-    if (!open) {
-      // Clear clone state when dialog closes
-      setExperimentToClone(null);
-    }
+    if (!open) setExperimentToClone(null);
   };
-
-  const handleRefresh = React.useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const freshExperiments = await getExperiments();
-      setExperiments(freshExperiments);
-
-      // Update selected experiment if it's still in the list
-      if (selectedExperiment) {
-        const updatedExperiment = freshExperiments.find((e) => e.name === selectedExperiment.name);
-        if (updatedExperiment) {
-          setSelectedExperiment(updatedExperiment);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to refresh experiments:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [selectedExperiment]);
-
-  // Auto-polling effect
-  React.useEffect(() => {
-    if (pollingInterval === 0) {
-      return; // Polling disabled
-    }
-
-    const intervalId = setInterval(() => {
-      handleRefresh();
-    }, pollingInterval);
-
-    return () => clearInterval(intervalId);
-  }, [pollingInterval, handleRefresh]);
 
   const columns: DataTableColumnDef<Experiment>[] = [
     {
@@ -231,8 +220,8 @@ export function ExperimentsTable({ initialExperiments, experimentSpecs, taskSpec
     <RefreshControl
       pollingInterval={pollingInterval}
       onIntervalChange={setPollingInterval}
-      onRefresh={handleRefresh}
-      isRefreshing={isRefreshing}
+      onRefresh={serverTable.refresh}
+      isRefreshing={serverTable.isLoading}
       intervals={EXPERIMENTS_POLLING_INTERVALS}
     />
   );
@@ -260,10 +249,18 @@ export function ExperimentsTable({ initialExperiments, experimentSpecs, taskSpec
 
         <DataTable
           columns={columns}
-          data={experiments}
+          data={serverTable.data}
           searchPlaceholder="Search experiments..."
           onRowClick={handleRowClick}
           toolbarActions={toolbarActions}
+          manualPagination
+          totalRows={serverTable.totalRows}
+          pageIndex={serverTable.pageIndex}
+          pageSize={serverTable.pageSize}
+          onPaginationChange={serverTable.onPaginationChange}
+          onSortingChange={serverTable.onSortingChange}
+          onColumnFiltersChange={serverTable.onColumnFiltersChange}
+          onGlobalFilterChange={serverTable.onGlobalFilterChange}
         />
 
         <SubmitExperimentDialog
@@ -273,6 +270,7 @@ export function ExperimentsTable({ initialExperiments, experimentSpecs, taskSpec
           taskSpecs={taskSpecs}
           labSpecs={labSpecs}
           initialExperiment={experimentToClone}
+          generateCloneName={(name) => generateCloneNameForEntity('experiments', name)}
         />
       </div>
 

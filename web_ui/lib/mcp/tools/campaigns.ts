@@ -29,7 +29,8 @@ export function registerCampaignTools(server: McpServer) {
     'get_campaign',
     {
       title: 'Get Campaign',
-      description: 'Get campaign configuration and metadata (status, parameters, timestamps). Does not include experiments or samples.',
+      description:
+        'Get campaign configuration and metadata (status, parameters, timestamps). Does not include experiments or samples.',
       inputSchema: {
         name: z.string().describe('Campaign name'),
       },

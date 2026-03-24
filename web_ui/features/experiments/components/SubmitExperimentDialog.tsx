@@ -41,6 +41,7 @@ interface SubmitExperimentDialogProps {
   taskSpecs: Record<string, TaskSpec>;
   labSpecs: Record<string, LabSpec>;
   initialExperiment?: Experiment | null;
+  generateCloneName: (name: string) => Promise<string>;
 }
 
 export function SubmitExperimentDialog({
@@ -50,6 +51,7 @@ export function SubmitExperimentDialog({
   taskSpecs,
   labSpecs: _labSpecs,
   initialExperiment,
+  generateCloneName,
 }: SubmitExperimentDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -101,7 +103,7 @@ export function SubmitExperimentDialog({
     if (initialExperiment && populatedFromExpRef.current !== initialExperiment.name) {
       populatedFromExpRef.current = initialExperiment.name;
 
-      setValue('name', `${initialExperiment.name}_clone`);
+      generateCloneName(initialExperiment.name).then((name) => setValue('name', name));
       setValue('type', initialExperiment.type);
       setValue('owner', initialExperiment.owner);
       setValue('priority', initialExperiment.priority ?? 0);
@@ -128,7 +130,7 @@ export function SubmitExperimentDialog({
         setExpandedTasks(new Set());
       }
     }
-  }, [initialExperiment, experimentSpecs, setValue]);
+  }, [initialExperiment, experimentSpecs, generateCloneName, setValue]);
 
   // Load experiment spec when type changes
   React.useEffect(() => {

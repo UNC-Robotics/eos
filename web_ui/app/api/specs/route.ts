@@ -10,9 +10,7 @@ import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
  * Must match the transformation in app/editor/page.tsx.
  */
 function transformTaskSpec(type: string, spec: DbTaskSpec & { packageName: string }): TaskSpec {
-  const deviceTypes = spec.devices
-    ? Array.from(new Set(Object.values(spec.devices).map((d) => d.type)))
-    : [];
+  const deviceTypes = spec.devices ? Array.from(new Set(Object.values(spec.devices).map((d) => d.type))) : [];
 
   const inputDevices = spec.devices
     ? Object.fromEntries(Object.entries(spec.devices).map(([key, device]) => [key, { type: device.type, desc: '' }]))

@@ -116,7 +116,9 @@ function JsonTextarea({
       {...props}
       value={localText}
       onChange={(e) => setLocalText(e.target.value)}
-      onFocus={() => { focusedRef.current = true; }}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
       onBlur={() => {
         onChange(jsonParse(localText));
         focusedRef.current = false;

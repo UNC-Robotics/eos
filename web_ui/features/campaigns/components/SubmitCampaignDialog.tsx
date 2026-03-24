@@ -44,41 +44,13 @@ const campaignFormSchema = z.object({
 
 type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 
-function generateUniqueCloneName(originalName: string, existingNames: string[]): string {
-  // Strip any existing _clone or _cloneN suffix from the original name to get the base name
-  const baseName = originalName.replace(/_clone\d*$/, '');
-
-  const candidate1 = `${baseName}_clone`;
-
-  if (!existingNames.includes(candidate1)) {
-    return candidate1;
-  }
-
-  // Find all existing campaigns matching {baseName}_cloneN (where N is a number)
-  const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_clone(\\d*)$`);
-  const numbers: number[] = [];
-
-  for (const name of existingNames) {
-    const match = name.match(pattern);
-    if (match) {
-      const numStr = match[1];
-      numbers.push(numStr ? parseInt(numStr, 10) : 0);
-    }
-  }
-
-  const maxNum = numbers.length > 0 ? Math.max(...numbers) : -1;
-  const nextNum = maxNum + 1;
-
-  return nextNum === 0 ? candidate1 : `${baseName}_clone${nextNum}`;
-}
-
 interface SubmitCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   experimentSpecs: Record<string, ExperimentSpec>;
   taskSpecs: Record<string, TaskSpec>;
   initialCampaign?: Campaign | null;
-  existingCampaignNames: string[];
+  generateCloneName: (name: string) => Promise<string>;
 }
 
 function GlobalParametersSection({
@@ -181,7 +153,7 @@ export function SubmitCampaignDialog({
   experimentSpecs,
   taskSpecs,
   initialCampaign,
-  existingCampaignNames,
+  generateCloneName,
 }: SubmitCampaignDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -245,7 +217,7 @@ export function SubmitCampaignDialog({
     if (initialCampaign && populatedFromCampaignRef.current !== initialCampaign.name) {
       populatedFromCampaignRef.current = initialCampaign.name;
 
-      setValue('name', generateUniqueCloneName(initialCampaign.name, existingCampaignNames));
+      generateCloneName(initialCampaign.name).then((name) => setValue('name', name));
       setValue('experiment_type', initialCampaign.experiment_type);
       setValue('owner', initialCampaign.owner);
       setValue('priority', initialCampaign.priority ?? 0);
@@ -284,7 +256,7 @@ export function SubmitCampaignDialog({
         setExpandedTasks(new Set());
       }
     }
-  }, [initialCampaign, experimentSpecs, setValue]);
+  }, [initialCampaign, experimentSpecs, generateCloneName, setValue]);
 
   // Load experiment spec when type changes
   React.useEffect(() => {
@@ -452,205 +424,204 @@ export function SubmitCampaignDialog({
 
   return (
     <Tooltip.Provider delayDuration={300}>
-    <BaseSubmitDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Submit Campaign"
-      submitLabel="Submit Campaign"
-      isSubmitting={isSubmitting}
-      error={error}
-      onSubmit={handleSubmit(onSubmit)}
-      maxWidth="3xl"
-      headerActions={
-        <Button variant="outline" size="sm" onClick={handleClear} className="gap-2">
-          <Eraser className="w-4 h-4" />
-          Clear
-        </Button>
-      }
-    >
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Campaign Name *</Label>
-          <Input id="name" {...register('name')} error={errors.name?.message} placeholder="my_campaign" />
+      <BaseSubmitDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Submit Campaign"
+        submitLabel="Submit Campaign"
+        isSubmitting={isSubmitting}
+        error={error}
+        onSubmit={handleSubmit(onSubmit)}
+        maxWidth="3xl"
+        headerActions={
+          <Button variant="outline" size="sm" onClick={handleClear} className="gap-2">
+            <Eraser className="w-4 h-4" />
+            Clear
+          </Button>
+        }
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Campaign Name *</Label>
+            <Input id="name" {...register('name')} error={errors.name?.message} placeholder="my_campaign" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="experiment_type">Experiment Type *</Label>
+            <Combobox
+              options={experimentTypeOptions}
+              value={experimentType}
+              onChange={(value) => setValue('experiment_type', value, { shouldValidate: true })}
+              placeholder="Select experiment type"
+              searchPlaceholder="Search experiment types..."
+              emptyText="No experiment types found"
+            />
+            {errors.experiment_type && <p className="text-sm text-red-600">{errors.experiment_type.message}</p>}
+          </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="experiment_type">Experiment Type *</Label>
-          <Combobox
-            options={experimentTypeOptions}
-            value={experimentType}
-            onChange={(value) => setValue('experiment_type', value, { shouldValidate: true })}
-            placeholder="Select experiment type"
-            searchPlaceholder="Search experiment types..."
-            emptyText="No experiment types found"
-          />
-          {errors.experiment_type && <p className="text-sm text-red-600">{errors.experiment_type.message}</p>}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="owner">Owner *</Label>
-        <Input id="owner" {...register('owner')} error={errors.owner?.message} placeholder="user1" />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="priority">Priority</Label>
-          <Input
-            id="priority"
-            type="number"
-            {...register('priority', { valueAsNumber: true })}
-            error={errors.priority?.message}
-          />
+          <Label htmlFor="owner">Owner *</Label>
+          <Input id="owner" {...register('owner')} error={errors.owner?.message} placeholder="user1" />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="max_experiments">Max Experiments</Label>
-          <Input
-            id="max_experiments"
-            type="number"
-            {...register('max_experiments', { valueAsNumber: true })}
-            error={errors.max_experiments?.message}
-          />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="priority">Priority</Label>
+            <Input
+              id="priority"
+              type="number"
+              {...register('priority', { valueAsNumber: true })}
+              error={errors.priority?.message}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max_experiments">Max Experiments</Label>
+            <Input
+              id="max_experiments"
+              type="number"
+              {...register('max_experiments', { valueAsNumber: true })}
+              error={errors.max_experiments?.message}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max_concurrent_experiments">Max Concurrent Experiments</Label>
+            <Input
+              id="max_concurrent_experiments"
+              type="number"
+              {...register('max_concurrent_experiments', { valueAsNumber: true })}
+              error={errors.max_concurrent_experiments?.message}
+            />
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="max_concurrent_experiments">Max Concurrent Experiments</Label>
-          <Input
-            id="max_concurrent_experiments"
-            type="number"
-            {...register('max_concurrent_experiments', { valueAsNumber: true })}
-            error={errors.max_concurrent_experiments?.message}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          id="optimize"
-          type="checkbox"
-          {...register('optimize')}
-          className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 dark:bg-slate-800 text-blue-600 focus:ring-blue-600"
-        />
-        <Label htmlFor="optimize" className="cursor-pointer">
-          Enable Optimization
-        </Label>
-      </div>
-
-      {optimize && (
-        <div className="space-y-2">
-          <Label htmlFor="optimizer_ip">Optimizer IP</Label>
-          <Input id="optimizer_ip" {...register('optimizer_ip')} error={errors.optimizer_ip?.message} />
-        </div>
-      )}
-
-      {/* Beacon Optimizer Settings */}
-      {optimize && optimizerDefaults && optimizerDefaults.optimizer_type === 'BeaconOptimizer' && (
-        <BeaconOptimizerPanel
-          mode="submission"
-          defaults={optimizerDefaults}
-          isResume={isResume}
-          overrides={optimizerOverrides}
-          onChange={setOptimizerOverrides}
-          persistedDomain={isResume && initialCampaign?.meta ? extractBeaconDomain(initialCampaign.meta) : null}
-        />
-      )}
-
-      <div className="flex items-center gap-2">
-        <input
-          id="resume"
-          type="checkbox"
-          {...register('resume')}
-          className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 dark:bg-slate-800 text-blue-600 focus:ring-blue-600"
-        />
-        <Label htmlFor="resume" className="cursor-pointer">
-          Resume if exists
-        </Label>
-      </div>
-
-      {/* Global Parameters - Visual Editor (collapsible) */}
-      <GlobalParametersSection
-        experimentSpec={selectedExperimentSpec}
-        taskSpecs={taskSpecs}
-        taskParameters={taskParameters}
-        expandedTasks={expandedTasks}
-        toggleTaskExpansion={toggleTaskExpansion}
-        updateTaskParameter={updateTaskParameter}
-        clearTaskParameter={clearTaskParameter}
-      />
-
-      <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <Label htmlFor="experiment_parameters">Experiment Parameters</Label>
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <button type="button" className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
-                <Info className="w-4 h-4" />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 py-2 rounded-md text-xs max-w-xs shadow-lg z-[100]"
-                sideOffset={5}
-              >
-                <p className="font-medium mb-1">Accepts JSON or CSV</p>
-                <p className="mb-1">JSON: [&#123;&quot;task.param&quot;: value&#125;, ...]</p>
-                <p>CSV: dot-notation headers (task.param), one experiment per row. Missing columns are OK.</p>
-                <Tooltip.Arrow className="fill-gray-900 dark:fill-gray-100" />
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
-          <div className="flex-1" />
-          <button
-            type="button"
-            onClick={() => paramFileInputRef.current?.click()}
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            Upload
-          </button>
           <input
-            ref={paramFileInputRef}
-            type="file"
-            accept=".json,.csv"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = () => {
-                if (typeof reader.result === 'string') {
-                  setValue('experiment_parameters', reader.result, { shouldValidate: true });
-                }
-              };
-              reader.readAsText(file);
-              e.target.value = '';
-            }}
+            id="optimize"
+            type="checkbox"
+            {...register('optimize')}
+            className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 dark:bg-slate-800 text-blue-600 focus:ring-blue-600"
+          />
+          <Label htmlFor="optimize" className="cursor-pointer">
+            Enable Optimization
+          </Label>
+        </div>
+
+        {optimize && (
+          <div className="space-y-2">
+            <Label htmlFor="optimizer_ip">Optimizer IP</Label>
+            <Input id="optimizer_ip" {...register('optimizer_ip')} error={errors.optimizer_ip?.message} />
+          </div>
+        )}
+
+        {/* Beacon Optimizer Settings */}
+        {optimize && optimizerDefaults && optimizerDefaults.optimizer_type === 'BeaconOptimizer' && (
+          <BeaconOptimizerPanel
+            mode="submission"
+            defaults={optimizerDefaults}
+            isResume={isResume}
+            overrides={optimizerOverrides}
+            onChange={setOptimizerOverrides}
+            persistedDomain={isResume && initialCampaign?.meta ? extractBeaconDomain(initialCampaign.meta) : null}
+          />
+        )}
+
+        <div className="flex items-center gap-2">
+          <input
+            id="resume"
+            type="checkbox"
+            {...register('resume')}
+            className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 dark:bg-slate-800 text-blue-600 focus:ring-blue-600"
+          />
+          <Label htmlFor="resume" className="cursor-pointer">
+            Resume if exists
+          </Label>
+        </div>
+
+        {/* Global Parameters - Visual Editor (collapsible) */}
+        <GlobalParametersSection
+          experimentSpec={selectedExperimentSpec}
+          taskSpecs={taskSpecs}
+          taskParameters={taskParameters}
+          expandedTasks={expandedTasks}
+          toggleTaskExpansion={toggleTaskExpansion}
+          updateTaskParameter={updateTaskParameter}
+          clearTaskParameter={clearTaskParameter}
+        />
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="experiment_parameters">Experiment Parameters</Label>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
+                  type="button"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 py-2 rounded-md text-xs max-w-xs shadow-lg z-[100]"
+                  sideOffset={5}
+                >
+                  <p className="font-medium mb-1">Accepts JSON or CSV</p>
+                  <p className="mb-1">JSON: [&#123;&quot;task.param&quot;: value&#125;, ...]</p>
+                  <p>CSV: dot-notation headers (task.param), one experiment per row. Missing columns are OK.</p>
+                  <Tooltip.Arrow className="fill-gray-900 dark:fill-gray-100" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => paramFileInputRef.current?.click()}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Upload
+            </button>
+            <input
+              ref={paramFileInputRef}
+              type="file"
+              accept=".json,.csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (typeof reader.result === 'string') {
+                    setValue('experiment_parameters', reader.result, { shouldValidate: true });
+                  }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+              }}
+            />
+          </div>
+          <Textarea
+            id="experiment_parameters"
+            {...register('experiment_parameters')}
+            error={errors.experiment_parameters?.message}
+            placeholder="Paste JSON array or CSV"
+          />
+          {!optimize && <p className="text-xs text-gray-500 dark:text-gray-400">Required if not optimizing</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="meta">Metadata (JSON)</Label>
+          <Textarea
+            id="meta"
+            {...register('meta')}
+            error={errors.meta?.message}
+            placeholder='{"description": "Test campaign"}'
           />
         </div>
-        <Textarea
-          id="experiment_parameters"
-          {...register('experiment_parameters')}
-          error={errors.experiment_parameters?.message}
-          placeholder="Paste JSON array or CSV"
-        />
-        {!optimize && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Required if not optimizing
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="meta">Metadata (JSON)</Label>
-        <Textarea
-          id="meta"
-          {...register('meta')}
-          error={errors.meta?.message}
-          placeholder='{"description": "Test campaign"}'
-        />
-      </div>
-    </BaseSubmitDialog>
+      </BaseSubmitDialog>
     </Tooltip.Provider>
   );
 }
