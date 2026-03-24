@@ -10,9 +10,12 @@ import { RefreshControl } from '@/components/ui/RefreshControl';
 import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import type { Campaign } from '@/lib/types/api';
+import type { PaginatedResult } from '@/lib/db/queries';
 import type { TaskSpec } from '@/lib/types/experiment';
 import type { ExperimentSpec } from '@/lib/api/specs';
 import { cancelCampaign, getCampaigns } from '@/features/campaigns/api/campaigns';
+import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
+import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitCampaignDialog } from './SubmitCampaignDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
@@ -35,18 +38,21 @@ const hasData = (data: unknown): boolean => {
   return true;
 };
 
+const CAMPAIGN_COLUMN_ID_MAP: Record<string, string> = {
+  experiment_type: 'experimentType',
+  created_at: 'createdAt',
+};
+
 interface CampaignsTableProps {
-  initialCampaigns: Campaign[];
+  initialData: PaginatedResult<Campaign>;
   experimentSpecs: Record<string, ExperimentSpec>;
   taskSpecs: Record<string, TaskSpec>;
 }
 
-export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }: CampaignsTableProps) {
+export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: CampaignsTableProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
-  const [campaigns, setCampaigns] = React.useState<Campaign[]>(initialCampaigns);
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [pollingInterval, setPollingInterval] = React.useState(5000); // Default: 5s
+  const [pollingInterval, setPollingInterval] = React.useState(5000);
   const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
   const [cancellingCampaign, setCancellingCampaign] = React.useState<string | null>(null);
   const [selectedCampaign, setSelectedCampaign] = React.useState<Campaign | null>(null);
@@ -54,13 +60,35 @@ export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }:
   const [campaignToClone, setCampaignToClone] = React.useState<Campaign | null>(null);
   const [campaignToCancel, setCampaignToCancel] = React.useState<string | null>(null);
 
+  const serverTable = useServerTable({
+    fetchFn: getCampaigns,
+    initialData,
+    columnIdMap: CAMPAIGN_COLUMN_ID_MAP,
+  });
+
+  // Auto-polling effect
+  React.useEffect(() => {
+    if (pollingInterval === 0) return;
+    const intervalId = setInterval(() => {
+      serverTable.refresh();
+    }, pollingInterval);
+    return () => clearInterval(intervalId);
+  }, [pollingInterval, serverTable.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update selected campaign from refreshed data
+  React.useEffect(() => {
+    if (selectedCampaign) {
+      const updated = serverTable.data.find((c) => c.name === selectedCampaign.name);
+      if (updated) setSelectedCampaign(updated);
+    }
+  }, [serverTable.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleViewExecution = (campaignName: string) => {
     router.push(`/campaigns/${encodeURIComponent(campaignName)}`);
   };
 
   const handleCancelCampaign = async () => {
     if (!campaignToCancel) return;
-
     setCancellingCampaign(campaignToCancel);
     try {
       const result = await cancelCampaign(campaignToCancel);
@@ -85,44 +113,8 @@ export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }:
 
   const handleCloseSubmitDialog = (open: boolean) => {
     setSubmitDialogOpen(open);
-    if (!open) {
-      // Clear clone state when dialog closes
-      setCampaignToClone(null);
-    }
+    if (!open) setCampaignToClone(null);
   };
-
-  const handleRefresh = React.useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const freshCampaigns = await getCampaigns();
-      setCampaigns(freshCampaigns);
-
-      // Update selected campaign if it's still in the list
-      if (selectedCampaign) {
-        const updatedCampaign = freshCampaigns.find((c) => c.name === selectedCampaign.name);
-        if (updatedCampaign) {
-          setSelectedCampaign(updatedCampaign);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to refresh campaigns:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [selectedCampaign]);
-
-  // Auto-polling effect
-  React.useEffect(() => {
-    if (pollingInterval === 0) {
-      return; // Polling disabled
-    }
-
-    const intervalId = setInterval(() => {
-      handleRefresh();
-    }, pollingInterval);
-
-    return () => clearInterval(intervalId);
-  }, [pollingInterval, handleRefresh]);
 
   const columns: DataTableColumnDef<Campaign>[] = [
     {
@@ -242,8 +234,8 @@ export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }:
     <RefreshControl
       pollingInterval={pollingInterval}
       onIntervalChange={setPollingInterval}
-      onRefresh={handleRefresh}
-      isRefreshing={isRefreshing}
+      onRefresh={serverTable.refresh}
+      isRefreshing={serverTable.isLoading}
     />
   );
 
@@ -270,10 +262,18 @@ export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }:
 
         <DataTable
           columns={columns}
-          data={campaigns}
+          data={serverTable.data}
           searchPlaceholder="Search campaigns..."
           onRowClick={handleRowClick}
           toolbarActions={toolbarActions}
+          manualPagination
+          totalRows={serverTable.totalRows}
+          pageIndex={serverTable.pageIndex}
+          pageSize={serverTable.pageSize}
+          onPaginationChange={serverTable.onPaginationChange}
+          onSortingChange={serverTable.onSortingChange}
+          onColumnFiltersChange={serverTable.onColumnFiltersChange}
+          onGlobalFilterChange={serverTable.onGlobalFilterChange}
         />
 
         <SubmitCampaignDialog
@@ -282,6 +282,7 @@ export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }:
           experimentSpecs={experimentSpecs}
           taskSpecs={taskSpecs}
           initialCampaign={campaignToClone}
+          generateCloneName={(name) => generateCloneNameForEntity('campaigns', name)}
         />
       </div>
 

@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { orchestratorPost } from '@/lib/api/orchestrator';
 import type { Experiment, ExperimentDefinition, ActionResult } from '@/lib/types/api';
-import { getAllExperiments } from '@/lib/db/queries';
+import { DEFAULT_PAGE_SIZE, type TableQueryOptions } from '@/lib/types/table';
+import { getAllExperiments, type PaginatedResult } from '@/lib/db/queries';
 import { createSuccessResult, createErrorResult } from '@/lib/utils/experimentHelpers';
 
 function transformDbExperiment(exp: unknown): Experiment {
@@ -38,10 +39,15 @@ function transformDbExperiment(exp: unknown): Experiment {
   };
 }
 
-export async function getExperiments(): Promise<Experiment[]> {
+export async function getExperiments(options: TableQueryOptions = {}): Promise<PaginatedResult<Experiment>> {
   try {
-    const result = await getAllExperiments({ limit: 100, offset: 0 });
-    return result.data.map(transformDbExperiment);
+    const result = await getAllExperiments({ limit: DEFAULT_PAGE_SIZE, offset: 0, ...options });
+    return {
+      data: result.data.map(transformDbExperiment),
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset,
+    };
   } catch (error) {
     console.error('Failed to fetch experiments:', error);
     throw new Error('Failed to fetch experiments from database');

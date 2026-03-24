@@ -9,24 +9,30 @@ import { RefreshControl } from '@/components/ui/RefreshControl';
 import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import type { Task } from '@/lib/types/api';
+import type { PaginatedResult } from '@/lib/db/queries';
 import { cancelTask, getTasks } from '@/features/tasks/api/tasks';
+import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
+import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitTaskDialog } from './SubmitTaskDialog';
 import type { TaskSpec } from '@/lib/types/experiment';
 import type { LabSpec } from '@/lib/api/specs';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 
+const TASK_COLUMN_ID_MAP: Record<string, string> = {
+  experiment_name: 'experimentName',
+  created_at: 'createdAt',
+};
+
 interface TasksTableProps {
-  initialTasks: Task[];
+  initialData: PaginatedResult<Task>;
   taskSpecs: Record<string, TaskSpec>;
   labSpecs: Record<string, LabSpec>;
 }
 
-export function TasksTable({ initialTasks, taskSpecs, labSpecs }: TasksTableProps) {
+export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps) {
   const { isConnected } = useOrchestratorConnected();
-  const [tasks, setTasks] = React.useState<Task[]>(initialTasks);
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [pollingInterval, setPollingInterval] = React.useState(5000); // Default: 5s
+  const [pollingInterval, setPollingInterval] = React.useState(5000);
   const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
   const [cancellingTask, setCancellingTask] = React.useState<string | null>(null);
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
@@ -34,9 +40,29 @@ export function TasksTable({ initialTasks, taskSpecs, labSpecs }: TasksTableProp
   const [taskToClone, setTaskToClone] = React.useState<Task | null>(null);
   const [taskToCancel, setTaskToCancel] = React.useState<{ name: string; experimentName: string | null } | null>(null);
 
+  const serverTable = useServerTable({
+    fetchFn: getTasks,
+    initialData,
+    columnIdMap: TASK_COLUMN_ID_MAP,
+  });
+
+  React.useEffect(() => {
+    if (pollingInterval === 0) return;
+    const intervalId = setInterval(() => {
+      serverTable.refresh();
+    }, pollingInterval);
+    return () => clearInterval(intervalId);
+  }, [pollingInterval, serverTable.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => {
+    if (selectedTask) {
+      const updated = serverTable.data.find((t) => t.name === selectedTask.name);
+      if (updated) setSelectedTask(updated);
+    }
+  }, [serverTable.data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCancelTask = async () => {
     if (!taskToCancel) return;
-
     setCancellingTask(taskToCancel.name);
     try {
       const result = await cancelTask(taskToCancel.name, taskToCancel.experimentName);
@@ -62,39 +88,6 @@ export function TasksTable({ initialTasks, taskSpecs, labSpecs }: TasksTableProp
   const handleCloseSubmitDialog = (open: boolean) => {
     setSubmitDialogOpen(open);
   };
-
-  const handleRefresh = React.useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const freshTasks = await getTasks();
-      setTasks(freshTasks);
-
-      // Update selected task if it's still in the list
-      if (selectedTask) {
-        const updatedTask = freshTasks.find((t) => t.name === selectedTask.name);
-        if (updatedTask) {
-          setSelectedTask(updatedTask);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to refresh tasks:', error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [selectedTask]);
-
-  // Auto-polling effect
-  React.useEffect(() => {
-    if (pollingInterval === 0) {
-      return; // Polling disabled
-    }
-
-    const intervalId = setInterval(() => {
-      handleRefresh();
-    }, pollingInterval);
-
-    return () => clearInterval(intervalId);
-  }, [pollingInterval, handleRefresh]);
 
   const columns: DataTableColumnDef<Task>[] = [
     {
@@ -192,8 +185,8 @@ export function TasksTable({ initialTasks, taskSpecs, labSpecs }: TasksTableProp
     <RefreshControl
       pollingInterval={pollingInterval}
       onIntervalChange={setPollingInterval}
-      onRefresh={handleRefresh}
-      isRefreshing={isRefreshing}
+      onRefresh={serverTable.refresh}
+      isRefreshing={serverTable.isLoading}
     />
   );
 
@@ -220,10 +213,18 @@ export function TasksTable({ initialTasks, taskSpecs, labSpecs }: TasksTableProp
 
         <DataTable
           columns={columns}
-          data={tasks}
+          data={serverTable.data}
           searchPlaceholder="Search tasks..."
           onRowClick={handleRowClick}
           toolbarActions={toolbarActions}
+          manualPagination
+          totalRows={serverTable.totalRows}
+          pageIndex={serverTable.pageIndex}
+          pageSize={serverTable.pageSize}
+          onPaginationChange={serverTable.onPaginationChange}
+          onSortingChange={serverTable.onSortingChange}
+          onColumnFiltersChange={serverTable.onColumnFiltersChange}
+          onGlobalFilterChange={serverTable.onGlobalFilterChange}
         />
 
         <SubmitTaskDialog
@@ -232,6 +233,7 @@ export function TasksTable({ initialTasks, taskSpecs, labSpecs }: TasksTableProp
           taskSpecs={taskSpecs}
           labSpecs={labSpecs}
           initialTask={taskToClone}
+          generateCloneName={(name) => generateCloneNameForEntity('tasks', name)}
         />
       </div>
 

@@ -74,6 +74,15 @@ interface DataTableProps<TData, TValue> {
   bulkActions?: React.ReactNode;
   // Toolbar actions (always shown to the right of filters)
   toolbarActions?: React.ReactNode;
+  // Server-side pagination props (opt-in)
+  manualPagination?: boolean;
+  totalRows?: number;
+  pageIndex?: number;
+  pageSize?: number;
+  onPaginationChange?: (pageIndex: number, pageSize: number) => void;
+  onSortingChange?: (sorting: SortingState) => void;
+  onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
+  onGlobalFilterChange?: (search: string) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -86,6 +95,14 @@ export function DataTable<TData, TValue>({
   onSelectionChange,
   bulkActions,
   toolbarActions,
+  manualPagination = false,
+  totalRows,
+  pageIndex: controlledPageIndex,
+  pageSize: controlledPageSize,
+  onPaginationChange,
+  onSortingChange: onSortingChangeProp,
+  onColumnFiltersChange: onColumnFiltersChangeProp,
+  onGlobalFilterChange: onGlobalFilterChangeProp,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -93,6 +110,8 @@ export function DataTable<TData, TValue>({
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [showFilters, setShowFilters] = React.useState(false);
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+
+  const effectivePageSize = manualPagination ? (controlledPageSize ?? 20) : 20;
 
   // Add checkbox column if row selection is enabled
   const columnsWithSelection = React.useMemo(() => {
@@ -118,15 +137,41 @@ export function DataTable<TData, TValue>({
     ] as DataTableColumnDef<TData, TValue>[];
   }, [columns, enableRowSelection]);
 
+  // Forward state changes to parent via effects (not inside state setters, which causes
+  // "Cannot update a component while rendering a different component" errors)
+  React.useEffect(() => {
+    if (manualPagination) onSortingChangeProp?.(sorting);
+  }, [sorting]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => {
+    if (manualPagination) onColumnFiltersChangeProp?.(columnFilters);
+  }, [columnFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => {
+    if (manualPagination) onGlobalFilterChangeProp?.(globalFilter);
+  }, [globalFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const table = useReactTable({
     data,
     columns: columnsWithSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
+    ...(!manualPagination
+      ? {
+          getPaginationRowModel: getPaginationRowModel(),
+          getSortedRowModel: getSortedRowModel(),
+          getFilteredRowModel: getFilteredRowModel(),
+        }
+      : {}),
+    ...(manualPagination
+      ? {
+          manualPagination: true,
+          manualFiltering: true,
+          manualSorting: true,
+          pageCount: totalRows != null ? Math.ceil(totalRows / effectivePageSize) : -1,
+        }
+      : {}),
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
@@ -143,12 +188,22 @@ export function DataTable<TData, TValue>({
       columnVisibility,
       globalFilter,
       rowSelection,
+      ...(manualPagination
+        ? {
+            pagination: {
+              pageIndex: controlledPageIndex ?? 0,
+              pageSize: effectivePageSize,
+            },
+          }
+        : {}),
     },
-    initialState: {
-      pagination: {
-        pageSize: 20,
-      },
-    },
+    ...(!manualPagination
+      ? {
+          initialState: {
+            pagination: { pageSize: 20 },
+          },
+        }
+      : {}),
     enableRowSelection,
   });
 
@@ -174,6 +229,33 @@ export function DataTable<TData, TValue>({
       onSelectionChange(selectedRows);
     }
   }, [rowSelection, onSelectionChange, enableRowSelection, table]);
+
+  // Pagination helpers
+  const displayedTotal = manualPagination ? (totalRows ?? 0) : table.getFilteredRowModel().rows.length;
+
+  const currentPageIndex = manualPagination ? (controlledPageIndex ?? 0) : table.getState().pagination.pageIndex;
+
+  const pageCount = table.getPageCount();
+
+  const canPreviousPage = manualPagination ? currentPageIndex > 0 : table.getCanPreviousPage();
+
+  const canNextPage = manualPagination ? currentPageIndex < pageCount - 1 : table.getCanNextPage();
+
+  const goToPreviousPage = () => {
+    if (manualPagination && onPaginationChange) {
+      onPaginationChange(currentPageIndex - 1, effectivePageSize);
+    } else {
+      table.previousPage();
+    }
+  };
+
+  const goToNextPage = () => {
+    if (manualPagination && onPaginationChange) {
+      onPaginationChange(currentPageIndex + 1, effectivePageSize);
+    } else {
+      table.nextPage();
+    }
+  };
 
   return (
     <div className="w-full space-y-4">
@@ -386,22 +468,15 @@ export function DataTable<TData, TValue>({
 
       {/* Pagination */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-700 dark:text-gray-300">
-          {table.getFilteredRowModel().rows.length} row(s) total.
-        </div>
+        <div className="text-sm text-gray-700 dark:text-gray-300">{displayedTotal} row(s) total.</div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
+          <Button variant="outline" size="sm" onClick={goToPreviousPage} disabled={!canPreviousPage}>
             Previous
           </Button>
           <div className="text-sm text-gray-700 dark:text-gray-300">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            Page {currentPageIndex + 1} of {pageCount}
           </div>
-          <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+          <Button variant="outline" size="sm" onClick={goToNextPage} disabled={!canNextPage}>
             Next
           </Button>
         </div>

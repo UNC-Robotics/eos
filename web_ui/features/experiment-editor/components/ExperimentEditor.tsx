@@ -680,9 +680,7 @@ export function ExperimentEditor() {
 
   // Calculate default sizes based on what's open (must add up to 100%)
   const getCanvasSize = () => {
-    const sidePanels = [isOptimizerPanelOpen, isPropertiesPanelOpen && selectedTask].filter(
-      Boolean
-    ).length;
+    const sidePanels = [isOptimizerPanelOpen, isPropertiesPanelOpen && selectedTask].filter(Boolean).length;
     if (sidePanels === 2) return '45%';
     if (isOptimizerPanelOpen) return '70%';
     if (isPropertiesPanelOpen) return '78%';
@@ -819,7 +817,6 @@ export function ExperimentEditor() {
             </Panel>
           </>
         )}
-
       </Group>
     </div>
   );

@@ -9,10 +9,7 @@ interface SerializedExperiment {
   layoutJson: string;
 }
 
-function serializeTaskForYaml(
-  task: TaskNode,
-  specMap: Map<string, TaskSpec>,
-): Record<string, unknown> {
+function serializeTaskForYaml(task: TaskNode, specMap: Map<string, TaskSpec>): Record<string, unknown> {
   const { position: _position, device_holds, resource_holds, devices, resources, ...rest } = task;
   const result: Record<string, unknown> = { ...rest };
 

@@ -4,7 +4,7 @@ import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
 import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
 
 export default async function TasksPage() {
-  const [tasks, rawTaskSpecs, labSpecs] = await Promise.all([
+  const [initialData, rawTaskSpecs, labSpecs] = await Promise.all([
     getTasks(),
     getTaskSpecs(),
     getLabSpecs(true), // Only loaded labs
@@ -55,7 +55,7 @@ export default async function TasksPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <TasksTable initialTasks={tasks} taskSpecs={taskSpecs} labSpecs={labSpecs} />
+      <TasksTable initialData={initialData} taskSpecs={taskSpecs} labSpecs={labSpecs} />
     </div>
   );
 }
