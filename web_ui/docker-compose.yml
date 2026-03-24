@@ -1,6 +1,8 @@
 services:
   eos-web-ui:
     build: .
+    env_file:
+      - .env.prod
     environment:
       DATABASE_URL: ${DATABASE_URL}
       ORCHESTRATOR_API_URL: ${ORCHESTRATOR_API_URL}
