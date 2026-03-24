@@ -282,6 +282,7 @@ export function CampaignsTable({ initialCampaigns, experimentSpecs, taskSpecs }:
           experimentSpecs={experimentSpecs}
           taskSpecs={taskSpecs}
           initialCampaign={campaignToClone}
+          existingCampaignNames={campaigns.map(c => c.name)}
         />
       </div>
 

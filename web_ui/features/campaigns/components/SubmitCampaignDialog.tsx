@@ -44,12 +44,41 @@ const campaignFormSchema = z.object({
 
 type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 
+function generateUniqueCloneName(originalName: string, existingNames: string[]): string {
+  // Strip any existing _clone or _cloneN suffix from the original name to get the base name
+  const baseName = originalName.replace(/_clone\d*$/, '');
+
+  const candidate1 = `${baseName}_clone`;
+
+  if (!existingNames.includes(candidate1)) {
+    return candidate1;
+  }
+
+  // Find all existing campaigns matching {baseName}_cloneN (where N is a number)
+  const pattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_clone(\\d*)$`);
+  const numbers: number[] = [];
+
+  for (const name of existingNames) {
+    const match = name.match(pattern);
+    if (match) {
+      const numStr = match[1];
+      numbers.push(numStr ? parseInt(numStr, 10) : 0);
+    }
+  }
+
+  const maxNum = numbers.length > 0 ? Math.max(...numbers) : -1;
+  const nextNum = maxNum + 1;
+
+  return nextNum === 0 ? candidate1 : `${baseName}_clone${nextNum}`;
+}
+
 interface SubmitCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   experimentSpecs: Record<string, ExperimentSpec>;
   taskSpecs: Record<string, TaskSpec>;
   initialCampaign?: Campaign | null;
+  existingCampaignNames: string[];
 }
 
 function GlobalParametersSection({
@@ -152,6 +181,7 @@ export function SubmitCampaignDialog({
   experimentSpecs,
   taskSpecs,
   initialCampaign,
+  existingCampaignNames,
 }: SubmitCampaignDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -215,7 +245,7 @@ export function SubmitCampaignDialog({
     if (initialCampaign && populatedFromCampaignRef.current !== initialCampaign.name) {
       populatedFromCampaignRef.current = initialCampaign.name;
 
-      setValue('name', `${initialCampaign.name}_clone`);
+      setValue('name', generateUniqueCloneName(initialCampaign.name, existingCampaignNames));
       setValue('experiment_type', initialCampaign.experiment_type);
       setValue('owner', initialCampaign.owner);
       setValue('priority', initialCampaign.priority ?? 0);
