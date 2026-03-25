@@ -3,6 +3,8 @@ import { CampaignsTable } from '@/features/campaigns/components/CampaignsTable';
 import { getExperimentSpecs, getTaskSpecs } from '@/lib/api/specs';
 import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
 
+export const dynamic = "force-dynamic";
+
 export default async function CampaignsPage() {
   const [initialData, experimentSpecs, rawTaskSpecs] = await Promise.all([
     getCampaigns(),

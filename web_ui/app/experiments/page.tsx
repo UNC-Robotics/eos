@@ -3,6 +3,8 @@ import { ExperimentsTable } from '@/features/experiments/components/ExperimentsT
 import { getExperimentSpecs, getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
 import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
 
+export const dynamic = "force-dynamic";
+
 export default async function ExperimentsPage() {
   const [initialData, experimentSpecs, rawTaskSpecs, labSpecs] = await Promise.all([
     getExperiments(),
