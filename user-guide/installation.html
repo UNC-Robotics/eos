@@ -473,23 +473,21 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 <p>By default, EOS loads the “multiplication_lab” laboratory and “optimize_multiplication” experiment from an example
 package. You can modify this in the configuration file.</p>
 </section>
-<section id="install-the-web-ui">
-<h2>6. Install the Web UI<a class="headerlink" href="#install-the-web-ui" title="Link to this heading">#</a></h2>
+<section id="launch-the-web-ui">
+<h2>6. Launch the Web UI<a class="headerlink" href="#launch-the-web-ui" title="Link to this heading">#</a></h2>
+<p><strong>Option A: Without Docker</strong></p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
-npm<span class="w"> </span>install
-</pre></div>
-</div>
-</section>
-<section id="configure-the-web-ui">
-<h2>7. Configure the Web UI<a class="headerlink" href="#configure-the-web-ui" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+cp<span class="w"> </span>.env.example<span class="w"> </span>.env
 <span class="c1"># Edit .env and provide values</span>
+npm<span class="w"> </span>install
+eos<span class="w"> </span>ui
 </pre></div>
 </div>
-</section>
-<section id="start-the-web-ui-in-a-new-terminal">
-<h2>8. Start the Web UI (in a new terminal)<a class="headerlink" href="#start-the-web-ui-in-a-new-terminal" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>ui
+<p><strong>Option B: With Docker</strong></p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
+cp<span class="w"> </span>.env.docker.example<span class="w"> </span>.env.docker
+<span class="c1"># Edit .env.docker and provide values</span>
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </pre></div>
 </div>
 <p>The web UI is available at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>.</p>
@@ -548,9 +546,7 @@ npm<span class="w"> </span>install
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">3. Configure EOS</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-external-services">4. Launch External Services</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-eos">5. Start EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-the-web-ui">6. Install the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-the-web-ui">7. Configure the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-the-web-ui-in-a-new-terminal">8. Start the Web UI (in a new terminal)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-the-web-ui">6. Launch the Web UI</a></li>
 </ul>
   </nav></div>
 
