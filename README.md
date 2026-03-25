@@ -78,15 +78,25 @@ run with Docker Compose.
    eos start
    ```
 
-6. **Configure the Web UI** (in a new terminal)
+6. **Configure the Web UI**
    ```shell
    cd web_ui
    cp .env.example .env
    # Edit .env and provide values
    ```
 
-7. **Build and Launch Web UI**
+7. **Launch the Web UI**
+
+   **Option A: Without Docker**
    ```shell
+   npm install
+   eos ui
+   ```
+
+   **Option B: With Docker**
+   ```shell
+   cp .env.docker.example .env.docker
+   # Edit .env.docker and provide values
    docker compose up -d
    ```
 
