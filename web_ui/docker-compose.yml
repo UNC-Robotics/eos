@@ -13,11 +13,13 @@ services:
     environment:
       USER_DIR: /app/user
     env_file:
-      - .env.prod
+      - .env.docker
     ports:
       - "3000:3000"
     volumes:
       - ${USER_DIR}:/app/user
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - eos_network
 

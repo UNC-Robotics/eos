@@ -81,8 +81,8 @@ run with Docker Compose.
 6. **Configure the Web UI** (in a new terminal)
    ```shell
    cd web_ui
-   cp .env.prod.example .env.prod
-   # Edit .env.prod and provide values
+   cp .env.example .env
+   # Edit .env and provide values
    ```
 
 7. **Build and Launch Web UI**
