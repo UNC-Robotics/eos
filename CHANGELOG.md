@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.18.0
+
+- Improved entity cloning feature in the web UI to increment a number rather than appending `_clone` suffix
+- Improved task, experiment, and campaign tables to use correct pagination
+- Created Docker setup for running the web UI
+
+Thanks @dirkzon and @yordan-ov!
+
 ## 0.17.0
 
 This is the biggest EOS update to date, bringing a brand new web UI for EOS, a powerful new default optimizer called Beacon combining
