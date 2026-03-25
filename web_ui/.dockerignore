@@ -1,7 +1,198 @@
-Dockerfile
-.dockerignore
-.gitignore
-README.md
+# Environment configuration files (contain API keys, database credentials, etc.)
+.env
+.env.*
+.env.*.local
 
-build
-node_modules
+# Application secrets and credentials
+**/config/credentials.*
+**/config/secrets.*
+**/keys/
+**/passwords/
+**/private/
+**/secrets/
+*.auth
+*.authz
+*.password
+*.secret
+*.secrets
+*.token
+*_tokens
+*password*
+apikeys.*
+appsettings.Development.json
+appsettings.Local.json
+appsettings.Staging.json
+connectionstrings.config
+credentials
+database.ini
+database.yml
+dbconfig.xml
+secrets.json
+secrets.yaml
+secrets.yml
+tokens.*
+
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# DEPENDENCY MANAGEMENT & PACKAGE CACHE
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Package managers and dependency directories
+
+**/.bun/
+**/.bun/cache/
+**/.bun/install/
+**/.deno/
+**/.deno_cache/
+**/.deno_dir/
+**/.npm/
+**/.npm/_cacache/
+**/.npm/_logs/
+**/.pnpm-store/
+**/.pnpm/
+**/.yarn/
+**/.yarn/cache/
+**/.yarn/install-state.gz/
+**/.yarn/releases/
+**/.yarn/unplugged/
+**/.yarn/versions/
+**/bower_components/
+**/node_modules/
+*.bun
+*.bun.app
+*.bun.exe
+.npmignore
+.npmrc
+.npmrc.*
+.yarnrc
+.yarnrc.yml
+bun-debug.log*
+deno.lock
+npm-debug.log*
+pnpm-debug.log*
+pnpm-workspace.yaml
+yarn-error.log
+
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# BUILD ARTIFACTS & DISTRIBUTION PACKAGES
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Compiled code, build outputs, and distribution packages
+
+**/.nyc_output/
+**/.out/
+**/.output/
+**/.storybook-out/
+**/build/
+**/dist/
+**/out/
+**/public/_next/
+**/public/build/
+**/public/static/chunks/
+**/public/static/css/
+**/public/static/media/
+**/storybook-static/
+.tsbuildinfo
+tsconfig.*.tsbuildinfo
+
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# DEVELOPMENT & RUNTIME ARTIFACTS
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Development tools cache, runtime data, and temporary files
+
+**/.cache/
+**/.esbuild/
+**/.parcel-cache/
+**/.swc/
+**/.turbo/
+**/.vite/
+**/logs/
+**/temp/
+**/tmp/
+*.cache
+*.log
+*.log.*
+*.temp
+*.tmp
+.node_repl_history
+
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# TESTING & QUALITY ASSURANCE ARTIFACTS
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Test outputs, coverage reports, and quality tool artifacts
+
+**/.jest-cache/
+**/.jest/
+**/__tests__/__snapshots__/
+**/coverage/
+**/test-results/
+*.coverage
+*.coverage.*
+.coverage
+.coverage.*
+
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# CONFIGURATION & CUSTOMIZATION
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# Project-specific configuration that should not be shared
+
+cypress.config.*.timestamp-*
+jest.config.*.timestamp-*
+jsconfig.json
+tsconfig.*.json
+tsconfig.json
+vitest.config.*.timestamp-*
+
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# FRAMEWORK-SPECIFIC PATTERNS
+# ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+# React-specific patterns and development artifacts
+
+**/.babel-cache/
+**/.cra/
+**/.react/
+**/.storybook/
+**/.webpack/
+**/cypress/
+**/cypress/screenshots/
+**/cypress/videos/
+**/jest-cache/
+**/playwright-report/
+**/styleguide/
+*.bak
+*.css.map
+*.js.map
+*.old
+*.orig
+*.save
+*.swo
+*.swp
+*~
+._*
+.babelrc
+.babelrc.*
+.browserslistrc
+.DS_Store
+.DS_Store?
+.eslintcache
+.eslintignore
+.eslintrc
+.eslintrc.*
+.gitattributes
+.gitignore
+.gitmodules
+.jsbeautifyrc
+.jscsrc
+.jshintrc
+.pnp.cjs
+.pnp.js
+.pnp.loader.mjs
+.prettiercache
+.prettierignore
+.prettierrc
+.prettierrc.*
+.Spotlight-V100
+.stylelintcache
+.stylelintignore
+.stylelintrc
+.stylelintrc.*
+desktop.ini
+ehthumbs.db
+Thumbs.db
