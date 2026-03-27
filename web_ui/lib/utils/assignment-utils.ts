@@ -7,7 +7,7 @@ import type {
   DeviceSpec,
   ResourceSpec,
   DeviceIdentifier,
-} from '@/lib/types/experiment';
+} from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 
 // Type Guards
@@ -93,7 +93,7 @@ const checkLabExists = (
   selectedLabs: string[],
   labSpecs: Record<string, LabSpec>
 ): ValidationResult => {
-  if (!selectedLabs.includes(labName)) return { valid: false, error: `Lab "${labName}" not selected in experiment` };
+  if (!selectedLabs.includes(labName)) return { valid: false, error: `Lab "${labName}" not selected in protocol` };
   if (!labSpecs[labName]) return { valid: false, error: `Lab "${labName}" not found` };
   return { valid: true };
 };

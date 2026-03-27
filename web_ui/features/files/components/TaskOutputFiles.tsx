@@ -5,12 +5,12 @@ import { startDownload } from '@/lib/transfers';
 
 interface TaskOutputFilesProps {
   fileNames: string[];
-  experimentName: string | null;
+  protocolRunName: string | null;
   taskName: string;
 }
 
-export function TaskOutputFiles({ fileNames, experimentName, taskName }: TaskOutputFilesProps) {
-  const prefix = experimentName || 'on_demand';
+export function TaskOutputFiles({ fileNames, protocolRunName, taskName }: TaskOutputFilesProps) {
+  const prefix = protocolRunName || 'on_demand';
 
   const handleDownload = (fileName: string) => {
     const key = `${prefix}/${taskName}/${fileName}`;

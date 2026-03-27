@@ -1,7 +1,7 @@
 user_dir: ./user
 labs:
   - multiplication_lab
-experiments:
+protocols:
   - optimize_multiplication
 
 log_level: INFO

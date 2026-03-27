@@ -32,7 +32,7 @@ export async function getTasks(options: TableQueryOptions = {}): Promise<Paginat
         priority: task.priority,
         allocation_timeout: task.allocationTimeout,
         meta: task.meta,
-        experiment_name: task.experimentName,
+        protocol_run_name: task.protocolRunName,
       })),
       total: result.total,
       limit: result.limit,
@@ -58,9 +58,9 @@ export async function submitTask(definition: TaskDefinition): Promise<ActionResu
   }
 }
 
-export async function cancelTask(taskName: string, experimentName?: string | null): Promise<ActionResult> {
+export async function cancelTask(taskName: string, protocolRunName?: string | null): Promise<ActionResult> {
   try {
-    const params = experimentName ? `?experiment_name=${encodeURIComponent(experimentName)}` : '';
+    const params = protocolRunName ? `?protocol_run_name=${encodeURIComponent(protocolRunName)}` : '';
     await orchestratorPost(`/tasks/${taskName}/cancel${params}`);
     revalidatePath('/tasks');
     return { success: true };

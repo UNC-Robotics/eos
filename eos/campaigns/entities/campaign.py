@@ -14,19 +14,19 @@ class CampaignSubmission(BaseModel):
     """Campaign submitted to the system."""
 
     name: str
-    experiment_type: str
+    protocol: str
 
     owner: str
     priority: int = Field(0, ge=0)
 
-    max_experiments: int = Field(0, ge=0)
-    max_concurrent_experiments: int = Field(1, ge=1)
+    max_protocol_runs: int = Field(0, ge=0)
+    max_concurrent_protocol_runs: int = Field(1, ge=1)
 
     optimize: bool
     optimizer_ip: str = "127.0.0.1"
 
-    global_parameters: dict[str, dict[str, Any]] | None = None  # Shared across all experiments
-    experiment_parameters: list[dict[str, dict[str, Any]]] | None = None  # Per-experiment (overrides global)
+    global_parameters: dict[str, dict[str, Any]] | None = None  # Shared across all protocols
+    protocol_run_parameters: list[dict[str, dict[str, Any]]] | None = None  # Per-protocol-run (overrides global)
 
     meta: dict[str, Any] = Field(default_factory=dict)
 
@@ -35,14 +35,14 @@ class CampaignSubmission(BaseModel):
     @model_validator(mode="after")
     def validate_parameters(self) -> "CampaignSubmission":
         if not self.optimize:
-            if not self.experiment_parameters and not self.global_parameters:
+            if not self.protocol_run_parameters and not self.global_parameters:
                 raise ValueError(
-                    "Campaign experiment_parameters or global_parameters must be provided if optimization is not "
+                    "Campaign protocol_run_parameters or global_parameters must be provided if optimization is not "
                     "enabled."
                 )
-            if self.experiment_parameters and len(self.experiment_parameters) != self.max_experiments:
+            if self.protocol_run_parameters and len(self.protocol_run_parameters) != self.max_protocol_runs:
                 raise ValueError(
-                    "experiment_parameters must be provided for all experiments up to the max experiments if "
+                    "protocol_run_parameters must be provided for all protocols up to the max protocols if "
                     "optimization is not enabled."
                 )
         return self
@@ -65,7 +65,7 @@ class Campaign(CampaignSubmission):
     status: CampaignStatus = CampaignStatus.CREATED
     error_message: str | None = None
 
-    experiments_completed: int = Field(0, ge=0)
+    protocol_runs_completed: int = Field(0, ge=0)
 
     pareto_solutions: list[dict[str, Any]] | None = None
 
@@ -87,7 +87,7 @@ class CampaignSample(BaseModel):
     """A sample collected during campaign execution."""
 
     campaign_name: str
-    experiment_name: str
+    protocol_run_name: str
 
     inputs: dict[str, Any]
     outputs: dict[str, Any]
@@ -106,13 +106,13 @@ class CampaignModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
-    experiment_type: Mapped[str] = mapped_column(String(255), nullable=False)
+    protocol: Mapped[str] = mapped_column(String(255), nullable=False)
 
     owner: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    max_experiments: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_concurrent_experiments: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    max_protocol_runs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_concurrent_protocol_runs: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     optimize: Mapped[bool] = mapped_column(Boolean, nullable=False)
     optimizer_ip: Mapped[str] = mapped_column(String(45), nullable=False, default="127.0.0.1")
@@ -120,7 +120,7 @@ class CampaignModel(Base):
     global_parameters: Mapped[dict[str, dict[str, Any]] | None] = mapped_column(
         MutableDict.as_mutable(JSON), nullable=True
     )
-    experiment_parameters: Mapped[list[dict[str, dict[str, Any]]] | None] = mapped_column(
+    protocol_run_parameters: Mapped[list[dict[str, dict[str, Any]]] | None] = mapped_column(
         MutableList.as_mutable(JSON), nullable=True
     )
     meta: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
@@ -131,7 +131,7 @@ class CampaignModel(Base):
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    experiments_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    protocol_runs_completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     pareto_solutions: Mapped[list[dict[str, Any]] | None] = mapped_column(MutableList.as_mutable(JSON), nullable=True)
 
@@ -152,8 +152,8 @@ class CampaignSampleModel(Base):
     campaign_name: Mapped[str] = mapped_column(
         String(255), ForeignKey("campaigns.name", ondelete="CASCADE"), primary_key=True
     )
-    experiment_name: Mapped[str] = mapped_column(
-        String(255), ForeignKey("experiments.name", ondelete="CASCADE"), primary_key=True
+    protocol_run_name: Mapped[str] = mapped_column(
+        String(255), ForeignKey("protocol_runs.name", ondelete="CASCADE"), primary_key=True
     )
 
     inputs: Mapped[dict[str, Any]] = mapped_column(MutableDict.as_mutable(JSON), nullable=False)

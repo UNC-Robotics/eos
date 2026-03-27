@@ -64,30 +64,30 @@ export function registerManagementTools(server: McpServer) {
 
   orchestratorAction(
     server,
-    'load_experiments',
-    'Load Experiments',
-    'Load experiment configurations into the orchestrator.',
+    'load_protocols',
+    'Load Protocols',
+    'Load protocol configurations into the orchestrator.',
     'POST',
-    '/experiments/load/',
-    { experiment_types: z.array(z.string()).describe('List of experiment types to load') }
+    '/protocols/load/',
+    { protocol_types: z.array(z.string()).describe('List of protocol types to load') }
   );
   orchestratorAction(
     server,
-    'unload_experiments',
-    'Unload Experiments',
-    'Unload experiment configurations from the orchestrator.',
+    'unload_protocols',
+    'Unload Protocols',
+    'Unload protocol configurations from the orchestrator.',
     'POST',
-    '/experiments/unload/',
-    { experiment_types: z.array(z.string()).describe('List of experiment types to unload') }
+    '/protocols/unload/',
+    { protocol_types: z.array(z.string()).describe('List of protocol types to unload') }
   );
   orchestratorAction(
     server,
-    'reload_experiments',
-    'Reload Experiments',
-    'Reload experiment configurations in the orchestrator.',
+    'reload_protocols',
+    'Reload Protocols',
+    'Reload protocol configurations in the orchestrator.',
     'POST',
-    '/experiments/reload/',
-    { experiment_types: z.array(z.string()).describe('List of experiment types to reload') }
+    '/protocols/reload/',
+    { protocol_types: z.array(z.string()).describe('List of protocol types to reload') }
   );
 
   orchestratorAction(

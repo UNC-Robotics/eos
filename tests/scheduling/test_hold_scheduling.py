@@ -1,27 +1,27 @@
 """Tests for device/resource hold behavior in greedy and CP-SAT schedulers.
 
-The hold_test_experiment has three tasks:
+The hold_test_protocol has three tasks:
   setup   -> uses D1 (shared, no hold) and D2 (hold=true)
   process -> uses D2 (ref to setup.held_device, hold=true)
   cleanup -> uses D1 (shared, no hold) and D2 (ref to setup.held_device, no hold)
 
-When two experiments run concurrently, D2 should be held between tasks in the
-same experiment, preventing the other experiment from stealing it.
+When two protocol runs run concurrently, D2 should be held between tasks in the
+same protocol run, preventing the other protocol run from stealing it.
 D1 is shared and should be freely available between tasks.
 
-The hold_test_dynamic_experiment mirrors the same structure but uses dynamic
+The hold_test_dynamic_protocol mirrors the same structure but uses dynamic
 device assignment (device_type: DT2) instead of a static assignment for D2.
 """
 
-from eos.configuration.experiment_graph import ExperimentGraph
-from eos.experiments.entities.experiment import ExperimentSubmission
+from eos.configuration.protocol_graph import ProtocolGraph
+from eos.protocols.entities.protocol_run import ProtocolRunSubmission
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
 
-HOLD_EXPERIMENT_TYPE = "hold_test_experiment"
-HOLD_DYNAMIC_EXPERIMENT_TYPE = "hold_test_dynamic_experiment"
+HOLD_PROTOCOL = "hold_test_protocol"
+HOLD_DYNAMIC_PROTOCOL = "hold_test_dynamic_protocol"
 
 
 @pytest.fixture(params=["greedy", "cpsat"])
@@ -38,21 +38,23 @@ class _HoldTestBase:
         if hasattr(scheduler, "_schedule_is_stale"):
             await scheduler.update_parameters({"num_search_workers": 1, "random_seed": 40})
 
-    async def _create_experiment(self, db, experiment_manager, experiment_type: str, name: str):
-        await experiment_manager.create_experiment(
-            db, ExperimentSubmission(type=experiment_type, name=name, owner="test")
+    async def _create_protocol_run(self, db, protocol_run_manager, protocol: str, name: str):
+        await protocol_run_manager.create_protocol_run(
+            db, ProtocolRunSubmission(type=protocol, name=name, owner="test")
         )
-        await experiment_manager.start_experiment(db, name)
+        await protocol_run_manager.start_protocol_run(db, name)
 
-    async def _complete_task(self, db, task_manager, task_name: str, experiment_name: str):
-        await task_manager.create_task(db, TaskSubmission(name=task_name, type="Noop", experiment_name=experiment_name))
-        await task_manager.start_task(db, experiment_name, task_name)
-        await task_manager.complete_task(db, experiment_name, task_name)
+    async def _complete_task(self, db, task_manager, task_name: str, protocol_run_name: str):
+        await task_manager.create_task(
+            db, TaskSubmission(name=task_name, type="Noop", protocol_run_name=protocol_run_name)
+        )
+        await task_manager.start_task(db, protocol_run_name, task_name)
+        await task_manager.complete_task(db, protocol_run_name, task_name)
 
     async def _spin_cycle(self, db, scheduler: AbstractScheduler) -> dict[str, dict[str, ScheduledTask]]:
-        """Run one scheduling cycle for all registered experiments."""
+        """Run one scheduling cycle for all registered protocol runs."""
         result: dict[str, dict[str, ScheduledTask]] = {}
-        for name in list(scheduler._registered_experiments.keys()):
+        for name in list(scheduler._registered_protocol_runs.keys()):
             tasks = await scheduler.request_tasks(db, name)
             result[name] = {t.name: t for t in tasks}
         return result
@@ -72,75 +74,75 @@ class _HoldTestBase:
             all_tasks = await self._spin_cycle(db, scheduler)
 
             newly_scheduled = []
-            for exp_name, tasks in all_tasks.items():
+            for run_name, tasks in all_tasks.items():
                 for task_name, _task in tasks.items():
-                    if (exp_name, task_name) not in completed_set:
-                        newly_scheduled.append((exp_name, task_name))
+                    if (run_name, task_name) not in completed_set:
+                        newly_scheduled.append((run_name, task_name))
 
             if not newly_scheduled:
                 all_done = True
-                for name in list(scheduler._registered_experiments.keys()):
-                    if not await scheduler.is_experiment_completed(db, name):
+                for name in list(scheduler._registered_protocol_runs.keys()):
+                    if not await scheduler.is_protocol_run_completed(db, name):
                         all_done = False
                         break
                 if all_done:
                     break
                 continue
 
-            for exp_name, task_name in newly_scheduled:
-                await self._complete_task(db, task_manager, task_name, exp_name)
-                completed_set.add((exp_name, task_name))
-                completed_order.append((exp_name, task_name))
+            for run_name, task_name in newly_scheduled:
+                await self._complete_task(db, task_manager, task_name, run_name)
+                completed_set.add((run_name, task_name))
+                completed_order.append((run_name, task_name))
 
         return completed_order
 
 
-@pytest.mark.parametrize("setup_lab_experiment", [("abstract_lab", HOLD_EXPERIMENT_TYPE)], indirect=True)
+@pytest.mark.parametrize("setup_lab_protocol", [("abstract_lab", HOLD_PROTOCOL)], indirect=True)
 class TestSchedulerHold(_HoldTestBase):
     @pytest.mark.asyncio
     async def test_hold_prevents_device_stealing(
-        self, db, scheduler, configuration_manager, experiment_manager, task_manager, allocation_manager
+        self, db, scheduler, configuration_manager, protocol_run_manager, task_manager, allocation_manager
     ):
-        """D2 is never used by two experiments simultaneously due to hold."""
+        """D2 is never used by two protocol runs simultaneously due to hold."""
         await self._init_scheduler(scheduler)
-        graph1 = ExperimentGraph(configuration_manager.experiments[HOLD_EXPERIMENT_TYPE])
-        graph2 = ExperimentGraph(configuration_manager.experiments[HOLD_EXPERIMENT_TYPE])
+        graph1 = ProtocolGraph(configuration_manager.protocols[HOLD_PROTOCOL])
+        graph2 = ProtocolGraph(configuration_manager.protocols[HOLD_PROTOCOL])
 
-        await self._create_experiment(db, experiment_manager, HOLD_EXPERIMENT_TYPE, "exp1")
-        await self._create_experiment(db, experiment_manager, HOLD_EXPERIMENT_TYPE, "exp2")
-        await scheduler.register_experiment("exp1", HOLD_EXPERIMENT_TYPE, graph1)
-        await scheduler.register_experiment("exp2", HOLD_EXPERIMENT_TYPE, graph2)
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_PROTOCOL, "run1")
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_PROTOCOL, "run2")
+        await scheduler.register_protocol_run("run1", HOLD_PROTOCOL, graph1)
+        await scheduler.register_protocol_run("run2", HOLD_PROTOCOL, graph2)
 
         completed_order = await self._spin_and_complete_all(db, scheduler, task_manager)
 
-        exp1_tasks = [t for e, t in completed_order if e == "exp1"]
-        exp2_tasks = [t for e, t in completed_order if e == "exp2"]
-        assert set(exp1_tasks) == {"setup", "process", "cleanup"}
-        assert set(exp2_tasks) == {"setup", "process", "cleanup"}
+        run1_tasks = [t for e, t in completed_order if e == "run1"]
+        run2_tasks = [t for e, t in completed_order if e == "run2"]
+        assert set(run1_tasks) == {"setup", "process", "cleanup"}
+        assert set(run2_tasks) == {"setup", "process", "cleanup"}
 
-        # The hold chain on D2 means one experiment must complete before the other starts
-        exp1_indices = [i for i, (e, _) in enumerate(completed_order) if e == "exp1"]
-        exp2_indices = [i for i, (e, _) in enumerate(completed_order) if e == "exp2"]
+        # The hold chain on D2 means one protocol run must complete before the other starts
+        run1_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run1"]
+        run2_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run2"]
 
-        assert max(exp1_indices) < min(exp2_indices) or max(exp2_indices) < min(exp1_indices), (
-            f"D2 tasks interleaved between experiments! Order: {completed_order}"
+        assert max(run1_indices) < min(run2_indices) or max(run2_indices) < min(run1_indices), (
+            f"D2 tasks interleaved between protocol runs! Order: {completed_order}"
         )
 
     @pytest.mark.asyncio
     async def test_no_hold_device_released(
-        self, db, scheduler, configuration_manager, experiment_manager, task_manager, allocation_manager
+        self, db, scheduler, configuration_manager, protocol_run_manager, task_manager, allocation_manager
     ):
         """D1 (no hold) is released after setup. D2 (hold=true) is held."""
         await self._init_scheduler(scheduler)
-        graph = ExperimentGraph(configuration_manager.experiments[HOLD_EXPERIMENT_TYPE])
+        graph = ProtocolGraph(configuration_manager.protocols[HOLD_PROTOCOL])
 
-        await self._create_experiment(db, experiment_manager, HOLD_EXPERIMENT_TYPE, "exp1")
-        await scheduler.register_experiment("exp1", HOLD_EXPERIMENT_TYPE, graph)
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_PROTOCOL, "run1")
+        await scheduler.register_protocol_run("run1", HOLD_PROTOCOL, graph)
 
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
-            if "setup" in all_tasks.get("exp1", {}):
-                await self._complete_task(db, task_manager, "setup", "exp1")
+            if "setup" in all_tasks.get("run1", {}):
+                await self._complete_task(db, task_manager, "setup", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -150,43 +152,43 @@ class TestSchedulerHold(_HoldTestBase):
 
         assert d1_owner is None, f"D1 should be released (no hold), but owned by {d1_owner}"
         assert d2_owner is not None, "D2 should be held"
-        assert d2_owner.experiment_name == "exp1", "D2 should be held by exp1"
+        assert d2_owner.protocol_run_name == "run1", "D2 should be held by run1"
 
     @pytest.mark.asyncio
     async def test_hold_cleanup_on_unregister(
-        self, db, scheduler, configuration_manager, experiment_manager, task_manager, allocation_manager
+        self, db, scheduler, configuration_manager, protocol_run_manager, task_manager, allocation_manager
     ):
-        """Held locks are cleaned up when experiment is unregistered."""
+        """Held locks are cleaned up when protocol run is unregistered."""
         await self._init_scheduler(scheduler)
-        graph = ExperimentGraph(configuration_manager.experiments[HOLD_EXPERIMENT_TYPE])
+        graph = ProtocolGraph(configuration_manager.protocols[HOLD_PROTOCOL])
 
-        await self._create_experiment(db, experiment_manager, HOLD_EXPERIMENT_TYPE, "exp1")
-        await scheduler.register_experiment("exp1", HOLD_EXPERIMENT_TYPE, graph)
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_PROTOCOL, "run1")
+        await scheduler.register_protocol_run("run1", HOLD_PROTOCOL, graph)
 
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
-            if "setup" in all_tasks.get("exp1", {}):
-                await self._complete_task(db, task_manager, "setup", "exp1")
+            if "setup" in all_tasks.get("run1", {}):
+                await self._complete_task(db, task_manager, "setup", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
 
         assert scheduler._device_index.get(("abstract_lab", "D2")) is not None
 
-        await scheduler.unregister_experiment(db, "exp1")
+        await scheduler.unregister_protocol_run(db, "run1")
 
         assert scheduler._device_index.get(("abstract_lab", "D2")) is None
 
     @pytest.mark.asyncio
     async def test_hold_on_terminal_task_released(
-        self, db, scheduler, configuration_manager, experiment_manager, task_manager, allocation_manager
+        self, db, scheduler, configuration_manager, protocol_run_manager, task_manager, allocation_manager
     ):
         """Hold on the last task in the DAG is released immediately (no successors)."""
         await self._init_scheduler(scheduler)
-        graph = ExperimentGraph(configuration_manager.experiments[HOLD_EXPERIMENT_TYPE])
+        graph = ProtocolGraph(configuration_manager.protocols[HOLD_PROTOCOL])
 
-        await self._create_experiment(db, experiment_manager, HOLD_EXPERIMENT_TYPE, "exp1")
-        await scheduler.register_experiment("exp1", HOLD_EXPERIMENT_TYPE, graph)
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_PROTOCOL, "run1")
+        await scheduler.register_protocol_run("run1", HOLD_PROTOCOL, graph)
 
         # Manually set hold on the cleanup task (terminal node)
         cleanup_task = graph.get_task("cleanup")
@@ -202,51 +204,51 @@ class TestSchedulerHold(_HoldTestBase):
         assert d2_owner is None, f"D2 should be released after terminal task, but owned by {d2_owner}"
 
 
-@pytest.mark.parametrize("setup_lab_experiment", [("abstract_lab", HOLD_DYNAMIC_EXPERIMENT_TYPE)], indirect=True)
+@pytest.mark.parametrize("setup_lab_protocol", [("abstract_lab", HOLD_DYNAMIC_PROTOCOL)], indirect=True)
 class TestSchedulerDynamicHold(_HoldTestBase):
     @pytest.mark.asyncio
     async def test_dynamic_hold_prevents_device_stealing(
-        self, db, scheduler, configuration_manager, experiment_manager, task_manager, allocation_manager
+        self, db, scheduler, configuration_manager, protocol_run_manager, task_manager, allocation_manager
     ):
-        """Dynamically assigned D2 is never used by two experiments simultaneously due to hold."""
+        """Dynamically assigned D2 is never used by two protocol runs simultaneously due to hold."""
         await self._init_scheduler(scheduler)
-        graph1 = ExperimentGraph(configuration_manager.experiments[HOLD_DYNAMIC_EXPERIMENT_TYPE])
-        graph2 = ExperimentGraph(configuration_manager.experiments[HOLD_DYNAMIC_EXPERIMENT_TYPE])
+        graph1 = ProtocolGraph(configuration_manager.protocols[HOLD_DYNAMIC_PROTOCOL])
+        graph2 = ProtocolGraph(configuration_manager.protocols[HOLD_DYNAMIC_PROTOCOL])
 
-        await self._create_experiment(db, experiment_manager, HOLD_DYNAMIC_EXPERIMENT_TYPE, "exp1")
-        await self._create_experiment(db, experiment_manager, HOLD_DYNAMIC_EXPERIMENT_TYPE, "exp2")
-        await scheduler.register_experiment("exp1", HOLD_DYNAMIC_EXPERIMENT_TYPE, graph1)
-        await scheduler.register_experiment("exp2", HOLD_DYNAMIC_EXPERIMENT_TYPE, graph2)
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_DYNAMIC_PROTOCOL, "run1")
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_DYNAMIC_PROTOCOL, "run2")
+        await scheduler.register_protocol_run("run1", HOLD_DYNAMIC_PROTOCOL, graph1)
+        await scheduler.register_protocol_run("run2", HOLD_DYNAMIC_PROTOCOL, graph2)
 
         completed_order = await self._spin_and_complete_all(db, scheduler, task_manager)
 
-        exp1_tasks = [t for e, t in completed_order if e == "exp1"]
-        exp2_tasks = [t for e, t in completed_order if e == "exp2"]
-        assert set(exp1_tasks) == {"setup", "process", "cleanup"}
-        assert set(exp2_tasks) == {"setup", "process", "cleanup"}
+        run1_tasks = [t for e, t in completed_order if e == "run1"]
+        run2_tasks = [t for e, t in completed_order if e == "run2"]
+        assert set(run1_tasks) == {"setup", "process", "cleanup"}
+        assert set(run2_tasks) == {"setup", "process", "cleanup"}
 
-        exp1_indices = [i for i, (e, _) in enumerate(completed_order) if e == "exp1"]
-        exp2_indices = [i for i, (e, _) in enumerate(completed_order) if e == "exp2"]
+        run1_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run1"]
+        run2_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run2"]
 
-        assert max(exp1_indices) < min(exp2_indices) or max(exp2_indices) < min(exp1_indices), (
-            f"D2 tasks interleaved between experiments! Order: {completed_order}"
+        assert max(run1_indices) < min(run2_indices) or max(run2_indices) < min(run1_indices), (
+            f"D2 tasks interleaved between protocol runs! Order: {completed_order}"
         )
 
     @pytest.mark.asyncio
     async def test_dynamic_hold_device_released_vs_held(
-        self, db, scheduler, configuration_manager, experiment_manager, task_manager, allocation_manager
+        self, db, scheduler, configuration_manager, protocol_run_manager, task_manager, allocation_manager
     ):
         """D1 (static, no hold) is released after setup. D2 (dynamic, hold=true) is held."""
         await self._init_scheduler(scheduler)
-        graph = ExperimentGraph(configuration_manager.experiments[HOLD_DYNAMIC_EXPERIMENT_TYPE])
+        graph = ProtocolGraph(configuration_manager.protocols[HOLD_DYNAMIC_PROTOCOL])
 
-        await self._create_experiment(db, experiment_manager, HOLD_DYNAMIC_EXPERIMENT_TYPE, "exp1")
-        await scheduler.register_experiment("exp1", HOLD_DYNAMIC_EXPERIMENT_TYPE, graph)
+        await self._create_protocol_run(db, protocol_run_manager, HOLD_DYNAMIC_PROTOCOL, "run1")
+        await scheduler.register_protocol_run("run1", HOLD_DYNAMIC_PROTOCOL, graph)
 
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
-            if "setup" in all_tasks.get("exp1", {}):
-                await self._complete_task(db, task_manager, "setup", "exp1")
+            if "setup" in all_tasks.get("run1", {}):
+                await self._complete_task(db, task_manager, "setup", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -256,4 +258,4 @@ class TestSchedulerDynamicHold(_HoldTestBase):
 
         assert d1_owner is None, f"D1 should be released (no hold), but owned by {d1_owner}"
         assert d2_owner is not None, "D2 should be held (dynamic assignment with hold=true)"
-        assert d2_owner.experiment_name == "exp1", "D2 should be held by exp1"
+        assert d2_owner.protocol_run_name == "run1", "D2 should be held by run1"

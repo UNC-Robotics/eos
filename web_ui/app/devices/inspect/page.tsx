@@ -1,7 +1,7 @@
 import { DeviceInspector } from '@/features/device-inspector/components/DeviceInspector';
 import { getDevices } from '@/features/management/api/devices';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Device Inspector - EOS',

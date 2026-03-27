@@ -12,32 +12,34 @@ import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Combobox } from '@/components/ui/Combobox';
+import { ParameterSearchInput } from '@/components/ui/ParameterSearchInput';
+import { DescriptionTooltip } from '@/components/ui/DescriptionTooltip';
 import { submitCampaign } from '@/features/campaigns/api/campaigns';
 import { getOptimizerDefaults } from '@/features/campaigns/api/optimizer';
-import { ExperimentParameterField } from '@/features/experiments/components/ExperimentParameterField';
+import { ProtocolRunParameterField } from '@/features/protocol-runs/components/ProtocolRunParameterField';
 import { BeaconOptimizerPanel } from './BeaconOptimizerPanel';
 import { extractBeaconDomain } from '../utils/beaconMeta';
-import { parseExperimentParameters } from '../utils/experimentParametersParsing';
+import { parseProtocolRunParameters } from '../utils/protocolRunParametersParsing';
 import {
   hasNonEmptyObject,
   convertParameters,
   extractParameterValues,
   filterNonDefaultParameters,
-} from '@/lib/utils/experimentHelpers';
+} from '@/lib/utils/protocolHelpers';
 import type { Campaign, CampaignDefinition, OptimizerDefaults } from '@/lib/types/api';
-import type { TaskSpec, ParameterSpec, ParameterValue } from '@/lib/types/experiment';
-import type { ExperimentSpec } from '@/lib/api/specs';
+import type { TaskSpec, ParameterSpec, ParameterValue } from '@/lib/types/protocol';
+import type { ProtocolSpec } from '@/lib/api/specs';
 
 const campaignFormSchema = z.object({
   name: z.string().min(1, 'Campaign name is required'),
-  experiment_type: z.string().min(1, 'Experiment type is required'),
+  protocol: z.string().min(1, 'Protocol type is required'),
   owner: z.string().min(1, 'Owner is required'),
   priority: z.number().min(0),
-  max_experiments: z.number().min(0),
-  max_concurrent_experiments: z.number().min(1),
+  max_protocol_runs: z.number().min(0),
+  max_concurrent_protocol_runs: z.number().min(1),
   optimize: z.boolean(),
   optimizer_ip: z.string(),
-  experiment_parameters: z.string().optional(),
+  protocol_run_parameters: z.string().optional(),
   meta: z.string().optional(),
   resume: z.boolean(),
 });
@@ -47,14 +49,15 @@ type CampaignFormValues = z.infer<typeof campaignFormSchema>;
 interface SubmitCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  experimentSpecs: Record<string, ExperimentSpec>;
+  onSuccess?: () => void;
+  protocolSpecs: Record<string, ProtocolSpec>;
   taskSpecs: Record<string, TaskSpec>;
   initialCampaign?: Campaign | null;
   generateCloneName: (name: string) => Promise<string>;
 }
 
 function GlobalParametersSection({
-  experimentSpec,
+  protocolSpec,
   taskSpecs,
   taskParameters,
   expandedTasks,
@@ -62,7 +65,7 @@ function GlobalParametersSection({
   updateTaskParameter,
   clearTaskParameter,
 }: {
-  experimentSpec: ExperimentSpec | null;
+  protocolSpec: ProtocolSpec | null;
   taskSpecs: Record<string, TaskSpec>;
   taskParameters: Record<string, Record<string, ParameterValue>>;
   expandedTasks: Set<string>;
@@ -71,8 +74,9 @@ function GlobalParametersSection({
   clearTaskParameter: (taskName: string, paramName: string) => void;
 }) {
   const [expanded, setExpanded] = React.useState(true);
+  const [inputSearch, setInputSearch] = React.useState('');
 
-  if (!experimentSpec || experimentSpec.tasks.length === 0) return null;
+  if (!protocolSpec || protocolSpec.tasks.length === 0) return null;
 
   return (
     <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-slate-700">
@@ -85,64 +89,85 @@ function GlobalParametersSection({
         <div>
           <Label className="text-base cursor-pointer">Global Parameters</Label>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Parameters shared across all experiments in this campaign
+            Parameters shared across all protocol runs in this campaign
           </p>
         </div>
       </button>
 
-      {expanded &&
-        experimentSpec.tasks.map((taskConfig) => {
-          const taskSpec = taskSpecs[taskConfig.type];
-          if (!taskSpec || !taskSpec.input_parameters || Object.keys(taskSpec.input_parameters).length === 0) {
-            return null;
-          }
+      {expanded && (
+        <>
+          <ParameterSearchInput value={inputSearch} onChange={setInputSearch} />
+          {protocolSpec.tasks.map((taskConfig) => {
+            const taskSpec = taskSpecs[taskConfig.type];
+            if (!taskSpec || !taskSpec.input_parameters || Object.keys(taskSpec.input_parameters).length === 0) {
+              return null;
+            }
 
-          const isExpanded = expandedTasks.has(taskConfig.name);
+            const searchLower = inputSearch.toLowerCase();
+            const taskNameMatches =
+              !searchLower ||
+              taskConfig.name.toLowerCase().includes(searchLower) ||
+              taskConfig.type.toLowerCase().includes(searchLower);
+            const filteredParams = Object.entries(taskSpec.input_parameters).filter(([paramName, paramSpec]) => {
+              if (!searchLower || taskNameMatches) return true;
+              const spec = paramSpec as ParameterSpec;
+              return (
+                paramName.toLowerCase().includes(searchLower) ||
+                (spec.desc && spec.desc.toLowerCase().includes(searchLower)) ||
+                spec.type.toLowerCase().includes(searchLower)
+              );
+            });
 
-          return (
-            <div
-              key={taskConfig.name}
-              className="border border-gray-200 dark:border-slate-700 rounded-md bg-gray-50 dark:bg-slate-800/50"
-            >
-              <button
-                type="button"
-                onClick={() => toggleTaskExpansion(taskConfig.name)}
-                className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors rounded-t-md"
+            if (searchLower && !taskNameMatches && filteredParams.length === 0) return null;
+
+            const isExpanded = searchLower ? true : expandedTasks.has(taskConfig.name);
+
+            return (
+              <div
+                key={taskConfig.name}
+                className="border border-gray-200 dark:border-slate-700 rounded-md bg-gray-50 dark:bg-slate-800/50"
               >
-                <div className="flex items-center gap-2">
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  )}
-                  <div className="text-left">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{taskConfig.name}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Type: {taskConfig.type}
-                      {taskConfig.desc && ` - ${taskConfig.desc}`}
+                <button
+                  type="button"
+                  onClick={() => toggleTaskExpansion(taskConfig.name)}
+                  className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors rounded-t-md"
+                >
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    )}
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">{taskConfig.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Type: {taskConfig.type}
+                        {taskConfig.desc && <DescriptionTooltip description={taskConfig.desc} />}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
+                </button>
 
-              {isExpanded && (
-                <div className="px-3 pt-3 pb-3 space-y-2.5 border-t border-gray-200 dark:border-slate-700">
-                  {Object.entries(taskSpec.input_parameters).map(([paramName, paramSpec]) => (
-                    <ExperimentParameterField
-                      key={paramName}
-                      paramName={paramName}
-                      paramSpec={paramSpec as ParameterSpec}
-                      value={taskParameters[taskConfig.name]?.[paramName]}
-                      specDefault={taskConfig.parameters?.[paramName]}
-                      onChange={(value) => updateTaskParameter(taskConfig.name, paramName, value)}
-                      onClear={() => clearTaskParameter(taskConfig.name, paramName)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                {isExpanded && (
+                  <div className="px-3 pt-3 pb-3 space-y-2.5 border-t border-gray-200 dark:border-slate-700">
+                    {filteredParams.map(([paramName, paramSpec]) => (
+                      <ProtocolRunParameterField
+                        key={paramName}
+                        paramName={paramName}
+                        paramSpec={paramSpec as ParameterSpec}
+                        value={taskParameters[taskConfig.name]?.[paramName]}
+                        specDefault={taskConfig.parameters?.[paramName]}
+                        onChange={(value) => updateTaskParameter(taskConfig.name, paramName, value)}
+                        onClear={() => clearTaskParameter(taskConfig.name, paramName)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
@@ -150,14 +175,15 @@ function GlobalParametersSection({
 export function SubmitCampaignDialog({
   open,
   onOpenChange,
-  experimentSpecs,
+  onSuccess,
+  protocolSpecs,
   taskSpecs,
   initialCampaign,
   generateCloneName,
 }: SubmitCampaignDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [selectedExperimentSpec, setSelectedExperimentSpec] = React.useState<ExperimentSpec | null>(null);
+  const [selectedProtocolSpec, setSelectedProtocolSpec] = React.useState<ProtocolSpec | null>(null);
   const [optimizerDefaults, setOptimizerDefaults] = React.useState<OptimizerDefaults | null>(null);
   const [optimizerOverrides, setOptimizerOverrides] = React.useState<Record<string, unknown>>({});
 
@@ -170,7 +196,7 @@ export function SubmitCampaignDialog({
   // Track if we've already populated from initialCampaign to prevent re-population
   const populatedFromCampaignRef = React.useRef<string | null>(null);
 
-  // File upload for experiment parameters
+  // File upload for protocol run parameters
   const paramFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const {
@@ -184,32 +210,32 @@ export function SubmitCampaignDialog({
     resolver: zodResolver(campaignFormSchema),
     defaultValues: {
       name: '',
-      experiment_type: '',
+      protocol: '',
       owner: '',
       priority: 0,
-      max_experiments: 0,
-      max_concurrent_experiments: 1,
+      max_protocol_runs: 0,
+      max_concurrent_protocol_runs: 1,
       optimize: true,
       optimizer_ip: '127.0.0.1',
-      experiment_parameters: '',
+      protocol_run_parameters: '',
       meta: '',
       resume: false,
     },
   });
 
   const optimize = watch('optimize');
-  const experimentType = watch('experiment_type');
+  const protocolType = watch('protocol');
   const isResume = watch('resume');
 
-  // Create experiment type options from specs
-  const experimentTypeOptions = React.useMemo(
+  // Create protocol type options from specs
+  const protocolTypeOptions = React.useMemo(
     () =>
-      Object.entries(experimentSpecs).map(([type, spec]) => ({
+      Object.entries(protocolSpecs).map(([type, spec]) => ({
         value: type,
         label: type,
         description: spec.desc,
       })),
-    [experimentSpecs]
+    [protocolSpecs]
   );
 
   // Initialize from clone - cloned parameters ARE overrides
@@ -218,18 +244,18 @@ export function SubmitCampaignDialog({
       populatedFromCampaignRef.current = initialCampaign.name;
 
       generateCloneName(initialCampaign.name).then((name) => setValue('name', name));
-      setValue('experiment_type', initialCampaign.experiment_type);
+      setValue('protocol', initialCampaign.protocol);
       setValue('owner', initialCampaign.owner);
       setValue('priority', initialCampaign.priority ?? 0);
-      setValue('max_experiments', initialCampaign.max_experiments ?? 0);
-      setValue('max_concurrent_experiments', initialCampaign.max_concurrent_experiments ?? 1);
+      setValue('max_protocol_runs', initialCampaign.max_protocol_runs ?? 0);
+      setValue('max_concurrent_protocol_runs', initialCampaign.max_concurrent_protocol_runs ?? 1);
       setValue('optimize', initialCampaign.optimize);
       setValue('optimizer_ip', initialCampaign.optimizer_ip || '127.0.0.1');
       setValue('resume', initialCampaign.resume || false);
       setValue(
-        'experiment_parameters',
-        hasNonEmptyObject(initialCampaign.experiment_parameters)
-          ? JSON.stringify(initialCampaign.experiment_parameters, null, 2)
+        'protocol_run_parameters',
+        hasNonEmptyObject(initialCampaign.protocol_run_parameters)
+          ? JSON.stringify(initialCampaign.protocol_run_parameters, null, 2)
           : ''
       );
       if (hasNonEmptyObject(initialCampaign.meta)) {
@@ -240,8 +266,8 @@ export function SubmitCampaignDialog({
       }
 
       if (initialCampaign.global_parameters) {
-        // Get the experiment spec for filtering
-        const expSpec = experimentSpecs[initialCampaign.experiment_type];
+        // Get the protocol spec for filtering
+        const expSpec = protocolSpecs[initialCampaign.protocol];
 
         // Filter out parameters that match spec defaults to avoid false "override" indicators
         const filteredParams = expSpec
@@ -256,25 +282,25 @@ export function SubmitCampaignDialog({
         setExpandedTasks(new Set());
       }
     }
-  }, [initialCampaign, experimentSpecs, generateCloneName, setValue]);
+  }, [initialCampaign, protocolSpecs, generateCloneName, setValue]);
 
-  // Load experiment spec when type changes
+  // Load protocol spec when type changes
   React.useEffect(() => {
-    if (experimentType && experimentSpecs[experimentType]) {
-      const spec = experimentSpecs[experimentType];
-      setSelectedExperimentSpec(spec);
+    if (protocolType && protocolSpecs[protocolType]) {
+      const spec = protocolSpecs[protocolType];
+      setSelectedProtocolSpec(spec);
 
       // Expand all tasks by default (but don't initialize taskParameters - it only holds overrides)
       setExpandedTasks(new Set(spec.tasks.map((t) => t.name)));
     } else {
-      setSelectedExperimentSpec(null);
+      setSelectedProtocolSpec(null);
     }
-  }, [experimentType, experimentSpecs]);
+  }, [protocolType, protocolSpecs]);
 
-  // Fetch optimizer defaults when experiment type changes and optimize is enabled
+  // Fetch optimizer defaults when protocol type changes and optimize is enabled
   React.useEffect(() => {
-    if (optimize && experimentType) {
-      getOptimizerDefaults(experimentType).then((defaults) => {
+    if (optimize && protocolType) {
+      getOptimizerDefaults(protocolType).then((defaults) => {
         setOptimizerDefaults(defaults);
         if (initialCampaign?.meta?.optimizer_overrides) {
           setOptimizerOverrides(initialCampaign.meta.optimizer_overrides as Record<string, unknown>);
@@ -287,7 +313,7 @@ export function SubmitCampaignDialog({
       setOptimizerOverrides({});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally read once during clone
-  }, [optimize, experimentType]);
+  }, [optimize, protocolType]);
 
   const toggleTaskExpansion = (taskName: string) => {
     setExpandedTasks((prev) => {
@@ -331,14 +357,14 @@ export function SubmitCampaignDialog({
   const handleClear = () => {
     reset({
       name: '',
-      experiment_type: '',
+      protocol: '',
       owner: '',
       priority: 0,
-      max_experiments: 0,
-      max_concurrent_experiments: 1,
+      max_protocol_runs: 0,
+      max_concurrent_protocol_runs: 1,
       optimize: true,
       optimizer_ip: '127.0.0.1',
-      experiment_parameters: '',
+      protocol_run_parameters: '',
       meta: '',
       resume: false,
     });
@@ -347,8 +373,8 @@ export function SubmitCampaignDialog({
     setTaskParameters({});
 
     // Keep tasks expanded
-    if (selectedExperimentSpec) {
-      setExpandedTasks(new Set(selectedExperimentSpec.tasks.map((t) => t.name)));
+    if (selectedProtocolSpec) {
+      setExpandedTasks(new Set(selectedProtocolSpec.tasks.map((t) => t.name)));
     } else {
       setExpandedTasks(new Set());
     }
@@ -364,13 +390,13 @@ export function SubmitCampaignDialog({
 
     try {
       const global_parameters = extractParameterValues(taskParameters);
-      let experiment_parameters: Array<Record<string, Record<string, unknown>>> | null;
+      let protocol_run_parameters: Array<Record<string, Record<string, unknown>>> | null;
       try {
-        experiment_parameters = data.experiment_parameters?.trim()
-          ? parseExperimentParameters(data.experiment_parameters)
+        protocol_run_parameters = data.protocol_run_parameters?.trim()
+          ? parseProtocolRunParameters(data.protocol_run_parameters)
           : null;
       } catch (e) {
-        throw new Error(e instanceof Error ? e.message : 'Invalid experiment parameters');
+        throw new Error(e instanceof Error ? e.message : 'Invalid protocol run parameters');
       }
       let meta: Record<string, unknown>;
       try {
@@ -395,15 +421,15 @@ export function SubmitCampaignDialog({
 
       const campaignDefinition: CampaignDefinition = {
         name: data.name,
-        experiment_type: data.experiment_type,
+        protocol: data.protocol,
         owner: data.owner,
         priority: data.priority,
-        max_experiments: data.max_experiments,
-        max_concurrent_experiments: data.max_concurrent_experiments,
+        max_protocol_runs: data.max_protocol_runs,
+        max_concurrent_protocol_runs: data.max_concurrent_protocol_runs,
         optimize: data.optimize,
         optimizer_ip: data.optimizer_ip,
         global_parameters: Object.keys(global_parameters).length > 0 ? global_parameters : undefined,
-        experiment_parameters,
+        protocol_run_parameters,
         meta,
         resume: data.resume,
       };
@@ -412,6 +438,7 @@ export function SubmitCampaignDialog({
 
       if (result.success) {
         onOpenChange(false);
+        onSuccess?.();
       } else {
         setError(result.error || 'Failed to submit campaign');
       }
@@ -447,16 +474,16 @@ export function SubmitCampaignDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="experiment_type">Experiment Type *</Label>
+            <Label htmlFor="protocol">Protocol *</Label>
             <Combobox
-              options={experimentTypeOptions}
-              value={experimentType}
-              onChange={(value) => setValue('experiment_type', value, { shouldValidate: true })}
-              placeholder="Select experiment type"
-              searchPlaceholder="Search experiment types..."
-              emptyText="No experiment types found"
+              options={protocolTypeOptions}
+              value={protocolType}
+              onChange={(value) => setValue('protocol', value, { shouldValidate: true })}
+              placeholder="Select protocol"
+              searchPlaceholder="Search protocols..."
+              emptyText="No protocols found"
             />
-            {errors.experiment_type && <p className="text-sm text-red-600">{errors.experiment_type.message}</p>}
+            {errors.protocol && <p className="text-sm text-red-600">{errors.protocol.message}</p>}
           </div>
         </div>
 
@@ -477,22 +504,22 @@ export function SubmitCampaignDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="max_experiments">Max Experiments</Label>
+            <Label htmlFor="max_protocol_runs">Max Protocol Runs</Label>
             <Input
-              id="max_experiments"
+              id="max_protocol_runs"
               type="number"
-              {...register('max_experiments', { valueAsNumber: true })}
-              error={errors.max_experiments?.message}
+              {...register('max_protocol_runs', { valueAsNumber: true })}
+              error={errors.max_protocol_runs?.message}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="max_concurrent_experiments">Max Concurrent Experiments</Label>
+            <Label htmlFor="max_concurrent_protocol_runs">Max Concurrent Protocol Runs</Label>
             <Input
-              id="max_concurrent_experiments"
+              id="max_concurrent_protocol_runs"
               type="number"
-              {...register('max_concurrent_experiments', { valueAsNumber: true })}
-              error={errors.max_concurrent_experiments?.message}
+              {...register('max_concurrent_protocol_runs', { valueAsNumber: true })}
+              error={errors.max_concurrent_protocol_runs?.message}
             />
           </div>
         </div>
@@ -542,7 +569,7 @@ export function SubmitCampaignDialog({
 
         {/* Global Parameters - Visual Editor (collapsible) */}
         <GlobalParametersSection
-          experimentSpec={selectedExperimentSpec}
+          protocolSpec={selectedProtocolSpec}
           taskSpecs={taskSpecs}
           taskParameters={taskParameters}
           expandedTasks={expandedTasks}
@@ -553,7 +580,7 @@ export function SubmitCampaignDialog({
 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Label htmlFor="experiment_parameters">Experiment Parameters</Label>
+            <Label htmlFor="protocol_run_parameters">Protocol Run Parameters</Label>
             <Tooltip.Root>
               <Tooltip.Trigger asChild>
                 <button
@@ -570,7 +597,7 @@ export function SubmitCampaignDialog({
                 >
                   <p className="font-medium mb-1">Accepts JSON or CSV</p>
                   <p className="mb-1">JSON: [&#123;&quot;task.param&quot;: value&#125;, ...]</p>
-                  <p>CSV: dot-notation headers (task.param), one experiment per row. Missing columns are OK.</p>
+                  <p>CSV: dot-notation headers (task.param), one protocol run per row. Missing columns are OK.</p>
                   <Tooltip.Arrow className="fill-gray-900 dark:fill-gray-100" />
                 </Tooltip.Content>
               </Tooltip.Portal>
@@ -595,7 +622,7 @@ export function SubmitCampaignDialog({
                 const reader = new FileReader();
                 reader.onload = () => {
                   if (typeof reader.result === 'string') {
-                    setValue('experiment_parameters', reader.result, { shouldValidate: true });
+                    setValue('protocol_run_parameters', reader.result, { shouldValidate: true });
                   }
                 };
                 reader.readAsText(file);
@@ -604,9 +631,9 @@ export function SubmitCampaignDialog({
             />
           </div>
           <Textarea
-            id="experiment_parameters"
-            {...register('experiment_parameters')}
-            error={errors.experiment_parameters?.message}
+            id="protocol_run_parameters"
+            {...register('protocol_run_parameters')}
+            error={errors.protocol_run_parameters?.message}
             placeholder="Paste JSON array or CSV"
           />
           {!optimize && <p className="text-xs text-gray-500 dark:text-gray-400">Required if not optimizing</p>}

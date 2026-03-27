@@ -1,0 +1,94 @@
+from datetime import datetime, UTC
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from sqlalchemy import DateTime, Index, String, Text, JSON, Enum as sa_Enum, Integer, ForeignKey
+from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.orm import mapped_column, Mapped
+
+from eos.database.abstract_sql_db_interface import Base
+
+
+class ProtocolRunStatus(Enum):
+    CREATED = "CREATED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    SUSPENDED = "SUSPENDED"
+    CANCELLED = "CANCELLED"
+    FAILED = "FAILED"
+
+
+class ProtocolRunSubmission(BaseModel):
+    """Protocol run submitted to the system."""
+
+    name: str
+    type: str
+
+    owner: str
+
+    priority: int = Field(0, ge=0)
+
+    parameters: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    meta: dict[str, Any] | None = None
+
+    resume: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProtocolRun(ProtocolRunSubmission):
+    """The state of a protocol run in the system."""
+
+    campaign: str | None = None
+
+    status: ProtocolRunStatus = ProtocolRunStatus.CREATED
+    error_message: str | None = None
+
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+
+    @field_serializer("status")
+    def status_enum_to_string(self, v: ProtocolRunStatus) -> str:
+        return v.value
+
+    @classmethod
+    def from_submission(cls, submission: ProtocolRunSubmission) -> "ProtocolRun":
+        """Create a ProtocolRun instance from a ProtocolRunSubmission."""
+        return cls(**submission.model_dump())
+
+
+class ProtocolRunModel(Base):
+    """The database model for protocol runs."""
+
+    __tablename__ = "protocol_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    type: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    owner: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    campaign: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("campaigns.name", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    priority: Mapped[int] = mapped_column(nullable=False, default=0)
+
+    parameters: Mapped[dict] = mapped_column(MutableDict.as_mutable(JSON), nullable=False, default={})
+    meta: Mapped[dict | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
+
+    resume: Mapped[bool] = mapped_column(nullable=False, default=False)
+
+    status: Mapped[ProtocolRunStatus] = mapped_column(
+        sa_Enum(ProtocolRunStatus), nullable=False, default=ProtocolRunStatus.CREATED, index=True
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (Index("ix_protocol_runs_created_at", "created_at"),)

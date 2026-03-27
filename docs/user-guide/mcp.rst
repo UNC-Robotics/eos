@@ -1,10 +1,10 @@
 MCP Server
 ==========
 EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI.
-This allows AI assistants like Claude to interact with EOS directly, querying experiments, submitting campaigns, inspecting devices, and more.
+This allows AI assistants like Claude to interact with EOS directly, querying protocols, submitting campaigns, inspecting devices, and more.
 
 Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
-"check the status of my campaign", "submit 10 multiplication experiments", or "what functions does the pipette support?"
+"check the status of my campaign", "submit 10 multiplication protocols", or "what functions does the pipette support?"
 
 .. warning::
 
@@ -52,9 +52,9 @@ Capabilities
 
 The MCP server exposes 50 tools across the following categories:
 
-* **Campaigns, Experiments, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
-* **Definitions** -- Browse loaded task types, device types, lab layouts, and experiment workflows.
-* **Management** -- Load, unload, and reload labs, experiments, devices, and packages.
+* **Campaigns, Protocol Runs, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
+* **Definitions** -- Browse loaded task types, device types, lab layouts, and protocol workflows.
+* **Management** -- Load, unload, and reload labs, protocols, devices, and packages.
 * **Optimizer** -- Query optimizer state, update runtime parameters, and provide expert insights.
 * **Devices** -- List devices, inspect state, discover available RPC functions, and call them directly.
 * **SQL** -- Run read-only queries against the EOS database.
@@ -68,12 +68,12 @@ These examples show natural language prompts you might give an AI assistant conn
 
 .. code-block:: text
 
-    "Show me the status of the catalyst_screening campaign and list all completed experiments"
+    "Show me the status of the catalyst_screening campaign and list all completed protocols"
 
-    "Submit a color mixing experiment targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
+    "Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
 
     "What devices are available in the wet lab? What functions does the liquid handler support?"
 
-    "How did the yield change across the last 10 experiments in the solubility campaign?"
+    "How did the yield change across the last 10 protocols in the solubility campaign?"
 
-    "Reload the experiment definitions, I just updated the YAML for the pH optimization workflow"
+    "Reload the protocol definitions, I just updated the YAML for the pH optimization workflow"

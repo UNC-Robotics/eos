@@ -18,15 +18,15 @@ class ConcreteTask(BaseTask):
 class TestBaseTask:
     @pytest.fixture
     def concrete_task(self):
-        return ConcreteTask("exp_name", "task_name")
+        return ConcreteTask("run_name", "task_name")
 
     @pytest.fixture
     def resource(self):
         return Resource(name="resource_name", type="beaker", meta={"location": "shelf"})
 
     def test_init(self):
-        task = ConcreteTask("exp_name", "task_name")
-        assert task._experiment_name == "exp_name"
+        task = ConcreteTask("run_name", "task_name")
+        assert task._protocol_run_name == "run_name"
         assert task._task_name == "task_name"
 
     @pytest.mark.asyncio
@@ -61,7 +61,7 @@ class TestBaseTask:
         parameters = {"param1": "value1"}
         resources = {"resource1": resource}
 
-        failing_task = FailingTask("exp_name", "task_name")
+        failing_task = FailingTask("run_name", "task_name")
         with pytest.raises(EosTaskExecutionError):
             await failing_task.execute(devices, parameters, resources)
 
@@ -76,7 +76,7 @@ class TestBaseTask:
             ) -> BaseTask.OutputType | None:
                 return None
 
-        task = EmptyOutputTask("exp_name", "task_name")
+        task = EmptyOutputTask("run_name", "task_name")
         result = await task.execute({}, {}, {})
 
         assert result == ({}, {}, {})
@@ -92,7 +92,7 @@ class TestBaseTask:
             ) -> BaseTask.OutputType | None:
                 return {"out_param": "value"}, None, None
 
-        task = PartialOutputTask("exp_name", "task_name")
+        task = PartialOutputTask("run_name", "task_name")
         result = await task.execute({}, {}, {})
 
         assert result == ({"out_param": "value"}, {}, {})
@@ -108,7 +108,7 @@ class TestBaseTask:
             ) -> BaseTask.OutputType | None:
                 return None
 
-        task = InputResourcePassthroughTask("exp_name", "task_name")
+        task = InputResourcePassthroughTask("run_name", "task_name")
         result = await task.execute({}, {}, {"resource1": resource})
 
         assert result == ({}, {"resource1": resource}, {})

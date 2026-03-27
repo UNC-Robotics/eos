@@ -1,13 +1,13 @@
 Optimizers
 ==========
 Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to experiment campaigns by optimizing task parameters to achieve objectives over time.
-Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous experiments.
+In EOS, optimizers give intelligence to protocol run campaigns by optimizing task parameters to achieve objectives over time.
+Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous protocol runs.
 One of the most common sequential optimization methods is **Bayesian optimization**, and is especially useful for
 optimizing expensive-to-evaluate black box functions.
 
-.. figure:: ../_static/img/optimize-experiment-loop.png
-   :alt: Optimization and experiment loop
+.. figure:: ../_static/img/optimize-protocol-loop.png
+   :alt: Optimization and protocol run loop
    :align: center
 
 EOS has a built-in Bayesian optimizer powered by `BoFire <https://experimental-design.github.io/bofire/>`_
@@ -24,7 +24,7 @@ This can enable running the optimizer on a more capable computer than the one ru
 
 Optimizer Implementation
 ------------------------
-EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``experiment.yml`` in an EOS package.
+EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``protocol.yml`` in an EOS package.
 Below is an example:
 
 :bdg-primary:`optimizer.py`
@@ -75,7 +75,7 @@ In this example, we use EOS' built-in Bayesian optimizer.
 
 For most use cases, we recommend the :doc:`beacon_optimizer`, which combines Bayesian optimization with
 AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
-constraints) but adds an AI agent that reasons about experimental history to suggest smarter experiments.
+constraints) but adds an AI agent that reasons about protocol run history to suggest smarter parameter sets.
 
 It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
 the class type from ``eos_create_campaign_optimizer``.
@@ -90,7 +90,7 @@ The EOS reference format must be used:
 
 **TASK.PARAMETER_NAME**
 
-This is necessary for EOS to be able to associate the optimizer with the experiment tasks and to forward parameter values
+This is necessary for EOS to be able to associate the optimizer with the protocol tasks and to forward parameter values
 where needed.
 
 Example Custom Optimizer
@@ -133,9 +133,9 @@ Below is an example of a custom optimizer implementation that randomly samples p
             self.metrics = metrics
             self.results: list[dict] = []
 
-        def sample(self, num_experiments: int = 1) -> pd.DataFrame:
+        def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
             samples = []
-            for _ in range(num_experiments):
+            for _ in range(num_protocol_runs):
                 sample = {p.name: random.uniform(p.lower_bound, p.upper_bound) for p in self.parameters}
                 samples.append(sample)
             return pd.DataFrame(samples)

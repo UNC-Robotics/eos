@@ -4,8 +4,8 @@ from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
-from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 from eos.database.file_db_interface import FileDbInterface
 from eos.allocation.allocation_manager import AllocationManager
@@ -43,8 +43,8 @@ def get_task_manager() -> TaskManager:
     return get_di_container().get(TaskManager)
 
 
-def get_experiment_manager() -> ExperimentManager:
-    return get_di_container().get(ExperimentManager)
+def get_protocol_run_manager() -> ProtocolRunManager:
+    return get_di_container().get(ProtocolRunManager)
 
 
 def get_campaign_manager() -> CampaignManager:
@@ -63,8 +63,8 @@ def get_scheduler() -> AbstractScheduler:
     return get_di_container().get(AbstractScheduler)
 
 
-def get_experiment_executor_factory() -> ExperimentExecutorFactory:
-    return get_di_container().get(ExperimentExecutorFactory)
+def get_protocol_executor_factory() -> ProtocolExecutorFactory:
+    return get_di_container().get(ProtocolExecutorFactory)
 
 
 def get_campaign_executor_factory() -> CampaignExecutorFactory:

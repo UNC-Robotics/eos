@@ -1,9 +1,9 @@
 LABS_DIR = "labs"
-EXPERIMENTS_DIR = "experiments"
+PROTOCOLS_DIR = "protocols"
 DEVICES_DIR = "devices"
 TASKS_DIR = "tasks"
 
-EXPERIMENT_CONFIG_FILE_NAME = "experiment.yml"
+PROTOCOL_CONFIG_FILE_NAME = "protocol.yml"
 LAB_CONFIG_FILE_NAME = "lab.yml"
 DEVICE_CONFIG_FILE_NAME = "device.yml"
 TASK_CONFIG_FILE_NAME = "task.yml"

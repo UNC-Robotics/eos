@@ -49,7 +49,7 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         ai_model_settings: dict[str, Any] | None = None,
         ai_additional_parameters: list[str] | None = None,
         ai_additional_context: str | None = None,
-        experiment_parameters_schedule: list[dict[str, dict[str, Any]]] | None = None,
+        protocol_run_parameters_schedule: list[dict[str, dict[str, Any]]] | None = None,
     ):
         if abs(p_bayesian + p_ai - 1.0) > _PROBABILITY_TOLERANCE:
             raise ValueError(f"p_bayesian ({p_bayesian}) + p_ai ({p_ai}) must equal 1.0")
@@ -66,8 +66,8 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         self._ai_api_key = ai_api_key
         self._ai_retries = ai_retries
         self._ai_model_settings = ai_model_settings
-        self._experiment_context: str | None = None
-        self._experiment_parameters_schedule = experiment_parameters_schedule
+        self._protocol_context: str | None = None
+        self._protocol_run_parameters_schedule = protocol_run_parameters_schedule
 
         self._domain = Domain(
             inputs=Inputs(features=inputs),
@@ -113,10 +113,10 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
             retries=self._ai_retries,
             model_settings=self._ai_model_settings,
             additional_context=self._ai_additional_context,
-            experiment_parameters_schedule=self._experiment_parameters_schedule,
+            protocol_run_parameters_schedule=self._protocol_run_parameters_schedule,
         )
-        if self._experiment_context:
-            agent.set_experiment_context(self._experiment_context)
+        if self._protocol_context:
+            agent.set_protocol_context(self._protocol_context)
         return agent
 
     def _input_key(self, row_dict: dict) -> tuple:
@@ -128,10 +128,10 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         for _, row in df.iterrows():
             self._sample_journals.append((self._input_key(row.to_dict()), journal))
 
-    async def sample(self, num_experiments: int = 1) -> pd.DataFrame:
+    async def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
         use_ai = self._ai_agent is not None and random.random() < self._p_ai  # noqa: S311
         if use_ai:
-            log.info(f"Beacon sampling {num_experiments} experiment(s) via AI")
+            log.info(f"Beacon sampling {num_protocol_runs} protocol run(s) via AI")
             # Snapshot shared state under lock, then release for I/O-bound AI call
             async with self._state_lock:
                 insights = list(self._insights)
@@ -140,7 +140,7 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
                 history = self._history[-self._ai_history_size :]
             try:
                 df, journal_entry = await self._ai_agent.suggest_async(
-                    num_experiments,
+                    num_protocol_runs,
                     history,
                     best_results,
                     insights,
@@ -156,14 +156,14 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
                 async with self._state_lock:
                     self._insights = insights + self._insights
                     loop = asyncio.get_running_loop()
-                    df = await loop.run_in_executor(None, self._bayesian_optimizer.sample, num_experiments)
+                    df = await loop.run_in_executor(None, self._bayesian_optimizer.sample, num_protocol_runs)
                     self._tag_sample_journals(df, None)
                 return df
         else:
-            log.info(f"Beacon sampling {num_experiments} experiment(s) via Bayesian optimizer")
+            log.info(f"Beacon sampling {num_protocol_runs} protocol run(s) via Bayesian optimizer")
             async with self._state_lock:
                 loop = asyncio.get_running_loop()
-                df = await loop.run_in_executor(None, self._bayesian_optimizer.sample, num_experiments)
+                df = await loop.run_in_executor(None, self._bayesian_optimizer.sample, num_protocol_runs)
                 self._tag_sample_journals(df, None)
             return df
 
@@ -210,10 +210,10 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
     def get_num_samples_reported(self) -> int:
         return self._num_samples_reported
 
-    def set_experiment_context(self, experiment_yaml: str) -> None:
-        self._experiment_context = experiment_yaml
+    def set_protocol_context(self, protocol_yaml: str) -> None:
+        self._protocol_context = protocol_yaml
         if self._ai_agent:
-            self._ai_agent.set_experiment_context(experiment_yaml)
+            self._ai_agent.set_protocol_context(protocol_yaml)
 
     def get_runtime_params(self) -> dict[str, Any]:
         return {

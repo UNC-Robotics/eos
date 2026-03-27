@@ -15,11 +15,11 @@ services:
     env_file:
       - .env.docker
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - ${USER_DIR}:/app/user
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
     networks:
       - eos_network
 

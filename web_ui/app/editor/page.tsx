@@ -1,13 +1,13 @@
 import { EditorClient } from '@/features/editor/components/EditorClient';
 import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
 import type { Package, EntityType } from '@/lib/types/filesystem';
-import type { ParameterSpec } from '@/lib/types/experiment';
+import type { ParameterSpec } from '@/lib/types/protocol';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Editor',
-  description: 'Edit EOS packages, experiments, devices, tasks, and labs',
+  description: 'Edit EOS packages, protocols, devices, tasks, and labs',
 };
 
 async function getPackages(): Promise<Package[]> {
@@ -45,7 +45,7 @@ export default async function EditorPage({ searchParams }: EditorPageProps) {
   // Fetch packages and specs in parallel
   const [packages, taskSpecs, labSpecs] = await Promise.all([getPackages(), getTaskSpecs(), getLabSpecs()]);
 
-  // Transform task specs for experiment editor (keep existing logic)
+  // Transform task specs for protocol editor (keep existing logic)
   const taskSpecsArray = Object.entries(taskSpecs).map(([type, spec]) => {
     const deviceTypes = spec.devices ? Array.from(new Set(Object.values(spec.devices).map((d) => d.type))) : [];
 

@@ -3,16 +3,16 @@
 import {
   getCampaignByName,
   getCampaignSamples,
-  getExperimentsByCampaign,
+  getProtocolRunsByCampaign,
   CampaignRow,
   CampaignSampleRow,
-  ExperimentRow,
+  ProtocolRunRow,
 } from '@/lib/db/queries';
-import type { Campaign, Experiment } from '@/lib/types/api';
+import type { Campaign, ProtocolRun } from '@/lib/types/api';
 
 export interface CampaignSample {
   campaignName: string;
-  experimentName: string;
+  protocolRunName: string;
   inputs: Record<string, number>;
   outputs: Record<string, number>;
   meta: Record<string, unknown>;
@@ -22,20 +22,20 @@ export interface CampaignSample {
 function transformDbCampaign(row: CampaignRow): Campaign {
   return {
     name: row.name,
-    experiment_type: row.experimentType,
+    protocol: row.protocol,
     owner: row.owner,
     priority: row.priority,
-    max_experiments: row.maxExperiments,
-    max_concurrent_experiments: row.maxConcurrentExperiments,
+    max_protocol_runs: row.maxProtocolRuns,
+    max_concurrent_protocol_runs: row.maxConcurrentProtocolRuns,
     optimize: row.optimize,
     optimizer_ip: row.optimizerIp ?? undefined,
     global_parameters: row.globalParameters,
-    experiment_parameters: row.experimentParameters,
+    protocol_run_parameters: row.protocolRunParameters,
     meta: row.meta || {},
     resume: row.resume,
     status: row.status as Campaign['status'],
     error_message: row.errorMessage ?? null,
-    experiments_completed: row.experimentsCompleted,
+    protocol_runs_completed: row.protocolRunsCompleted,
     pareto_solutions: row.paretoSolutions,
     created_at: row.createdAt.toISOString(),
     start_time: row.startTime?.toISOString() ?? null,
@@ -46,7 +46,7 @@ function transformDbCampaign(row: CampaignRow): Campaign {
 function transformDbSample(row: CampaignSampleRow): CampaignSample {
   return {
     campaignName: row.campaignName,
-    experimentName: row.experimentName,
+    protocolRunName: row.protocolRunName,
     inputs: row.inputs,
     outputs: row.outputs,
     meta: row.meta,
@@ -54,7 +54,7 @@ function transformDbSample(row: CampaignSampleRow): CampaignSample {
   };
 }
 
-function transformDbExperiment(exp: ExperimentRow): Experiment {
+function transformDbProtocolRun(exp: ProtocolRunRow): ProtocolRun {
   return {
     name: exp.name,
     type: exp.type,
@@ -64,7 +64,7 @@ function transformDbExperiment(exp: ExperimentRow): Experiment {
     parameters: exp.parameters || {},
     meta: exp.meta ?? null,
     resume: exp.resume,
-    status: exp.status as Experiment['status'],
+    status: exp.status as ProtocolRun['status'],
     error_message: exp.errorMessage ?? null,
     created_at: exp.createdAt.toISOString(),
     start_time: exp.startTime?.toISOString() ?? null,
@@ -93,36 +93,36 @@ export async function getCampaignOptimizationSamples(campaignName: string): Prom
   }
 }
 
-export async function getCampaignExperiments(campaignName: string): Promise<Experiment[]> {
+export async function getCampaignProtocolRuns(campaignName: string): Promise<ProtocolRun[]> {
   try {
-    const experimentRows = await getExperimentsByCampaign(campaignName);
-    return experimentRows.map(transformDbExperiment);
+    const protocolRunRows = await getProtocolRunsByCampaign(campaignName);
+    return protocolRunRows.map(transformDbProtocolRun);
   } catch (error) {
-    console.error('Failed to fetch campaign experiments:', error);
-    throw new Error('Failed to fetch campaign experiments');
+    console.error('Failed to fetch campaign protocol runs:', error);
+    throw new Error('Failed to fetch campaign protocol runs');
   }
 }
 
 export async function getCampaignWithDetails(campaignName: string): Promise<{
   campaign: Campaign | null;
   samples: CampaignSample[];
-  experiments: Experiment[];
+  protocolRuns: ProtocolRun[];
 }> {
   try {
-    const [campaignRow, sampleRows, experimentRows] = await Promise.all([
+    const [campaignRow, sampleRows, protocolRunRows] = await Promise.all([
       getCampaignByName(campaignName),
       getCampaignSamples(campaignName),
-      getExperimentsByCampaign(campaignName),
+      getProtocolRunsByCampaign(campaignName),
     ]);
 
     if (!campaignRow) {
-      return { campaign: null, samples: [], experiments: [] };
+      return { campaign: null, samples: [], protocolRuns: [] };
     }
 
     return {
       campaign: transformDbCampaign(campaignRow),
       samples: sampleRows.map(transformDbSample),
-      experiments: experimentRows.map(transformDbExperiment),
+      protocolRuns: protocolRunRows.map(transformDbProtocolRun),
     };
   } catch (error) {
     console.error('Failed to fetch campaign with details:', error);

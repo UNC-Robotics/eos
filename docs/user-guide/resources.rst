@@ -54,7 +54,7 @@ Notes
 
 Declaring resources in task specifications
 ------------------------------------------
-Tasks declare the resource types they require in ``task.yml``. EOS validates that experiments provide matching resource instances (by name) or a dynamic request for a resource of the required type.
+Tasks declare the resource types they require in ``task.yml``. EOS validates that protocols provide matching resource instances (by name) or a dynamic request for a resource of the required type.
 
 :bdg-primary:`task.yml`
 
@@ -75,15 +75,15 @@ Tasks declare the resource types they require in ``task.yml``. EOS validates tha
     #   beaker:
     #     type: beaker_500
 
-Assigning resources in experiments
+Assigning resources in protocols
 ----------------------------------
-In an experiment’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
+In a protocol’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
-    type: dynamic_resource_experiment
+    type: dynamic_resource_protocol
     desc: Demonstrate resource assignment
     labs: [small_lab]
 
@@ -121,11 +121,11 @@ In an experiment’s tasks, assign either specific resource names or request res
 .. tip::
    Dynamic resource requests select a single matching resource instance.
 
-Experiment‑level resource metadata (optional)
----------------------------------------------
-You may attach experiment‑specific metadata to resources used in that experiment via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
+Protocol‑level resource metadata (optional)
+--------------------------------------------
+You may attach protocol‑specific metadata to resources used in that protocol via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
@@ -147,7 +147,7 @@ You may attach experiment‑specific metadata to resources used in that experime
 Allocation and exclusivity
 --------------------------
 - EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.
-- Specific assignments must name an existing resource instance defined in one of the experiment’s labs.
+- Specific assignments must name an existing resource instance defined in one of the protocol’s labs.
 - Dynamic assignments select from the pool of eligible instances by ``resource_type``.
 - Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.
 

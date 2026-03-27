@@ -11,17 +11,17 @@ from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.campaigns.entities.campaign import CampaignStatus, Campaign, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
-from eos.experiments.entities.experiment import ExperimentStatus, ExperimentSubmission
-from eos.experiments.exceptions import EosExperimentCancellationError
-from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.entities.protocol_run import ProtocolRunStatus, ProtocolRunSubmission
+from eos.protocols.exceptions import EosProtocolRunCancellationError
+from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.tasks.task_manager import TaskManager
 from eos.utils import dict_utils
 
 if TYPE_CHECKING:
-    from eos.experiments.experiment_executor import ExperimentExecutor
+    from eos.protocols.protocol_executor import ProtocolExecutor
 
 
 class OptimizerState(Enum):
@@ -35,7 +35,7 @@ class OptimizerState(Enum):
 @dataclass
 class _PendingOptimizerSample:
     future: asyncio.Task
-    experiments: list[tuple[str, dict]]
+    protocol_runs: list[tuple[str, dict]]
 
 
 async def _await_ray_ref(ref: Any) -> Any:
@@ -43,8 +43,8 @@ async def _await_ray_ref(ref: Any) -> Any:
     return await ref
 
 
-def _merge_experiment_params(base: dict[str, Any], overrides: dict[str, Any] | None) -> None:
-    """Deep-merge experiment parameter overrides into base parameters (mutates base)."""
+def _merge_protocol_run_params(base: dict[str, Any], overrides: dict[str, Any] | None) -> None:
+    """Deep-merge protocol run parameter overrides into base parameters (mutates base)."""
     if overrides:
         for task_name, task_params in overrides.items():
             if task_name in base:
@@ -60,24 +60,24 @@ class CampaignExecutor:
         campaign_manager: CampaignManager,
         campaign_optimizer_manager: CampaignOptimizerManager,
         task_manager: TaskManager,
-        experiment_executor_factory: ExperimentExecutorFactory,
-        experiment_manager: ExperimentManager,
+        protocol_executor_factory: ProtocolExecutorFactory,
+        protocol_run_manager: ProtocolRunManager,
         db_interface: AbstractSqlDbInterface,
     ):
         self._campaign_submission = campaign_submission
         self._campaign_manager = campaign_manager
         self._campaign_optimizer_manager = campaign_optimizer_manager
         self._task_manager = task_manager
-        self._experiment_executor_factory = experiment_executor_factory
-        self._experiment_manager = experiment_manager
+        self._protocol_executor_factory = protocol_executor_factory
+        self._protocol_run_manager = protocol_run_manager
         self._db_interface = db_interface
 
         # Campaign state
         self._campaign_name = campaign_submission.name
-        self._experiment_type = campaign_submission.experiment_type
+        self._protocol = campaign_submission.protocol
         self._campaign_status: CampaignStatus | None = None
-        self._experiment_executors: dict[str, ExperimentExecutor] = {}
-        self._pending_experiment_cancellations: set[str] = set()
+        self._protocol_executors: dict[str, ProtocolExecutor] = {}
+        self._pending_protocol_run_cancellations: set[str] = set()
 
         # Optimizer state
         self._optimizer: ActorHandle | None = None
@@ -139,45 +139,45 @@ class CampaignExecutor:
         """Resume an existing campaign by restoring its state."""
         await self._campaign_manager.update_campaign_submission(db, self._campaign_submission)
 
-        await self._campaign_manager.delete_non_completed_campaign_experiments(db, self._campaign_name)
-        await self._sync_experiments_completed_counter(db)
+        await self._campaign_manager.delete_non_completed_campaign_protocol_runs(db, self._campaign_name)
+        await self._sync_protocol_runs_completed_counter(db)
 
         if self._campaign_submission.optimize:
             self._optimizer_state = OptimizerState.NEEDS_RESTORATION
 
         log.info(f"Campaign '{self._campaign_name}' resumed")
 
-    async def _sync_experiments_completed_counter(self, db: AsyncDbSession) -> None:
-        """Sync experiments_completed counter with the actual count of completed experiments."""
+    async def _sync_protocol_runs_completed_counter(self, db: AsyncDbSession) -> None:
+        """Sync protocol_runs_completed counter with the actual count of completed protocol runs."""
         completed_count = len(
-            await self._campaign_manager.get_campaign_experiment_names(
-                db, self._campaign_name, status=ExperimentStatus.COMPLETED
+            await self._campaign_manager.get_campaign_protocol_run_names(
+                db, self._campaign_name, status=ProtocolRunStatus.COMPLETED
             )
         )
 
         campaign = await self._campaign_manager.get_campaign(db, self._campaign_name)
-        if campaign and completed_count != campaign.experiments_completed:
-            await self._campaign_manager.set_experiments_completed(db, self._campaign_name, completed_count)
+        if campaign and completed_count != campaign.protocol_runs_completed:
+            await self._campaign_manager.set_protocol_runs_completed(db, self._campaign_name, completed_count)
 
-    async def _get_next_experiment_number(self, db: AsyncDbSession) -> int:
-        """Get the next experiment number (max existing + 1), handling gaps from cancelled experiments."""
-        all_experiment_names = await self._campaign_manager.get_campaign_experiment_names(db, self._campaign_name)
+    async def _get_next_protocol_run_number(self, db: AsyncDbSession) -> int:
+        """Get the next protocol run number (max existing + 1), handling gaps from cancelled runs."""
+        all_protocol_run_names = await self._campaign_manager.get_campaign_protocol_run_names(db, self._campaign_name)
 
         # Also account for names reserved by pending (unresolved) samples
         for pending in self._pending_samples:
-            all_experiment_names.extend(name for name, _ in pending.experiments)
+            all_protocol_run_names.extend(name for name, _ in pending.protocol_runs)
 
-        max_exp_num = 0
-        prefix = f"{self._campaign_name}_exp_"
-        for name in all_experiment_names:
+        max_run_num = 0
+        prefix = f"{self._campaign_name}_run_"
+        for name in all_protocol_run_names:
             if name.startswith(prefix):
                 try:
-                    exp_num = int(name[len(prefix) :])
-                    max_exp_num = max(max_exp_num, exp_num)
+                    run_num = int(name[len(prefix) :])
+                    max_run_num = max(max_run_num, run_num)
                 except ValueError:
                     pass
 
-        return max_exp_num + 1
+        return max_run_num + 1
 
     async def _initialize_optimizer(self) -> None:
         """Initialize the campaign optimizer if not already initialized."""
@@ -197,13 +197,13 @@ class CampaignExecutor:
             optimizer_type_name,
             config_snapshot,
         ) = await self._campaign_optimizer_manager.create_campaign_optimizer_actor(
-            self._experiment_type,
+            self._protocol,
             self._campaign_name,
             self._campaign_submission.optimizer_ip,
             optimizer_overrides=optimizer_overrides,
             is_resume=is_resume,
             global_parameters=self._campaign_submission.global_parameters,
-            experiment_parameters=self._campaign_submission.experiment_parameters,
+            protocol_run_parameters=self._campaign_submission.protocol_run_parameters,
         )
 
         # Persist optimizer config to campaign meta
@@ -247,8 +247,8 @@ class CampaignExecutor:
                     return True
                 return False
 
-            await self._process_experiment_cancellations()
-            await self._progress_experiments()
+            await self._process_protocol_run_cancellations()
+            await self._progress_protocol_runs()
 
             async with self._db_interface.get_async_session() as db:
                 campaign = await self._campaign_manager.get_campaign(db, self._campaign_name)
@@ -258,37 +258,37 @@ class CampaignExecutor:
                 if self._is_campaign_completed(campaign):
                     return await self._complete_campaign(db)
 
-                await self._create_experiments(db, campaign)
+                await self._create_protocol_runs(db, campaign)
                 return False
 
         except Exception as e:
             await self._handle_campaign_failure(e)
             raise
 
-    async def _progress_experiments(self) -> None:
-        """Progress all running experiments and process completed ones."""
+    async def _progress_protocol_runs(self) -> None:
+        """Progress all running protocol runs and process completed ones."""
         async with self._db_interface.get_async_session() as db:
-            completed_experiments = []
-            for exp_name, executor in self._experiment_executors.items():
-                complete = await executor.progress_experiment(db)
+            completed_protocol_runs = []
+            for run_name, executor in self._protocol_executors.items():
+                complete = await executor.progress_protocol_run(db)
                 if complete:
-                    completed_experiments.append(exp_name)
+                    completed_protocol_runs.append(run_name)
 
-            if completed_experiments and self._campaign_submission.optimize:
-                await self._process_results_for_optimization(db, completed_experiments)
+            if completed_protocol_runs and self._campaign_submission.optimize:
+                await self._process_results_for_optimization(db, completed_protocol_runs)
 
-            for _ in completed_experiments:
+            for _ in completed_protocol_runs:
                 await self._campaign_manager.increment_iteration(db, self._campaign_name)
 
         # Non-blocking: resolve report if done, flush queued reports if actor is free
         await self._try_resolve_pending_report()
         await self._try_flush_reports()
 
-        for exp_name in completed_experiments:
-            del self._experiment_executors[exp_name]
+        for run_name in completed_protocol_runs:
+            del self._protocol_executors[run_name]
 
     async def cancel_campaign(self) -> None:
-        """Cancel the campaign and all running experiments."""
+        """Cancel the campaign and all running protocols."""
         async with self._db_interface.get_async_session() as db:
             campaign = await self._campaign_manager.get_campaign(db, self._campaign_name)
             if not campaign or campaign.status != CampaignStatus.RUNNING:
@@ -301,72 +301,74 @@ class CampaignExecutor:
             await self._campaign_manager.cancel_campaign(db, self._campaign_name)
             self._campaign_status = CampaignStatus.CANCELLED
 
-            pending_experiment_names = [
-                experiment_name for pending in self._pending_samples for experiment_name, _ in pending.experiments
+            pending_protocol_run_names = [
+                protocol_run_name for pending in self._pending_samples for protocol_run_name, _ in pending.protocol_runs
             ]
-            if pending_experiment_names:
-                await self._experiment_manager.cancel_experiments_batch(db, pending_experiment_names)
+            if pending_protocol_run_names:
+                await self._protocol_run_manager.cancel_protocol_runs_batch(db, pending_protocol_run_names)
 
-        await self._cancel_running_experiments()
+        await self._cancel_running_protocol_runs()
 
-        self._experiment_executors.clear()
+        self._protocol_executors.clear()
 
         log.warning(f"Cancelled campaign '{self._campaign_name}'")
 
-    async def _cancel_running_experiments(self) -> None:
-        """Cancel all running experiments sequentially with individual timeouts."""
+    async def _cancel_running_protocol_runs(self) -> None:
+        """Cancel all running protocol runs sequentially with individual timeouts."""
         failed_cancellations = []
 
-        for exp_name, executor in self._experiment_executors.items():
+        for run_name, executor in self._protocol_executors.items():
             try:
-                await asyncio.wait_for(executor.cancel_experiment(), timeout=15)
+                await asyncio.wait_for(executor.cancel_protocol_run(), timeout=15)
             except TimeoutError:
-                failed_cancellations.append((exp_name, "timeout"))
-                log.warning(f"CMP '{self._campaign_name}' - Timeout while cancelling experiment '{exp_name}'")
-            except EosExperimentCancellationError as e:
-                failed_cancellations.append((exp_name, str(e)))
-                log.warning(f"CMP '{self._campaign_name}' - Error cancelling experiment '{exp_name}': {e}")
+                failed_cancellations.append((run_name, "timeout"))
+                log.warning(f"CMP '{self._campaign_name}' - Timeout while cancelling protocol run '{run_name}'")
+            except EosProtocolRunCancellationError as e:
+                failed_cancellations.append((run_name, str(e)))
+                log.warning(f"CMP '{self._campaign_name}' - Error cancelling protocol run '{run_name}': {e}")
 
         if failed_cancellations:
-            failed_details = "\n".join(f"- {exp_name}: {reason}" for exp_name, reason in failed_cancellations)
+            failed_details = "\n".join(f"- {run_name}: {reason}" for run_name, reason in failed_cancellations)
             raise EosCampaignExecutionError(
                 f"CMP '{self._campaign_name}' - Failed to cancel {len(failed_cancellations)} "
-                f"experiments:\n{failed_details}"
+                f"protocols:\n{failed_details}"
             )
 
-    def queue_experiment_cancellation(self, experiment_name: str) -> bool:
-        """Queue an experiment for cancellation during the next progress cycle."""
-        if experiment_name not in self._experiment_executors:
+    def queue_protocol_run_cancellation(self, protocol_run_name: str) -> bool:
+        """Queue a protocol run for cancellation during the next progress cycle."""
+        if protocol_run_name not in self._protocol_executors:
             return False
 
-        self._pending_experiment_cancellations.add(experiment_name)
-        log.info(f"CMP '{self._campaign_name}' - Queued experiment '{experiment_name}' for cancellation")
+        self._pending_protocol_run_cancellations.add(protocol_run_name)
+        log.info(f"CMP '{self._campaign_name}' - Queued protocol run '{protocol_run_name}' for cancellation")
         return True
 
-    async def _process_experiment_cancellations(self) -> None:
-        """Process any pending experiment cancellations."""
-        if not self._pending_experiment_cancellations:
+    async def _process_protocol_run_cancellations(self) -> None:
+        """Process any pending protocol run cancellations."""
+        if not self._pending_protocol_run_cancellations:
             return
 
-        to_cancel = list(self._pending_experiment_cancellations)
-        self._pending_experiment_cancellations.clear()
+        to_cancel = list(self._pending_protocol_run_cancellations)
+        self._pending_protocol_run_cancellations.clear()
 
-        for experiment_name in to_cancel:
-            if experiment_name not in self._experiment_executors:
+        for protocol_run_name in to_cancel:
+            if protocol_run_name not in self._protocol_executors:
                 continue
 
-            executor = self._experiment_executors[experiment_name]
+            executor = self._protocol_executors[protocol_run_name]
             try:
-                await asyncio.wait_for(executor.cancel_experiment(), timeout=15)
-                del self._experiment_executors[experiment_name]
-                log.warning(f"CMP '{self._campaign_name}' - Cancelled experiment '{experiment_name}'")
+                await asyncio.wait_for(executor.cancel_protocol_run(), timeout=15)
+                del self._protocol_executors[protocol_run_name]
+                log.warning(f"CMP '{self._campaign_name}' - Cancelled protocol run '{protocol_run_name}'")
             except TimeoutError:
-                log.warning(f"CMP '{self._campaign_name}' - Timeout while cancelling experiment '{experiment_name}'")
-            except EosExperimentCancellationError as e:
-                log.warning(f"CMP '{self._campaign_name}' - Error cancelling experiment '{experiment_name}': {e}")
+                log.warning(
+                    f"CMP '{self._campaign_name}' - Timeout while cancelling protocol run '{protocol_run_name}'"
+                )
+            except EosProtocolRunCancellationError as e:
+                log.warning(f"CMP '{self._campaign_name}' - Error cancelling protocol run '{protocol_run_name}': {e}")
             except Exception as e:
                 log.error(
-                    f"CMP '{self._campaign_name}' - Unexpected error cancelling experiment '{experiment_name}': {e}"
+                    f"CMP '{self._campaign_name}' - Unexpected error cancelling protocol run '{protocol_run_name}': {e}"
                 )
 
     def cleanup(self) -> None:
@@ -375,87 +377,87 @@ class CampaignExecutor:
         if self._campaign_submission.optimize:
             self._campaign_optimizer_manager.terminate_campaign_optimizer_actor(self._campaign_name)
 
-    async def _create_experiments(self, db: AsyncDbSession, campaign: Campaign) -> None:
-        """Create new experiments up to the maximum allowed concurrent experiments."""
-        # Resolve any completed samples — experiments already exist as CREATED
+    async def _create_protocol_runs(self, db: AsyncDbSession, campaign: Campaign) -> None:
+        """Create new protocol runs up to the maximum allowed concurrent runs."""
+        # Resolve any completed samples — protocol runs already exist as CREATED
         still_pending = []
         for pending in self._pending_samples:
             if pending.future.done():
                 resolved = await self._resolve_pending_sample(pending)
-                for experiment_name, parameters in resolved:
-                    await self._experiment_manager.update_experiment_parameters(db, experiment_name, parameters)
-                    await self._create_single_experiment(db, experiment_name, parameters)
+                for protocol_run_name, parameters in resolved:
+                    await self._protocol_run_manager.update_protocol_run_parameters(db, protocol_run_name, parameters)
+                    await self._create_single_protocol_run(db, protocol_run_name, parameters)
             else:
                 still_pending.append(pending)
         self._pending_samples = still_pending
 
-        # Account for experiments waiting in pending samples
-        pending_slots = sum(len(p.experiments) for p in self._pending_samples)
-        effective_in_flight = len(self._experiment_executors) + pending_slots
+        # Account for protocol runs waiting in pending samples
+        pending_slots = sum(len(p.protocol_runs) for p in self._pending_samples)
+        effective_in_flight = len(self._protocol_executors) + pending_slots
 
-        if not self._can_create_more_experiments_with(campaign, effective_in_flight):
+        if not self._can_create_more_protocol_runs_with(campaign, effective_in_flight):
             return
 
-        next_exp_num = await self._get_next_experiment_number(db)
+        next_run_num = await self._get_next_protocol_run_number(db)
 
-        while self._can_create_more_experiments_with(campaign, effective_in_flight):
-            experiment_name = f"{self._campaign_name}_exp_{next_exp_num}"
-            next_exp_num += 1
-            iteration = campaign.experiments_completed + effective_in_flight
+        while self._can_create_more_protocol_runs_with(campaign, effective_in_flight):
+            protocol_run_name = f"{self._campaign_name}_run_{next_run_num}"
+            next_run_num += 1
+            iteration = campaign.protocol_runs_completed + effective_in_flight
 
-            parameters = self._get_experiment_parameters(iteration)
+            parameters = self._get_protocol_run_parameters(iteration)
             if parameters is not None:
-                await self._create_single_experiment(db, experiment_name, parameters)
+                await self._create_single_protocol_run(db, protocol_run_name, parameters)
                 effective_in_flight += 1
                 continue
 
             # Batch all remaining slots into one optimizer sample(N) call
-            batch: list[tuple[str, dict]] = [(experiment_name, self._get_base_params())]
+            batch: list[tuple[str, dict]] = [(protocol_run_name, self._get_base_params())]
             projected = effective_in_flight + 1
-            while self._can_create_more_experiments_with(campaign, projected):
-                experiment_name = f"{self._campaign_name}_exp_{next_exp_num}"
-                next_exp_num += 1
-                batch.append((experiment_name, self._get_base_params()))
+            while self._can_create_more_protocol_runs_with(campaign, projected):
+                protocol_run_name = f"{self._campaign_name}_run_{next_run_num}"
+                next_run_num += 1
+                batch.append((protocol_run_name, self._get_base_params()))
                 projected += 1
             await self._launch_batch_sample(db, batch)
             effective_in_flight = projected
             return
 
-    async def _create_single_experiment(
-        self, db: AsyncDbSession, experiment_name: str, parameters: dict[str, Any]
+    async def _create_single_protocol_run(
+        self, db: AsyncDbSession, protocol_run_name: str, parameters: dict[str, Any]
     ) -> None:
-        """Create and start a single experiment."""
-        experiment_submission = ExperimentSubmission(
-            name=experiment_name,
-            type=self._experiment_type,
+        """Create and start a single protocol run."""
+        protocol_run_submission = ProtocolRunSubmission(
+            name=protocol_run_name,
+            type=self._protocol,
             owner=self._campaign_submission.owner,
             priority=self._campaign_submission.priority,
             parameters=parameters,
         )
 
-        experiment_executor = self._experiment_executor_factory.create(
-            experiment_submission, campaign=self._campaign_name
+        protocol_executor = self._protocol_executor_factory.create(
+            protocol_run_submission, campaign=self._campaign_name
         )
-        self._experiment_executors[experiment_name] = experiment_executor
-        await experiment_executor.start_experiment(db)
+        self._protocol_executors[protocol_run_name] = protocol_executor
+        await protocol_executor.start_protocol_run(db)
 
-    def _can_create_more_experiments_with(self, campaign: Campaign, num_in_flight: int) -> bool:
-        """Check if more experiments can be created given a projected in-flight count."""
-        max_concurrent = self._campaign_submission.max_concurrent_experiments
-        max_total = self._campaign_submission.max_experiments
-        current_total = campaign.experiments_completed + num_in_flight
+    def _can_create_more_protocol_runs_with(self, campaign: Campaign, num_in_flight: int) -> bool:
+        """Check if more protocols can be created given a projected in-flight count."""
+        max_concurrent = self._campaign_submission.max_concurrent_protocol_runs
+        max_total = self._campaign_submission.max_protocol_runs
+        current_total = campaign.protocol_runs_completed + num_in_flight
 
         return num_in_flight < max_concurrent and (max_total == 0 or current_total < max_total)
 
-    def _get_experiment_parameters(self, iteration: int) -> dict[str, Any] | None:
-        """Get static parameters for an experiment, or None if the optimizer should be used."""
+    def _get_protocol_run_parameters(self, iteration: int) -> dict[str, Any] | None:
+        """Get static parameters for a protocol run, or None if the optimizer should be used."""
         base_params = self._get_base_params()
 
-        experiment_params = None
-        if self._campaign_submission.experiment_parameters and iteration < len(
-            self._campaign_submission.experiment_parameters
+        run_params = None
+        if self._campaign_submission.protocol_run_parameters and iteration < len(
+            self._campaign_submission.protocol_run_parameters
         ):
-            experiment_params = self._campaign_submission.experiment_parameters[iteration]
+            run_params = self._campaign_submission.protocol_run_parameters[iteration]
         elif self._campaign_submission.optimize:
             return None
         elif not base_params:
@@ -463,11 +465,11 @@ class CampaignExecutor:
                 f"CMP '{self._campaign_name}' - No parameters provided for iteration {iteration}"
             )
 
-        _merge_experiment_params(base_params, experiment_params)
+        _merge_protocol_run_params(base_params, run_params)
         return base_params
 
     def _get_base_params(self) -> dict[str, Any]:
-        """Get a deep copy of global parameters as the base for an experiment."""
+        """Get a deep copy of global parameters as the base for a protocol run."""
         return (
             copy.deepcopy(self._campaign_submission.global_parameters)
             if self._campaign_submission.global_parameters
@@ -475,28 +477,28 @@ class CampaignExecutor:
         )
 
     async def _launch_batch_sample(self, db: AsyncDbSession, batch: list[tuple[str, dict]]) -> None:
-        """Launch a non-blocking batch optimizer sample for multiple experiments."""
+        """Launch a non-blocking batch optimizer sample for multiple protocols."""
         await self._ensure_optimizer_initialized(db)
 
-        # Create experiment records as CREATED before parameters are available
-        for experiment_name, base_params in batch:
-            submission = ExperimentSubmission(
-                name=experiment_name,
-                type=self._experiment_type,
+        # Create protocol run records as CREATED before parameters are available
+        for protocol_run_name, base_params in batch:
+            submission = ProtocolRunSubmission(
+                name=protocol_run_name,
+                type=self._protocol,
                 owner=self._campaign_submission.owner,
                 priority=self._campaign_submission.priority,
                 parameters=base_params,
             )
-            await self._experiment_manager.create_experiment(db, submission, campaign=self._campaign_name)
+            await self._protocol_run_manager.create_protocol_run(db, submission, campaign=self._campaign_name)
 
         num = len(batch)
-        exp_names = ", ".join(name for name, _ in batch)
-        log.info(f"CMP '{self._campaign_name}' - Sampling parameters for {num} experiment(s): {exp_names}")
+        run_names = ", ".join(name for name, _ in batch)
+        log.info(f"CMP '{self._campaign_name}' - Sampling parameters for {num} protocol run(s): {run_names}")
         future = asyncio.create_task(_await_ray_ref(self._optimizer.sample_and_get_meta.remote(num)))
-        self._pending_samples.append(_PendingOptimizerSample(future=future, experiments=batch))
+        self._pending_samples.append(_PendingOptimizerSample(future=future, protocol_runs=batch))
 
     async def _resolve_pending_sample(self, pending: _PendingOptimizerSample) -> list[tuple[str, dict[str, Any]]]:
-        """Resolve a completed batch sample into (experiment_name, merged_params) pairs."""
+        """Resolve a completed batch sample into (protocol_run_name, merged_params) pairs."""
         try:
             samples_df, meta = pending.future.result()
             if meta:
@@ -509,18 +511,18 @@ class CampaignExecutor:
             ) from e
 
         result = []
-        for (experiment_name, base_params), record in zip(pending.experiments, records, strict=True):
-            experiment_params = dict_utils.unflatten_dict(record)
-            _merge_experiment_params(base_params, experiment_params)
-            result.append((experiment_name, base_params))
+        for (protocol_run_name, base_params), record in zip(pending.protocol_runs, records, strict=True):
+            run_params = dict_utils.unflatten_dict(record)
+            _merge_protocol_run_params(base_params, run_params)
+            result.append((protocol_run_name, base_params))
         return result
 
     def _is_campaign_completed(self, campaign: Campaign) -> bool:
-        """Check if campaign has completed all experiments."""
-        max_experiments = self._campaign_submission.max_experiments
+        """Check if campaign has completed all protocol runs."""
+        max_protocol_runs = self._campaign_submission.max_protocol_runs
         return (
-            0 < max_experiments <= campaign.experiments_completed
-            and not self._experiment_executors
+            0 < max_protocol_runs <= campaign.protocol_runs_completed
+            and not self._protocol_executors
             and not self._pending_samples
         )
 
@@ -558,29 +560,29 @@ class CampaignExecutor:
             self._pending_pareto = None
 
     async def _handle_campaign_failure(self, error: Exception) -> None:
-        """Mark campaign as failed, cancel running experiments, and raise."""
+        """Mark campaign as failed, cancel running protocols, and raise."""
         async with self._db_interface.get_async_session() as db:
-            pending_experiment_names = [
-                experiment_name for pending in self._pending_samples for experiment_name, _ in pending.experiments
+            pending_protocol_run_names = [
+                protocol_run_name for pending in self._pending_samples for protocol_run_name, _ in pending.protocol_runs
             ]
-            if pending_experiment_names:
+            if pending_protocol_run_names:
                 try:
-                    await self._experiment_manager.cancel_experiments_batch(db, pending_experiment_names)
+                    await self._protocol_run_manager.cancel_protocol_runs_batch(db, pending_protocol_run_names)
                 except Exception:
-                    log.warning(f"CMP '{self._campaign_name}' - Failed to cancel pending experiments")
+                    log.warning(f"CMP '{self._campaign_name}' - Failed to cancel pending protocols")
             await self._campaign_manager.fail_campaign(db, self._campaign_name, error_message=str(error))
 
         self._cancel_pending_futures()
         self._campaign_status = CampaignStatus.FAILED
 
         try:
-            await self._cancel_running_experiments()
+            await self._cancel_running_protocol_runs()
         except Exception:
             log.warning(
-                f"CMP '{self._campaign_name}' - Errors occurred while cancelling running experiments after failure."
+                f"CMP '{self._campaign_name}' - Errors occurred while cancelling running protocol runs after failure."
             )
         finally:
-            self._experiment_executors.clear()
+            self._protocol_executors.clear()
 
         raise EosCampaignExecutionError(f"Error executing campaign '{self._campaign_name}'") from error
 
@@ -597,12 +599,12 @@ class CampaignExecutor:
         self._pending_pareto = None
 
     async def _restore_optimizer_state(self, db: AsyncDbSession) -> None:
-        """Restore the optimizer state by reporting all completed experiment results."""
-        completed_experiment_names = await self._campaign_manager.get_campaign_experiment_names(
-            db, self._campaign_name, status=ExperimentStatus.COMPLETED
+        """Restore the optimizer state by reporting all completed protocol run results."""
+        completed_protocol_run_names = await self._campaign_manager.get_campaign_protocol_run_names(
+            db, self._campaign_name, status=ProtocolRunStatus.COMPLETED
         )
 
-        inputs_df, outputs_df, additional = await self._collect_experiment_results(db, completed_experiment_names)
+        inputs_df, outputs_df, additional = await self._collect_protocol_run_results(db, completed_protocol_run_names)
 
         # Piggyback additional params onto outputs_df for optimizer (BeaconOptimizer strips them)
         report_df = pd.concat([outputs_df, pd.DataFrame(additional)], axis=1) if additional else outputs_df
@@ -614,14 +616,14 @@ class CampaignExecutor:
             log.info(f"CMP '{self._campaign_name}' - Restored optimizer meta")
 
         log.info(
-            f"CMP '{self._campaign_name}' - Restored optimizer state from {len(completed_experiment_names)} "
-            f"completed experiments."
+            f"CMP '{self._campaign_name}' - Restored optimizer state from {len(completed_protocol_run_names)} "
+            f"completed protocols."
         )
 
-    async def _collect_experiment_results(
-        self, db: AsyncDbSession, experiment_names: list[str]
+    async def _collect_protocol_run_results(
+        self, db: AsyncDbSession, protocol_run_names: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, list]]:
-        """Collect optimizer input/output/additional parameter values from completed experiments."""
+        """Collect optimizer input/output/additional parameter values from completed protocol runs."""
         inputs = {input_name: [] for input_name in self._optimizer_input_names}
         outputs = {output_name: [] for output_name in self._optimizer_output_names}
         additional = {key: [] for key in self._optimizer_additional_parameters}
@@ -633,20 +635,20 @@ class CampaignExecutor:
         task_names = list({ref.split(".")[0] for ref in all_param_refs})
 
         # Single batch query instead of N+1 individual queries
-        task_lookup = await self._task_manager.get_tasks_by_experiments(db, experiment_names, task_names)
+        task_lookup = await self._task_manager.get_tasks_by_protocol_runs(db, protocol_run_names, task_names)
 
-        for experiment_name in experiment_names:
+        for protocol_run_name in protocol_run_names:
             for input_name in self._optimizer_input_names:
                 reference_task_name, parameter_name = input_name.split(".")
-                task = task_lookup.get((experiment_name, reference_task_name))
+                task = task_lookup.get((protocol_run_name, reference_task_name))
                 inputs[input_name].append(task.input_parameters[parameter_name] if task else None)
             for output_name in self._optimizer_output_names:
                 reference_task_name, parameter_name = output_name.split(".")
-                task = task_lookup.get((experiment_name, reference_task_name))
+                task = task_lookup.get((protocol_run_name, reference_task_name))
                 outputs[output_name].append(task.output_parameters[parameter_name] if task else None)
             for key in self._optimizer_additional_parameters:
                 reference_task_name, parameter_name = key.split(".")
-                task = task_lookup.get((experiment_name, reference_task_name))
+                task = task_lookup.get((protocol_run_name, reference_task_name))
                 additional[key].append(task.output_parameters[parameter_name] if task else None)
 
         return pd.DataFrame(inputs), pd.DataFrame(outputs), additional
@@ -663,10 +665,10 @@ class CampaignExecutor:
             merged_beacon = {**current_beacon, **meta}
             await self._campaign_manager.update_campaign_meta(db, self._campaign_name, "beacon", merged_beacon)
 
-    async def _process_results_for_optimization(self, db: AsyncDbSession, completed_experiments: list[str]) -> None:
-        """Record experiment results and queue an optimizer report (non-blocking)."""
+    async def _process_results_for_optimization(self, db: AsyncDbSession, completed_protocol_runs: list[str]) -> None:
+        """Record protocol run results and queue an optimizer report (non-blocking)."""
         await self._ensure_optimizer_initialized(db)
-        inputs_df, outputs_df, additional = await self._collect_experiment_results(db, completed_experiments)
+        inputs_df, outputs_df, additional = await self._collect_protocol_run_results(db, completed_protocol_runs)
 
         # Store additional params under beacon key in sample meta
         meta_list = None
@@ -677,7 +679,7 @@ class CampaignExecutor:
             ]
 
         await self._campaign_optimizer_manager.record_campaign_samples(
-            db, self._campaign_name, completed_experiments, inputs_df, outputs_df, meta_list=meta_list
+            db, self._campaign_name, completed_protocol_runs, inputs_df, outputs_df, meta_list=meta_list
         )
 
         # Queue results for reporting — flushed when actor is free

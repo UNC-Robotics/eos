@@ -4,8 +4,8 @@ from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.campaigns.entities.campaign import CampaignSubmission
 from eos.configuration.configuration_manager import ConfigurationManager
 
-from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.database.abstract_sql_db_interface import AbstractSqlDbInterface
 
 from eos.tasks.task_manager import TaskManager
@@ -24,16 +24,16 @@ class CampaignExecutorFactory:
         campaign_manager: CampaignManager,
         campaign_optimizer_manager: CampaignOptimizerManager,
         task_manager: TaskManager,
-        experiment_executor_factory: ExperimentExecutorFactory,
-        experiment_manager: ExperimentManager,
+        protocol_executor_factory: ProtocolExecutorFactory,
+        protocol_run_manager: ProtocolRunManager,
         db_interface: AbstractSqlDbInterface,
     ):
         self._configuration_manager = configuration_manager
         self._campaign_manager = campaign_manager
         self._campaign_optimizer_manager = campaign_optimizer_manager
         self._task_manager = task_manager
-        self._experiment_executor_factory = experiment_executor_factory
-        self._experiment_manager = experiment_manager
+        self._protocol_executor_factory = protocol_executor_factory
+        self._protocol_run_manager = protocol_run_manager
         self._db_interface = db_interface
 
     def create(
@@ -45,7 +45,7 @@ class CampaignExecutorFactory:
             self._campaign_manager,
             self._campaign_optimizer_manager,
             self._task_manager,
-            self._experiment_executor_factory,
-            self._experiment_manager,
+            self._protocol_executor_factory,
+            self._protocol_run_manager,
             self._db_interface,
         )

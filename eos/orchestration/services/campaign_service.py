@@ -10,7 +10,7 @@ from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignSu
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
-from eos.orchestration.exceptions import EosExperimentDoesNotExistError
+from eos.orchestration.exceptions import EosProtocolRunDoesNotExistError
 from eos.orchestration.work_signal import WorkSignal
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.utils.di.di_container import inject
@@ -57,9 +57,9 @@ class CampaignService:
     ) -> None:
         """Submit a new campaign for execution."""
         campaign_name = campaign_submission.name
-        experiment_type = campaign_submission.experiment_type
+        protocol_type = campaign_submission.protocol
 
-        self._validate_experiment_type(experiment_type)
+        self._validate_protocol_type(protocol_type)
 
         async with self._campaign_submission_lock:
             if campaign_name in self._submitted_campaigns:
@@ -84,16 +84,16 @@ class CampaignService:
             await self._campaign_cancellation_queue.put(campaign_name)
             log.info(f"Queued campaign '{campaign_name}' for cancellation.")
 
-    async def cancel_campaign_experiment(self, experiment_name: str) -> bool:
+    async def cancel_campaign_protocol_run(self, protocol_run_name: str) -> bool:
         """
-        Queue a specific experiment that belongs to a campaign for cancellation.
+        Queue a specific protocol run that belongs to a campaign for cancellation.
         The actual cancellation will be processed in the campaign's main loop.
 
-        :param experiment_name: The name of the experiment to cancel.
-        :return: True if the experiment was found and queued, False if not found.
+        :param protocol_run_name: The name of the protocol run to cancel.
+        :return: True if the protocol run was found and queued, False if not found.
         """
         for campaign_executor in self._submitted_campaigns.values():
-            if campaign_executor.queue_experiment_cancellation(experiment_name):
+            if campaign_executor.queue_protocol_run_cancellation(protocol_run_name):
                 return True
         return False
 
@@ -177,11 +177,11 @@ class CampaignService:
             self._submitted_campaigns[campaign_name].cleanup()
             del self._submitted_campaigns[campaign_name]
 
-    def _validate_experiment_type(self, experiment_type: str) -> None:
-        if experiment_type not in self._configuration_manager.experiments:
-            error_msg = f"Cannot submit experiment of type '{experiment_type}' as it does not exist."
+    def _validate_protocol_type(self, protocol_type: str) -> None:
+        if protocol_type not in self._configuration_manager.protocols:
+            error_msg = f"Cannot submit campaign for protocol type '{protocol_type}' as it does not exist."
             log.error(error_msg)
-            raise EosExperimentDoesNotExistError(error_msg)
+            raise EosProtocolRunDoesNotExistError(error_msg)
 
     def _get_running_optimizer(self, campaign_name: str) -> "ActorHandle":
         """Get the optimizer actor for a running campaign, or raise."""
@@ -237,9 +237,9 @@ class CampaignService:
         await optimizer.set_runtime_params.remote(params)
         await self._persist_optimizer_meta(campaign_name, optimizer)
 
-    def get_optimizer_defaults(self, experiment_type: str) -> tuple[str, dict[str, Any]] | None:
-        """Get optimizer type name and default params for an experiment type."""
-        return self._campaign_optimizer_manager.get_optimizer_defaults(experiment_type)
+    def get_optimizer_defaults(self, protocol_type: str) -> tuple[str, dict[str, Any]] | None:
+        """Get optimizer type name and default params for a protocol type."""
+        return self._campaign_optimizer_manager.get_optimizer_defaults(protocol_type)
 
     @property
     def submitted_campaigns(self) -> dict[str, CampaignExecutor]:

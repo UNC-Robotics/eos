@@ -32,7 +32,7 @@ from eos.utils.di.di_container import inject
 class TaskExecutionContext:
     """Represents the execution context and state of a task."""
 
-    experiment_name: str | None
+    protocol_run_name: str | None
     task_name: str
     task_submission: TaskSubmission
     scheduled_task: ScheduledTask
@@ -43,7 +43,7 @@ class TaskExecutionContext:
 
     @property
     def task_key(self) -> tuple[str | None, str]:
-        return self.experiment_name, self.task_name
+        return self.protocol_run_name, self.task_name
 
 
 class TaskExecutor:
@@ -84,7 +84,7 @@ class TaskExecutor:
         scheduled_task: ScheduledTask,
     ) -> BaseTask.OutputType | None:
         context = TaskExecutionContext(
-            task_submission.experiment_name, task_submission.name, task_submission, scheduled_task
+            task_submission.protocol_run_name, task_submission.name, task_submission, scheduled_task
         )
 
         async with self._lock:
@@ -98,8 +98,8 @@ class TaskExecutor:
         self._work_signal.signal()
         return await future
 
-    async def cancel_task(self, experiment_name: str | None, task_name: str) -> None:
-        task_key = (experiment_name, task_name)
+    async def cancel_task(self, protocol_run_name: str | None, task_name: str) -> None:
+        task_key = (protocol_run_name, task_name)
         context = self._pending_tasks.get(task_key)
         if not context:
             return
@@ -108,8 +108,8 @@ class TaskExecutor:
             ray.cancel(context.task_ref, force=True)
 
         async with self._db_interface.get_async_session() as db:
-            await self._task_manager.cancel_task(db, context.experiment_name, context.task_name)
-            await self._scheduler.release_task(db, task_name, experiment_name)
+            await self._task_manager.cancel_task(db, context.protocol_run_name, context.task_name)
+            await self._scheduler.release_task(db, task_name, protocol_run_name)
 
         if context.task_key in self._task_futures:
             self._task_futures[context.task_key].cancel()
@@ -118,8 +118,8 @@ class TaskExecutor:
         if context.task_key in self._pending_tasks:
             del self._pending_tasks[context.task_key]
 
-        if experiment_name:
-            log.warning(f"EXP '{experiment_name}' - Cancelled task '{task_name}'.")
+        if protocol_run_name:
+            log.warning(f"RUN '{protocol_run_name}' - Cancelled task '{task_name}'.")
         else:
             log.warning(f"Cancelled on-demand task '{task_name}'.")
 
@@ -136,8 +136,8 @@ class TaskExecutor:
             for context, result in zip(tasks_to_process, results, strict=True):
                 if isinstance(result, Exception):
                     log.error(
-                        f"Error processing task '{context.task_name}' for experiment "
-                        f"'{context.experiment_name}': {result}"
+                        f"Error processing task '{context.task_name}' for protocol run "
+                        f"'{context.protocol_run_name}': {result}"
                     )
 
     async def _process_single_task(self, context: TaskExecutionContext) -> None:
@@ -176,28 +176,28 @@ class TaskExecutor:
 
         for file_name, file_data in output_files.items():
             await self._task_manager.add_task_output_file(
-                context.experiment_name, context.task_name, file_name, file_data
+                context.protocol_run_name, context.task_name, file_name, file_data
             )
 
         await self._task_manager.add_task_output(
             db,
-            context.experiment_name,
+            context.protocol_run_name,
             context.task_name,
             output_parameters,
             output_resources,
             list(output_files.keys()),
         )
 
-        await self._task_manager.complete_task(db, context.experiment_name, context.task_name)
+        await self._task_manager.complete_task(db, context.protocol_run_name, context.task_name)
 
-        if context.experiment_name:
-            log.info(f"EXP '{context.experiment_name}' - Completed task '{context.task_name}'.")
+        if context.protocol_run_name:
+            log.info(f"RUN '{context.protocol_run_name}' - Completed task '{context.task_name}'.")
         else:
             log.info(f"Completed on-demand task '{context.task_name}'.")
 
         self._task_futures[context.task_key].set_result((output_parameters, output_resources, output_files))
 
-        await self._scheduler.release_task(db, context.task_name, context.experiment_name)
+        await self._scheduler.release_task(db, context.task_name, context.protocol_run_name)
 
         self._cleanup_task(context)
 
@@ -206,14 +206,14 @@ class TaskExecutor:
         context.task_submission.input_resources = await self._prepare_resources(db, task)
 
         task_submission = context.task_submission
-        experiment_name, task_name = task_submission.experiment_name, task_submission.name
-        log.debug(f"Execution of task '{task_name}' for experiment '{experiment_name}' has been requested")
+        protocol_run_name, task_name = task_submission.protocol_run_name, task_submission.name
+        log.debug(f"Execution of task '{task_name}' for protocol run '{protocol_run_name}' has been requested")
 
-        existing_task = await self._task_manager.get_task(db, experiment_name, task_name)
+        existing_task = await self._task_manager.get_task(db, protocol_run_name, task_name)
         if existing_task and existing_task.status == TaskStatus.RUNNING:
-            log.warning(f"Found running task '{task_name}' for experiment '{experiment_name}'. Restarting it.")
-            await self.cancel_task(experiment_name, task_name)
-            await self._task_manager.delete_task(db, experiment_name, task_name)
+            log.warning(f"Found running task '{task_name}' for protocol run '{protocol_run_name}'. Restarting it.")
+            await self.cancel_task(protocol_run_name, task_name)
+            await self._task_manager.delete_task(db, protocol_run_name, task_name)
 
         await self._task_manager.create_task(db, task_submission)
         self._task_validator.validate(task)
@@ -222,20 +222,22 @@ class TaskExecutor:
         error_msg = f"{type(error).__name__}: {error}"
         try:
             self._task_futures[context.task_key].set_exception(error)
-            await self._task_manager.fail_task(db, context.experiment_name, context.task_name, error_message=error_msg)
+            await self._task_manager.fail_task(
+                db, context.protocol_run_name, context.task_name, error_message=error_msg
+            )
 
-            if context.experiment_name:
-                log.warning(f"EXP '{context.experiment_name}' - Failed task '{context.task_name}'.")
+            if context.protocol_run_name:
+                log.warning(f"RUN '{context.protocol_run_name}' - Failed task '{context.task_name}'.")
             else:
                 log.warning(f"Failed on-demand task '{context.task_name}'.")
 
-            await self._scheduler.release_task(db, context.task_name, context.experiment_name)
+            await self._scheduler.release_task(db, context.task_name, context.protocol_run_name)
         finally:
             self._cleanup_task(context)
 
-        if context.experiment_name:
+        if context.protocol_run_name:
             raise EosTaskExecutionError(
-                f"Error executing task '{context.task_name}' in experiment '{context.experiment_name}': {error}"
+                f"Error executing task '{context.task_name}' in protocol run '{context.protocol_run_name}': {error}"
             ) from error
         raise EosTaskExecutionError(f"Error executing on-demand task '{context.task_name}': {error}")
 
@@ -260,33 +262,33 @@ class TaskExecutor:
         }
 
     async def _execute_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> ObjectRef:
-        experiment_name, task_name = task_submission.experiment_name, task_submission.name
+        protocol_run_name, task_name = task_submission.protocol_run_name, task_submission.name
         device_actor_references = self._get_device_actor_references(task_submission)
         task_class_type = self._task_plugin_registry.get_plugin_class_type(task_submission.type)
         input_parameters = self._task_input_parameter_caster.cast_input_parameters(task_submission)
 
         @ray.remote(num_cpus=0)
         def _ray_execute_task(
-            _experiment_name: str,
+            _protocol_run_name: str,
             _task_name: str,
             _devices_actor_references: dict[str, DeviceActorReference],
             _parameters: dict[str, Any],
             _resources: dict[str, Resource],
         ) -> tuple:
-            task = task_class_type(_experiment_name, _task_name)
+            task = task_class_type(_protocol_run_name, _task_name)
             devices = create_device_actor_dict(_devices_actor_references)
             return asyncio.run(task.execute(devices, _parameters, _resources))
 
-        await self._task_manager.start_task(db, experiment_name, task_name)
+        await self._task_manager.start_task(db, protocol_run_name, task_name)
         log_msg = (
-            f"EXP '{experiment_name}' - Started task '{task_name}'."
-            if task_submission.experiment_name
+            f"RUN '{protocol_run_name}' - Started task '{task_name}'."
+            if task_submission.protocol_run_name
             else f"Started on-demand task '{task_name}'."
         )
         log.info(log_msg)
 
-        return _ray_execute_task.options(name=f"{experiment_name}.{task_name}").remote(
-            experiment_name,
+        return _ray_execute_task.options(name=f"{protocol_run_name}.{task_name}").remote(
+            protocol_run_name,
             task_name,
             device_actor_references,
             input_parameters,
@@ -307,8 +309,8 @@ class TaskExecutor:
             for context, result in zip(new_tasks, results, strict=True):
                 if isinstance(result, Exception):
                     log.error(
-                        f"Error processing new task '{context.task_name}' for experiment "
-                        f"'{context.experiment_name}': {result}"
+                        f"Error processing new task '{context.task_name}' for protocol run "
+                        f"'{context.protocol_run_name}': {result}"
                     )
 
     @property

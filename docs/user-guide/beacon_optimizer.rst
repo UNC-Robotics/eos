@@ -2,15 +2,15 @@ Beacon Optimizer
 ================
 The Beacon optimizer combines Bayesian optimization with AI-driven reasoning.
 At each sampling step, it probabilistically selects between an acquisition function and an AI model
-that reasons about experimental data to suggest new parameters.
+that reasons about protocol run data to suggest new parameters.
 
 How It Works
 ------------
 A weighted coin flip decides which strategy is used:
 
 * **Bayesian**: Uses an acquisition function over a surrogate model.
-* **AI**: Sends experimental history and domain constraints to an AI model that reasons about patterns
-  and suggests experiments. Suggestions are validated against the domain before being accepted.
+* **AI**: Sends protocol run history and domain constraints to an AI model that reasons about patterns
+  and suggests parameter sets. Suggestions are validated against the domain before being accepted.
 
 If the AI fails, Beacon falls back to Bayesian sampling automatically.
 Both strategies share the same result history.
@@ -23,7 +23,7 @@ Why Hybrid?
 
 Setting Up
 ----------
-Modify your experiment's ``optimizer.py`` to return ``BeaconOptimizer``:
+Modify your protocol's ``optimizer.py`` to return ``BeaconOptimizer``:
 
 :bdg-primary:`optimizer.py`
 
@@ -121,7 +121,7 @@ AI Context
      - Description
    * - **History Size**
      - ``50``
-     - Number of recent experiments included in the AI prompt.
+     - Number of recent protocols included in the AI prompt.
    * - **Additional Context**
      - (empty)
      - Free-text domain knowledge for the AI.

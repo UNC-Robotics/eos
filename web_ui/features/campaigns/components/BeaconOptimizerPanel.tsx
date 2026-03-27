@@ -279,8 +279,10 @@ function SubmissionPanel({
   onChange,
   persistedDomain,
   onSave,
+  defaultShowDomain = true,
 }: Omit<SubmissionModeProps, 'mode'> & {
   onSave?: (values: Record<string, unknown>, domain: DomainValue) => void | Promise<void>;
+  defaultShowDomain?: boolean;
 }) {
   const params = defaults.params;
 
@@ -316,7 +318,7 @@ function SubmissionPanel({
     });
   };
 
-  const [showDomain, setShowDomain] = React.useState(true);
+  const [showDomain, setShowDomain] = React.useState(defaultShowDomain);
   const [justSaved, setJustSaved] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -472,7 +474,7 @@ function SubmissionPanel({
           <div className="mt-3">
             {isResume && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
-                Domain cannot be changed on resume — existing experiment history depends on it.
+                Domain cannot be changed on resume — existing protocol run history depends on it.
               </p>
             )}
             <DomainEditor value={domain} onChange={handleDomainChange} readOnly={isResume} />
@@ -568,6 +570,7 @@ export function BeaconOptimizerPanel(props: BeaconOptimizerPanelProps) {
               overrides={props.overrides}
               onChange={props.onChange}
               persistedDomain={props.persistedDomain}
+              defaultShowDomain={false}
             />
           )}
         </div>

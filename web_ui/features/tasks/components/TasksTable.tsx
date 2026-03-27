@@ -15,12 +15,12 @@ import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
 import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitTaskDialog } from './SubmitTaskDialog';
-import type { TaskSpec } from '@/lib/types/experiment';
+import type { TaskSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 
 const TASK_COLUMN_ID_MAP: Record<string, string> = {
-  experiment_name: 'experimentName',
+  protocol_run_name: 'protocolRunName',
   created_at: 'createdAt',
 };
 
@@ -38,7 +38,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
   const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   const [detailPanelOpen, setDetailPanelOpen] = React.useState(false);
   const [taskToClone, setTaskToClone] = React.useState<Task | null>(null);
-  const [taskToCancel, setTaskToCancel] = React.useState<{ name: string; experimentName: string | null } | null>(null);
+  const [taskToCancel, setTaskToCancel] = React.useState<{ name: string; protocolRunName: string | null } | null>(null);
 
   const serverTable = useServerTable({
     fetchFn: getTasks,
@@ -65,7 +65,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
     if (!taskToCancel) return;
     setCancellingTask(taskToCancel.name);
     try {
-      const result = await cancelTask(taskToCancel.name, taskToCancel.experimentName);
+      const result = await cancelTask(taskToCancel.name, taskToCancel.protocolRunName);
       if (!result.success) {
         alert(`Failed to cancel task: ${result.error}`);
       }
@@ -104,10 +104,10 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
       filterType: 'text',
     },
     {
-      accessorKey: 'experiment_name',
-      header: 'Experiment',
+      accessorKey: 'protocol_run_name',
+      header: 'Protocol Run',
       cell: ({ row }) => {
-        const exp = row.getValue('experiment_name') as string | null;
+        const exp = row.getValue('protocol_run_name') as string | null;
         return exp ? exp : <span className="text-gray-400">-</span>;
       },
       enableColumnFilter: true,
@@ -136,7 +136,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
       header: 'Created',
       cell: ({ row }) => {
         const date = new Date(row.getValue('created_at'));
-        return <span className="text-gray-600">{date.toLocaleString()}</span>;
+        return date.toLocaleString();
       },
     },
     {
@@ -166,7 +166,9 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
                 {canCancel && (
                   <DropdownMenu.Item
                     className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-gray-100 dark:hover:bg-slate-700 focus:bg-gray-100 dark:focus:bg-slate-700 dark:text-gray-300"
-                    onClick={() => setTaskToCancel({ name: task.name, experimentName: task.experiment_name ?? null })}
+                    onClick={() =>
+                      setTaskToCancel({ name: task.name, protocolRunName: task.protocol_run_name ?? null })
+                    }
                     disabled={cancellingTask === task.name || !isConnected}
                   >
                     <X className="h-4 w-4" />
@@ -196,7 +198,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tasks</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">View and manage task execution</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">View and manage tasks</p>
           </div>
           <Button
             variant="primary"
@@ -230,6 +232,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
         <SubmitTaskDialog
           open={submitDialogOpen}
           onOpenChange={handleCloseSubmitDialog}
+          onSuccess={() => setTimeout(() => serverTable.refresh(), 500)}
           taskSpecs={taskSpecs}
           labSpecs={labSpecs}
           initialTask={taskToClone}
@@ -279,12 +282,12 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
                 </div>
               )}
 
-              {selectedTask.experiment_name && (
+              {selectedTask.protocol_run_name && (
                 <div>
                   <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Experiment
+                    Protocol Run
                   </div>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedTask.experiment_name}</div>
+                  <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedTask.protocol_run_name}</div>
                 </div>
               )}
 

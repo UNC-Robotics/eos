@@ -1,7 +1,7 @@
 from tests.fixtures import *
 
 
-@pytest.mark.parametrize("setup_lab_experiment", [("small_lab", "water_purification")], indirect=True)
+@pytest.mark.parametrize("setup_lab_protocol", [("small_lab", "water_purification")], indirect=True)
 class TestResourceManager:
     @pytest.mark.asyncio
     async def test_set_resource_metadata(self, db, resource_manager):

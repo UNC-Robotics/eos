@@ -46,7 +46,7 @@ export interface LabSpec {
   resources?: Record<string, { type: string; meta?: Record<string, unknown> }>;
 }
 
-export interface ExperimentTaskConfig {
+export interface ProtocolTaskConfig {
   name: string;
   type: string;
   desc?: string;
@@ -56,11 +56,11 @@ export interface ExperimentTaskConfig {
   dependencies?: string[];
 }
 
-export interface ExperimentSpec {
+export interface ProtocolSpec {
   type: string;
   desc: string;
   labs: string[];
-  tasks: ExperimentTaskConfig[];
+  tasks: ProtocolTaskConfig[];
   resources?: Record<string, unknown>;
 }
 
@@ -167,31 +167,29 @@ export const getLabSpec = cache(async (labName: string): Promise<LabSpec | null>
 });
 
 /**
- * Get all experiment definitions.
- * @param loadedOnly - If true, only return experiments that are currently loaded in EOS
+ * Get all protocol definitions.
+ * @param loadedOnly - If true, only return protocols that are currently loaded in EOS
  */
-export const getExperimentSpecs = cache(
-  async (loadedOnly: boolean = false): Promise<Record<string, ExperimentSpec>> => {
-    const query = db
-      .select()
-      .from(definitions)
-      .where(
-        loadedOnly
-          ? and(eq(definitions.type, 'experiment'), eq(definitions.isLoaded, true))
-          : eq(definitions.type, 'experiment')
-      );
-
-    const results = await query.execute();
-
-    return results.reduce(
-      (acc, def) => {
-        acc[def.name] = def.data as ExperimentSpec;
-        return acc;
-      },
-      {} as Record<string, ExperimentSpec>
+export const getProtocolSpecs = cache(async (loadedOnly: boolean = false): Promise<Record<string, ProtocolSpec>> => {
+  const query = db
+    .select()
+    .from(definitions)
+    .where(
+      loadedOnly
+        ? and(eq(definitions.type, 'protocol'), eq(definitions.isLoaded, true))
+        : eq(definitions.type, 'protocol')
     );
-  }
-);
+
+  const results = await query.execute();
+
+  return results.reduce(
+    (acc, def) => {
+      acc[def.name] = def.data as ProtocolSpec;
+      return acc;
+    },
+    {} as Record<string, ProtocolSpec>
+  );
+});
 
 /**
  * Get devices available in specific labs.
@@ -222,16 +220,16 @@ export const getLabDevices = cache(async (labNames: string[]): Promise<Record<st
 
 /**
  * Get all definitions of a particular type (for admin/debugging purposes).
- * @param defType - One of: 'task', 'device', 'lab', 'experiment'
- * @param loadedOnly - For labs/experiments, filter by loaded status
+ * @param defType - One of: 'task', 'device', 'lab', 'protocol'
+ * @param loadedOnly - For labs/protocols, filter by loaded status
  */
 export const getDefsByType = cache(
-  async (defType: 'task' | 'device' | 'lab' | 'experiment', loadedOnly: boolean = false): Promise<Definition[]> => {
+  async (defType: 'task' | 'device' | 'lab' | 'protocol', loadedOnly: boolean = false): Promise<Definition[]> => {
     const query = db
       .select()
       .from(definitions)
       .where(
-        loadedOnly && (defType === 'lab' || defType === 'experiment')
+        loadedOnly && (defType === 'lab' || defType === 'protocol')
           ? and(eq(definitions.type, defType), eq(definitions.isLoaded, true))
           : eq(definitions.type, defType)
       );
@@ -252,7 +250,7 @@ export const getAllDefs = cache(async (): Promise<Definition[]> => {
  * Useful for listing definitions without transferring large JSON payloads.
  */
 export const getDefsMetadata = cache(
-  async (defType?: 'task' | 'device' | 'lab' | 'experiment'): Promise<Array<Omit<Definition, 'data'>>> => {
+  async (defType?: 'task' | 'device' | 'lab' | 'protocol'): Promise<Array<Omit<Definition, 'data'>>> => {
     const query = db
       .select({
         type: definitions.type,
@@ -281,7 +279,7 @@ export const getDefsMetadata = cache(
 export const getLoadedStatus = cache(
   async (): Promise<{
     labs: string[];
-    experiments: string[];
+    protocols: string[];
     tasks: string[];
     devices: string[];
   }> => {
@@ -297,7 +295,7 @@ export const getLoadedStatus = cache(
     // Group results by type
     const loaded = {
       labs: [] as string[],
-      experiments: [] as string[],
+      protocols: [] as string[],
       tasks: [] as string[],
       devices: [] as string[],
     };
@@ -305,8 +303,8 @@ export const getLoadedStatus = cache(
     for (const def of results) {
       if (def.type === 'lab') {
         loaded.labs.push(def.name);
-      } else if (def.type === 'experiment') {
-        loaded.experiments.push(def.name);
+      } else if (def.type === 'protocol') {
+        loaded.protocols.push(def.name);
       } else if (def.type === 'task') {
         loaded.tasks.push(def.name);
       } else if (def.type === 'device') {

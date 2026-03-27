@@ -20,12 +20,12 @@ class TaskController(Controller):
 
     path = "/tasks"
 
-    @get("/{experiment_name:str}/{task_name:str}")
+    @get("/{protocol_run_name:str}/{task_name:str}")
     async def get_task(
-        self, experiment_name: str, task_name: str, db: AsyncDbSession, orchestrator: Orchestrator
+        self, protocol_run_name: str, task_name: str, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> Task:
         """Get a task by name."""
-        task = await orchestrator.tasks.get_task(db, experiment_name, task_name)
+        task = await orchestrator.tasks.get_task(db, protocol_run_name, task_name)
         if not task:
             raise APIError(status_code=404, detail="Task not found")
         return task
@@ -38,10 +38,10 @@ class TaskController(Controller):
 
     @post("/{task_name:str}/cancel")
     async def cancel_task(
-        self, task_name: str, orchestrator: Orchestrator, experiment_name: str | None = None
+        self, task_name: str, orchestrator: Orchestrator, protocol_run_name: str | None = None
     ) -> dict[str, str]:
-        """Cancel a running task. For experiment tasks, provide the experiment_name query parameter."""
-        await orchestrator.tasks.cancel_task(task_name, experiment_name)
+        """Cancel a running task. For protocol run tasks, provide the protocol_run_name query parameter."""
+        await orchestrator.tasks.cancel_task(task_name, protocol_run_name)
         return {"message": "Task cancellation requested"}
 
     @get("/types")

@@ -94,7 +94,7 @@ export function LogViewer({ enabled = true, isResizing = false, className = '' }
             {enabled ? 'Waiting for log entries...' : 'Log streaming disabled'}
           </div>
         ) : (
-          entries.map((entry) => <LogLine key={entry.seq} entry={entry} />)
+          entries.map((entry, idx) => <LogLine key={`${entry.seq}-${idx}`} entry={entry} />)
         )}
       </div>
     </div>

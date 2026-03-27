@@ -50,16 +50,16 @@ class OptimizerController(Controller):
 
     path = "/campaigns"
 
-    @get("/optimizer/defaults/{experiment_type:str}")
+    @get("/optimizer/defaults/{protocol:str}")
     async def get_optimizer_defaults(
         self,
-        experiment_type: str,
+        protocol: str,
         orchestrator: Orchestrator,
     ) -> dict[str, Any]:
-        """Get default optimizer parameters for an experiment type."""
-        result = orchestrator.campaigns.get_optimizer_defaults(experiment_type)
+        """Get default optimizer parameters for a protocol type."""
+        result = orchestrator.campaigns.get_optimizer_defaults(protocol)
         if result is None:
-            raise APIError(status_code=404, detail=f"No optimizer configured for experiment type '{experiment_type}'")
+            raise APIError(status_code=404, detail=f"No optimizer configured for protocol type '{protocol}'")
         optimizer_type_name, constructor_args = result
         return _serialize_optimizer_defaults(optimizer_type_name, constructor_args)
 

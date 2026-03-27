@@ -12,7 +12,7 @@ export const tasks = pgTable(
   {
     id: serial('id').primaryKey(),
     name: text('name').notNull(),
-    experimentName: text('experiment_name'),
+    protocolRunName: text('protocol_run_name'),
     type: text('type').notNull(),
     devices: json('devices').notNull().default({}),
     inputParameters: json('input_parameters'),
@@ -30,16 +30,16 @@ export const tasks = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    experimentNameTaskNameIdx: index('idx_experiment_name_task_name').on(table.experimentName, table.name),
+    protocolRunNameTaskNameIdx: index('idx_protocol_run_name_task_name').on(table.protocolRunName, table.name),
     createdAtIdx: index('ix_tasks_created_at').on(table.createdAt),
   })
 );
 
 // ============================================================================
-// Experiments Table
+// Protocol Runs Table
 // ============================================================================
-export const experiments = pgTable(
-  'experiments',
+export const protocolRuns = pgTable(
+  'protocol_runs',
   {
     id: serial('id').primaryKey(),
     name: text('name').notNull().unique(),
@@ -57,8 +57,8 @@ export const experiments = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    ownerIdx: index('ix_experiments_owner').on(table.owner),
-    createdAtIdx: index('ix_experiments_created_at').on(table.createdAt),
+    ownerIdx: index('ix_protocol_runs_owner').on(table.owner),
+    createdAtIdx: index('ix_protocol_runs_created_at').on(table.createdAt),
   })
 );
 
@@ -70,20 +70,20 @@ export const campaigns = pgTable(
   {
     id: serial('id').primaryKey(),
     name: text('name').notNull().unique(),
-    experimentType: text('experiment_type').notNull(),
+    protocol: text('protocol').notNull(),
     owner: text('owner').notNull(),
     priority: integer('priority').notNull().default(0),
-    maxExperiments: integer('max_experiments').notNull().default(0),
-    maxConcurrentExperiments: integer('max_concurrent_experiments').notNull().default(1),
+    maxProtocolRuns: integer('max_protocol_runs').notNull().default(0),
+    maxConcurrentProtocolRuns: integer('max_concurrent_protocol_runs').notNull().default(1),
     optimize: boolean('optimize').notNull(),
     optimizerIp: text('optimizer_ip').notNull().default('127.0.0.1'),
     globalParameters: json('global_parameters'),
-    experimentParameters: json('experiment_parameters'),
+    protocolRunParameters: json('protocol_run_parameters'),
     meta: json('meta').notNull().default({}),
     resume: boolean('resume').notNull().default(false),
     status: text('status').notNull().default('CREATED'),
     errorMessage: text('error_message'),
-    experimentsCompleted: integer('experiments_completed').notNull().default(0),
+    protocolRunsCompleted: integer('protocol_runs_completed').notNull().default(0),
     paretoSolutions: json('pareto_solutions'),
     startTime: timestamp('start_time', { withTimezone: true }),
     endTime: timestamp('end_time', { withTimezone: true }),
@@ -104,16 +104,16 @@ export const campaignSamples = pgTable(
     campaignName: text('campaign_name')
       .notNull()
       .references(() => campaigns.name, { onDelete: 'cascade' }),
-    experimentName: text('experiment_name')
+    protocolRunName: text('protocol_run_name')
       .notNull()
-      .references(() => experiments.name, { onDelete: 'cascade' }),
+      .references(() => protocolRuns.name, { onDelete: 'cascade' }),
     inputs: json('inputs').notNull(),
     outputs: json('outputs').notNull(),
     meta: json('meta').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.campaignName, table.experimentName] }),
+    pk: primaryKey({ columns: [table.campaignName, table.protocolRunName] }),
   })
 );
 
@@ -159,7 +159,7 @@ export const allocationRequests = pgTable(
   {
     id: serial('id').primaryKey(),
     requester: text('requester').notNull(),
-    experimentName: text('experiment_name').references(() => experiments.name, { onDelete: 'cascade' }),
+    protocolRunName: text('protocol_run_name').references(() => protocolRuns.name, { onDelete: 'cascade' }),
     priority: integer('priority').notNull().default(0),
     timeout: integer('timeout').notNull().default(600),
     reason: text('reason'),
@@ -169,7 +169,7 @@ export const allocationRequests = pgTable(
   },
   (table) => ({
     requesterIdx: index('idx_allocation_requests_requester').on(table.requester),
-    experimentNameIdx: index('idx_allocation_requests_experiment_name').on(table.experimentName),
+    protocolRunNameIdx: index('idx_allocation_requests_protocol_run_name').on(table.protocolRunName),
     statusIdx: index('idx_allocation_requests_status').on(table.status),
   })
 );
@@ -183,13 +183,13 @@ export const deviceAllocations = pgTable(
     labName: text('lab_name').notNull(),
     name: text('name').notNull(),
     owner: text('owner').notNull(),
-    experimentName: text('experiment_name').references(() => experiments.name, { onDelete: 'cascade' }),
+    protocolRunName: text('protocol_run_name').references(() => protocolRuns.name, { onDelete: 'cascade' }),
     held: boolean('held').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.labName, table.name] }),
-    experimentNameIdx: index('ix_device_allocations_experiment_name').on(table.experimentName),
+    protocolRunNameIdx: index('ix_device_allocations_protocol_run_name').on(table.protocolRunName),
   })
 );
 
@@ -204,12 +204,12 @@ export const resourceAllocations = pgTable(
       .primaryKey()
       .references(() => resources.name),
     owner: text('owner').notNull(),
-    experimentName: text('experiment_name').references(() => experiments.name, { onDelete: 'cascade' }),
+    protocolRunName: text('protocol_run_name').references(() => protocolRuns.name, { onDelete: 'cascade' }),
     held: boolean('held').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    experimentNameIdx: index('ix_resource_allocations_experiment_name').on(table.experimentName),
+    protocolRunNameIdx: index('ix_resource_allocations_protocol_run_name').on(table.protocolRunName),
   })
 );
 

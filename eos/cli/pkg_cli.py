@@ -6,7 +6,7 @@ pkg_app = typer.Typer(no_args_is_help=True)
 add_app = typer.Typer(no_args_is_help=True)
 pkg_app.add_typer(add_app, name="add", help="Add entities to an existing package")
 
-EntityType = Literal["lab", "device", "task", "experiment"]
+EntityType = Literal["lab", "device", "task", "protocol"]
 
 _GITIGNORE = """\
 # Byte-compiled / optimized / DLL files
@@ -232,7 +232,7 @@ def create_package(
 ) -> None:
     """Create a new package with the specified name in the user directory."""
     package_dir = Path(user_dir) / name
-    subdirs = ["devices", "tasks", "labs", "experiments"]
+    subdirs = ["devices", "tasks", "labs", "protocols"]
 
     try:
         package_dir.mkdir(parents=True, exist_ok=False)
@@ -313,20 +313,20 @@ def add_task(
     _add_entity(package_dir, "task", name, files)
 
 
-@add_app.command(name="experiment")
-def add_experiment(
+@add_app.command(name="protocol")
+def add_protocol(
     package: Annotated[str, typer.Argument(help="Name of the target package")],
-    name: Annotated[str, typer.Argument(help="Name of the experiment to create")],
+    name: Annotated[str, typer.Argument(help="Name of the protocol to create")],
     user_dir: Annotated[
         str, typer.Option("--user-dir", "-u", help="The directory containing EOS user configurations")
     ] = "./user",
 ) -> None:
-    """Add a new experiment to an existing package."""
+    """Add a new protocol to an existing package."""
     package_dir = Path(user_dir) / package
     _validate_package_exists(package_dir)
 
-    files = {"experiment.yml": "", "optimizer.py": ""}
-    _add_entity(package_dir, "experiment", name, files)
+    files = {"protocol.yml": "", "optimizer.py": ""}
+    _add_entity(package_dir, "protocol", name, files)
 
 
 if __name__ == "__main__":

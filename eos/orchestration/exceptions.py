@@ -1,8 +1,8 @@
-class EosExperimentTypeInUseError(Exception):
+class EosProtocolInUseError(Exception):
     pass
 
 
-class EosExperimentDoesNotExistError(Exception):
+class EosProtocolRunDoesNotExistError(Exception):
     pass
 
 

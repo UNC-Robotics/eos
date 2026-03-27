@@ -11,8 +11,8 @@ import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import type { Campaign } from '@/lib/types/api';
 import type { PaginatedResult } from '@/lib/db/queries';
-import type { TaskSpec } from '@/lib/types/experiment';
-import type { ExperimentSpec } from '@/lib/api/specs';
+import type { TaskSpec } from '@/lib/types/protocol';
+import type { ProtocolSpec } from '@/lib/api/specs';
 import { cancelCampaign, getCampaigns } from '@/features/campaigns/api/campaigns';
 import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
 import { useServerTable } from '@/hooks/useServerTable';
@@ -39,17 +39,17 @@ const hasData = (data: unknown): boolean => {
 };
 
 const CAMPAIGN_COLUMN_ID_MAP: Record<string, string> = {
-  experiment_type: 'experimentType',
+  protocol: 'protocol',
   created_at: 'createdAt',
 };
 
 interface CampaignsTableProps {
   initialData: PaginatedResult<Campaign>;
-  experimentSpecs: Record<string, ExperimentSpec>;
+  protocolSpecs: Record<string, ProtocolSpec>;
   taskSpecs: Record<string, TaskSpec>;
 }
 
-export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: CampaignsTableProps) {
+export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: CampaignsTableProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
   const [pollingInterval, setPollingInterval] = React.useState(5000);
@@ -125,8 +125,8 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
       filterType: 'text',
     },
     {
-      accessorKey: 'experiment_type',
-      header: 'Experiment Type',
+      accessorKey: 'protocol',
+      header: 'Protocol',
       enableColumnFilter: true,
       filterType: 'text',
     },
@@ -149,11 +149,11 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
       filterFn: 'arrIncludesSome',
     },
     {
-      accessorKey: 'experiments_completed',
+      accessorKey: 'protocol_runs_completed',
       header: 'Progress',
       cell: ({ row }) => {
-        const completed = row.getValue('experiments_completed') as number;
-        const max = row.original.max_experiments;
+        const completed = row.getValue('protocol_runs_completed') as number;
+        const max = row.original.max_protocol_runs;
         return (
           <div className="text-sm">
             {completed} / {max === 0 ? '∞' : max}
@@ -174,7 +174,7 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
       header: 'Created',
       cell: ({ row }) => {
         const date = new Date(row.getValue('created_at'));
-        return <span className="text-gray-600">{date.toLocaleString()}</span>;
+        return date.toLocaleString();
       },
     },
     {
@@ -245,7 +245,7 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Campaigns</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">View and manage campaign execution</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">View and manage campaigns</p>
           </div>
           <Button
             variant="primary"
@@ -279,7 +279,8 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
         <SubmitCampaignDialog
           open={submitDialogOpen}
           onOpenChange={handleCloseSubmitDialog}
-          experimentSpecs={experimentSpecs}
+          onSuccess={() => setTimeout(() => serverTable.refresh(), 500)}
+          protocolSpecs={protocolSpecs}
           taskSpecs={taskSpecs}
           initialCampaign={campaignToClone}
           generateCloneName={(name) => generateCloneNameForEntity('campaigns', name)}
@@ -306,8 +307,8 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
             {/* Basic Info */}
             <div className="space-y-3">
               <div>
-                <div className={STYLES.label}>Experiment Type</div>
-                <div className={STYLES.value}>{selectedCampaign.experiment_type}</div>
+                <div className={STYLES.label}>Protocol</div>
+                <div className={STYLES.value}>{selectedCampaign.protocol}</div>
               </div>
 
               <div>
@@ -343,18 +344,18 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className={STYLES.textMuted}>Completed:</span>
-                  <span className={`${STYLES.textNormal} font-medium`}>{selectedCampaign.experiments_completed}</span>
+                  <span className={`${STYLES.textNormal} font-medium`}>{selectedCampaign.protocol_runs_completed}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={STYLES.textMuted}>Max Experiments:</span>
+                  <span className={STYLES.textMuted}>Max Protocol Runs:</span>
                   <span className={`${STYLES.textNormal} font-medium`}>
-                    {selectedCampaign.max_experiments === 0 ? '∞' : selectedCampaign.max_experiments}
+                    {selectedCampaign.max_protocol_runs === 0 ? '∞' : selectedCampaign.max_protocol_runs}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={STYLES.textMuted}>Max Concurrent:</span>
                   <span className={`${STYLES.textNormal} font-medium`}>
-                    {selectedCampaign.max_concurrent_experiments}
+                    {selectedCampaign.max_concurrent_protocol_runs}
                   </span>
                 </div>
               </div>
@@ -409,10 +410,10 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
               </div>
             )}
 
-            {/* Experiment Parameters */}
-            {hasData(selectedCampaign.experiment_parameters) && (
+            {/* Protocol Run Parameters */}
+            {hasData(selectedCampaign.protocol_run_parameters) && (
               <div className={STYLES.section}>
-                <JsonDisplay data={selectedCampaign.experiment_parameters} label="Experiment Parameters" />
+                <JsonDisplay data={selectedCampaign.protocol_run_parameters} label="Protocol Run Parameters" />
               </div>
             )}
 
@@ -438,7 +439,7 @@ export function CampaignsTable({ initialData, experimentSpecs, taskSpecs }: Camp
         onClose={() => setCampaignToCancel(null)}
         onConfirm={handleCancelCampaign}
         title="Cancel Campaign"
-        message={`Are you sure you want to cancel campaign "${campaignToCancel}"? This will stop all running experiments.`}
+        message={`Are you sure you want to cancel campaign "${campaignToCancel}"? This will stop all running protocol runs.`}
         confirmText="Cancel Campaign"
         cancelText="Keep Running"
         variant="danger"

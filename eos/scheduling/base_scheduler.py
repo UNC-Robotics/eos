@@ -6,7 +6,7 @@ import networkx as nx
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.entities.task_def import DeviceAssignmentDef, TaskDef
-from eos.configuration.experiment_graph import ExperimentGraph
+from eos.configuration.protocol_graph import ProtocolGraph
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.devices.device_manager import DeviceManager
 from eos.devices.entities.device import DeviceStatus
@@ -15,7 +15,7 @@ from eos.allocation.allocation_manager import AllocationManager
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
 from eos.scheduling.exceptions import EosSchedulerRegistrationError
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.tasks.entities.task import TaskSubmission
 from eos.tasks.task_input_resolver import TaskInputResolver
 from eos.tasks.task_manager import TaskManager
@@ -27,7 +27,7 @@ class AllocationEntry:
     """A single device or resource allocation tracked by the scheduler."""
 
     owner: str
-    experiment_name: str | None
+    protocol_run_name: str | None
     hold_on_complete: bool = False
     held: bool = False
 
@@ -46,18 +46,18 @@ class BaseScheduler(AbstractScheduler, ABC):
     def __init__(
         self,
         configuration_manager: ConfigurationManager,
-        experiment_manager: ExperimentManager,
+        protocol_run_manager: ProtocolRunManager,
         task_manager: TaskManager,
         device_manager: DeviceManager,
         allocation_manager: AllocationManager,
     ):
         self._configuration_manager = configuration_manager
-        self._experiment_manager = experiment_manager
-        self._task_input_resolver = TaskInputResolver(task_manager, experiment_manager)
+        self._protocol_run_manager = protocol_run_manager
+        self._task_input_resolver = TaskInputResolver(task_manager, protocol_run_manager)
         self._device_manager = device_manager
         self._allocation_manager = allocation_manager
 
-        self._registered_experiments: dict[str, tuple[str, ExperimentGraph]] = {}
+        self._registered_protocol_runs: dict[str, tuple[str, ProtocolGraph]] = {}
 
         # Allocation index — single source of truth for what's locked
         self._device_index: dict[tuple[str, str], AllocationEntry] = {}
@@ -83,58 +83,56 @@ class BaseScheduler(AbstractScheduler, ABC):
 
         self._lock = AsyncRLock()
 
-    async def register_experiment(
-        self, experiment_name: str, experiment_type: str, experiment_graph: ExperimentGraph
-    ) -> None:
+    async def register_protocol_run(self, protocol_run_name: str, protocol: str, protocol_graph: ProtocolGraph) -> None:
         async with self._lock:
-            if experiment_type not in self._configuration_manager.experiments:
-                raise EosSchedulerRegistrationError(f"Experiment type '{experiment_type}' does not exist.")
-            self._registered_experiments[experiment_name] = (experiment_type, experiment_graph)
-            self._topo_sorted_cache[experiment_name] = experiment_graph.get_topologically_sorted_tasks()
-            task_graph = experiment_graph.get_task_graph()
-            self._all_tasks_cache[experiment_name] = set(task_graph.nodes)
-            self._ancestors_cache[experiment_name] = {t: nx.ancestors(task_graph, t) for t in task_graph.nodes}
+            if protocol not in self._configuration_manager.protocols:
+                raise EosSchedulerRegistrationError(f"Protocol type '{protocol}' does not exist.")
+            self._registered_protocol_runs[protocol_run_name] = (protocol, protocol_graph)
+            self._topo_sorted_cache[protocol_run_name] = protocol_graph.get_topologically_sorted_tasks()
+            task_graph = protocol_graph.get_task_graph()
+            self._all_tasks_cache[protocol_run_name] = set(task_graph.nodes)
+            self._ancestors_cache[protocol_run_name] = {t: nx.ancestors(task_graph, t) for t in task_graph.nodes}
 
-    async def unregister_experiment(self, db: AsyncDbSession, experiment_name: str) -> None:
+    async def unregister_protocol_run(self, db: AsyncDbSession, protocol_run_name: str) -> None:
         async with self._lock:
-            if experiment_name not in self._registered_experiments:
-                raise EosSchedulerRegistrationError(f"Experiment {experiment_name} is not registered.")
-            del self._registered_experiments[experiment_name]
-            self._topo_sorted_cache.pop(experiment_name, None)
-            self._all_tasks_cache.pop(experiment_name, None)
-            self._ancestors_cache.pop(experiment_name, None)
-            self._completed_tasks_cache.pop(experiment_name, None)
-            await self._release_experiment_allocations(db, experiment_name)
+            if protocol_run_name not in self._registered_protocol_runs:
+                raise EosSchedulerRegistrationError(f"ProtocolRun {protocol_run_name} is not registered.")
+            del self._registered_protocol_runs[protocol_run_name]
+            self._topo_sorted_cache.pop(protocol_run_name, None)
+            self._all_tasks_cache.pop(protocol_run_name, None)
+            self._ancestors_cache.pop(protocol_run_name, None)
+            self._completed_tasks_cache.pop(protocol_run_name, None)
+            await self._release_protocol_run_allocations(db, protocol_run_name)
 
-    async def is_experiment_completed(self, db: AsyncDbSession, experiment_name: str) -> bool:
-        if experiment_name not in self._registered_experiments:
-            raise Exception(f"Cannot check completion of unregistered experiment {experiment_name}.")
-        all_tasks = self._all_tasks_cache[experiment_name]
-        completed_tasks = await self._experiment_manager.get_completed_tasks(db, experiment_name)
-        self._completed_tasks_cache[experiment_name] = completed_tasks
+    async def is_protocol_run_completed(self, db: AsyncDbSession, protocol_run_name: str) -> bool:
+        if protocol_run_name not in self._registered_protocol_runs:
+            raise Exception(f"Cannot check completion of unregistered protocol run {protocol_run_name}.")
+        all_tasks = self._all_tasks_cache[protocol_run_name]
+        completed_tasks = await self._protocol_run_manager.get_completed_tasks(db, protocol_run_name)
+        self._completed_tasks_cache[protocol_run_name] = completed_tasks
         return all_tasks.issubset(completed_tasks)
 
     async def update_parameters(self, parameters: dict) -> None:
         pass
 
-    async def release_task(self, db: AsyncDbSession, task_name: str, experiment_name: str | None = None) -> None:
+    async def release_task(self, db: AsyncDbSession, task_name: str, protocol_run_name: str | None = None) -> None:
         async with self._lock:
-            if experiment_name is None:
+            if protocol_run_name is None:
                 await self._release_on_demand_task(db, task_name)
-            elif experiment_name not in self._registered_experiments:
-                self._remove_task_from_indices(task_name, experiment_name)
+            elif protocol_run_name not in self._registered_protocol_runs:
+                self._remove_task_from_indices(task_name, protocol_run_name)
             else:
-                await self._release_experiment_task(db, task_name, experiment_name)
+                await self._release_protocol_run_task(db, task_name, protocol_run_name)
 
-    async def _release_experiment_task(self, db: AsyncDbSession, task_name: str, experiment_name: str) -> None:
-        """Release allocations for a completed experiment task, applying holds where configured."""
-        _, exp_graph = self._registered_experiments[experiment_name]
+    async def _release_protocol_run_task(self, db: AsyncDbSession, task_name: str, protocol_run_name: str) -> None:
+        """Release allocations for a completed protocol run task, applying holds where configured."""
+        _, protocol_graph = self._registered_protocol_runs[protocol_run_name]
 
         completed = self._current_completed_tasks
         if completed is None:
-            completed = await self._experiment_manager.get_completed_tasks(db, experiment_name)
+            completed = await self._protocol_run_manager.get_completed_tasks(db, protocol_run_name)
 
-        graph = exp_graph.get_graph()
+        graph = protocol_graph.get_graph()
         has_pending_successors = any(
             graph.nodes[s].get("node_type") == "task" and s not in completed for s in graph.successors(task_name)
         )
@@ -147,7 +145,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         self._partition_allocations(
             self._device_index,
             task_name,
-            experiment_name,
+            protocol_run_name,
             has_pending_successors,
             devices_to_hold,
             devices_to_release,
@@ -156,7 +154,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         self._partition_allocations(
             self._resource_index,
             task_name,
-            experiment_name,
+            protocol_run_name,
             has_pending_successors,
             resources_to_hold,
             resources_to_release,
@@ -176,7 +174,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         self,
         index: dict,
         task_name: str,
-        experiment_name: str,
+        protocol_run_name: str,
         has_pending_successors: bool,
         hold_list: list,
         release_list: list,
@@ -184,17 +182,17 @@ class BaseScheduler(AbstractScheduler, ABC):
     ) -> None:
         """Partition allocations for a task into hold vs release lists."""
         for key, entry in list(index.items()):
-            if entry.owner != task_name or entry.experiment_name != experiment_name:
+            if entry.owner != task_name or entry.protocol_run_name != protocol_run_name:
                 continue
             if entry.hold_on_complete and has_pending_successors:
                 entry.held = True
                 hold_list.append(key)
                 log.debug(
-                    "Holding %s %s for completed task '%s' in experiment '%s'.",
+                    "Holding %s %s for completed task '%s' in protocol run '%s'.",
                     kind,
                     key,
                     task_name,
-                    experiment_name,
+                    protocol_run_name,
                 )
             else:
                 del index[key]
@@ -257,17 +255,17 @@ class BaseScheduler(AbstractScheduler, ABC):
             await self._allocation_manager.allocate_devices(db, device_pairs, submission.name)
             for dev in devices.values():
                 self._device_index[(dev.lab_name, dev.name)] = AllocationEntry(
-                    owner=submission.name, experiment_name=None
+                    owner=submission.name, protocol_run_name=None
                 )
 
         if resource_names:
             await self._allocation_manager.allocate_resources(db, resource_names, submission.name)
             for resource in resources.values():
-                self._resource_index[resource.name] = AllocationEntry(owner=submission.name, experiment_name=None)
+                self._resource_index[resource.name] = AllocationEntry(owner=submission.name, protocol_run_name=None)
 
         return ScheduledTask(
             name=submission.name,
-            experiment_name=None,
+            protocol_run_name=None,
             devices=devices,
             resources={k: r.name for k, r in resources.items()},
         )
@@ -277,39 +275,39 @@ class BaseScheduler(AbstractScheduler, ABC):
         lab_name: str,
         device_name: str,
         task_name: str,
-        experiment_name: str | None,
+        protocol_run_name: str | None,
         completed_tasks: set[str] | None = None,
     ) -> bool:
-        """Check if a device is available for a task. Held devices are transparent to same-experiment successors."""
+        """Check if a device is available for a task. Held devices are transparent to same-protocol-run successors."""
         entry = self._device_index.get((lab_name, device_name))
         if not entry:
             return True
-        if entry.owner == task_name and entry.experiment_name == experiment_name:
+        if entry.owner == task_name and entry.protocol_run_name == protocol_run_name:
             return True
 
-        return self._is_hold_transparent(entry, task_name, experiment_name, completed_tasks)
+        return self._is_hold_transparent(entry, task_name, protocol_run_name, completed_tasks)
 
     def _is_resource_available(
         self,
         resource_name: str,
         task_name: str,
-        experiment_name: str | None,
+        protocol_run_name: str | None,
         completed_tasks: set[str] | None = None,
     ) -> bool:
-        """Check if a resource is available for a task. Held resources are transparent to same-experiment successors."""
+        """Check if a resource is available. Held resources are transparent to same-run successors."""
         entry = self._resource_index.get(resource_name)
         if not entry:
             return True
-        if entry.owner == task_name and entry.experiment_name == experiment_name:
+        if entry.owner == task_name and entry.protocol_run_name == protocol_run_name:
             return True
 
-        return self._is_hold_transparent(entry, task_name, experiment_name, completed_tasks)
+        return self._is_hold_transparent(entry, task_name, protocol_run_name, completed_tasks)
 
     def _is_hold_transparent(
         self,
         entry: AllocationEntry,
         task_name: str,
-        experiment_name: str | None,
+        protocol_run_name: str | None,
         completed_tasks: set[str] | None = None,
     ) -> bool:
         """Check if a held allocation is transparent (available) to a successor task."""
@@ -317,10 +315,10 @@ class BaseScheduler(AbstractScheduler, ABC):
         return bool(
             entry.held
             and effective_completed
-            and entry.experiment_name == experiment_name
-            and experiment_name is not None
+            and entry.protocol_run_name == protocol_run_name
+            and protocol_run_name is not None
             and entry.owner in effective_completed
-            and entry.owner in self._ancestors_cache.get(experiment_name, {}).get(task_name, set())
+            and entry.owner in self._ancestors_cache.get(protocol_run_name, {}).get(task_name, set())
         )
 
     async def _check_device_active(self, db: AsyncDbSession, lab_name: str, device_name: str, task_name: str) -> bool:
@@ -338,13 +336,13 @@ class BaseScheduler(AbstractScheduler, ABC):
         return True
 
     async def _resolve_task(
-        self, db: AsyncDbSession, experiment_name: str, experiment_graph: ExperimentGraph, task_name: str
+        self, db: AsyncDbSession, protocol_run_name: str, protocol_graph: ProtocolGraph, task_name: str
     ) -> TaskDef:
-        task = experiment_graph.get_task(task_name)
-        return await self._task_input_resolver.resolve_input_resource_references(db, experiment_name, task)
+        task = protocol_graph.get_task(task_name)
+        return await self._task_input_resolver.resolve_input_resource_references(db, protocol_run_name, task)
 
     async def _build_resolved_resources(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> dict[str, str] | None:
         """Default: accept only explicit string resources. Subclasses override for dynamic."""
         resolved: dict[str, str] = {}
@@ -356,7 +354,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         return resolved
 
     async def _build_assigned_devices(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> dict[str, DeviceAssignmentDef] | None:
         """Default: use only explicitly-declared devices. Subclasses override for dynamic/reference."""
         return {
@@ -366,89 +364,89 @@ class BaseScheduler(AbstractScheduler, ABC):
         }
 
     @staticmethod
-    def _check_task_dependencies_met(
-        task_name: str, completed_tasks: set[str], experiment_graph: ExperimentGraph
-    ) -> bool:
-        dependencies = experiment_graph.get_task_dependencies(task_name)
+    def _check_task_dependencies_met(task_name: str, completed_tasks: set[str], protocol_graph: ProtocolGraph) -> bool:
+        dependencies = protocol_graph.get_task_dependencies(task_name)
         return all(dep in completed_tasks for dep in dependencies)
 
     async def _check_and_allocate_resources(
         self,
         db: AsyncDbSession,
-        experiment_name: str,
+        protocol_run_name: str,
         task_name: str,
         completed_tasks: set[str],
-        experiment_graph: ExperimentGraph,
+        protocol_graph: ProtocolGraph,
     ) -> ScheduledTask | None:
         """Verify readiness, resolve resources/devices, allocate, and return ScheduledTask."""
-        if not self._check_task_dependencies_met(task_name, completed_tasks, experiment_graph):
+        if not self._check_task_dependencies_met(task_name, completed_tasks, protocol_graph):
             return None
 
-        task = await self._resolve_task(db, experiment_name, experiment_graph, task_name)
+        task = await self._resolve_task(db, protocol_run_name, protocol_graph, task_name)
 
-        resolved_resources = await self._build_resolved_resources(db, experiment_name, task)
+        resolved_resources = await self._build_resolved_resources(db, protocol_run_name, task)
         if resolved_resources is None:
             log.warning(
-                "EXP '%s' - Cannot resolve resources for task '%s'. Check that required labs are loaded.",
-                experiment_name,
+                "RUN '%s' - Cannot resolve resources for task '%s'. Check that required labs are loaded.",
+                protocol_run_name,
                 task_name,
             )
             return None
         task.resources = resolved_resources
 
-        assigned_devices = await self._build_assigned_devices(db, experiment_name, task)
+        assigned_devices = await self._build_assigned_devices(db, protocol_run_name, task)
         if assigned_devices is None:
             log.warning(
-                "EXP '%s' - Cannot resolve devices for task '%s'. Check that required labs are loaded.",
-                experiment_name,
+                "RUN '%s' - Cannot resolve devices for task '%s'. Check that required labs are loaded.",
+                protocol_run_name,
                 task_name,
             )
             return None
 
-        return await self._finalize_scheduling(db, experiment_name, task_name, task, assigned_devices, completed_tasks)
+        return await self._finalize_scheduling(
+            db, protocol_run_name, task_name, task, assigned_devices, completed_tasks
+        )
 
     async def _finalize_scheduling(
         self,
         db: AsyncDbSession,
-        experiment_name: str,
+        protocol_run_name: str,
         task_name: str,
         task: TaskDef,
         assigned_devices: dict[str, DeviceAssignmentDef],
         completed_tasks: set[str] | None = None,
     ) -> ScheduledTask | None:
         for dev in assigned_devices.values():
-            if not self._is_device_available(dev.lab_name, dev.name, task_name, experiment_name, completed_tasks):
+            if not self._is_device_available(dev.lab_name, dev.name, task_name, protocol_run_name, completed_tasks):
                 return None
             if not await self._check_device_active(db, dev.lab_name, dev.name, task_name):
                 return None
 
         for resource_name in task.resources.values():
-            if not self._is_resource_available(resource_name, task_name, experiment_name, completed_tasks):
+            if not self._is_resource_available(resource_name, task_name, protocol_run_name, completed_tasks):
                 return None
 
         device_pairs = [(dev.lab_name, dev.name) for dev in assigned_devices.values()]
         if device_pairs:
-            await self._allocation_manager.allocate_devices(db, device_pairs, task_name, experiment_name)
+            await self._allocation_manager.allocate_devices(db, device_pairs, task_name, protocol_run_name)
             for slot, dev in assigned_devices.items():
                 self._device_index[(dev.lab_name, dev.name)] = AllocationEntry(
                     owner=task_name,
-                    experiment_name=experiment_name,
+                    protocol_run_name=protocol_run_name,
                     hold_on_complete=task.device_holds.get(slot, False),
                 )
 
         resource_names = list(task.resources.values())
         if resource_names:
-            await self._allocation_manager.allocate_resources(db, resource_names, task_name, experiment_name)
+            await self._allocation_manager.allocate_resources(db, resource_names, task_name, protocol_run_name)
             for slot, res_name in task.resources.items():
                 self._resource_index[res_name] = AllocationEntry(
                     owner=task_name,
-                    experiment_name=experiment_name,
+                    protocol_run_name=protocol_run_name,
                     hold_on_complete=task.resource_holds.get(slot, False),
                 )
 
         return ScheduledTask(
             name=task_name,
-            experiment_name=experiment_name,
+            protocol_run_name=protocol_run_name,
             devices=assigned_devices,
             resources=task.resources,
         )
@@ -458,12 +456,12 @@ class BaseScheduler(AbstractScheduler, ABC):
         devices_to_release = [
             key
             for key, entry in self._device_index.items()
-            if entry.owner == task_name and entry.experiment_name is None
+            if entry.owner == task_name and entry.protocol_run_name is None
         ]
         resources_to_release = [
             name
             for name, entry in self._resource_index.items()
-            if entry.owner == task_name and entry.experiment_name is None
+            if entry.owner == task_name and entry.protocol_run_name is None
         ]
 
         for key in devices_to_release:
@@ -476,13 +474,13 @@ class BaseScheduler(AbstractScheduler, ABC):
         if resources_to_release:
             await self._allocation_manager.deallocate_resources(db, resources_to_release)
 
-    async def _release_experiment_allocations(self, db: AsyncDbSession, experiment_name: str) -> None:
-        """Release all allocations (including holds) for an experiment."""
+    async def _release_protocol_run_allocations(self, db: AsyncDbSession, protocol_run_name: str) -> None:
+        """Release all allocations (including holds) for a protocol run."""
         devices_to_release = [
-            key for key, entry in self._device_index.items() if entry.experiment_name == experiment_name
+            key for key, entry in self._device_index.items() if entry.protocol_run_name == protocol_run_name
         ]
         resources_to_release = [
-            name for name, entry in self._resource_index.items() if entry.experiment_name == experiment_name
+            name for name, entry in self._resource_index.items() if entry.protocol_run_name == protocol_run_name
         ]
 
         for key in devices_to_release:
@@ -495,17 +493,17 @@ class BaseScheduler(AbstractScheduler, ABC):
         if resources_to_release:
             await self._allocation_manager.deallocate_resources(db, resources_to_release)
 
-    def _remove_task_from_indices(self, task_name: str, experiment_name: str | None) -> None:
+    def _remove_task_from_indices(self, task_name: str, protocol_run_name: str | None) -> None:
         """Remove a task's entries from indices without DB cleanup."""
         self._device_index = {
             k: v
             for k, v in self._device_index.items()
-            if not (v.owner == task_name and v.experiment_name == experiment_name)
+            if not (v.owner == task_name and v.protocol_run_name == protocol_run_name)
         }
         self._resource_index = {
             k: v
             for k, v in self._resource_index.items()
-            if not (v.owner == task_name and v.experiment_name == experiment_name)
+            if not (v.owner == task_name and v.protocol_run_name == protocol_run_name)
         }
 
     async def _release_completed_allocations(self, db: AsyncDbSession, completed_by_exp: dict[str, set[str]]) -> None:
@@ -513,20 +511,20 @@ class BaseScheduler(AbstractScheduler, ABC):
         for entry in self._device_index.values():
             if (
                 not entry.held
-                and entry.experiment_name in completed_by_exp
-                and entry.owner in completed_by_exp[entry.experiment_name]
+                and entry.protocol_run_name in completed_by_exp
+                and entry.owner in completed_by_exp[entry.protocol_run_name]
             ):
-                tasks_to_release.add((entry.experiment_name, entry.owner))
+                tasks_to_release.add((entry.protocol_run_name, entry.owner))
         for entry in self._resource_index.values():
             if (
                 not entry.held
-                and entry.experiment_name in completed_by_exp
-                and entry.owner in completed_by_exp[entry.experiment_name]
+                and entry.protocol_run_name in completed_by_exp
+                and entry.owner in completed_by_exp[entry.protocol_run_name]
             ):
-                tasks_to_release.add((entry.experiment_name, entry.owner))
+                tasks_to_release.add((entry.protocol_run_name, entry.owner))
 
-        for exp_name, task_name in tasks_to_release:
-            await self.release_task(db, task_name, exp_name)
+        for run_name, task_name in tasks_to_release:
+            await self.release_task(db, task_name, run_name)
 
     async def _active_devices_by_type(self, db: AsyncDbSession) -> dict[str, list[tuple[str, str]]]:
         if self._active_devices_cache is not None:
@@ -582,8 +580,8 @@ class BaseScheduler(AbstractScheduler, ABC):
         self._resources_with_labs_cache = resources_by_type
         return resources_by_type
 
-    async def _get_experiment_priorities(self, db: AsyncDbSession, experiment_names: list[str]) -> dict[str, int]:
-        return await self._experiment_manager.get_experiment_priorities(db, experiment_names)
+    async def _get_protocol_run_priorities(self, db: AsyncDbSession, protocol_run_names: list[str]) -> dict[str, int]:
+        return await self._protocol_run_manager.get_protocol_run_priorities(db, protocol_run_names)
 
     def _clear_per_cycle_caches(self) -> None:
         self._active_devices_cache = None

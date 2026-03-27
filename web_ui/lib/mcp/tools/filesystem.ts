@@ -22,7 +22,7 @@ export function registerFilesystemTools(server: McpServer) {
             p.hasDevices && 'devices',
             p.hasTasks && 'tasks',
             p.hasLabs && 'labs',
-            p.hasExperiments && 'experiments',
+            p.hasProtocols && 'protocols',
           ]
             .filter(Boolean)
             .join(', ');
@@ -40,16 +40,16 @@ export function registerFilesystemTools(server: McpServer) {
     'list_package_entities',
     {
       title: 'List Package Entities',
-      description: 'List all entities (devices, tasks, labs, experiments) in a package.',
+      description: 'List all entities (devices, tasks, labs, protocols) in a package.',
       inputSchema: {
         package_name: z.string().describe('Package name (e.g. "eos_examples/color_lab")'),
-        entity_type: z.enum(['devices', 'tasks', 'labs', 'experiments']).optional().describe('Filter by entity type'),
+        entity_type: z.enum(['devices', 'tasks', 'labs', 'protocols']).optional().describe('Filter by entity type'),
       },
     },
     async ({ package_name, entity_type }) => {
       try {
         const tree = await getPackageTree(package_name);
-        const types = entity_type ? [entity_type] : (['devices', 'tasks', 'labs', 'experiments'] as const);
+        const types = entity_type ? [entity_type] : (['devices', 'tasks', 'labs', 'protocols'] as const);
 
         const sections = types.map((type) => {
           const entities = tree[type];
@@ -69,10 +69,10 @@ export function registerFilesystemTools(server: McpServer) {
     {
       title: 'Read Entity File',
       description:
-        'Read the YAML and/or Python file for an entity (task, device, lab, or experiment). For experiments, also returns layout.json if present.',
+        'Read the YAML and/or Python file for an entity (task, device, lab, or protocol). For protocols, also returns layout.json if present.',
       inputSchema: {
         package_name: z.string().describe('Package name (e.g. "eos_examples/color_lab")'),
-        entity_type: z.enum(['devices', 'tasks', 'labs', 'experiments']).describe('Entity type'),
+        entity_type: z.enum(['devices', 'tasks', 'labs', 'protocols']).describe('Entity type'),
         entity_name: z.string().describe('Entity name (directory name)'),
         file: z
           .enum(['yaml', 'python', 'all'])
@@ -95,7 +95,7 @@ export function registerFilesystemTools(server: McpServer) {
         if ((file === 'python' || file === 'all') && fileNames.python) {
           parts.push(`--- ${fileNames.python} ---\n${files.python || '(empty or not found)'}`);
         }
-        if (file === 'all' && entity_type === 'experiments' && files.json) {
+        if (file === 'all' && entity_type === 'protocols' && files.json) {
           parts.push(`--- layout.json ---\n${files.json}`);
         }
 

@@ -1,6 +1,6 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerTaskTools } from './tasks';
-import { registerExperimentTools } from './experiments';
+import { registerProtocolTools } from './protocols';
 import { registerCampaignTools } from './campaigns';
 import { registerDefinitionTools } from './definitions';
 import { registerManagementTools } from './management';
@@ -11,7 +11,7 @@ import { registerFilesystemTools } from './filesystem';
 
 export function registerAllTools(server: McpServer) {
   registerTaskTools(server);
-  registerExperimentTools(server);
+  registerProtocolTools(server);
   registerCampaignTools(server);
   registerDefinitionTools(server);
   registerManagementTools(server);

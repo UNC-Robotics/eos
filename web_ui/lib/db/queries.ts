@@ -1,14 +1,14 @@
 /**
  * Database Query Functions
  *
- * These functions query the EOS database for tasks, experiments, and campaigns.
+ * These functions query the EOS database for tasks, protocol runs, and campaigns.
  * Implements server-side pagination, filtering, sorting, and search.
  */
 
 import { desc, count, eq, and, asc, or, ilike, inArray } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { db } from './client';
-import { tasks, experiments, campaigns, campaignSamples } from './schema';
+import { tasks, protocolRuns, campaigns, campaignSamples } from './schema';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions, type ColumnFilterOption } from '@/lib/types/table';
 
 // Paginated result wrapper
@@ -98,30 +98,30 @@ async function queryPaginated(
 const TASK_COLUMNS: Record<string, DrizzleColumn> = {
   name: tasks.name,
   type: tasks.type,
-  experiment_name: tasks.experimentName,
+  protocol_run_name: tasks.protocolRunName,
   status: tasks.status,
   created_at: tasks.createdAt,
 };
-const TASK_SEARCH_COLUMNS = [tasks.name, tasks.type, tasks.experimentName];
+const TASK_SEARCH_COLUMNS = [tasks.name, tasks.type, tasks.protocolRunName];
 
-const EXPERIMENT_COLUMNS: Record<string, DrizzleColumn> = {
-  name: experiments.name,
-  type: experiments.type,
-  campaign: experiments.campaign,
-  owner: experiments.owner,
-  status: experiments.status,
-  created_at: experiments.createdAt,
+const PROTOCOL_RUN_COLUMNS: Record<string, DrizzleColumn> = {
+  name: protocolRuns.name,
+  type: protocolRuns.type,
+  campaign: protocolRuns.campaign,
+  owner: protocolRuns.owner,
+  status: protocolRuns.status,
+  created_at: protocolRuns.createdAt,
 };
-const EXPERIMENT_SEARCH_COLUMNS = [experiments.name, experiments.type, experiments.campaign, experiments.owner];
+const PROTOCOL_RUN_SEARCH_COLUMNS = [protocolRuns.name, protocolRuns.type, protocolRuns.campaign, protocolRuns.owner];
 
 const CAMPAIGN_COLUMNS: Record<string, DrizzleColumn> = {
   name: campaigns.name,
-  experiment_type: campaigns.experimentType,
+  protocol: campaigns.protocol,
   owner: campaigns.owner,
   status: campaigns.status,
   created_at: campaigns.createdAt,
 };
-const CAMPAIGN_SEARCH_COLUMNS = [campaigns.name, campaigns.experimentType, campaigns.owner];
+const CAMPAIGN_SEARCH_COLUMNS = [campaigns.name, campaigns.protocol, campaigns.owner];
 
 // ─── Database row types ─────────────────────────────────────────────────────
 
@@ -139,13 +139,13 @@ export interface TaskRow {
   outputFileNames: string[] | null;
   allocationTimeout: number;
   meta: Record<string, unknown>;
-  experimentName: string | null;
+  protocolRunName: string | null;
   createdAt: Date;
   startTime: Date | null;
   endTime: Date | null;
 }
 
-export interface ExperimentRow {
+export interface ProtocolRunRow {
   name: string;
   type: string;
   campaign: string | null;
@@ -166,20 +166,20 @@ export interface ExperimentRow {
 
 export interface CampaignRow {
   name: string;
-  experimentType: string;
+  protocol: string;
   owner: string;
   priority: number;
-  maxExperiments: number;
-  maxConcurrentExperiments: number;
+  maxProtocolRuns: number;
+  maxConcurrentProtocolRuns: number;
   optimize: boolean;
   optimizerIp: string | null;
   globalParameters: Record<string, Record<string, unknown>> | null;
-  experimentParameters: Array<Record<string, Record<string, unknown>>> | null;
+  protocolRunParameters: Array<Record<string, Record<string, unknown>>> | null;
   meta: Record<string, unknown> | null;
   resume: boolean;
   status: string;
   errorMessage: string | null;
-  experimentsCompleted: number;
+  protocolRunsCompleted: number;
   paretoSolutions: Array<Record<string, unknown>> | null;
   createdAt: Date;
   startTime: Date | null;
@@ -203,14 +203,14 @@ function mapTaskRow(row: typeof tasks.$inferSelect): TaskRow {
     outputFileNames: row.outputFileNames as string[] | null,
     allocationTimeout: row.allocationTimeout,
     meta: (row.meta as Record<string, unknown>) || {},
-    experimentName: row.experimentName,
+    protocolRunName: row.protocolRunName,
     createdAt: row.createdAt,
     startTime: row.startTime,
     endTime: row.endTime,
   };
 }
 
-function mapExperimentRow(row: typeof experiments.$inferSelect): ExperimentRow {
+function mapProtocolRunRow(row: typeof protocolRuns.$inferSelect): ProtocolRunRow {
   return {
     name: row.name,
     type: row.type,
@@ -231,20 +231,20 @@ function mapExperimentRow(row: typeof experiments.$inferSelect): ExperimentRow {
 function mapCampaignRow(row: typeof campaigns.$inferSelect): CampaignRow {
   return {
     name: row.name,
-    experimentType: row.experimentType,
+    protocol: row.protocol,
     owner: row.owner,
     priority: row.priority,
-    maxExperiments: row.maxExperiments,
-    maxConcurrentExperiments: row.maxConcurrentExperiments,
+    maxProtocolRuns: row.maxProtocolRuns,
+    maxConcurrentProtocolRuns: row.maxConcurrentProtocolRuns,
     optimize: row.optimize,
     optimizerIp: row.optimizerIp,
     globalParameters: row.globalParameters as Record<string, Record<string, unknown>> | null,
-    experimentParameters: row.experimentParameters as Array<Record<string, Record<string, unknown>>> | null,
+    protocolRunParameters: row.protocolRunParameters as Array<Record<string, Record<string, unknown>>> | null,
     meta: row.meta as Record<string, unknown> | null,
     resume: row.resume,
     status: row.status,
     errorMessage: row.errorMessage ?? null,
-    experimentsCompleted: row.experimentsCompleted,
+    protocolRunsCompleted: row.protocolRunsCompleted,
     paretoSolutions: row.paretoSolutions as Array<Record<string, unknown>> | null,
     createdAt: row.createdAt,
     startTime: row.startTime,
@@ -263,15 +263,15 @@ export async function getAllTasks(options: TableQueryOptions = {}): Promise<Pagi
   return { data: rows.map(mapTaskRow), total, limit, offset };
 }
 
-export async function getAllExperiments(options: TableQueryOptions = {}): Promise<PaginatedResult<ExperimentRow>> {
+export async function getAllProtocolRuns(options: TableQueryOptions = {}): Promise<PaginatedResult<ProtocolRunRow>> {
   const { rows, total, limit, offset } = await queryPaginated(
-    experiments,
+    protocolRuns,
     options,
-    EXPERIMENT_COLUMNS,
-    EXPERIMENT_SEARCH_COLUMNS,
-    experiments.createdAt
+    PROTOCOL_RUN_COLUMNS,
+    PROTOCOL_RUN_SEARCH_COLUMNS,
+    protocolRuns.createdAt
   );
-  return { data: rows.map(mapExperimentRow), total, limit, offset };
+  return { data: rows.map(mapProtocolRunRow), total, limit, offset };
 }
 
 export async function getAllCampaigns(options: TableQueryOptions = {}): Promise<PaginatedResult<CampaignRow>> {
@@ -287,10 +287,10 @@ export async function getAllCampaigns(options: TableQueryOptions = {}): Promise<
 
 // ─── Name prefix query (for clone name generation) ──────────────────────────
 
-const TABLE_REFS = { campaigns, experiments, tasks } as const;
+const TABLE_REFS = { campaigns, protocolRuns, tasks } as const;
 
 export async function getNamesByPrefix(
-  table: 'campaigns' | 'experiments' | 'tasks',
+  table: 'campaigns' | 'protocolRuns' | 'tasks',
   prefix: string
 ): Promise<string[]> {
   const tableRef = TABLE_REFS[table];
@@ -303,16 +303,16 @@ export async function getNamesByPrefix(
 
 // ─── Single-entity and relationship queries ─────────────────────────────────
 
-export async function getExperimentByName(name: string): Promise<ExperimentRow | null> {
-  const result = await db.select().from(experiments).where(eq(experiments.name, name)).limit(1);
-  return result.length === 0 ? null : mapExperimentRow(result[0]);
+export async function getProtocolRunByName(name: string): Promise<ProtocolRunRow | null> {
+  const result = await db.select().from(protocolRuns).where(eq(protocolRuns.name, name)).limit(1);
+  return result.length === 0 ? null : mapProtocolRunRow(result[0]);
 }
 
-export async function getTasksByExperiment(experimentName: string): Promise<TaskRow[]> {
+export async function getTasksByProtocolRun(protocolRunName: string): Promise<TaskRow[]> {
   const results = await db
     .select()
     .from(tasks)
-    .where(eq(tasks.experimentName, experimentName))
+    .where(eq(tasks.protocolRunName, protocolRunName))
     .orderBy(desc(tasks.createdAt));
   return results.map(mapTaskRow);
 }
@@ -323,25 +323,25 @@ export interface TaskStatusRow {
   status: string;
 }
 
-export async function getTaskStatusesByExperiment(experimentName: string): Promise<TaskStatusRow[]> {
+export async function getTaskStatusesByProtocolRun(protocolRunName: string): Promise<TaskStatusRow[]> {
   return db
     .select({ name: tasks.name, type: tasks.type, status: tasks.status })
     .from(tasks)
-    .where(eq(tasks.experimentName, experimentName));
+    .where(eq(tasks.protocolRunName, protocolRunName));
 }
 
-export async function getTaskByName(taskName: string, experimentName: string): Promise<TaskRow | null> {
+export async function getTaskByName(taskName: string, protocolRunName: string): Promise<TaskRow | null> {
   const result = await db
     .select()
     .from(tasks)
-    .where(and(eq(tasks.name, taskName), eq(tasks.experimentName, experimentName)))
+    .where(and(eq(tasks.name, taskName), eq(tasks.protocolRunName, protocolRunName)))
     .limit(1);
   return result.length === 0 ? null : mapTaskRow(result[0]);
 }
 
 export interface CampaignSampleRow {
   campaignName: string;
-  experimentName: string;
+  protocolRunName: string;
   inputs: Record<string, number>;
   outputs: Record<string, number>;
   meta: Record<string, unknown>;
@@ -362,7 +362,7 @@ export async function getCampaignSamples(campaignName: string): Promise<Campaign
 
   return results.map((row) => ({
     campaignName: row.campaignName,
-    experimentName: row.experimentName,
+    protocolRunName: row.protocolRunName,
     inputs: row.inputs as Record<string, number>,
     outputs: row.outputs as Record<string, number>,
     meta: (row.meta as Record<string, unknown>) || {},
@@ -370,20 +370,20 @@ export async function getCampaignSamples(campaignName: string): Promise<Campaign
   }));
 }
 
-export async function getExperimentsByOwner(owner: string): Promise<ExperimentRow[]> {
+export async function getProtocolRunsByOwner(owner: string): Promise<ProtocolRunRow[]> {
   const results = await db
     .select()
-    .from(experiments)
-    .where(eq(experiments.owner, owner))
-    .orderBy(desc(experiments.createdAt));
-  return results.map(mapExperimentRow);
+    .from(protocolRuns)
+    .where(eq(protocolRuns.owner, owner))
+    .orderBy(desc(protocolRuns.createdAt));
+  return results.map(mapProtocolRunRow);
 }
 
-export async function getExperimentsByCampaign(campaignName: string): Promise<ExperimentRow[]> {
+export async function getProtocolRunsByCampaign(campaignName: string): Promise<ProtocolRunRow[]> {
   const results = await db
     .select()
-    .from(experiments)
-    .where(eq(experiments.campaign, campaignName))
-    .orderBy(desc(experiments.createdAt));
-  return results.map(mapExperimentRow);
+    .from(protocolRuns)
+    .where(eq(protocolRuns.campaign, campaignName))
+    .orderBy(desc(protocolRuns.createdAt));
+  return results.map(mapProtocolRunRow);
 }

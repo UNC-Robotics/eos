@@ -2,8 +2,8 @@
  * Task device assignment component - wrapper around unified DeviceAssignment
  * This version only supports static and dynamic modes (no reference mode)
  */
-import { DeviceAssignment } from '@/features/experiment-editor/components/DeviceAssignment';
-import type { DeviceAssignment as DeviceAssignmentType, DeviceSpec } from '@/lib/types/experiment';
+import { DeviceAssignment } from '@/features/protocol-editor/components/DeviceAssignment';
+import type { DeviceAssignment as DeviceAssignmentType, DeviceSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 
 interface TaskDeviceAssignmentProps {

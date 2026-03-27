@@ -17,7 +17,7 @@ User Guide
     laboratories
     tasks
     references
-    experiments
+    protocols
     campaigns
     optimizers
     beacon_optimizer

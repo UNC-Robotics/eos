@@ -12,11 +12,11 @@ from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.eos_config import EosConfig
-from eos.configuration.experiment_graph import ExperimentGraph
+from eos.configuration.protocol_graph import ProtocolGraph
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
-from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.logging.logger import log
 from eos.database.file_db_interface import FileDbInterface
 from eos.database.sqlite_db_interface import SqliteDbInterface
@@ -123,26 +123,26 @@ def file_db_interface(eos_config, db_interface):
 
 
 @pytest.fixture(scope="class")
-def setup_lab_experiment(request, configuration_manager):
-    lab_name, experiment_name = request.param
+def setup_lab_protocol(request, configuration_manager):
+    lab_name, protocol_name = request.param
 
     if lab_name not in configuration_manager.labs:
         configuration_manager.load_lab(lab_name)
     lab = configuration_manager.labs[lab_name]
 
-    if experiment_name not in configuration_manager.experiments:
-        configuration_manager.load_experiment(experiment_name)
-    experiment = configuration_manager.experiments[experiment_name]
+    if protocol_name not in configuration_manager.protocols:
+        configuration_manager.load_protocol(protocol_name)
+    protocol = configuration_manager.protocols[protocol_name]
 
-    return lab, experiment
+    return lab, protocol
 
 
 @pytest.fixture
-def experiment_graph(setup_lab_experiment):
-    _, experiment = setup_lab_experiment
+def protocol_graph(setup_lab_protocol):
+    _, protocol = setup_lab_protocol
 
-    return ExperimentGraph(
-        experiment,
+    return ProtocolGraph(
+        protocol,
     )
 
 
@@ -152,7 +152,7 @@ async def clear_db(db_interface):
 
 
 @pytest.fixture
-async def resource_manager(setup_lab_experiment, configuration_manager, db_interface, clear_db):
+async def resource_manager(setup_lab_protocol, configuration_manager, db_interface, clear_db):
     resource_manager = ResourceManager(configuration_manager=configuration_manager)
     async with db_interface.get_async_session() as db:
         await resource_manager.initialize(db)
@@ -160,7 +160,7 @@ async def resource_manager(setup_lab_experiment, configuration_manager, db_inter
 
 
 @pytest.fixture(scope="class")
-async def class_device_manager(setup_lab_experiment, configuration_manager, db_interface):
+async def class_device_manager(setup_lab_protocol, configuration_manager, db_interface):
     """Create device actors once per test class."""
     # Clean up stale state from previous classes whose teardown may not have run
     async with db_interface.get_async_session() as session:
@@ -181,7 +181,7 @@ async def class_device_manager(setup_lab_experiment, configuration_manager, db_i
 
 
 @pytest.fixture
-async def device_manager(class_device_manager, setup_lab_experiment, db, db_interface, clear_db):
+async def device_manager(class_device_manager, setup_lab_protocol, db, db_interface, clear_db):
     """Function-scoped wrapper: reuses class-scoped actors, re-inserts device DB records."""
     dm = class_device_manager
     # Re-insert device records wiped by clear_db
@@ -202,13 +202,13 @@ async def device_manager(class_device_manager, setup_lab_experiment, db, db_inte
 
 
 @pytest.fixture
-async def experiment_manager(setup_lab_experiment, configuration_manager, clear_db):
-    return ExperimentManager(configuration_manager)
+async def protocol_run_manager(setup_lab_protocol, configuration_manager, clear_db):
+    return ProtocolRunManager(configuration_manager)
 
 
 @pytest.fixture
 async def allocation_manager(
-    setup_lab_experiment, configuration_manager, db_interface, device_manager, resource_manager, clear_db
+    setup_lab_protocol, configuration_manager, db_interface, device_manager, resource_manager, clear_db
 ):
     allocation_manager = AllocationManager(configuration_manager, db_interface)
     async with db_interface.get_async_session() as db:
@@ -217,7 +217,7 @@ async def allocation_manager(
 
 
 @pytest.fixture
-async def task_manager(setup_lab_experiment, configuration_manager, file_db_interface, clear_db):
+async def task_manager(setup_lab_protocol, configuration_manager, file_db_interface, clear_db):
     return TaskManager(configuration_manager, file_db_interface)
 
 
@@ -236,7 +236,7 @@ def work_signal():
 
 @pytest.fixture
 def task_executor(
-    setup_lab_experiment,
+    setup_lab_protocol,
     task_manager,
     device_manager,
     resource_manager,
@@ -258,28 +258,30 @@ def task_executor(
 
 @pytest.fixture
 def greedy_scheduler(
-    setup_lab_experiment,
+    setup_lab_protocol,
     configuration_manager,
-    experiment_manager,
+    protocol_run_manager,
     task_manager,
     device_manager,
     allocation_manager,
 ):
-    return GreedyScheduler(configuration_manager, experiment_manager, task_manager, device_manager, allocation_manager)
+    return GreedyScheduler(
+        configuration_manager, protocol_run_manager, task_manager, device_manager, allocation_manager
+    )
 
 
 @pytest.fixture
 def cpsat_scheduler(
-    setup_lab_experiment,
+    setup_lab_protocol,
     configuration_manager,
-    experiment_manager,
+    protocol_run_manager,
     task_manager,
     device_manager,
     allocation_manager,
 ):
     return CpSatScheduler(
         configuration_manager,
-        experiment_manager,
+        protocol_run_manager,
         task_manager,
         device_manager,
         allocation_manager,
@@ -287,17 +289,17 @@ def cpsat_scheduler(
 
 
 @pytest.fixture
-def experiment_executor_factory(
+def protocol_executor_factory(
     configuration_manager,
-    experiment_manager,
+    protocol_run_manager,
     task_manager,
     task_executor,
     cpsat_scheduler,
     db_interface,
 ):
-    return ExperimentExecutorFactory(
+    return ProtocolExecutorFactory(
         configuration_manager=configuration_manager,
-        experiment_manager=experiment_manager,
+        protocol_run_manager=protocol_run_manager,
         task_manager=task_manager,
         task_executor=task_executor,
         scheduler=cpsat_scheduler,
@@ -306,7 +308,7 @@ def experiment_executor_factory(
 
 
 @pytest.fixture
-async def campaign_manager(setup_lab_experiment, configuration_manager, clear_db):
+async def campaign_manager(setup_lab_protocol, configuration_manager, clear_db):
     return CampaignManager(configuration_manager)
 
 

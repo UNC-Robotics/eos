@@ -52,7 +52,7 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
 
   // Check if this entity type supports load/unload
   const supportsLoadUnload =
-    selectedEntityType === 'experiments' || selectedEntityType === 'labs' || selectedEntityType === 'devices';
+    selectedEntityType === 'protocols' || selectedEntityType === 'labs' || selectedEntityType === 'devices';
 
   // Fetch loaded status when entity changes
   useEffect(() => {
@@ -64,7 +64,7 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
     async function checkLoadedStatus() {
       try {
         const status = await getLoadedStatus();
-        const entityTypeKey = selectedEntityType as 'experiments' | 'labs' | 'devices' | 'tasks';
+        const entityTypeKey = selectedEntityType as 'protocols' | 'labs' | 'devices' | 'tasks';
         const loadedEntities = status[entityTypeKey];
         setIsLoaded(loadedEntities.includes(selectedEntityName!));
       } catch (error) {
@@ -327,7 +327,7 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
       {hasJinja && (
         <div className="flex items-center gap-2 px-4 py-2 border-b border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-          This experiment contains Jinja2 template syntax. Use the code editor &mdash; visual editing is disabled to
+          This protocol contains Jinja2 template syntax. Use the code editor &mdash; visual editing is disabled to
           prevent template corruption.
         </div>
       )}

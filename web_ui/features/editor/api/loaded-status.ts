@@ -12,7 +12,7 @@ import { getLoadedStatus as getLoadedStatusFromDb } from '@/lib/api/specs';
  */
 export async function getLoadedStatus(): Promise<{
   labs: string[];
-  experiments: string[];
+  protocols: string[];
   tasks: string[];
   devices: string[];
 }> {

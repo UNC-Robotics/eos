@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { getCampaignWithDetails } from '@/features/campaigns/api/campaignDetails';
 import { CampaignExecutionView } from '@/features/campaigns/components/CampaignExecutionView';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 interface CampaignDetailPageProps {
   params: Promise<{
@@ -14,11 +14,11 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   const { campaignName } = await params;
   const decodedName = decodeURIComponent(campaignName);
 
-  const { campaign, samples, experiments } = await getCampaignWithDetails(decodedName);
+  const { campaign, samples, protocolRuns } = await getCampaignWithDetails(decodedName);
 
   if (!campaign) {
     notFound();
   }
 
-  return <CampaignExecutionView campaign={campaign} initialSamples={samples} initialExperiments={experiments} />;
+  return <CampaignExecutionView campaign={campaign} initialSamples={samples} initialProtocolRuns={protocolRuns} />;
 }

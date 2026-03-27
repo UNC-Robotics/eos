@@ -25,7 +25,7 @@ class TaskSubmission(BaseModel):
 
     name: str
     type: str
-    experiment_name: str | None = None
+    protocol_run_name: str | None = None
 
     devices: dict[str, DeviceAssignmentDef] = Field(default_factory=dict)
     input_parameters: dict[str, Any] | None = None
@@ -36,14 +36,14 @@ class TaskSubmission(BaseModel):
 
     meta: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("experiment_name", mode="before")
+    @field_validator("protocol_run_name", mode="before")
     def empty_str_to_none(cls, v) -> str | None:
         if v == "":
             return None
         return v
 
     @classmethod
-    def from_def(cls, config: TaskDef, experiment_name: str | None) -> "TaskSubmission":
+    def from_def(cls, config: TaskDef, protocol_run_name: str | None) -> "TaskSubmission":
         """
         Create a TaskSubmission from a TaskDef.
 
@@ -63,7 +63,7 @@ class TaskSubmission(BaseModel):
         return cls(
             name=config.name,
             type=config.type,
-            experiment_name=experiment_name,
+            protocol_run_name=protocol_run_name,
             devices=specific_devices,
             input_parameters=config.parameters,
             input_resources=input_resources,
@@ -120,8 +120,8 @@ class TaskModel(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    experiment_name: Mapped[str | None] = mapped_column(
-        String(255), ForeignKey("experiments.name", ondelete="CASCADE"), nullable=True
+    protocol_run_name: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("protocol_runs.name", ondelete="CASCADE"), nullable=True
     )
 
     type: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -152,6 +152,6 @@ class TaskModel(Base):
     )
 
     __table_args__ = (
-        Index("idx_experiment_name_task_name", "experiment_name", "name", unique=True),
+        Index("idx_protocol_run_name_task_name", "protocol_run_name", "name", unique=True),
         Index("ix_tasks_created_at", "created_at"),
     )

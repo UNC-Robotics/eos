@@ -27,7 +27,7 @@ export interface TaskPluginInfo {
   description?: string;
 }
 
-export interface ExperimentType {
+export interface ProtocolType {
   name: string;
   loaded: boolean;
 }

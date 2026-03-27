@@ -13,7 +13,7 @@ class RefreshController(Controller):
     async def refresh_packages(self, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str | int]:
         """
         Re-discover packages from the filesystem and sync specifications to the database.
-        This allows the system to detect new or deleted entities (labs, experiments, tasks, devices).
+        This allows the system to detect new or deleted entities (labs, protocols, tasks, devices).
         """
         try:
             package_count = await orchestrator.loading.refresh_packages(db)

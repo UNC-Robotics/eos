@@ -13,7 +13,7 @@ class ResourceAllocation(BaseModel):
 
     name: str
     owner: str
-    experiment_name: str | None = None
+    protocol_run_name: str | None = None
     held: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
 
@@ -28,8 +28,8 @@ class ResourceAllocationModel(Base):
     name: Mapped[str] = mapped_column(String(255), ForeignKey("resources.name"), nullable=False, primary_key=True)
 
     owner: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    experiment_name: Mapped[str | None] = mapped_column(
-        String(255), ForeignKey("experiments.name", ondelete="CASCADE"), nullable=True, index=True
+    protocol_run_name: Mapped[str | None] = mapped_column(
+        String(255), ForeignKey("protocol_runs.name", ondelete="CASCADE"), nullable=True, index=True
     )
     held: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

@@ -3,23 +3,23 @@ import { getDevices } from '@/features/management/api/devices';
 import { getLabs } from '@/features/management/api/labs';
 import { getPackages } from '@/features/management/api/packages';
 import { getTaskPlugins } from '@/features/management/api/taskPlugins';
-import { getExperimentTypes } from '@/features/management/api/experimentTypes';
+import { getProtocolTypes } from '@/features/management/api/protocolTypes';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'System Management - EOS',
-  description: 'Manage packages, devices, labs, task plugins, and experiment types',
+  description: 'Manage packages, devices, labs, task plugins, and protocols',
 };
 
 export default async function ManagementPage() {
   // Fetch all data in parallel
-  const [packages, devices, labs, taskPlugins, experimentTypes] = await Promise.all([
+  const [packages, devices, labs, taskPlugins, protocolTypes] = await Promise.all([
     getPackages(),
     getDevices(),
     getLabs(),
     getTaskPlugins(),
-    getExperimentTypes(),
+    getProtocolTypes(),
   ]);
 
   return (
@@ -33,7 +33,7 @@ export default async function ManagementPage() {
         devices={devices}
         labs={labs}
         taskPlugins={taskPlugins}
-        experimentTypes={experimentTypes}
+        protocolTypes={protocolTypes}
       />
     </div>
   );

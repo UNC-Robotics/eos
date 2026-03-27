@@ -4,7 +4,7 @@ import { getNamesByPrefix } from '@/lib/db/queries';
 import { generateUniqueCloneName } from './naming';
 
 export async function generateCloneNameForEntity(
-  entity: 'campaigns' | 'experiments' | 'tasks',
+  entity: 'campaigns' | 'protocolRuns' | 'tasks',
   originalName: string
 ): Promise<string> {
   const trailingNum = originalName.match(/(\d+)$/);

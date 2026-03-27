@@ -1,5 +1,5 @@
 import { EDITOR_LAYOUT } from '@/lib/constants/theme';
-import type { TaskNode } from '@/lib/types/experiment';
+import type { TaskNode } from '@/lib/types/protocol';
 
 /**
  * Auto-layout tasks using hierarchical layering (left to right).

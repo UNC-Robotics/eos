@@ -1,0 +1,68 @@
+type: abstract_protocol_2
+desc: An abstract protocol for testing the CP-SAT scheduler
+
+labs:
+  - abstract_lab
+
+tasks:
+  - name: A
+    type: Noop
+    duration: 10
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D1
+
+  - name: B
+    type: Noop
+    dependencies: [ "A" ]
+    duration: 20
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D2
+
+  - name: C
+    type: Noop
+    dependencies: [ "A" ]
+    duration: 20
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D3
+
+  - name: D
+    type: Noop
+    dependencies: [ "B" ]
+    duration: 40
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D3
+
+  - name: E
+    type: Noop
+    dependencies: [ "C", "D" ]
+    duration: 20
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D4
+
+  - name: F
+    type: Noop
+    dependencies: [ "A" ]
+    duration: 40
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D3
+
+  - name: G
+    type: Noop
+    dependencies: [ "E", "F" ]
+    duration: 15
+    devices:
+      device_1:
+        lab_name: abstract_lab
+        name: D5
