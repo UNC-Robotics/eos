@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -403,12 +403,12 @@
   <section id="optimizers">
 <h1>Optimizers<a class="headerlink" href="#optimizers" title="Link to this heading">#</a></h1>
 <p>Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to experiment campaigns by optimizing task parameters to achieve objectives over time.
-Optimizers in EOS are <em>sequential</em>, meaning they iteratively optimize parameters by drawing insights from previous experiments.
+In EOS, optimizers give intelligence to protocol run campaigns by optimizing task parameters to achieve objectives over time.
+Optimizers in EOS are <em>sequential</em>, meaning they iteratively optimize parameters by drawing insights from previous protocol runs.
 One of the most common sequential optimization methods is <strong>Bayesian optimization</strong>, and is especially useful for
 optimizing expensive-to-evaluate black box functions.</p>
 <figure class="align-center">
-<img alt="Optimization and experiment loop" src="../_images/optimize-experiment-loop.png" />
+<img alt="Optimization and protocol run loop" src="../_images/optimize-protocol-loop.png" />
 </figure>
 <p>EOS has a built-in Bayesian optimizer powered by <a class="reference external" href="https://experimental-design.github.io/bofire/">BoFire</a>
 (based on <a class="reference external" href="https://botorch.org/">BoTorch</a>).
@@ -423,7 +423,7 @@ This can enable running the optimizer on a more capable computer than the one ru
 </section>
 <section id="optimizer-implementation">
 <h2>Optimizer Implementation<a class="headerlink" href="#optimizer-implementation" title="Link to this heading">#</a></h2>
-<p>EOS optimizers are defined in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> in an EOS package.
+<p>EOS optimizers are defined in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code> in an EOS package.
 Below is an example:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qUCB</span>
@@ -470,7 +470,7 @@ This function must return:</p>
 <p>In this example, we use EOS’ built-in Bayesian optimizer.</p>
 <p>For most use cases, we recommend the <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a>, which combines Bayesian optimization with
 AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
-constraints) but adds an AI agent that reasons about experimental history to suggest smarter experiments.</p>
+constraints) but adds an AI agent that reasons about protocol run history to suggest smarter parameter sets.</p>
 <p>It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
 the class type from <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.</p>
 <div class="admonition note">
@@ -482,7 +482,7 @@ the class type from <code class="docutils literal notranslate"><span class="pre"
 <p>The names of input and output parameters must reference task parameters.
 The EOS reference format must be used:</p>
 <p><strong>TASK.PARAMETER_NAME</strong></p>
-<p>This is necessary for EOS to be able to associate the optimizer with the experiment tasks and to forward parameter values
+<p>This is necessary for EOS to be able to associate the optimizer with the protocol tasks and to forward parameter values
 where needed.</p>
 </section>
 </section>
@@ -522,9 +522,9 @@ where needed.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="o">=</span> <span class="n">metrics</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_experiments</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_protocol_runs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
         <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_experiments</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_protocol_runs</span><span class="p">):</span>
             <span class="n">sample</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">lower_bound</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">upper_bound</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">}</span>
             <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>

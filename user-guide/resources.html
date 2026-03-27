@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -457,7 +457,7 @@
 </section>
 <section id="declaring-resources-in-task-specifications">
 <h2>Declaring resources in task specifications<a class="headerlink" href="#declaring-resources-in-task-specifications" title="Link to this heading">#</a></h2>
-<p>Tasks declare the resource types they require in <code class="docutils literal notranslate"><span class="pre">task.yml</span></code>. EOS validates that experiments provide matching resource instances (by name) or a dynamic request for a resource of the required type.</p>
+<p>Tasks declare the resource types they require in <code class="docutils literal notranslate"><span class="pre">task.yml</span></code>. EOS validates that protocols provide matching resource instances (by name) or a dynamic request for a resource of the required type.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix contents in a beaker</span>
@@ -476,11 +476,11 @@
 </pre></div>
 </div>
 </section>
-<section id="assigning-resources-in-experiments">
-<h2>Assigning resources in experiments<a class="headerlink" href="#assigning-resources-in-experiments" title="Link to this heading">#</a></h2>
-<p>In an experiment’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic_resource_experiment</span>
+<section id="assigning-resources-in-protocols">
+<h2>Assigning resources in protocols<a class="headerlink" href="#assigning-resources-in-protocols" title="Link to this heading">#</a></h2>
+<p>In a protocol’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic_resource_protocol</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Demonstrate resource assignment</span>
 <span class="nt">labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">small_lab</span><span class="p p-Indicator">]</span>
 
@@ -521,10 +521,10 @@
 <p>Dynamic resource requests select a single matching resource instance.</p>
 </div>
 </section>
-<section id="experimentlevel-resource-metadata-optional">
-<h2>Experiment‑level resource metadata (optional)<a class="headerlink" href="#experimentlevel-resource-metadata-optional" title="Link to this heading">#</a></h2>
-<p>You may attach experiment‑specific metadata to resources used in that experiment via the top‑level <code class="docutils literal notranslate"><span class="pre">resources</span></code> block. This does not define new resources; it annotates existing resource instances.</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<section id="protocollevel-resource-metadata-optional">
+<h2>Protocol‑level resource metadata (optional)<a class="headerlink" href="#protocollevel-resource-metadata-optional" title="Link to this heading">#</a></h2>
+<p>You may attach protocol‑specific metadata to resources used in that protocol via the top‑level <code class="docutils literal notranslate"><span class="pre">resources</span></code> block. This does not define new resources; it annotates existing resource instances.</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">water_purification</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Evaporate sample in a beaker</span>
 <span class="nt">labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">small_lab</span><span class="p p-Indicator">]</span>
@@ -546,7 +546,7 @@
 <h2>Allocation and exclusivity<a class="headerlink" href="#allocation-and-exclusivity" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.</p></li>
-<li><p>Specific assignments must name an existing resource instance defined in one of the experiment’s labs.</p></li>
+<li><p>Specific assignments must name an existing resource instance defined in one of the protocol’s labs.</p></li>
 <li><p>Dynamic assignments select from the pool of eligible instances by <code class="docutils literal notranslate"><span class="pre">resource_type</span></code>.</p></li>
 <li><p>Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.</p></li>
 </ul>
@@ -614,8 +614,8 @@
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#declaring-resources-in-task-specifications">Declaring resources in task specifications</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#assigning-resources-in-experiments">Assigning resources in experiments</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experimentlevel-resource-metadata-optional">Experiment‑level resource metadata (optional)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#assigning-resources-in-protocols">Assigning resources in protocols</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocollevel-resource-metadata-optional">Protocol‑level resource metadata (optional)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#allocation-and-exclusivity">Allocation and exclusivity</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#when-to-model-as-a-resource">When to model as a resource</a></li>
 </ul>

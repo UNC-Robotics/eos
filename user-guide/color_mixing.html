@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -123,7 +123,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -319,7 +319,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -401,8 +401,8 @@
                   
   <section id="color-mixing">
 <h1>Color Mixing<a class="headerlink" href="#color-mixing" title="Link to this heading">#</a></h1>
-<p>This example demonstrates how EOS can be used to implement a virtual color mixing experiment.
-In this experiment, we mix CMYK ingredient colors to produce a target color.
+<p>This example demonstrates how EOS can be used to implement a virtual color mixing protocol.
+In this protocol, we mix CMYK ingredient colors to produce a target color.
 By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
 secondary objective of minimizing the amount of color ingredients used.
 To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
@@ -426,11 +426,11 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-R
 <ol class="arabic simple" start="3">
 <li><p>Load the package in EOS:</p></li>
 </ol>
-<p>Edit the <code class="docutils literal notranslate"><span class="pre">config.yml</span></code> file to have the following for user_dir, labs, and experiments:</p>
+<p>Edit the <code class="docutils literal notranslate"><span class="pre">config.yml</span></code> file to have the following for user_dir, labs, and protocols:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">user_dir</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./user</span>
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
-<span class="nt">experiments</span><span class="p">:</span>
+<span class="nt">protocols</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
 </pre></div>
 </div>
@@ -443,18 +443,18 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-R
 <p>On dual-GPU systems (e.g., NVIDIA + integrated GPU on Wayland), pass <code class="docutils literal notranslate"><span class="pre">--browser</span> <span class="pre">chrome</span> <span class="pre">--nvidia</span></code> to launch the browser with NVIDIA GPU offload and X11 mode for correct WebGL rendering.</p>
 </li>
 <li><p>Start EOS.</p></li>
-<li><p>Submit tasks, experiments, or campaigns through the REST API.</p></li>
+<li><p>Submit tasks, protocols, or campaigns through the REST API.</p></li>
 </ol>
 <p>You can submit a request to run a campaign through the REST API with <cite>curl</cite> as follows:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns<span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
 <span class="s1">          &quot;name&quot;: &quot;color_mixing&quot;,</span>
-<span class="s1">          &quot;experiment_type&quot;: &quot;color_mixing&quot;,</span>
+<span class="s1">          &quot;protocol&quot;: &quot;color_mixing&quot;,</span>
 <span class="s1">          &quot;owner&quot;: &quot;name&quot;,</span>
 <span class="s1">          &quot;priority&quot;: 0,</span>
-<span class="s1">          &quot;max_experiments&quot;: 100,</span>
-<span class="s1">          &quot;max_concurrent_experiments&quot;: 3,</span>
+<span class="s1">          &quot;max_protocol_runs&quot;: 100,</span>
+<span class="s1">          &quot;max_concurrent_protocol_runs&quot;: 3,</span>
 <span class="s1">          &quot;optimize&quot;: true,</span>
 <span class="s1">          &quot;optimizer_ip&quot;: &quot;127.0.0.1&quot;,</span>
 <span class="s1">          &quot;global_parameters&quot;: {</span>
@@ -476,7 +476,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-R
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>color_lab/
 ├── common/ &lt;-- contains shared code
 ├── devices/ &lt;-- contains the device implementations
-├── experiments/ &lt;-- contains the color mixing experiment definitions
+├── protocols/ &lt;-- contains the color mixing protocol definitions
 ├── labs/ &lt;-- contains the laboratory definition
 ├── tasks/ &lt;-- contains the task definitions
 ├── fluid_simulation/ &lt;-- contains the source code for the fluid simulation web app
@@ -629,7 +629,7 @@ and return the dict of output parameters and the resources.</p>
 <h2>Laboratory<a class="headerlink" href="#laboratory" title="Link to this heading">#</a></h2>
 <p>The laboratory YAML definition is shown below.</p>
 <p>We define the devices we discussed earlier.
-Note that we define three color stations so the laboratory can support up to three simultaneous color mixing experiments.</p>
+Note that we define three color stations so the laboratory can support up to three simultaneous color mixing protocols.</p>
 <p>We also define the resource types and the actual resources (beakers) with their initial locations.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -721,9 +721,9 @@ Note that we define three color stations so the laboratory can support up to thr
 </pre></div>
 </div>
 </section>
-<section id="experiment">
-<h2>Experiment<a class="headerlink" href="#experiment" title="Link to this heading">#</a></h2>
-<p>The color mixing experiment is a linear sequence of the following tasks:</p>
+<section id="protocol">
+<h2>Protocol<a class="headerlink" href="#protocol" title="Link to this heading">#</a></h2>
+<p>The color mixing protocol is a linear sequence of the following tasks:</p>
 <ol class="arabic simple">
 <li><p><strong>retrieve_container</strong>: Get a beaker from storage and move it to a color station.</p></li>
 <li><p><strong>mix_colors</strong>: Iteratively dispense and mix the colors in the beaker.</p></li>
@@ -733,10 +733,10 @@ Note that we define three color stations so the laboratory can support up to thr
 <li><p><strong>clean_container</strong>: Clean the beaker by rinsing it with distilled water.</p></li>
 <li><p><strong>store_container</strong>: Store the beaker back in the storage.</p></li>
 </ol>
-<p>The YAML definition of the experiment is shown below:</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<p>The YAML definition of the protocol is shown below:</p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
-<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Protocol to find optimal parameters to synthesize a desired color</span>
 
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -851,15 +851,15 @@ Note that we define three color stations so the laboratory can support up to thr
 </section>
 <section id="dynamic-parameters-and-optimization">
 <h2>Dynamic Parameters and Optimization<a class="headerlink" href="#dynamic-parameters-and-optimization" title="Link to this heading">#</a></h2>
-<p>Dynamic parameters are specified using the special value <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code> in the experiment.
-For campaigns with optimization (<code class="docutils literal notranslate"><span class="pre">optimize:</span> <span class="pre">true</span></code>), EOS uses the experiment’s optimizer to propose values for the input dynamic parameters.
-Some dynamic parameters may still need to be provided by the user. In this experiment, <code class="docutils literal notranslate"><span class="pre">score_color.target_color</span></code> must be provided.
-Provide it via <code class="docutils literal notranslate"><span class="pre">global_parameters</span></code> or <code class="docutils literal notranslate"><span class="pre">experiment_parameters</span></code> in the campaign submission as shown above.</p>
-<p>The optimizer used for this experiment is defined in <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> adjacent to the experiment YAML and uses Bayesian optimization to minimize <code class="docutils literal notranslate"><span class="pre">score_color.loss</span></code>.</p>
+<p>Dynamic parameters are specified using the special value <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code> in the protocol.
+For campaigns with optimization (<code class="docutils literal notranslate"><span class="pre">optimize:</span> <span class="pre">true</span></code>), EOS uses the protocol’s optimizer to propose values for the input dynamic parameters.
+Some dynamic parameters may still need to be provided by the user. In this protocol, <code class="docutils literal notranslate"><span class="pre">score_color.target_color</span></code> must be provided.
+Provide it via <code class="docutils literal notranslate"><span class="pre">global_parameters</span></code> or <code class="docutils literal notranslate"><span class="pre">protocol_run_parameters</span></code> in the campaign submission as shown above.</p>
+<p>The optimizer used for this protocol is defined in <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> adjacent to the protocol YAML and uses Bayesian optimization to minimize <code class="docutils literal notranslate"><span class="pre">score_color.loss</span></code>.</p>
 </section>
 <section id="references-between-tasks">
 <h2>References Between Tasks<a class="headerlink" href="#references-between-tasks" title="Link to this heading">#</a></h2>
-<p>EOS experiments commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing experiment demonstrates each kind of reference.</p>
+<p>EOS protocols commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing protocol demonstrates each kind of reference.</p>
 <p><strong>Device references</strong>: reuse the same physical device across tasks by referencing a named device handle from a prior task.</p>
 <p>Example:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
@@ -944,7 +944,7 @@ Provide it via <code class="docutils literal notranslate"><span class="pre">glob
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#devices">Devices</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks">Tasks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#laboratory">Laboratory</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment">Experiment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol">Protocol</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dynamic-parameters-and-optimization">Dynamic Parameters and Optimization</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references-between-tasks">References Between Tasks</a></li>
 </ul>

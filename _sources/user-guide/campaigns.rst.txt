@@ -1,12 +1,12 @@
 Campaigns
 =========
-A campaign in EOS is an experiment that is executed multiple times in sequence.
-The parameters of the experiments usually differ.
+A campaign in EOS is a protocol that is executed multiple times in sequence.
+The parameters of the protocol runs usually differ.
 A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
 Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.
 
 The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
-EOS has built-in support for running campaigns of an experiment.
+EOS has built-in support for running campaigns of a protocol.
 In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.
 
 .. figure:: ../_static/img/dmta-loop.png
@@ -15,11 +15,11 @@ In addition, EOS has a built-in Bayesian optimizer that can be used to optimize 
 
 Optimization Setup (Analyze and Design Phases)
 ----------------------------------------------
-Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of experiments over time.
+Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of protocols over time.
 This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
 It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.
 
-Let's look at the color mixing experiment to see how a campaign with optimization can be set up.
+Let's look at the color mixing protocol to see how a campaign with optimization can be set up.
 There are ten dynamic parameters, all defined on the "mix_colors" task:
 
 .. code-block:: yaml
@@ -64,10 +64,10 @@ Looking at the task specification of the ``score_color`` task, we also see that 
         unit: n/a
         desc: Total loss of the color compared to the expected color
 
-Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
+Taking all these together, we see that this protocol involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
 
-This setup is also summarized in the ``optimizer.py`` file adjacent to ``experiment.yml``.
+This setup is also summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
 
 :bdg-primary:`optimizer.py`
 
@@ -108,7 +108,7 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
         return constructor_args, BayesianSequentialOptimizer
 
 The ``eos_create_campaign_optimizer`` function is used to create the optimizer for the campaign.
-We can see that the inputs are composed of all the dynamic parameters in the experiment and the output is the "loss"
+We can see that the inputs are composed of all the dynamic parameters in the protocol and the output is the "loss"
 output parameter from the "score_color" task.
 The objective of the optimizer (and the campaign) is to minimize this loss.
 
@@ -118,12 +118,12 @@ Automation Setup (Make and Test Phases)
 ---------------------------------------
 Execution of the automation is managed by EOS.
 The tasks and devices must be implemented by the user.
-Careful setup of the experiment is required to ensure that a campaign can be executed autonomously.
+Careful setup of the protocol is required to ensure that a campaign can be executed autonomously.
 
 Some guidelines:
 
-* Each experiment should be standalone and should not depend on previous experiments.
-* Each experiment should leave the laboratory in a state that allows the next experiment to be executed.
+* Each protocol run should be standalone and should not depend on previous protocol runs.
+* Each protocol run should leave the laboratory in a state that allows the next protocol run to be executed.
 * Dependencies between tasks should be minimized.
   A task should have a dependency on another task only if it is necessary.
 * Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
@@ -131,4 +131,4 @@ Some guidelines:
   A and B should be required devices for the task.
 * Branches and loops are not supported.
   If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
-  several steps in the experiment.
+  several steps in the protocol.

@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -402,7 +402,7 @@
                   
   <section id="web-ui">
 <h1>Web UI<a class="headerlink" href="#web-ui" title="Link to this heading">#</a></h1>
-<p>EOS includes a rich web UI for visually designing experiments, monitoring execution, controlling devices,
+<p>EOS includes a rich web UI for visually designing protocols, monitoring execution, controlling devices,
 browsing results, and more. It connects to the EOS orchestrator and provides real-time updates.</p>
 <p>Access it at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code> (default host and port).</p>
 <figure class="align-center" id="id1">
@@ -415,10 +415,10 @@ browsing results, and more. It connects to the EOS orchestrator and provides rea
 <h2>Editor<a class="headerlink" href="#editor" title="Link to this heading">#</a></h2>
 <p>The editor is the central workspace for designing and building EOS packages.</p>
 <ul class="simple">
-<li><p>Visual experiment designer with interactive task graphs showing dependencies and data flow</p></li>
-<li><p>Build experiments by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters</p></li>
+<li><p>Visual protocol designer with interactive task graphs showing dependencies and data flow</p></li>
+<li><p>Build protocols by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters</p></li>
 <li><p>Seamless switching between visual and code views (changes sync both ways)</p></li>
-<li><p>Reload tasks, devices, labs, and experiments without restarting EOS</p></li>
+<li><p>Reload tasks, devices, labs, and protocols without restarting EOS</p></li>
 <li><p>Syntax-highlighted code editing for YAML configs and Python code</p></li>
 <li><p>Package file tree for creating, renaming, and deleting entities</p></li>
 </ul>
@@ -431,18 +431,18 @@ browsing results, and more. It connects to the EOS orchestrator and provides rea
 <li><p>Clone previous tasks for easy re-submission</p></li>
 </ul>
 </section>
-<section id="experiments">
-<h2>Experiments<a class="headerlink" href="#experiments" title="Link to this heading">#</a></h2>
-<p>The experiments view tracks individual experiment execution.</p>
+<section id="protocol-runs">
+<h2>Protocol Runs<a class="headerlink" href="#protocol-runs" title="Link to this heading">#</a></h2>
+<p>The protocol runs view tracks individual protocol run execution.</p>
 <ul class="simple">
-<li><p>Submit experiments with specific task parameters</p></li>
+<li><p>Submit protocol runs with specific task parameters</p></li>
 <li><p>Visual task flow graph with real-time status updates (pending, running, completed, failed)</p></li>
 <li><p>Inspect task inputs, outputs, devices, and timing</p></li>
 </ul>
 </section>
 <section id="campaigns">
 <h2>Campaigns<a class="headerlink" href="#campaigns" title="Link to this heading">#</a></h2>
-<p>The campaigns view manages repeated experiment execution and optimization.</p>
+<p>The campaigns view manages repeated protocol run execution and optimization.</p>
 <ul class="simple">
 <li><p>Submit campaigns with parameters as JSON/CSV, or via optimizer sampling</p></li>
 <li><p>Configure optimizer settings when optimization is enabled</p></li>
@@ -475,7 +475,7 @@ browsing results, and more. It connects to the EOS orchestrator and provides rea
 <li><p><strong>Labs</strong> – Load, unload, and reload laboratory configurations</p></li>
 <li><p><strong>Devices</strong> – Device health status and lab assignments</p></li>
 <li><p><strong>Task Plugins</strong> – Available task types and their parameter specs</p></li>
-<li><p><strong>Experiment Types</strong> – Load, unload, and reload experiment configurations</p></li>
+<li><p><strong>Protocol Types</strong> – Load, unload, and reload protocol configurations</p></li>
 </ul>
 </section>
 <section id="logs">
@@ -533,7 +533,7 @@ browsing results, and more. It connects to the EOS orchestrator and provides rea
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#editor">Editor</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks">Tasks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiments">Experiments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol-runs">Protocol Runs</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#campaigns">Campaigns</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-inspector">Device Inspector</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#files">Files</a></li>

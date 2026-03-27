@@ -1,6 +1,6 @@
 Jinja2 Templating
 =================
-The YAML files used to define labs, devices, experiments, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
+The YAML files used to define labs, devices, protocols, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
 templating.
 This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
 macros, and more.
@@ -10,12 +10,12 @@ Jinja2 templates are evaluated with Python, so some expressions are the same as 
     Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
 
 Jinja is useful for defining templates.
-For example, an experiment template can be defined with placeholders and variables
-that when specified lead to different variations of the experiment.
-This is particularly useful for altering the task sequence of an experiment while loading it.
+For example, a protocol template can be defined with placeholders and variables
+that when specified lead to different variations of the protocol.
+This is particularly useful for altering the task sequence of a protocol while loading it.
 
 .. note::
-    Experiment templating is useful if EOS dynamic parameters and references do not suffice.
+    Protocol templating is useful if EOS dynamic parameters and references do not suffice.
 
 Below are some useful Jinja2 features:
 
@@ -62,7 +62,7 @@ Conditionals
 You can use if statements to include or exclude content based on conditions.
 In the example below, the task "mix_colors" is only included if the variable ``mix_colors`` is set to ``True``:
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml+jinja
 

@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -402,7 +402,7 @@
                   
   <section id="scheduling">
 <h1>Scheduling<a class="headerlink" href="#scheduling" title="Link to this heading">#</a></h1>
-<p>EOS schedules experiments, meaning it determines <em>when</em> and <em>on which resources</em> tasks run.
+<p>EOS schedules protocols, meaning it determines <em>when</em> and <em>on which resources</em> tasks run.
 Two scheduling policies are provided:</p>
 <ul class="simple">
 <li><p><strong>Greedy</strong>: starts tasks as soon as requirements are met (dependencies, devices/resources).</p></li>
@@ -421,7 +421,7 @@ using each task’s expected duration.</p></li>
 <p><strong>Guidance</strong></p>
 <ul class="simple">
 <li><p>Use <strong>Greedy</strong> for immediacy and simplicity (small/medium runs, low contention, “start ASAP” behavior).</p></li>
-<li><p>Use <strong>CP-SAT</strong> for globally optimized scheduling (many tasks/experiments, shared resources, priorities, strict sequencing).</p></li>
+<li><p>Use <strong>CP-SAT</strong> for globally optimized scheduling (many tasks/protocols, shared resources, priorities, strict sequencing).</p></li>
 </ul>
 <p>The greedy scheduler can achieve higher throughput than CP-SAT in graphs where task durations are highly variable.</p>
 <div class="admonition note">
@@ -431,9 +431,9 @@ using each task’s expected duration.</p></li>
 </section>
 <section id="task-durations">
 <h2>Task durations<a class="headerlink" href="#task-durations" title="Link to this heading">#</a></h2>
-<p>CP-SAT requires task durations. Each task in an <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> must provide an expected duration in <strong>seconds</strong>.
+<p>CP-SAT requires task durations. Each task in a <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code> must provide an expected duration in <strong>seconds</strong>.
 If omitted, tasks default to <strong>1 second</strong>.</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># ...</span>
 <span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
@@ -530,9 +530,9 @@ shorter makespan).</p>
 </section>
 <section id="device-and-resource-holds">
 <h2>Device and resource holds<a class="headerlink" href="#device-and-resource-holds" title="Link to this heading">#</a></h2>
-<p>When a task completes, its devices and resources are normally released immediately. In a multi-experiment
-environment another experiment could claim those resources before the successor task is scheduled. <strong>Holds</strong>
-prevent this by keeping the allocation locked until a successor in the same experiment picks it up.</p>
+<p>When a task completes, its devices and resources are normally released immediately. In a multi-protocol-run
+environment another protocol run could claim those resources before the successor task is scheduled. <strong>Holds</strong>
+prevent this by keeping the allocation locked until a successor in the same protocol run picks it up.</p>
 <p>Add <code class="docutils literal notranslate"><span class="pre">hold:</span> <span class="pre">true</span></code> to any device or resource slot to enable holding:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">setup</span>
@@ -560,10 +560,10 @@ prevent this by keeping the allocation locked until a successor in the same expe
 <ol class="arabic simple">
 <li><p>When a task with <code class="docutils literal notranslate"><span class="pre">hold:</span> <span class="pre">true</span></code> completes and has pending successors, its allocation is marked <em>held</em>
 rather than released.</p></li>
-<li><p>Held allocations are <strong>transparent</strong> to successor tasks in the same experiment: they see the device or
+<li><p>Held allocations are <strong>transparent</strong> to successor tasks in the same protocol run: they see the device or
 resource as available.</p></li>
 <li><p>The hold is released when a successor picks it up without setting <code class="docutils literal notranslate"><span class="pre">hold:</span> <span class="pre">true</span></code>, when no pending
-successors remain, or when the experiment ends.</p></li>
+successors remain, or when the protocol run ends.</p></li>
 </ol>
 <p>Holds work with every assignment type: specific devices (<code class="docutils literal notranslate"><span class="pre">lab_name</span></code>/<code class="docutils literal notranslate"><span class="pre">name</span></code>), dynamic devices
 (<code class="docutils literal notranslate"><span class="pre">allocation_type:</span> <span class="pre">dynamic</span></code>), device references, specific resources, dynamic resources, and
@@ -590,14 +590,14 @@ combine a reference with <code class="docutils literal notranslate"><span class=
 <p>See <a class="reference internal" href="references.html"><span class="doc">References</span></a> for details on passing devices and resources between tasks.</p>
 </div>
 </section>
-<section id="experiment-priorities">
-<h2>Experiment priorities<a class="headerlink" href="#experiment-priorities" title="Link to this heading">#</a></h2>
-<p>Each experiment has an integer priority (default <strong>0</strong>; higher values = higher importance). Priority is set at
-submission time via the REST API or a campaign definition, not in <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code>.</p>
+<section id="protocol-run-priorities">
+<h2>Protocol run priorities<a class="headerlink" href="#protocol-run-priorities" title="Link to this heading">#</a></h2>
+<p>Each protocol run has an integer priority (default <strong>0</strong>; higher values = higher importance). Priority is set at
+submission time via the REST API or a campaign definition, not in <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>.</p>
 <ul class="simple">
 <li><p><strong>CP-SAT</strong>: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
-that higher-priority experiments get earlier task start times.</p></li>
-<li><p><strong>Greedy</strong>: processes experiments in priority order each scheduling cycle, giving higher-priority experiments
+that higher-priority protocol runs get earlier task start times.</p></li>
+<li><p><strong>Greedy</strong>: processes protocol runs in priority order each scheduling cycle, giving higher-priority protocol runs
 first pick of available devices and resources.</p></li>
 </ul>
 </section>
@@ -630,7 +630,7 @@ first pick of available devices and resources.</p></li>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The defaults work well for most workloads. Increase <code class="docutils literal notranslate"><span class="pre">max_time_in_seconds</span></code> for very large experiment
+<p>The defaults work well for most workloads. Increase <code class="docutils literal notranslate"><span class="pre">max_time_in_seconds</span></code> for very large protocol
 graphs where the solver needs more time to find a good schedule.</p>
 </div>
 </section>
@@ -654,8 +654,8 @@ bottlenecks.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">sim_config.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">packages</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_package</span>
-<span class="nt">experiments</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_experiment</span>
+<span class="nt">protocols</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_protocol</span>
 <span class="w">    </span><span class="nt">iterations</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 <span class="w">    </span><span class="nt">max_concurrent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
 </pre></div>
@@ -680,11 +680,11 @@ parallelism metrics (max and average concurrent tasks), and scheduler overhead s
 <tbody>
 <tr class="row-even"><td><p>Decision scope</p></td>
 <td><p>✅ Per-task, on demand</p></td>
-<td><p>✅ Global schedule across experiments</p></td>
+<td><p>✅ Global schedule across protocols</p></td>
 </tr>
 <tr class="row-odd"><td><p>Optimization goal</p></td>
 <td><p>✅ Start tasks ASAP</p></td>
-<td><p>✅ Minimize experiment durations</p></td>
+<td><p>✅ Minimize protocol run durations</p></td>
 </tr>
 <tr class="row-even"><td><p>Device/resource holds</p></td>
 <td><p>✅ Supported</p></td>
@@ -706,13 +706,13 @@ parallelism metrics (max and average concurrent tasks), and scheduler overhead s
 <td><p>✅ First available from eligible pool</p></td>
 <td><p>✅ Optimized choices to reduce conflicts</p></td>
 </tr>
-<tr class="row-odd"><td><p>Experiment priorities</p></td>
+<tr class="row-odd"><td><p>Protocol run priorities</p></td>
 <td><p>❌ Only for tie-breaks</p></td>
 <td><p>✅ Shapes overall completion order</p></td>
 </tr>
-<tr class="row-even"><td><p>Multi-experiment optimization</p></td>
-<td><p>❌ Per experiment</p></td>
-<td><p>✅ Joint scheduling of all experiments</p></td>
+<tr class="row-even"><td><p>Multi-protocol-run optimization</p></td>
+<td><p>❌ Per protocol run</p></td>
+<td><p>✅ Joint scheduling of all protocol runs</p></td>
 </tr>
 <tr class="row-odd"><td><p>Tuning / parameters</p></td>
 <td><p>❌ None</p></td>
@@ -780,7 +780,7 @@ parallelism metrics (max and average concurrent tasks), and scheduler overhead s
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-and-resource-allocation">Device and resource allocation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-groups">Task groups</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-and-resource-holds">Device and resource holds</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-priorities">Experiment priorities</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol-run-priorities">Protocol run priorities</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cp-sat-parameters">CP-SAT parameters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scheduling-simulation">Scheduling simulation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#comparison-table">Comparison table</a></li>

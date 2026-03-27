@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Experiments &#8212; EOS</title>
+    <title>Protocols &#8212; EOS</title>
   
   
   
@@ -41,13 +41,13 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/experiments';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/protocols';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Campaigns" href="campaigns.html" />
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Experiments</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -383,7 +383,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Experiments</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Protocols</span></li>
   </ul>
 </nav>
 </div>
@@ -400,42 +400,42 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="experiments">
-<h1>Experiments<a class="headerlink" href="#experiments" title="Link to this heading">#</a></h1>
-<p>Experiments are a set of tasks that are executed in a specific order.
-Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of an experiment can pass parameters, devices, and resources to each other using EOS’ reference system.
+  <section id="protocols">
+<h1>Protocols<a class="headerlink" href="#protocols" title="Link to this heading">#</a></h1>
+<p>Protocols are a set of tasks that are executed in a specific order.
+Protocols are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
+Tasks part of a protocol can pass parameters, devices, and resources to each other using EOS’ reference system.
 Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
 denoting them as dynamic parameters.
-Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
-for the dynamic parameters across repeated experiments to optimize some objectives.</p>
+Protocols with dynamic parameters can be used to run campaigns of protocol runs, where an optimizer generates the values
+for the dynamic parameters across repeated protocol runs to optimize some objectives.</p>
 <figure class="align-center">
-<img alt="Example experiment graph" src="../_images/experiment-graph.png" />
+<img alt="Example protocol graph" src="../_images/protocol-graph.png" />
 </figure>
-<p>Above is an example of a possible experiment that could be implemented with EOS.
+<p>Above is an example of a possible protocol that could be implemented with EOS.
 There is a series of tasks, each requiring one or more devices.
 In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
 form of parameters, devices, and resources passed between tasks.
 For example, the task “Mix Solutions” may take as input parameters the volumes of the solutions to mix, and these values
 may be output from the “Dispense Solutions” task.
 Tasks can reference input/output parameters, devices, and resources from other tasks.</p>
-<section id="experiment-implementation">
-<h2>Experiment Implementation<a class="headerlink" href="#experiment-implementation" title="Link to this heading">#</a></h2>
+<section id="protocol-implementation">
+<h2>Protocol Implementation<a class="headerlink" href="#protocol-implementation" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Experiments are implemented in the <cite>experiments</cite> subdirectory inside an EOS package</p></li>
-<li><p>Each experiment has its own subfolder (e.g., experiments/optimize_yield)</p></li>
-<li><p>There are two key files per experiment: <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> (for running campaigns with optimization)</p></li>
+<li><p>Protocols are implemented in the <cite>protocols</cite> subdirectory inside an EOS package</p></li>
+<li><p>Each protocol has its own subfolder (e.g., protocols/optimize_yield)</p></li>
+<li><p>There are two key files per protocol: <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code> and <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> (for running campaigns with optimization)</p></li>
 </ul>
-<section id="yaml-file-experiment-yml">
-<h3>YAML File (experiment.yml)<a class="headerlink" href="#yaml-file-experiment-yml" title="Link to this heading">#</a></h3>
-<p>Defines the experiment.
-Specifies the experiment type, labs, and tasks</p>
-<p>Below is the experiment YAML file for the <a class="reference internal" href="color_mixing.html"><span class="doc">color mixing</span></a> example.
+<section id="yaml-file-protocol-yml">
+<h3>YAML File (protocol.yml)<a class="headerlink" href="#yaml-file-protocol-yml" title="Link to this heading">#</a></h3>
+<p>Defines the protocol.
+Specifies the protocol type, labs, and tasks</p>
+<p>Below is the protocol YAML file for the <a class="reference internal" href="color_mixing.html"><span class="doc">color mixing</span></a> example.
 It uses a <code class="docutils literal notranslate"><span class="pre">color_station</span></code> device that handles both mixing and analysis, a <code class="docutils literal notranslate"><span class="pre">robot_arm</span></code> for moving containers,
 and a <code class="docutils literal notranslate"><span class="pre">cleaning_station</span></code> for cleanup:</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">experiment.yml</span></p>
+<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
-<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Protocol to find optimal parameters to synthesize a desired color</span>
 
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
@@ -549,17 +549,17 @@ and a <code class="docutils literal notranslate"><span class="pre">cleaning_stat
 </div>
 <p>Let’s dissect this file:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_mixing</span>
-<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Experiment to find optimal parameters to synthesize a desired color</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Protocol to find optimal parameters to synthesize a desired color</span>
 
 <span class="nt">labs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 </pre></div>
 </div>
-<p>Every experiment has a type.
-The type is used to identify the class of experiment.
-When an experiment is running then there are instances of the experiment with different IDs.
-Each experiment also requires one or more labs.</p>
-<p>Now let’s look at the first task in the experiment:</p>
+<p>Every protocol has a type.
+The type is used to identify the class of protocol.
+When a protocol is running then there are instances of the protocol (protocol runs) with different IDs.
+Each protocol also requires one or more labs.</p>
+<p>Now let’s look at the first task in the protocol:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Retrieve Container</span>
 <span class="w">  </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Get a container from storage and move it to the color dispenser</span>
@@ -595,7 +595,7 @@ These names are used by the task implementation to access the device.</p>
 <span class="w">  </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_station</span>
 </pre></div>
 </div>
-<p>The scheduler will automatically select an available <code class="docutils literal notranslate"><span class="pre">color_station</span></code> device from the experiment’s labs when this task is ready to execute.</p>
+<p>The scheduler will automatically select an available <code class="docutils literal notranslate"><span class="pre">color_station</span></code> device from the protocol’s labs when this task is ready to execute.</p>
 <p><strong>Dynamic Resource Allocation</strong>: The <code class="docutils literal notranslate"><span class="pre">beaker</span></code> resource is dynamically allocated from available beakers of type <code class="docutils literal notranslate"><span class="pre">beaker</span></code>.</p>
 <p>Let’s look at the next task:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
@@ -625,7 +625,7 @@ These names are used by the task implementation to access the device.</p>
 that was allocated to the <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> task. This ensures that the beaker stays at the same station where it was placed.</p>
 <p><strong>Resource Reference</strong>: <code class="docutils literal notranslate"><span class="pre">beaker:</span> <span class="pre">retrieve_container.beaker</span></code> passes the beaker resource from the previous task to this one.</p>
 <p><strong>Dynamic Parameters</strong>: The mixing parameters are set to <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>, which is a special keyword in EOS for defining dynamic parameters.
-These must be specified either by the user or an optimizer before an experiment can be executed.</p>
+These must be specified either by the user or an optimizer before a protocol run can be executed.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">analyze_color</span></code> task shows another device reference:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
@@ -644,7 +644,7 @@ ensuring the analysis happens at the same station where the color was mixed.</p>
 <section id="optimizer-file-optimizer-py">
 <h3>Optimizer File (optimizer.py)<a class="headerlink" href="#optimizer-file-optimizer-py" title="Link to this heading">#</a></h3>
 <p>Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.</p>
-<p>As an example, below is the optimizer file for the color mixing experiment:</p>
+<p>As an example, below is the optimizer file for the color mixing protocol:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qUCB</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
@@ -681,7 +681,7 @@ ensuring the analysis happens at the same station where the color was mixed.</p>
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file is optional and only required for running experiment campaigns with optimization managed by EOS.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file is optional and only required for running protocol run campaigns with optimization managed by EOS.</p>
 </section>
 </section>
 </section>
@@ -733,8 +733,8 @@ ensuring the analysis happens at the same station where the color was mixed.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#experiment-implementation">Experiment Implementation</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#yaml-file-experiment-yml">YAML File (experiment.yml)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol-implementation">Protocol Implementation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#yaml-file-protocol-yml">YAML File (protocol.yml)</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#optimizer-file-optimizer-py">Optimizer File (optimizer.py)</a></li>
 </ul>
 </li>

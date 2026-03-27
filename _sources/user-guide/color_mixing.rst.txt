@@ -1,7 +1,7 @@
 Color Mixing
 ============
-This example demonstrates how EOS can be used to implement a virtual color mixing experiment.
-In this experiment, we mix CMYK ingredient colors to produce a target color.
+This example demonstrates how EOS can be used to implement a virtual color mixing protocol.
+In this protocol, we mix CMYK ingredient colors to produce a target color.
 By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
 secondary objective of minimizing the amount of color ingredients used.
 To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
@@ -26,14 +26,14 @@ Installation
 
 3. Load the package in EOS:
 
-Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
+Edit the ``config.yml`` file to have the following for user_dir, labs, and protocols:
 
 .. code-block:: yaml
 
   user_dir: ./user
   labs:
     - color_lab
-  experiments:
+  protocols:
     - color_mixing
 
 Sample Usage
@@ -43,7 +43,7 @@ Sample Usage
 
    On dual-GPU systems (e.g., NVIDIA + integrated GPU on Wayland), pass ``--browser chrome --nvidia`` to launch the browser with NVIDIA GPU offload and X11 mode for correct WebGL rendering.
 3. Start EOS.
-4. Submit tasks, experiments, or campaigns through the REST API.
+4. Submit tasks, protocols, or campaigns through the REST API.
 
 You can submit a request to run a campaign through the REST API with `curl` as follows:
 
@@ -53,11 +53,11 @@ You can submit a request to run a campaign through the REST API with `curl` as f
          -H "Content-Type: application/json" \
          -d '{
               "name": "color_mixing",
-              "experiment_type": "color_mixing",
+              "protocol": "color_mixing",
               "owner": "name",
               "priority": 0,
-              "max_experiments": 100,
-              "max_concurrent_experiments": 3,
+              "max_protocol_runs": 100,
+              "max_concurrent_protocol_runs": 3,
               "optimize": true,
               "optimizer_ip": "127.0.0.1",
               "global_parameters": {
@@ -80,7 +80,7 @@ The top-level structure of the ``color_lab`` package is as follows:
     color_lab/
     ├── common/ <-- contains shared code
     ├── devices/ <-- contains the device implementations
-    ├── experiments/ <-- contains the color mixing experiment definitions
+    ├── protocols/ <-- contains the color mixing protocol definitions
     ├── labs/ <-- contains the laboratory definition
     ├── tasks/ <-- contains the task definitions
     ├── fluid_simulation/ <-- contains the source code for the fluid simulation web app
@@ -247,7 +247,7 @@ Laboratory
 The laboratory YAML definition is shown below.
 
 We define the devices we discussed earlier.
-Note that we define three color stations so the laboratory can support up to three simultaneous color mixing experiments.
+Note that we define three color stations so the laboratory can support up to three simultaneous color mixing protocols.
 
 We also define the resource types and the actual resources (beakers) with their initial locations.
 
@@ -342,9 +342,9 @@ We also define the resource types and the actual resources (beakers) with their 
         meta:
           location: container_storage
 
-Experiment
-----------
-The color mixing experiment is a linear sequence of the following tasks:
+Protocol
+--------
+The color mixing protocol is a linear sequence of the following tasks:
 
 #. **retrieve_container**: Get a beaker from storage and move it to a color station.
 #. **mix_colors**: Iteratively dispense and mix the colors in the beaker.
@@ -354,14 +354,14 @@ The color mixing experiment is a linear sequence of the following tasks:
 #. **clean_container**: Clean the beaker by rinsing it with distilled water.
 #. **store_container**: Store the beaker back in the storage.
 
-The YAML definition of the experiment is shown below:
+The YAML definition of the protocol is shown below:
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
     type: color_mixing
-    desc: Experiment to find optimal parameters to synthesize a desired color
+    desc: Protocol to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
@@ -474,16 +474,16 @@ The YAML definition of the experiment is shown below:
 
 Dynamic Parameters and Optimization
 -----------------------------------
-Dynamic parameters are specified using the special value ``eos_dynamic`` in the experiment.
-For campaigns with optimization (``optimize: true``), EOS uses the experiment's optimizer to propose values for the input dynamic parameters.
-Some dynamic parameters may still need to be provided by the user. In this experiment, ``score_color.target_color`` must be provided.
-Provide it via ``global_parameters`` or ``experiment_parameters`` in the campaign submission as shown above.
+Dynamic parameters are specified using the special value ``eos_dynamic`` in the protocol.
+For campaigns with optimization (``optimize: true``), EOS uses the protocol's optimizer to propose values for the input dynamic parameters.
+Some dynamic parameters may still need to be provided by the user. In this protocol, ``score_color.target_color`` must be provided.
+Provide it via ``global_parameters`` or ``protocol_run_parameters`` in the campaign submission as shown above.
 
-The optimizer used for this experiment is defined in ``optimizer.py`` adjacent to the experiment YAML and uses Bayesian optimization to minimize ``score_color.loss``.
+The optimizer used for this protocol is defined in ``optimizer.py`` adjacent to the protocol YAML and uses Bayesian optimization to minimize ``score_color.loss``.
 
 References Between Tasks
 ------------------------
-EOS experiments commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing experiment demonstrates each kind of reference.
+EOS protocols commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing protocol demonstrates each kind of reference.
 
 **Device references**: reuse the same physical device across tasks by referencing a named device handle from a prior task.
 

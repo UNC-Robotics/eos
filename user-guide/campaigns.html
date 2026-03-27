@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -51,7 +51,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Optimizers" href="optimizers.html" />
-    <link rel="prev" title="Experiments" href="experiments.html" />
+    <link rel="prev" title="Protocols" href="protocols.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -402,22 +402,22 @@
                   
   <section id="campaigns">
 <h1>Campaigns<a class="headerlink" href="#campaigns" title="Link to this heading">#</a></h1>
-<p>A campaign in EOS is an experiment that is executed multiple times in sequence.
-The parameters of the experiments usually differ.
+<p>A campaign in EOS is a protocol that is executed multiple times in sequence.
+The parameters of the protocol runs usually differ.
 A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
 Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.</p>
 <p>The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
-EOS has built-in support for running campaigns of an experiment.
+EOS has built-in support for running campaigns of a protocol.
 In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.</p>
 <figure class="align-center">
 <img alt="The DMTA Loop" src="../_images/dmta-loop.png" />
 </figure>
 <section id="optimization-setup-analyze-and-design-phases">
 <h2>Optimization Setup (Analyze and Design Phases)<a class="headerlink" href="#optimization-setup-analyze-and-design-phases" title="Link to this heading">#</a></h2>
-<p>Both the “analyze” and “design” phases of the DMTA loop can be automated by optimizing the parameters of experiments over time.
+<p>Both the “analyze” and “design” phases of the DMTA loop can be automated by optimizing the parameters of protocols over time.
 This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
 It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.</p>
-<p>Let’s look at the color mixing experiment to see how a campaign with optimization can be set up.
+<p>Let’s look at the color mixing protocol to see how a campaign with optimization can be set up.
 There are ten dynamic parameters, all defined on the “mix_colors” task:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">cyan_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
 <span class="nt">cyan_strength</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
@@ -457,9 +457,9 @@ There are ten dynamic parameters, all defined on the “mix_colors” task:</p>
 <span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Total loss of the color compared to the expected color</span>
 </pre></div>
 </div>
-<p>Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
+<p>Taking all these together, we see that this protocol involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.</p>
-<p>This setup is also summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">experiment.yml</span></code>.</p>
+<p>This setup is also summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qUCB</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
@@ -497,7 +497,7 @@ mixing time and mixing speed and trying to minimize the loss of a synthesized co
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code> function is used to create the optimizer for the campaign.
-We can see that the inputs are composed of all the dynamic parameters in the experiment and the output is the “loss”
+We can see that the inputs are composed of all the dynamic parameters in the protocol and the output is the “loss”
 output parameter from the “score_color” task.
 The objective of the optimizer (and the campaign) is to minimize this loss.</p>
 <p>More about optimizers can be found in the Optimizers section.</p>
@@ -506,11 +506,11 @@ The objective of the optimizer (and the campaign) is to minimize this loss.</p>
 <h2>Automation Setup (Make and Test Phases)<a class="headerlink" href="#automation-setup-make-and-test-phases" title="Link to this heading">#</a></h2>
 <p>Execution of the automation is managed by EOS.
 The tasks and devices must be implemented by the user.
-Careful setup of the experiment is required to ensure that a campaign can be executed autonomously.</p>
+Careful setup of the protocol is required to ensure that a campaign can be executed autonomously.</p>
 <p>Some guidelines:</p>
 <ul class="simple">
-<li><p>Each experiment should be standalone and should not depend on previous experiments.</p></li>
-<li><p>Each experiment should leave the laboratory in a state that allows the next experiment to be executed.</p></li>
+<li><p>Each protocol run should be standalone and should not depend on previous protocol runs.</p></li>
+<li><p>Each protocol run should leave the laboratory in a state that allows the next protocol run to be executed.</p></li>
 <li><p>Dependencies between tasks should be minimized.
 A task should have a dependency on another task only if it is necessary.</p></li>
 <li><p>Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
@@ -518,7 +518,7 @@ For example, if a robot transfer task takes a container from device A to device 
 A and B should be required devices for the task.</p></li>
 <li><p>Branches and loops are not supported.
 If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
-several steps in the experiment.</p></li>
+several steps in the protocol.</p></li>
 </ul>
 </section>
 </section>
@@ -534,12 +534,12 @@ several steps in the experiment.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="experiments.html"
+       href="protocols.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Experiments</p>
+        <p class="prev-next-title">Protocols</p>
       </div>
     </a>
     <a class="right-next"

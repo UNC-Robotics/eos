@@ -1,18 +1,18 @@
-Experiments
-===========
-Experiments are a set of tasks that are executed in a specific order.
-Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of an experiment can pass parameters, devices, and resources to each other using EOS' reference system.
+Protocols
+=========
+Protocols are a set of tasks that are executed in a specific order.
+Protocols are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
+Tasks part of a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
 Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
 denoting them as dynamic parameters.
-Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
-for the dynamic parameters across repeated experiments to optimize some objectives.
+Protocols with dynamic parameters can be used to run campaigns of protocol runs, where an optimizer generates the values
+for the dynamic parameters across repeated protocol runs to optimize some objectives.
 
-.. figure:: ../_static/img/experiment-graph.png
-   :alt: Example experiment graph
+.. figure:: ../_static/img/protocol-graph.png
+   :alt: Example protocol graph
    :align: center
 
-Above is an example of a possible experiment that could be implemented with EOS.
+Above is an example of a possible protocol that could be implemented with EOS.
 There is a series of tasks, each requiring one or more devices.
 In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
 form of parameters, devices, and resources passed between tasks.
@@ -20,27 +20,27 @@ For example, the task "Mix Solutions" may take as input parameters the volumes o
 may be output from the "Dispense Solutions" task.
 Tasks can reference input/output parameters, devices, and resources from other tasks.
 
-Experiment Implementation
--------------------------
-* Experiments are implemented in the `experiments` subdirectory inside an EOS package
-* Each experiment has its own subfolder (e.g., experiments/optimize_yield)
-* There are two key files per experiment: ``experiment.yml`` and ``optimizer.py`` (for running campaigns with optimization)
+Protocol Implementation
+-----------------------
+* Protocols are implemented in the `protocols` subdirectory inside an EOS package
+* Each protocol has its own subfolder (e.g., protocols/optimize_yield)
+* There are two key files per protocol: ``protocol.yml`` and ``optimizer.py`` (for running campaigns with optimization)
 
-YAML File (experiment.yml)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-Defines the experiment.
-Specifies the experiment type, labs, and tasks
+YAML File (protocol.yml)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Defines the protocol.
+Specifies the protocol type, labs, and tasks
 
-Below is the experiment YAML file for the :doc:`color mixing <color_mixing>` example.
+Below is the protocol YAML file for the :doc:`color mixing <color_mixing>` example.
 It uses a ``color_station`` device that handles both mixing and analysis, a ``robot_arm`` for moving containers,
 and a ``cleaning_station`` for cleanup:
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
     type: color_mixing
-    desc: Experiment to find optimal parameters to synthesize a desired color
+    desc: Protocol to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
@@ -156,17 +156,17 @@ Let's dissect this file:
 .. code-block:: yaml
 
     type: color_mixing
-    desc: Experiment to find optimal parameters to synthesize a desired color
+    desc: Protocol to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
 
-Every experiment has a type.
-The type is used to identify the class of experiment.
-When an experiment is running then there are instances of the experiment with different IDs.
-Each experiment also requires one or more labs.
+Every protocol has a type.
+The type is used to identify the class of protocol.
+When a protocol is running then there are instances of the protocol (protocol runs) with different IDs.
+Each protocol also requires one or more labs.
 
-Now let's look at the first task in the experiment:
+Now let's look at the first task in the protocol:
 
 .. code-block:: yaml
 
@@ -211,7 +211,7 @@ This tells EOS to use the specific robot arm device from the color_lab.
       allocation_type: dynamic
       device_type: color_station
 
-The scheduler will automatically select an available ``color_station`` device from the experiment's labs when this task is ready to execute.
+The scheduler will automatically select an available ``color_station`` device from the protocol's labs when this task is ready to execute.
 
 **Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
 
@@ -248,7 +248,7 @@ that was allocated to the ``retrieve_container`` task. This ensures that the bea
 **Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
 
 **Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
-These must be specified either by the user or an optimizer before an experiment can be executed.
+These must be specified either by the user or an optimizer before a protocol run can be executed.
 
 The ``analyze_color`` task shows another device reference:
 
@@ -271,7 +271,7 @@ Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.
 
-As an example, below is the optimizer file for the color mixing experiment:
+As an example, below is the optimizer file for the color mixing protocol:
 
 :bdg-primary:`optimizer.py`
 
@@ -311,4 +311,4 @@ As an example, below is the optimizer file for the color mixing experiment:
 
         return constructor_args, BayesianSequentialOptimizer
 
-The ``optimizer.py`` file is optional and only required for running experiment campaigns with optimization managed by EOS.
+The ``optimizer.py`` file is optional and only required for running protocol run campaigns with optimization managed by EOS.

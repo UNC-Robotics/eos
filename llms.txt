@@ -1,34 +1,34 @@
-# EOS - Experiment Orchestration System Documentation
+# EOS - ProtocolRun Orchestration System Documentation
 
 # File: index.rst
 ================================================================================
 
-The Experiment Orchestration System (EOS)
-=========================================
+The ProtocolRun Orchestration System (EOS)
+==========================================
 
 EOS is a software framework and runtime for laboratory automation, designed
 to serve as the foundation for one or more automated or self-driving labs (SDLs).
 
 **Core**
 
-* Plugin system for defining labs, devices, tasks, experiments, and optimizers
+* Plugin system for defining labs, devices, tasks, protocols, and optimizers
 * Package system for sharing and reusing automation code
-* Validation of experiments, parameters, and configurations at load time and runtime
+* Validation of protocols, parameters, and configurations at load time and runtime
 
 **Execution & Scheduling**
 
-* Central orchestrator that coordinates devices and experiments across multiple computers
+* Central orchestrator that coordinates devices and protocols across multiple computers
 * Intelligent task scheduling with dynamic device and resource allocation
 * Scheduling simulation for testing strategies offline without hardware
 
 **Optimization**
 
-* Built-in Bayesian optimization for experiment campaigns, with single and multi-objective support
+* Built-in Bayesian optimization for protocol run campaigns, with single and multi-objective support
 * Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
 
 **Interfaces**
 
-* Web UI with visual experiment editor, real-time monitoring, device inspector, and file browser
+* Web UI with visual protocol editor, real-time monitoring, device inspector, and file browser
 * REST API with OpenAPI documentation
 * MCP server for connecting AI assistants
 * SiLA 2 instrument protocol integration
@@ -65,7 +65,7 @@ User Guide
     laboratories
     tasks
     references
-    experiments
+    protocols
     campaigns
     optimizers
     beacon_optimizer
@@ -96,15 +96,15 @@ Beacon Optimizer
 ================
 The Beacon optimizer combines Bayesian optimization with AI-driven reasoning.
 At each sampling step, it probabilistically selects between an acquisition function and an AI model
-that reasons about experimental data to suggest new parameters.
+that reasons about protocol run data to suggest new parameters.
 
 How It Works
 ------------
 A weighted coin flip decides which strategy is used:
 
 * **Bayesian**: Uses an acquisition function over a surrogate model.
-* **AI**: Sends experimental history and domain constraints to an AI model that reasons about patterns
-  and suggests experiments. Suggestions are validated against the domain before being accepted.
+* **AI**: Sends protocol run history and domain constraints to an AI model that reasons about patterns
+  and suggests parameter sets. Suggestions are validated against the domain before being accepted.
 
 If the AI fails, Beacon falls back to Bayesian sampling automatically.
 Both strategies share the same result history.
@@ -117,7 +117,7 @@ Why Hybrid?
 
 Setting Up
 ----------
-Modify your experiment's ``optimizer.py`` to return ``BeaconOptimizer``:
+Modify your protocol's ``optimizer.py`` to return ``BeaconOptimizer``:
 
 :bdg-primary:`optimizer.py`
 
@@ -215,7 +215,7 @@ AI Context
      - Description
    * - **History Size**
      - ``50``
-     - Number of recent experiments included in the AI prompt.
+     - Number of recent protocols included in the AI prompt.
    * - **Additional Context**
      - (empty)
      - Free-text domain knowledge for the AI.
@@ -280,13 +280,13 @@ Insights are included in the next AI prompt and persisted across campaign resume
 
 Campaigns
 =========
-A campaign in EOS is an experiment that is executed multiple times in sequence.
-The parameters of the experiments usually differ.
+A campaign in EOS is a protocol that is executed multiple times in sequence.
+The parameters of the protocol runs usually differ.
 A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
 Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.
 
 The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
-EOS has built-in support for running campaigns of an experiment.
+EOS has built-in support for running campaigns of a protocol.
 In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.
 
 .. figure:: ../_static/img/dmta-loop.png
@@ -295,11 +295,11 @@ In addition, EOS has a built-in Bayesian optimizer that can be used to optimize 
 
 Optimization Setup (Analyze and Design Phases)
 ----------------------------------------------
-Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of experiments over time.
+Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of protocols over time.
 This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
 It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.
 
-Let's look at the color mixing experiment to see how a campaign with optimization can be set up.
+Let's look at the color mixing protocol to see how a campaign with optimization can be set up.
 There are ten dynamic parameters, all defined on the "mix_colors" task:
 
 .. code-block:: yaml
@@ -344,10 +344,10 @@ Looking at the task specification of the ``score_color`` task, we also see that 
         unit: n/a
         desc: Total loss of the color compared to the expected color
 
-Taking all these together, we see that this experiment involves selecting CMYK color component volumes, as well as a
+Taking all these together, we see that this protocol involves selecting CMYK color component volumes, as well as a
 mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
 
-This setup is also summarized in the ``optimizer.py`` file adjacent to ``experiment.yml``.
+This setup is also summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
 
 :bdg-primary:`optimizer.py`
 
@@ -388,7 +388,7 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``experim
         return constructor_args, BayesianSequentialOptimizer
 
 The ``eos_create_campaign_optimizer`` function is used to create the optimizer for the campaign.
-We can see that the inputs are composed of all the dynamic parameters in the experiment and the output is the "loss"
+We can see that the inputs are composed of all the dynamic parameters in the protocol and the output is the "loss"
 output parameter from the "score_color" task.
 The objective of the optimizer (and the campaign) is to minimize this loss.
 
@@ -398,12 +398,12 @@ Automation Setup (Make and Test Phases)
 ---------------------------------------
 Execution of the automation is managed by EOS.
 The tasks and devices must be implemented by the user.
-Careful setup of the experiment is required to ensure that a campaign can be executed autonomously.
+Careful setup of the protocol is required to ensure that a campaign can be executed autonomously.
 
 Some guidelines:
 
-* Each experiment should be standalone and should not depend on previous experiments.
-* Each experiment should leave the laboratory in a state that allows the next experiment to be executed.
+* Each protocol run should be standalone and should not depend on previous protocol runs.
+* Each protocol run should leave the laboratory in a state that allows the next protocol run to be executed.
 * Dependencies between tasks should be minimized.
   A task should have a dependency on another task only if it is necessary.
 * Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
@@ -411,15 +411,15 @@ Some guidelines:
   A and B should be required devices for the task.
 * Branches and loops are not supported.
   If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
-  several steps in the experiment.
+  several steps in the protocol.
 
 # File: user-guide/color_mixing.rst
 ================================================================================
 
 Color Mixing
 ============
-This example demonstrates how EOS can be used to implement a virtual color mixing experiment.
-In this experiment, we mix CMYK ingredient colors to produce a target color.
+This example demonstrates how EOS can be used to implement a virtual color mixing protocol.
+In this protocol, we mix CMYK ingredient colors to produce a target color.
 By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
 secondary objective of minimizing the amount of color ingredients used.
 To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
@@ -444,14 +444,14 @@ Installation
 
 3. Load the package in EOS:
 
-Edit the ``config.yml`` file to have the following for user_dir, labs, and experiments:
+Edit the ``config.yml`` file to have the following for user_dir, labs, and protocols:
 
 .. code-block:: yaml
 
   user_dir: ./user
   labs:
     - color_lab
-  experiments:
+  protocols:
     - color_mixing
 
 Sample Usage
@@ -461,7 +461,7 @@ Sample Usage
 
    On dual-GPU systems (e.g., NVIDIA + integrated GPU on Wayland), pass ``--browser chrome --nvidia`` to launch the browser with NVIDIA GPU offload and X11 mode for correct WebGL rendering.
 3. Start EOS.
-4. Submit tasks, experiments, or campaigns through the REST API.
+4. Submit tasks, protocols, or campaigns through the REST API.
 
 You can submit a request to run a campaign through the REST API with `curl` as follows:
 
@@ -471,11 +471,11 @@ You can submit a request to run a campaign through the REST API with `curl` as f
          -H "Content-Type: application/json" \
          -d '{
               "name": "color_mixing",
-              "experiment_type": "color_mixing",
+              "protocol": "color_mixing",
               "owner": "name",
               "priority": 0,
-              "max_experiments": 100,
-              "max_concurrent_experiments": 3,
+              "max_protocol_runs": 100,
+              "max_concurrent_protocol_runs": 3,
               "optimize": true,
               "optimizer_ip": "127.0.0.1",
               "global_parameters": {
@@ -498,7 +498,7 @@ The top-level structure of the ``color_lab`` package is as follows:
     color_lab/
     ├── common/ <-- contains shared code
     ├── devices/ <-- contains the device implementations
-    ├── experiments/ <-- contains the color mixing experiment definitions
+    ├── protocols/ <-- contains the color mixing protocol definitions
     ├── labs/ <-- contains the laboratory definition
     ├── tasks/ <-- contains the task definitions
     ├── fluid_simulation/ <-- contains the source code for the fluid simulation web app
@@ -665,7 +665,7 @@ Laboratory
 The laboratory YAML definition is shown below.
 
 We define the devices we discussed earlier.
-Note that we define three color stations so the laboratory can support up to three simultaneous color mixing experiments.
+Note that we define three color stations so the laboratory can support up to three simultaneous color mixing protocols.
 
 We also define the resource types and the actual resources (beakers) with their initial locations.
 
@@ -760,9 +760,9 @@ We also define the resource types and the actual resources (beakers) with their 
         meta:
           location: container_storage
 
-Experiment
-----------
-The color mixing experiment is a linear sequence of the following tasks:
+Protocol
+--------
+The color mixing protocol is a linear sequence of the following tasks:
 
 #. **retrieve_container**: Get a beaker from storage and move it to a color station.
 #. **mix_colors**: Iteratively dispense and mix the colors in the beaker.
@@ -772,14 +772,14 @@ The color mixing experiment is a linear sequence of the following tasks:
 #. **clean_container**: Clean the beaker by rinsing it with distilled water.
 #. **store_container**: Store the beaker back in the storage.
 
-The YAML definition of the experiment is shown below:
+The YAML definition of the protocol is shown below:
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
     type: color_mixing
-    desc: Experiment to find optimal parameters to synthesize a desired color
+    desc: Protocol to find optimal parameters to synthesize a desired color
 
     labs:
       - color_lab
@@ -892,16 +892,16 @@ The YAML definition of the experiment is shown below:
 
 Dynamic Parameters and Optimization
 -----------------------------------
-Dynamic parameters are specified using the special value ``eos_dynamic`` in the experiment.
-For campaigns with optimization (``optimize: true``), EOS uses the experiment's optimizer to propose values for the input dynamic parameters.
-Some dynamic parameters may still need to be provided by the user. In this experiment, ``score_color.target_color`` must be provided.
-Provide it via ``global_parameters`` or ``experiment_parameters`` in the campaign submission as shown above.
+Dynamic parameters are specified using the special value ``eos_dynamic`` in the protocol.
+For campaigns with optimization (``optimize: true``), EOS uses the protocol's optimizer to propose values for the input dynamic parameters.
+Some dynamic parameters may still need to be provided by the user. In this protocol, ``score_color.target_color`` must be provided.
+Provide it via ``global_parameters`` or ``protocol_run_parameters`` in the campaign submission as shown above.
 
-The optimizer used for this experiment is defined in ``optimizer.py`` adjacent to the experiment YAML and uses Bayesian optimization to minimize ``score_color.loss``.
+The optimizer used for this protocol is defined in ``optimizer.py`` adjacent to the protocol YAML and uses Bayesian optimization to minimize ``score_color.loss``.
 
 References Between Tasks
 ------------------------
-EOS experiments commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing experiment demonstrates each kind of reference.
+EOS protocols commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing protocol demonstrates each kind of reference.
 
 **Device references**: reuse the same physical device across tasks by referencing a named device handle from a prior task.
 
@@ -977,7 +977,7 @@ Then, the GC Sampling task uses both of the EOS devices to automate the sample i
 
 Most often, an EOS device will represent a physical device in the lab.
 But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
-throughout one or more experiments.
+throughout one or more protocols.
 This could be an AI module that records inputs given to it.
 Remember that a device in EOS is a persistent process.
 
@@ -1066,324 +1066,6 @@ The ``mix`` function:
 
 * Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer
 * Updates container metadata with mixing details
-
-# File: user-guide/experiments.rst
-================================================================================
-
-Experiments
-===========
-Experiments are a set of tasks that are executed in a specific order.
-Experiments are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of an experiment can pass parameters, devices, and resources to each other using EOS' reference system.
-Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
-denoting them as dynamic parameters.
-Experiments with dynamic parameters can be used to run campaigns of experiments, where an optimizer generates the values
-for the dynamic parameters across repeated experiments to optimize some objectives.
-
-.. figure:: ../_static/img/experiment-graph.png
-   :alt: Example experiment graph
-   :align: center
-
-Above is an example of a possible experiment that could be implemented with EOS.
-There is a series of tasks, each requiring one or more devices.
-In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
-form of parameters, devices, and resources passed between tasks.
-For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
-may be output from the "Dispense Solutions" task.
-Tasks can reference input/output parameters, devices, and resources from other tasks.
-
-Experiment Implementation
--------------------------
-* Experiments are implemented in the `experiments` subdirectory inside an EOS package
-* Each experiment has its own subfolder (e.g., experiments/optimize_yield)
-* There are two key files per experiment: ``experiment.yml`` and ``optimizer.py`` (for running campaigns with optimization)
-
-YAML File (experiment.yml)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-Defines the experiment.
-Specifies the experiment type, labs, and tasks
-
-Below is the experiment YAML file for the :doc:`color mixing <color_mixing>` example.
-It uses a ``color_station`` device that handles both mixing and analysis, a ``robot_arm`` for moving containers,
-and a ``cleaning_station`` for cleanup:
-
-:bdg-primary:`experiment.yml`
-
-.. code-block:: yaml
-
-    type: color_mixing
-    desc: Experiment to find optimal parameters to synthesize a desired color
-
-    labs:
-      - color_lab
-
-    tasks:
-      - name: retrieve_container
-        type: Retrieve Container
-        desc: Get a container from storage and move it to the color dispenser
-        duration: 5
-        devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          color_station:
-            allocation_type: dynamic
-            device_type: color_station
-        resources:
-          beaker:
-            allocation_type: dynamic
-            resource_type: beaker
-        dependencies: []
-
-      - name: mix_colors
-        type: Mix Colors
-        desc: Mix the colors in the container
-        duration: 20
-        devices:
-          color_station: retrieve_container.color_station
-        resources:
-          beaker: retrieve_container.beaker
-        parameters:
-          cyan_volume: eos_dynamic
-          cyan_strength: eos_dynamic
-          magenta_volume: eos_dynamic
-          magenta_strength: eos_dynamic
-          yellow_volume: eos_dynamic
-          yellow_strength: eos_dynamic
-          black_volume: eos_dynamic
-          black_strength: eos_dynamic
-          mixing_time: eos_dynamic
-          mixing_speed: eos_dynamic
-        dependencies: [retrieve_container]
-
-      - name: analyze_color
-        type: Analyze Color
-        desc: Analyze the color of the solution in the container and output the RGB values
-        duration: 2
-        devices:
-          color_station: mix_colors.color_station
-        resources:
-          beaker: mix_colors.beaker
-        dependencies: [mix_colors]
-
-      - name: score_color
-        type: Score Color
-        desc: Score the color based on the RGB values
-        duration: 1
-        parameters:
-          red: analyze_color.red
-          green: analyze_color.green
-          blue: analyze_color.blue
-          total_color_volume: mix_colors.total_color_volume
-          max_total_color_volume: 300.0
-          target_color: eos_dynamic
-        dependencies: [analyze_color]
-
-      - name: empty_container
-        type: Empty Container
-        desc: Empty the container and move it to the cleaning station
-        duration: 5
-        devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          cleaning_station:
-            allocation_type: dynamic
-            device_type: cleaning_station
-            allowed_labs: [color_lab]
-        resources:
-          beaker: analyze_color.beaker
-        parameters:
-          emptying_location: emptying_location
-        dependencies: [analyze_color]
-
-      - name: clean_container
-        type: Clean Container
-        desc: Clean the container by rinsing it with distilled water
-        duration: 5
-        devices:
-          cleaning_station: empty_container.cleaning_station
-        resources:
-          beaker: empty_container.beaker
-        parameters:
-          duration: 2
-        dependencies: [empty_container]
-
-      - name: store_container
-        type: Store Container
-        desc: Store the container back in the container storage
-        duration: 5
-        devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-        resources:
-          beaker: clean_container.beaker
-        parameters:
-          storage_location: container_storage
-        dependencies: [clean_container]
-
-Let's dissect this file:
-
-.. code-block:: yaml
-
-    type: color_mixing
-    desc: Experiment to find optimal parameters to synthesize a desired color
-
-    labs:
-      - color_lab
-
-Every experiment has a type.
-The type is used to identify the class of experiment.
-When an experiment is running then there are instances of the experiment with different IDs.
-Each experiment also requires one or more labs.
-
-Now let's look at the first task in the experiment:
-
-.. code-block:: yaml
-
-    - name: retrieve_container
-      type: Retrieve Container
-      desc: Get a container from storage and move it to the color dispenser
-      duration: 5
-      devices:
-        robot_arm:
-          lab_name: color_lab
-          name: robot_arm
-        color_station:
-          allocation_type: dynamic
-          device_type: color_station
-      resources:
-        beaker:
-          allocation_type: dynamic
-          resource_type: beaker
-      dependencies: []
-
-The first task is named ``retrieve_container``.
-This task demonstrates several key concepts:
-
-**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_station``).
-These names are used by the task implementation to access the device.
-
-**Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
-
-.. code-block:: yaml
-
-    robot_arm:
-      lab_name: color_lab
-      name: robot_arm
-
-This tells EOS to use the specific robot arm device from the color_lab.
-
-**Dynamic Device Allocation**: The ``color_station`` uses dynamic allocation:
-
-.. code-block:: yaml
-
-    color_station:
-      allocation_type: dynamic
-      device_type: color_station
-
-The scheduler will automatically select an available ``color_station`` device from the experiment's labs when this task is ready to execute.
-
-**Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
-
-Let's look at the next task:
-
-.. code-block:: yaml
-
-    - name: mix_colors
-      type: Mix Colors
-      desc: Mix the colors in the container
-      duration: 20
-      devices:
-        color_station: retrieve_container.color_station
-      resources:
-        beaker: retrieve_container.beaker
-      parameters:
-        cyan_volume: eos_dynamic
-        cyan_strength: eos_dynamic
-        magenta_volume: eos_dynamic
-        magenta_strength: eos_dynamic
-        yellow_volume: eos_dynamic
-        yellow_strength: eos_dynamic
-        black_volume: eos_dynamic
-        black_strength: eos_dynamic
-        mixing_time: eos_dynamic
-        mixing_speed: eos_dynamic
-      dependencies: [retrieve_container]
-
-This task demonstrates **device and resource references**:
-
-**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS that this task must use the same color_station device
-that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same station where it was placed.
-
-**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
-
-**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
-These must be specified either by the user or an optimizer before an experiment can be executed.
-
-The ``analyze_color`` task shows another device reference:
-
-.. code-block:: yaml
-
-    - name: analyze_color
-      type: Analyze Color
-      desc: Analyze the color of the solution in the container and output the RGB values
-      duration: 2
-      devices:
-        color_station: mix_colors.color_station
-      resources:
-        beaker: mix_colors.beaker
-      dependencies: [mix_colors]
-
-Here, ``color_station`` references the same station from the ``mix_colors`` task,
-ensuring the analysis happens at the same station where the color was mixed.
-
-Optimizer File (optimizer.py)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.
-
-As an example, below is the optimizer file for the color mixing experiment:
-
-:bdg-primary:`optimizer.py`
-
-.. code-block:: python
-
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
-    from bofire.data_models.objectives.identity import MinimizeObjective
-
-    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-
-
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
-            ],
-            "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
-            ],
-            "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 10,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-        }
-
-        return constructor_args, BayesianSequentialOptimizer
-
-The ``optimizer.py`` file is optional and only required for running experiment campaigns with optimization managed by EOS.
 
 # File: user-guide/infrastructure_setup.rst
 ================================================================================
@@ -1486,7 +1168,7 @@ uv manages dependencies for EOS.
 
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example
 package. You can modify this in the configuration file.
 
 6. Launch the Web UI
@@ -1518,7 +1200,7 @@ The web UI is available at ``http://localhost:3000``.
 
 Jinja2 Templating
 =================
-The YAML files used to define labs, devices, experiments, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
+The YAML files used to define labs, devices, protocols, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
 templating.
 This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
 macros, and more.
@@ -1528,12 +1210,12 @@ Jinja2 templates are evaluated with Python, so some expressions are the same as 
     Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
 
 Jinja is useful for defining templates.
-For example, an experiment template can be defined with placeholders and variables
-that when specified lead to different variations of the experiment.
-This is particularly useful for altering the task sequence of an experiment while loading it.
+For example, a protocol template can be defined with placeholders and variables
+that when specified lead to different variations of the protocol.
+This is particularly useful for altering the task sequence of a protocol while loading it.
 
 .. note::
-    Experiment templating is useful if EOS dynamic parameters and references do not suffice.
+    Protocol templating is useful if EOS dynamic parameters and references do not suffice.
 
 Below are some useful Jinja2 features:
 
@@ -1580,7 +1262,7 @@ Conditionals
 You can use if statements to include or exclude content based on conditions.
 In the example below, the task "mix_colors" is only included if the variable ``mix_colors`` is set to ``True``:
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml+jinja
 
@@ -1641,8 +1323,8 @@ In the example below, the ``create_containers`` macro is used to easily create c
 
 Laboratories
 ============
-Laboratories are the space in which devices and resources exist and where tasks, experiments, and campaigns
-of experiments take place.
+Laboratories are the space in which devices and resources exist and where tasks, protocols, and campaigns
+of protocols take place.
 
 A laboratory in EOS is a collection of:
 
@@ -1922,10 +1604,10 @@ Resources are defined using two sections in the laboratory YAML file:
 MCP Server
 ==========
 EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI.
-This allows AI assistants like Claude to interact with EOS directly, querying experiments, submitting campaigns, inspecting devices, and more.
+This allows AI assistants like Claude to interact with EOS directly, querying protocols, submitting campaigns, inspecting devices, and more.
 
 Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
-"check the status of my campaign", "submit 10 multiplication experiments", or "what functions does the pipette support?"
+"check the status of my campaign", "submit 10 multiplication protocols", or "what functions does the pipette support?"
 
 .. warning::
 
@@ -1973,9 +1655,9 @@ Capabilities
 
 The MCP server exposes 50 tools across the following categories:
 
-* **Campaigns, Experiments, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
-* **Definitions** -- Browse loaded task types, device types, lab layouts, and experiment workflows.
-* **Management** -- Load, unload, and reload labs, experiments, devices, and packages.
+* **Campaigns, Protocol Runs, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
+* **Definitions** -- Browse loaded task types, device types, lab layouts, and protocol workflows.
+* **Management** -- Load, unload, and reload labs, protocols, devices, and packages.
 * **Optimizer** -- Query optimizer state, update runtime parameters, and provide expert insights.
 * **Devices** -- List devices, inspect state, discover available RPC functions, and call them directly.
 * **SQL** -- Run read-only queries against the EOS database.
@@ -1989,15 +1671,15 @@ These examples show natural language prompts you might give an AI assistant conn
 
 .. code-block:: text
 
-    "Show me the status of the catalyst_screening campaign and list all completed experiments"
+    "Show me the status of the catalyst_screening campaign and list all completed protocols"
 
-    "Submit a color mixing experiment targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
+    "Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
 
     "What devices are available in the wet lab? What functions does the liquid handler support?"
 
-    "How did the yield change across the last 10 experiments in the solubility campaign?"
+    "How did the yield change across the last 10 protocols in the solubility campaign?"
 
-    "Reload the experiment definitions, I just updated the YAML for the pH optimization workflow"
+    "Reload the protocol definitions, I just updated the YAML for the pH optimization workflow"
 
 # File: user-guide/multi_computer_setup.rst
 ================================================================================
@@ -2005,7 +1687,7 @@ These examples show natural language prompts you might give an AI assistant conn
 Multi-Computer Lab Setup
 ========================
 
-EOS can orchestrate experiments across multiple computers, using Ray for distributed communication.
+EOS can orchestrate protocols across multiple computers, using Ray for distributed communication.
 One main computer runs the EOS orchestrator as the head node, while additional computers join as worker nodes.
 
 Main EOS Computer
@@ -2059,13 +1741,13 @@ Worker Computers
 Optimizers
 ==========
 Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to experiment campaigns by optimizing task parameters to achieve objectives over time.
-Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous experiments.
+In EOS, optimizers give intelligence to protocol run campaigns by optimizing task parameters to achieve objectives over time.
+Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous protocol runs.
 One of the most common sequential optimization methods is **Bayesian optimization**, and is especially useful for
 optimizing expensive-to-evaluate black box functions.
 
-.. figure:: ../_static/img/optimize-experiment-loop.png
-   :alt: Optimization and experiment loop
+.. figure:: ../_static/img/optimize-protocol-loop.png
+   :alt: Optimization and protocol run loop
    :align: center
 
 EOS has a built-in Bayesian optimizer powered by `BoFire <https://experimental-design.github.io/bofire/>`_
@@ -2082,7 +1764,7 @@ This can enable running the optimizer on a more capable computer than the one ru
 
 Optimizer Implementation
 ------------------------
-EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``experiment.yml`` in an EOS package.
+EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``protocol.yml`` in an EOS package.
 Below is an example:
 
 :bdg-primary:`optimizer.py`
@@ -2133,7 +1815,7 @@ In this example, we use EOS' built-in Bayesian optimizer.
 
 For most use cases, we recommend the :doc:`beacon_optimizer`, which combines Bayesian optimization with
 AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
-constraints) but adds an AI agent that reasons about experimental history to suggest smarter experiments.
+constraints) but adds an AI agent that reasons about protocol run history to suggest smarter parameter sets.
 
 It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
 the class type from ``eos_create_campaign_optimizer``.
@@ -2148,7 +1830,7 @@ The EOS reference format must be used:
 
 **TASK.PARAMETER_NAME**
 
-This is necessary for EOS to be able to associate the optimizer with the experiment tasks and to forward parameter values
+This is necessary for EOS to be able to associate the optimizer with the protocol tasks and to forward parameter values
 where needed.
 
 Example Custom Optimizer
@@ -2191,9 +1873,9 @@ Below is an example of a custom optimizer implementation that randomly samples p
             self.metrics = metrics
             self.results: list[dict] = []
 
-        def sample(self, num_experiments: int = 1) -> pd.DataFrame:
+        def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
             samples = []
-            for _ in range(num_experiments):
+            for _ in range(num_protocol_runs):
                 sample = {p.name: random.uniform(p.lower_bound, p.upper_bound) for p in self.parameters}
                 samples.append(sample)
             return pd.DataFrame(samples)
@@ -2252,10 +1934,10 @@ Packages
 ========
 Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
 Each package is essentially a folder.
-These packages can contain laboratory, device, task, and experiment definitions, code, and data, allowing reuse and
+These packages can contain laboratory, device, task, and protocol definitions, code, and data, allowing reuse and
 sharing.
 For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
-another package may only contain experiments that run on a specific lab.
+another package may only contain protocols that run on a specific lab.
 
 .. figure:: ../_static/img/package.png
    :alt: EOS package
@@ -2265,7 +1947,7 @@ Using a package is as simple as placing it in a directory that EOS loads package
 By default, this directory is called `user` and is located in the root of the EOS repository.
 
 Below is the directory tree of an example EOS package called "color_lab".
-It contains a laboratory called "color_lab", the "color_mixing" experiment, and
+It contains a laboratory called "color_lab", the "color_mixing" protocol, and
 various devices and tasks. The package also contains a device client under `common`,
 and a README file.
 
@@ -2283,12 +1965,330 @@ Create a Package
 This command is a shortcut to create a new package with all subdirectories.
 Feel free to delete subdirectories you don't expect to use.
 
+# File: user-guide/protocols.rst
+================================================================================
+
+Protocols
+=========
+Protocols are a set of tasks that are executed in a specific order.
+Protocols are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
+Tasks part of a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
+Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
+denoting them as dynamic parameters.
+Protocols with dynamic parameters can be used to run campaigns of protocol runs, where an optimizer generates the values
+for the dynamic parameters across repeated protocol runs to optimize some objectives.
+
+.. figure:: ../_static/img/protocol-graph.png
+   :alt: Example protocol graph
+   :align: center
+
+Above is an example of a possible protocol that could be implemented with EOS.
+There is a series of tasks, each requiring one or more devices.
+In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
+form of parameters, devices, and resources passed between tasks.
+For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
+may be output from the "Dispense Solutions" task.
+Tasks can reference input/output parameters, devices, and resources from other tasks.
+
+Protocol Implementation
+-----------------------
+* Protocols are implemented in the `protocols` subdirectory inside an EOS package
+* Each protocol has its own subfolder (e.g., protocols/optimize_yield)
+* There are two key files per protocol: ``protocol.yml`` and ``optimizer.py`` (for running campaigns with optimization)
+
+YAML File (protocol.yml)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Defines the protocol.
+Specifies the protocol type, labs, and tasks
+
+Below is the protocol YAML file for the :doc:`color mixing <color_mixing>` example.
+It uses a ``color_station`` device that handles both mixing and analysis, a ``robot_arm`` for moving containers,
+and a ``cleaning_station`` for cleanup:
+
+:bdg-primary:`protocol.yml`
+
+.. code-block:: yaml
+
+    type: color_mixing
+    desc: Protocol to find optimal parameters to synthesize a desired color
+
+    labs:
+      - color_lab
+
+    tasks:
+      - name: retrieve_container
+        type: Retrieve Container
+        desc: Get a container from storage and move it to the color dispenser
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          color_station:
+            allocation_type: dynamic
+            device_type: color_station
+        resources:
+          beaker:
+            allocation_type: dynamic
+            resource_type: beaker
+        dependencies: []
+
+      - name: mix_colors
+        type: Mix Colors
+        desc: Mix the colors in the container
+        duration: 20
+        devices:
+          color_station: retrieve_container.color_station
+        resources:
+          beaker: retrieve_container.beaker
+        parameters:
+          cyan_volume: eos_dynamic
+          cyan_strength: eos_dynamic
+          magenta_volume: eos_dynamic
+          magenta_strength: eos_dynamic
+          yellow_volume: eos_dynamic
+          yellow_strength: eos_dynamic
+          black_volume: eos_dynamic
+          black_strength: eos_dynamic
+          mixing_time: eos_dynamic
+          mixing_speed: eos_dynamic
+        dependencies: [retrieve_container]
+
+      - name: analyze_color
+        type: Analyze Color
+        desc: Analyze the color of the solution in the container and output the RGB values
+        duration: 2
+        devices:
+          color_station: mix_colors.color_station
+        resources:
+          beaker: mix_colors.beaker
+        dependencies: [mix_colors]
+
+      - name: score_color
+        type: Score Color
+        desc: Score the color based on the RGB values
+        duration: 1
+        parameters:
+          red: analyze_color.red
+          green: analyze_color.green
+          blue: analyze_color.blue
+          total_color_volume: mix_colors.total_color_volume
+          max_total_color_volume: 300.0
+          target_color: eos_dynamic
+        dependencies: [analyze_color]
+
+      - name: empty_container
+        type: Empty Container
+        desc: Empty the container and move it to the cleaning station
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+          cleaning_station:
+            allocation_type: dynamic
+            device_type: cleaning_station
+            allowed_labs: [color_lab]
+        resources:
+          beaker: analyze_color.beaker
+        parameters:
+          emptying_location: emptying_location
+        dependencies: [analyze_color]
+
+      - name: clean_container
+        type: Clean Container
+        desc: Clean the container by rinsing it with distilled water
+        duration: 5
+        devices:
+          cleaning_station: empty_container.cleaning_station
+        resources:
+          beaker: empty_container.beaker
+        parameters:
+          duration: 2
+        dependencies: [empty_container]
+
+      - name: store_container
+        type: Store Container
+        desc: Store the container back in the container storage
+        duration: 5
+        devices:
+          robot_arm:
+            lab_name: color_lab
+            name: robot_arm
+        resources:
+          beaker: clean_container.beaker
+        parameters:
+          storage_location: container_storage
+        dependencies: [clean_container]
+
+Let's dissect this file:
+
+.. code-block:: yaml
+
+    type: color_mixing
+    desc: Protocol to find optimal parameters to synthesize a desired color
+
+    labs:
+      - color_lab
+
+Every protocol has a type.
+The type is used to identify the class of protocol.
+When a protocol is running then there are instances of the protocol (protocol runs) with different IDs.
+Each protocol also requires one or more labs.
+
+Now let's look at the first task in the protocol:
+
+.. code-block:: yaml
+
+    - name: retrieve_container
+      type: Retrieve Container
+      desc: Get a container from storage and move it to the color dispenser
+      duration: 5
+      devices:
+        robot_arm:
+          lab_name: color_lab
+          name: robot_arm
+        color_station:
+          allocation_type: dynamic
+          device_type: color_station
+      resources:
+        beaker:
+          allocation_type: dynamic
+          resource_type: beaker
+      dependencies: []
+
+The first task is named ``retrieve_container``.
+This task demonstrates several key concepts:
+
+**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_station``).
+These names are used by the task implementation to access the device.
+
+**Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
+
+.. code-block:: yaml
+
+    robot_arm:
+      lab_name: color_lab
+      name: robot_arm
+
+This tells EOS to use the specific robot arm device from the color_lab.
+
+**Dynamic Device Allocation**: The ``color_station`` uses dynamic allocation:
+
+.. code-block:: yaml
+
+    color_station:
+      allocation_type: dynamic
+      device_type: color_station
+
+The scheduler will automatically select an available ``color_station`` device from the protocol's labs when this task is ready to execute.
+
+**Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
+
+Let's look at the next task:
+
+.. code-block:: yaml
+
+    - name: mix_colors
+      type: Mix Colors
+      desc: Mix the colors in the container
+      duration: 20
+      devices:
+        color_station: retrieve_container.color_station
+      resources:
+        beaker: retrieve_container.beaker
+      parameters:
+        cyan_volume: eos_dynamic
+        cyan_strength: eos_dynamic
+        magenta_volume: eos_dynamic
+        magenta_strength: eos_dynamic
+        yellow_volume: eos_dynamic
+        yellow_strength: eos_dynamic
+        black_volume: eos_dynamic
+        black_strength: eos_dynamic
+        mixing_time: eos_dynamic
+        mixing_speed: eos_dynamic
+      dependencies: [retrieve_container]
+
+This task demonstrates **device and resource references**:
+
+**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS that this task must use the same color_station device
+that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same station where it was placed.
+
+**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
+
+**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
+These must be specified either by the user or an optimizer before a protocol run can be executed.
+
+The ``analyze_color`` task shows another device reference:
+
+.. code-block:: yaml
+
+    - name: analyze_color
+      type: Analyze Color
+      desc: Analyze the color of the solution in the container and output the RGB values
+      duration: 2
+      devices:
+        color_station: mix_colors.color_station
+      resources:
+        beaker: mix_colors.beaker
+      dependencies: [mix_colors]
+
+Here, ``color_station`` references the same station from the ``mix_colors`` task,
+ensuring the analysis happens at the same station where the color was mixed.
+
+Optimizer File (optimizer.py)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.
+
+As an example, below is the optimizer file for the color mixing protocol:
+
+:bdg-primary:`optimizer.py`
+
+.. code-block:: python
+
+    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
+    from bofire.data_models.enum import SamplingMethodEnum
+    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.objectives.identity import MinimizeObjective
+
+    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
+    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+
+
+    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
+        constructor_args = {
+            "inputs": [
+                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
+                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
+                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
+                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
+            ],
+            "outputs": [
+                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+            ],
+            "constraints": [],
+            "acquisition_function": qUCB(beta=1),
+            "num_initial_samples": 10,
+            "initial_sampling_method": SamplingMethodEnum.SOBOL,
+        }
+
+        return constructor_args, BayesianSequentialOptimizer
+
+The ``optimizer.py`` file is optional and only required for running protocol run campaigns with optimization managed by EOS.
+
 # File: user-guide/references.rst
 ================================================================================
 
 References
 ==========
-References connect tasks in an EOS experiment. They let downstream tasks reuse:
+References connect tasks in an EOS protocol. They let downstream tasks reuse:
 
 - Devices allocated upstream (device references)
 
@@ -2425,7 +2425,7 @@ Notes
 
 Declaring resources in task specifications
 ------------------------------------------
-Tasks declare the resource types they require in ``task.yml``. EOS validates that experiments provide matching resource instances (by name) or a dynamic request for a resource of the required type.
+Tasks declare the resource types they require in ``task.yml``. EOS validates that protocols provide matching resource instances (by name) or a dynamic request for a resource of the required type.
 
 :bdg-primary:`task.yml`
 
@@ -2446,15 +2446,15 @@ Tasks declare the resource types they require in ``task.yml``. EOS validates tha
     #   beaker:
     #     type: beaker_500
 
-Assigning resources in experiments
+Assigning resources in protocols
 ----------------------------------
-In an experiment’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
+In a protocol’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
-    type: dynamic_resource_experiment
+    type: dynamic_resource_protocol
     desc: Demonstrate resource assignment
     labs: [small_lab]
 
@@ -2492,11 +2492,11 @@ In an experiment’s tasks, assign either specific resource names or request res
 .. tip::
    Dynamic resource requests select a single matching resource instance.
 
-Experiment‑level resource metadata (optional)
----------------------------------------------
-You may attach experiment‑specific metadata to resources used in that experiment via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
+Protocol‑level resource metadata (optional)
+--------------------------------------------
+You may attach protocol‑specific metadata to resources used in that protocol via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
@@ -2518,7 +2518,7 @@ You may attach experiment‑specific metadata to resources used in that experime
 Allocation and exclusivity
 --------------------------
 - EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.
-- Specific assignments must name an existing resource instance defined in one of the experiment’s labs.
+- Specific assignments must name an existing resource instance defined in one of the protocol’s labs.
 - Dynamic assignments select from the pool of eligible instances by ``resource_type``.
 - Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.
 
@@ -2538,9 +2538,9 @@ REST API
 EOS has a REST API to control the orchestrator.
 Example functions include:
 
-* Submit tasks, experiments, and campaigns, as well as cancel them
-* Load, unload, and reload experiments and laboratories
-* Get the status of tasks, experiments, and campaigns
+* Submit tasks, protocols, and campaigns, as well as cancel them
+* Load, unload, and reload protocols and laboratories
+* Get the status of tasks, protocols, and campaigns
 * Download task output files
 
 .. warning::
@@ -2549,18 +2549,18 @@ Example functions include:
     Use a VPN or reverse proxy with auth if remote access is needed.
 
 
-Submitting Experiments
-----------------------
-Submit an experiment for execution. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
+Submitting Protocol Runs
+------------------------
+Submit a protocol run for execution. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
 
-**Endpoint:** ``POST /api/experiments``
+**Endpoint:** ``POST /api/protocols``
 
 .. code-block:: bash
 
-    curl -X POST http://localhost:8070/api/experiments \
+    curl -X POST http://localhost:8070/api/protocols \
          -H "Content-Type: application/json" \
          -d '{
-              "name": "my_experiment_1",
+              "name": "my_protocol_run_1",
               "type": "color_mixing",
               "owner": "alice",
               "priority": 0,
@@ -2586,7 +2586,7 @@ Submit an experiment for execution. All dynamic parameters (``eos_dynamic``) mus
 
 Submitting Campaigns
 --------------------
-Submit a campaign to run an experiment multiple times, optionally with optimizer-driven parameter selection.
+Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameter selection.
 
 **Endpoint:** ``POST /api/campaigns``
 
@@ -2598,11 +2598,11 @@ Submit a campaign to run an experiment multiple times, optionally with optimizer
          -H "Content-Type: application/json" \
          -d '{
               "name": "color_optimization",
-              "experiment_type": "color_mixing",
+              "protocol": "color_mixing",
               "owner": "alice",
               "priority": 0,
-              "max_experiments": 100,
-              "max_concurrent_experiments": 3,
+              "max_protocol_runs": 100,
+              "max_concurrent_protocol_runs": 3,
               "optimize": true,
               "optimizer_ip": "127.0.0.1",
               "global_parameters": {
@@ -2620,12 +2620,12 @@ Submit a campaign to run an experiment multiple times, optionally with optimizer
          -H "Content-Type: application/json" \
          -d '{
               "name": "color_sweep",
-              "experiment_type": "color_mixing",
+              "protocol": "color_mixing",
               "owner": "alice",
-              "max_experiments": 3,
-              "max_concurrent_experiments": 1,
+              "max_protocol_runs": 3,
+              "max_concurrent_protocol_runs": 1,
               "optimize": false,
-              "experiment_parameters": [
+              "protocol_run_parameters": [
                 {"mix_colors": {"cyan_volume": 5, "cyan_strength": 50, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [0, 200, 200]}},
                 {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 5, "magenta_strength": 50, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 0, 200]}},
                 {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 5, "yellow_strength": 50, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 200, 0]}}
@@ -2634,12 +2634,12 @@ Submit a campaign to run an experiment multiple times, optionally with optimizer
 
 .. note::
 
-    When ``optimize`` is ``false``, ``experiment_parameters`` must have exactly ``max_experiments`` entries.
+    When ``optimize`` is ``false``, ``protocol_run_parameters`` must have exactly ``max_protocol_runs`` entries.
 
 
 Submitting On-Demand Tasks
 --------------------------
-Submit a single task for execution outside of an experiment.
+Submit a single task for execution outside of a protocol run.
 
 **Endpoint:** ``POST /api/tasks``
 
@@ -2673,12 +2673,12 @@ Submit a single task for execution outside of an experiment.
 
 Cancelling
 ----------
-Cancel a running experiment or campaign:
+Cancel a running protocol run or campaign:
 
 .. code-block:: bash
 
-    # Cancel an experiment
-    curl -X POST http://localhost:8070/api/experiments/my_experiment_1/cancel
+    # Cancel a protocol run
+    curl -X POST http://localhost:8070/api/protocols/my_protocol_run_1/cancel
 
     # Cancel a campaign
     curl -X POST http://localhost:8070/api/campaigns/color_optimization/cancel
@@ -2686,12 +2686,12 @@ Cancel a running experiment or campaign:
 
 Querying Status
 ---------------
-Get the status of experiments and campaigns:
+Get the status of protocols and campaigns:
 
 .. code-block:: bash
 
-    # Get experiment details
-    curl http://localhost:8070/api/experiments/my_experiment_1
+    # Get protocol run details
+    curl http://localhost:8070/api/protocols/my_protocol_run_1
 
     # Get campaign details
     curl http://localhost:8070/api/campaigns/color_optimization
@@ -2734,7 +2734,7 @@ or whatever host and port you have configured for the REST API server.
 
 Scheduling
 ==========
-EOS schedules experiments, meaning it determines *when* and *on which resources* tasks run.
+EOS schedules protocols, meaning it determines *when* and *on which resources* tasks run.
 Two scheduling policies are provided:
 
 - **Greedy**: starts tasks as soon as requirements are met (dependencies, devices/resources).
@@ -2756,7 +2756,7 @@ Select the scheduler in ``config.yml``:
 **Guidance**
 
 - Use **Greedy** for immediacy and simplicity (small/medium runs, low contention, "start ASAP" behavior).
-- Use **CP-SAT** for globally optimized scheduling (many tasks/experiments, shared resources, priorities, strict sequencing).
+- Use **CP-SAT** for globally optimized scheduling (many tasks/protocols, shared resources, priorities, strict sequencing).
 
 The greedy scheduler can achieve higher throughput than CP-SAT in graphs where task durations are highly variable.
 
@@ -2765,10 +2765,10 @@ The greedy scheduler can achieve higher throughput than CP-SAT in graphs where t
 
 Task durations
 --------------
-CP-SAT requires task durations. Each task in an ``experiment.yml`` must provide an expected duration in **seconds**.
+CP-SAT requires task durations. Each task in a ``protocol.yml`` must provide an expected duration in **seconds**.
 If omitted, tasks default to **1 second**.
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
@@ -2867,9 +2867,9 @@ For workflows that must run some tasks **back-to-back** without gaps (e.g., a ti
 
 Device and resource holds
 -------------------------
-When a task completes, its devices and resources are normally released immediately. In a multi-experiment
-environment another experiment could claim those resources before the successor task is scheduled. **Holds**
-prevent this by keeping the allocation locked until a successor in the same experiment picks it up.
+When a task completes, its devices and resources are normally released immediately. In a multi-protocol-run
+environment another protocol run could claim those resources before the successor task is scheduled. **Holds**
+prevent this by keeping the allocation locked until a successor in the same protocol run picks it up.
 
 Add ``hold: true`` to any device or resource slot to enable holding:
 
@@ -2900,10 +2900,10 @@ Add ``hold: true`` to any device or resource slot to enable holding:
 
 1. When a task with ``hold: true`` completes and has pending successors, its allocation is marked *held*
    rather than released.
-2. Held allocations are **transparent** to successor tasks in the same experiment: they see the device or
+2. Held allocations are **transparent** to successor tasks in the same protocol run: they see the device or
    resource as available.
 3. The hold is released when a successor picks it up without setting ``hold: true``, when no pending
-   successors remain, or when the experiment ends.
+   successors remain, or when the protocol run ends.
 
 Holds work with every assignment type: specific devices (``lab_name``/``name``), dynamic devices
 (``allocation_type: dynamic``), device references, specific resources, dynamic resources, and
@@ -2931,14 +2931,14 @@ Both schedulers fully support holds.
 .. tip::
    See :doc:`references` for details on passing devices and resources between tasks.
 
-Experiment priorities
----------------------
-Each experiment has an integer priority (default **0**; higher values = higher importance). Priority is set at
-submission time via the REST API or a campaign definition, not in ``experiment.yml``.
+Protocol run priorities
+----------------------
+Each protocol run has an integer priority (default **0**; higher values = higher importance). Priority is set at
+submission time via the REST API or a campaign definition, not in ``protocol.yml``.
 
 - **CP-SAT**: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
-  that higher-priority experiments get earlier task start times.
-- **Greedy**: processes experiments in priority order each scheduling cycle, giving higher-priority experiments
+  that higher-priority protocol runs get earlier task start times.
+- **Greedy**: processes protocol runs in priority order each scheduling cycle, giving higher-priority protocol runs
   first pick of available devices and resources.
 
 CP-SAT parameters
@@ -2960,7 +2960,7 @@ The CP-SAT scheduler exposes solver parameters that can be tuned for large or co
      - Number of CPU threads used by the solver.
 
 .. note::
-   The defaults work well for most workloads. Increase ``max_time_in_seconds`` for very large experiment
+   The defaults work well for most workloads. Increase ``max_time_in_seconds`` for very large protocol
    graphs where the solver needs more time to find a good schedule.
 
 Scheduling simulation
@@ -2989,8 +2989,8 @@ bottlenecks.
 
     packages:
       - my_package
-    experiments:
-      - type: my_experiment
+    protocols:
+      - type: my_protocol
         iterations: 10
         max_concurrent: 3
 
@@ -3008,10 +3008,10 @@ Comparison table
      - CP-SAT Scheduler
    * - Decision scope
      - ✅ Per-task, on demand
-     - ✅ Global schedule across experiments
+     - ✅ Global schedule across protocols
    * - Optimization goal
      - ✅ Start tasks ASAP
-     - ✅ Minimize experiment durations
+     - ✅ Minimize protocol run durations
    * - Device/resource holds
      - ✅ Supported
      - ✅ Supported
@@ -3027,12 +3027,12 @@ Comparison table
    * - Dynamic resource allocation
      - ✅ First available from eligible pool
      - ✅ Optimized choices to reduce conflicts
-   * - Experiment priorities
+   * - Protocol run priorities
      - ❌ Only for tie-breaks
      - ✅ Shapes overall completion order
-   * - Multi-experiment optimization
-     - ❌ Per experiment
-     - ✅ Joint scheduling of all experiments
+   * - Multi-protocol-run optimization
+     - ❌ Per protocol run
+     - ✅ Joint scheduling of all protocol runs
    * - Tuning / parameters
      - ❌ None
      - ✅ Solver knobs (time limit, workers, seed)
@@ -3446,7 +3446,7 @@ String
     file_prefix:
       type: str
       desc: Prefix for output file names
-      value: "experiment_"
+      value: "protocol_run_"
 
 Boolean
 """""""
@@ -3559,7 +3559,7 @@ The function takes three arguments:
 
 Web UI
 ======
-EOS includes a rich web UI for visually designing experiments, monitoring execution, controlling devices,
+EOS includes a rich web UI for visually designing protocols, monitoring execution, controlling devices,
 browsing results, and more. It connects to the EOS orchestrator and provides real-time updates.
 
 Access it at ``http://localhost:3000`` (default host and port).
@@ -3574,10 +3574,10 @@ Editor
 ------
 The editor is the central workspace for designing and building EOS packages.
 
-* Visual experiment designer with interactive task graphs showing dependencies and data flow
-* Build experiments by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
+* Visual protocol designer with interactive task graphs showing dependencies and data flow
+* Build protocols by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
 * Seamless switching between visual and code views (changes sync both ways)
-* Reload tasks, devices, labs, and experiments without restarting EOS
+* Reload tasks, devices, labs, and protocols without restarting EOS
 * Syntax-highlighted code editing for YAML configs and Python code
 * Package file tree for creating, renaming, and deleting entities
 
@@ -3590,18 +3590,18 @@ The tasks view manages individual task submissions.
 * Clone previous tasks for easy re-submission
 
 
-Experiments
------------
-The experiments view tracks individual experiment execution.
+Protocol Runs
+-------------
+The protocol runs view tracks individual protocol run execution.
 
-* Submit experiments with specific task parameters
+* Submit protocol runs with specific task parameters
 * Visual task flow graph with real-time status updates (pending, running, completed, failed)
 * Inspect task inputs, outputs, devices, and timing
 
 
 Campaigns
 ---------
-The campaigns view manages repeated experiment execution and optimization.
+The campaigns view manages repeated protocol run execution and optimization.
 
 * Submit campaigns with parameters as JSON/CSV, or via optimizer sampling
 * Configure optimizer settings when optimization is enabled
@@ -3634,7 +3634,7 @@ The management view handles system configuration.
 * **Labs** -- Load, unload, and reload laboratory configurations
 * **Devices** -- Device health status and lab assignments
 * **Task Plugins** -- Available task types and their parameter specs
-* **Experiment Types** -- Load, unload, and reload experiment configurations
+* **Protocol Types** -- Load, unload, and reload protocol configurations
 
 
 Logs

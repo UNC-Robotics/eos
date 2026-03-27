@@ -75,7 +75,7 @@ uv manages dependencies for EOS.
 
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example
 package. You can modify this in the configuration file.
 
 6. Launch the Web UI

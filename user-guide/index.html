@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -51,7 +51,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Installation" href="installation.html" />
-    <link rel="prev" title="The Experiment Orchestration System (EOS)" href="../index.html" />
+    <link rel="prev" title="The ProtocolRun Orchestration System (EOS)" href="../index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -316,7 +316,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -439,8 +439,8 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="resources.html#declaring-resources-in-task-specifications">Declaring resources in task specifications</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#assigning-resources-in-experiments">Assigning resources in experiments</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#experimentlevel-resource-metadata-optional">Experiment‑level resource metadata (optional)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="resources.html#assigning-resources-in-protocols">Assigning resources in protocols</a></li>
+<li class="toctree-l2"><a class="reference internal" href="resources.html#protocollevel-resource-metadata-optional">Protocol‑level resource metadata (optional)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="resources.html#allocation-and-exclusivity">Allocation and exclusivity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="resources.html#when-to-model-as-a-resource">When to model as a resource</a></li>
 </ul>
@@ -480,10 +480,10 @@
 <li class="toctree-l2"><a class="reference internal" href="references.html#minimal-example">Minimal example</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="experiments.html#experiment-implementation">Experiment Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="experiments.html#yaml-file-experiment-yml">YAML File (experiment.yml)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="experiments.html#optimizer-file-optimizer-py">Optimizer File (optimizer.py)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#protocol-implementation">Protocol Implementation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="protocols.html#yaml-file-protocol-yml">YAML File (protocol.yml)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="protocols.html#optimizer-file-optimizer-py">Optimizer File (optimizer.py)</a></li>
 </ul>
 </li>
 </ul>
@@ -528,7 +528,7 @@
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#device-and-resource-allocation">Device and resource allocation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#task-groups">Task groups</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#device-and-resource-holds">Device and resource holds</a></li>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#experiment-priorities">Experiment priorities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="scheduling.html#protocol-run-priorities">Protocol run priorities</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#cp-sat-parameters">CP-SAT parameters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#scheduling-simulation">Scheduling simulation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#comparison-table">Comparison table</a></li>
@@ -542,7 +542,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="web_ui.html#editor">Editor</a></li>
 <li class="toctree-l2"><a class="reference internal" href="web_ui.html#tasks">Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="web_ui.html#experiments">Experiments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="web_ui.html#protocol-runs">Protocol Runs</a></li>
 <li class="toctree-l2"><a class="reference internal" href="web_ui.html#campaigns">Campaigns</a></li>
 <li class="toctree-l2"><a class="reference internal" href="web_ui.html#device-inspector">Device Inspector</a></li>
 <li class="toctree-l2"><a class="reference internal" href="web_ui.html#files">Files</a></li>
@@ -551,7 +551,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="rest_api.html#submitting-experiments">Submitting Experiments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rest_api.html#submitting-protocol-runs">Submitting Protocol Runs</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rest_api.html#submitting-campaigns">Submitting Campaigns</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rest_api.html#submitting-on-demand-tasks">Submitting On-Demand Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rest_api.html#cancelling">Cancelling</a></li>
@@ -620,7 +620,7 @@
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#devices">Devices</a></li>
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#tasks">Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#laboratory">Laboratory</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#experiment">Experiment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#protocol">Protocol</a></li>
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#dynamic-parameters-and-optimization">Dynamic Parameters and Optimization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#references-between-tasks">References Between Tasks</a></li>
 </ul>
@@ -645,7 +645,7 @@
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">The Experiment Orchestration System (EOS)</p>
+        <p class="prev-next-title">The ProtocolRun Orchestration System (EOS)</p>
       </div>
     </a>
     <a class="right-next"

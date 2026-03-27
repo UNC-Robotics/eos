@@ -164,7 +164,7 @@ String
     file_prefix:
       type: str
       desc: Prefix for output file names
-      value: "experiment_"
+      value: "protocol_run_"
 
 Boolean
 """""""

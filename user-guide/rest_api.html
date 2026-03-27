@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -405,9 +405,9 @@
 <p>EOS has a REST API to control the orchestrator.
 Example functions include:</p>
 <ul class="simple">
-<li><p>Submit tasks, experiments, and campaigns, as well as cancel them</p></li>
-<li><p>Load, unload, and reload experiments and laboratories</p></li>
-<li><p>Get the status of tasks, experiments, and campaigns</p></li>
+<li><p>Submit tasks, protocols, and campaigns, as well as cancel them</p></li>
+<li><p>Load, unload, and reload protocols and laboratories</p></li>
+<li><p>Get the status of tasks, protocols, and campaigns</p></li>
 <li><p>Download task output files</p></li>
 </ul>
 <div class="admonition warning">
@@ -415,14 +415,14 @@ Example functions include:</p>
 <p>The REST API has no authentication. Only expose it on trusted networks.
 Use a VPN or reverse proxy with auth if remote access is needed.</p>
 </div>
-<section id="submitting-experiments">
-<h2>Submitting Experiments<a class="headerlink" href="#submitting-experiments" title="Link to this heading">#</a></h2>
-<p>Submit an experiment for execution. All dynamic parameters (<code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>) must be provided via <code class="docutils literal notranslate"><span class="pre">parameters</span></code>.</p>
-<p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/experiments</span></code></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/experiments<span class="w"> </span><span class="se">\</span>
+<section id="submitting-protocol-runs">
+<h2>Submitting Protocol Runs<a class="headerlink" href="#submitting-protocol-runs" title="Link to this heading">#</a></h2>
+<p>Submit a protocol run for execution. All dynamic parameters (<code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>) must be provided via <code class="docutils literal notranslate"><span class="pre">parameters</span></code>.</p>
+<p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/protocols</span></code></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/protocols<span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
-<span class="s1">          &quot;name&quot;: &quot;my_experiment_1&quot;,</span>
+<span class="s1">          &quot;name&quot;: &quot;my_protocol_run_1&quot;,</span>
 <span class="s1">          &quot;type&quot;: &quot;color_mixing&quot;,</span>
 <span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
 <span class="s1">          &quot;priority&quot;: 0,</span>
@@ -449,18 +449,18 @@ Use a VPN or reverse proxy with auth if remote access is needed.</p>
 </section>
 <section id="submitting-campaigns">
 <h2>Submitting Campaigns<a class="headerlink" href="#submitting-campaigns" title="Link to this heading">#</a></h2>
-<p>Submit a campaign to run an experiment multiple times, optionally with optimizer-driven parameter selection.</p>
+<p>Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameter selection.</p>
 <p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/campaigns</span></code></p>
 <p><strong>With optimization</strong> (optimizer proposes parameters each iteration):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns<span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
 <span class="s1">          &quot;name&quot;: &quot;color_optimization&quot;,</span>
-<span class="s1">          &quot;experiment_type&quot;: &quot;color_mixing&quot;,</span>
+<span class="s1">          &quot;protocol&quot;: &quot;color_mixing&quot;,</span>
 <span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
 <span class="s1">          &quot;priority&quot;: 0,</span>
-<span class="s1">          &quot;max_experiments&quot;: 100,</span>
-<span class="s1">          &quot;max_concurrent_experiments&quot;: 3,</span>
+<span class="s1">          &quot;max_protocol_runs&quot;: 100,</span>
+<span class="s1">          &quot;max_concurrent_protocol_runs&quot;: 3,</span>
 <span class="s1">          &quot;optimize&quot;: true,</span>
 <span class="s1">          &quot;optimizer_ip&quot;: &quot;127.0.0.1&quot;,</span>
 <span class="s1">          &quot;global_parameters&quot;: {</span>
@@ -476,12 +476,12 @@ Use a VPN or reverse proxy with auth if remote access is needed.</p>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
 <span class="s1">          &quot;name&quot;: &quot;color_sweep&quot;,</span>
-<span class="s1">          &quot;experiment_type&quot;: &quot;color_mixing&quot;,</span>
+<span class="s1">          &quot;protocol&quot;: &quot;color_mixing&quot;,</span>
 <span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
-<span class="s1">          &quot;max_experiments&quot;: 3,</span>
-<span class="s1">          &quot;max_concurrent_experiments&quot;: 1,</span>
+<span class="s1">          &quot;max_protocol_runs&quot;: 3,</span>
+<span class="s1">          &quot;max_concurrent_protocol_runs&quot;: 1,</span>
 <span class="s1">          &quot;optimize&quot;: false,</span>
-<span class="s1">          &quot;experiment_parameters&quot;: [</span>
+<span class="s1">          &quot;protocol_run_parameters&quot;: [</span>
 <span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 5, &quot;cyan_strength&quot;: 50, &quot;magenta_volume&quot;: 0, &quot;magenta_strength&quot;: 0, &quot;yellow_volume&quot;: 0, &quot;yellow_strength&quot;: 0, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [0, 200, 200]}},</span>
 <span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 0, &quot;cyan_strength&quot;: 0, &quot;magenta_volume&quot;: 5, &quot;magenta_strength&quot;: 50, &quot;yellow_volume&quot;: 0, &quot;yellow_strength&quot;: 0, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [200, 0, 200]}},</span>
 <span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 0, &quot;cyan_strength&quot;: 0, &quot;magenta_volume&quot;: 0, &quot;magenta_strength&quot;: 0, &quot;yellow_volume&quot;: 5, &quot;yellow_strength&quot;: 50, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [200, 200, 0]}}</span>
@@ -491,12 +491,12 @@ Use a VPN or reverse proxy with auth if remote access is needed.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>When <code class="docutils literal notranslate"><span class="pre">optimize</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">experiment_parameters</span></code> must have exactly <code class="docutils literal notranslate"><span class="pre">max_experiments</span></code> entries.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">optimize</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">protocol_run_parameters</span></code> must have exactly <code class="docutils literal notranslate"><span class="pre">max_protocol_runs</span></code> entries.</p>
 </div>
 </section>
 <section id="submitting-on-demand-tasks">
 <h2>Submitting On-Demand Tasks<a class="headerlink" href="#submitting-on-demand-tasks" title="Link to this heading">#</a></h2>
-<p>Submit a single task for execution outside of an experiment.</p>
+<p>Submit a single task for execution outside of a protocol run.</p>
 <p><strong>Endpoint:</strong> <code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/tasks</span></code></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/tasks<span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
@@ -527,9 +527,9 @@ Use a VPN or reverse proxy with auth if remote access is needed.</p>
 </section>
 <section id="cancelling">
 <h2>Cancelling<a class="headerlink" href="#cancelling" title="Link to this heading">#</a></h2>
-<p>Cancel a running experiment or campaign:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cancel an experiment</span>
-curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/experiments/my_experiment_1/cancel
+<p>Cancel a running protocol run or campaign:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cancel a protocol run</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/protocols/my_protocol_run_1/cancel
 
 <span class="c1"># Cancel a campaign</span>
 curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimization/cancel
@@ -538,9 +538,9 @@ curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </spa
 </section>
 <section id="querying-status">
 <h2>Querying Status<a class="headerlink" href="#querying-status" title="Link to this heading">#</a></h2>
-<p>Get the status of experiments and campaigns:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get experiment details</span>
-curl<span class="w"> </span>http://localhost:8070/api/experiments/my_experiment_1
+<p>Get the status of protocols and campaigns:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Get protocol run details</span>
+curl<span class="w"> </span>http://localhost:8070/api/protocols/my_protocol_run_1
 
 <span class="c1"># Get campaign details</span>
 curl<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimization
@@ -625,7 +625,7 @@ curl<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimizati
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-experiments">Submitting Experiments</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-protocol-runs">Submitting Protocol Runs</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-campaigns">Submitting Campaigns</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submitting-on-demand-tasks">Submitting On-Demand Tasks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cancelling">Cancelling</a></li>

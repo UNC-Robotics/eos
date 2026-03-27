@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -403,9 +403,9 @@
   <section id="mcp-server">
 <h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading">#</a></h1>
 <p>EOS exposes a <a class="reference external" href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server through its web UI.
-This allows AI assistants like Claude to interact with EOS directly, querying experiments, submitting campaigns, inspecting devices, and more.</p>
+This allows AI assistants like Claude to interact with EOS directly, querying protocols, submitting campaigns, inspecting devices, and more.</p>
 <p>Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
-“check the status of my campaign”, “submit 10 multiplication experiments”, or “what functions does the pipette support?”</p>
+“check the status of my campaign”, “submit 10 multiplication protocols”, or “what functions does the pipette support?”</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>The MCP endpoint currently has no authentication.
@@ -444,9 +444,9 @@ Replace <code class="docutils literal notranslate"><span class="pre">localhost:3
 <h2>Capabilities<a class="headerlink" href="#capabilities" title="Link to this heading">#</a></h2>
 <p>The MCP server exposes 50 tools across the following categories:</p>
 <ul class="simple">
-<li><p><strong>Campaigns, Experiments, Tasks</strong> – List, inspect, submit, and cancel at every level of the execution hierarchy.</p></li>
-<li><p><strong>Definitions</strong> – Browse loaded task types, device types, lab layouts, and experiment workflows.</p></li>
-<li><p><strong>Management</strong> – Load, unload, and reload labs, experiments, devices, and packages.</p></li>
+<li><p><strong>Campaigns, Protocol Runs, Tasks</strong> – List, inspect, submit, and cancel at every level of the execution hierarchy.</p></li>
+<li><p><strong>Definitions</strong> – Browse loaded task types, device types, lab layouts, and protocol workflows.</p></li>
+<li><p><strong>Management</strong> – Load, unload, and reload labs, protocols, devices, and packages.</p></li>
 <li><p><strong>Optimizer</strong> – Query optimizer state, update runtime parameters, and provide expert insights.</p></li>
 <li><p><strong>Devices</strong> – List devices, inspect state, discover available RPC functions, and call them directly.</p></li>
 <li><p><strong>SQL</strong> – Run read-only queries against the EOS database.</p></li>
@@ -456,15 +456,15 @@ Replace <code class="docutils literal notranslate"><span class="pre">localhost:3
 <section id="examples">
 <h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h2>
 <p>These examples show natural language prompts you might give an AI assistant connected to EOS via MCP.</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Show me the status of the catalyst_screening campaign and list all completed experiments&quot;
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Show me the status of the catalyst_screening campaign and list all completed protocols&quot;
 
-&quot;Submit a color mixing experiment targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis&quot;
+&quot;Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis&quot;
 
 &quot;What devices are available in the wet lab? What functions does the liquid handler support?&quot;
 
-&quot;How did the yield change across the last 10 experiments in the solubility campaign?&quot;
+&quot;How did the yield change across the last 10 protocols in the solubility campaign?&quot;
 
-&quot;Reload the experiment definitions, I just updated the YAML for the pH optimization workflow&quot;
+&quot;Reload the protocol definitions, I just updated the YAML for the pH optimization workflow&quot;
 </pre></div>
 </div>
 </section>

@@ -1,6 +1,6 @@
 Scheduling
 ==========
-EOS schedules experiments, meaning it determines *when* and *on which resources* tasks run.
+EOS schedules protocols, meaning it determines *when* and *on which resources* tasks run.
 Two scheduling policies are provided:
 
 - **Greedy**: starts tasks as soon as requirements are met (dependencies, devices/resources).
@@ -22,7 +22,7 @@ Select the scheduler in ``config.yml``:
 **Guidance**
 
 - Use **Greedy** for immediacy and simplicity (small/medium runs, low contention, "start ASAP" behavior).
-- Use **CP-SAT** for globally optimized scheduling (many tasks/experiments, shared resources, priorities, strict sequencing).
+- Use **CP-SAT** for globally optimized scheduling (many tasks/protocols, shared resources, priorities, strict sequencing).
 
 The greedy scheduler can achieve higher throughput than CP-SAT in graphs where task durations are highly variable.
 
@@ -31,10 +31,10 @@ The greedy scheduler can achieve higher throughput than CP-SAT in graphs where t
 
 Task durations
 --------------
-CP-SAT requires task durations. Each task in an ``experiment.yml`` must provide an expected duration in **seconds**.
+CP-SAT requires task durations. Each task in a ``protocol.yml`` must provide an expected duration in **seconds**.
 If omitted, tasks default to **1 second**.
 
-:bdg-primary:`experiment.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml
 
@@ -133,9 +133,9 @@ For workflows that must run some tasks **back-to-back** without gaps (e.g., a ti
 
 Device and resource holds
 -------------------------
-When a task completes, its devices and resources are normally released immediately. In a multi-experiment
-environment another experiment could claim those resources before the successor task is scheduled. **Holds**
-prevent this by keeping the allocation locked until a successor in the same experiment picks it up.
+When a task completes, its devices and resources are normally released immediately. In a multi-protocol-run
+environment another protocol run could claim those resources before the successor task is scheduled. **Holds**
+prevent this by keeping the allocation locked until a successor in the same protocol run picks it up.
 
 Add ``hold: true`` to any device or resource slot to enable holding:
 
@@ -166,10 +166,10 @@ Add ``hold: true`` to any device or resource slot to enable holding:
 
 1. When a task with ``hold: true`` completes and has pending successors, its allocation is marked *held*
    rather than released.
-2. Held allocations are **transparent** to successor tasks in the same experiment: they see the device or
+2. Held allocations are **transparent** to successor tasks in the same protocol run: they see the device or
    resource as available.
 3. The hold is released when a successor picks it up without setting ``hold: true``, when no pending
-   successors remain, or when the experiment ends.
+   successors remain, or when the protocol run ends.
 
 Holds work with every assignment type: specific devices (``lab_name``/``name``), dynamic devices
 (``allocation_type: dynamic``), device references, specific resources, dynamic resources, and
@@ -197,14 +197,14 @@ Both schedulers fully support holds.
 .. tip::
    See :doc:`references` for details on passing devices and resources between tasks.
 
-Experiment priorities
----------------------
-Each experiment has an integer priority (default **0**; higher values = higher importance). Priority is set at
-submission time via the REST API or a campaign definition, not in ``experiment.yml``.
+Protocol run priorities
+----------------------
+Each protocol run has an integer priority (default **0**; higher values = higher importance). Priority is set at
+submission time via the REST API or a campaign definition, not in ``protocol.yml``.
 
 - **CP-SAT**: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
-  that higher-priority experiments get earlier task start times.
-- **Greedy**: processes experiments in priority order each scheduling cycle, giving higher-priority experiments
+  that higher-priority protocol runs get earlier task start times.
+- **Greedy**: processes protocol runs in priority order each scheduling cycle, giving higher-priority protocol runs
   first pick of available devices and resources.
 
 CP-SAT parameters
@@ -226,7 +226,7 @@ The CP-SAT scheduler exposes solver parameters that can be tuned for large or co
      - Number of CPU threads used by the solver.
 
 .. note::
-   The defaults work well for most workloads. Increase ``max_time_in_seconds`` for very large experiment
+   The defaults work well for most workloads. Increase ``max_time_in_seconds`` for very large protocol
    graphs where the solver needs more time to find a good schedule.
 
 Scheduling simulation
@@ -255,8 +255,8 @@ bottlenecks.
 
     packages:
       - my_package
-    experiments:
-      - type: my_experiment
+    protocols:
+      - type: my_protocol
         iterations: 10
         max_concurrent: 3
 
@@ -274,10 +274,10 @@ Comparison table
      - CP-SAT Scheduler
    * - Decision scope
      - ✅ Per-task, on demand
-     - ✅ Global schedule across experiments
+     - ✅ Global schedule across protocols
    * - Optimization goal
      - ✅ Start tasks ASAP
-     - ✅ Minimize experiment durations
+     - ✅ Minimize protocol run durations
    * - Device/resource holds
      - ✅ Supported
      - ✅ Supported
@@ -293,12 +293,12 @@ Comparison table
    * - Dynamic resource allocation
      - ✅ First available from eligible pool
      - ✅ Optimized choices to reduce conflicts
-   * - Experiment priorities
+   * - Protocol run priorities
      - ❌ Only for tie-breaks
      - ✅ Shapes overall completion order
-   * - Multi-experiment optimization
-     - ❌ Per experiment
-     - ✅ Joint scheduling of all experiments
+   * - Multi-protocol-run optimization
+     - ❌ Per protocol run
+     - ✅ Joint scheduling of all protocol runs
    * - Tuning / parameters
      - ❌ None
      - ✅ Solver knobs (time limit, workers, seed)

@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=eec840cd"></script>
+    <script src="../_static/documentation_options.js?v=8a079089"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -124,7 +124,7 @@
     <img src="../_static/eos-logo.png" class="logo__image only-dark pst-js-only" alt=""/>
   
   
-    <p class="title logo__title">Experiment Orchestration System</p>
+    <p class="title logo__title">ProtocolRun Orchestration System</p>
   
 </a></div>
     
@@ -320,7 +320,7 @@
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="experiments.html">Experiments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -404,17 +404,17 @@
 <h1>Packages<a class="headerlink" href="#packages" title="Link to this heading">#</a></h1>
 <p>Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
 Each package is essentially a folder.
-These packages can contain laboratory, device, task, and experiment definitions, code, and data, allowing reuse and
+These packages can contain laboratory, device, task, and protocol definitions, code, and data, allowing reuse and
 sharing.
 For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
-another package may only contain experiments that run on a specific lab.</p>
+another package may only contain protocols that run on a specific lab.</p>
 <figure class="align-center">
 <img alt="EOS package" src="../_images/package.png" />
 </figure>
 <p>Using a package is as simple as placing it in a directory that EOS loads packages from.
 By default, this directory is called <cite>user</cite> and is located in the root of the EOS repository.</p>
 <p>Below is the directory tree of an example EOS package called “color_lab”.
-It contains a laboratory called “color_lab”, the “color_mixing” experiment, and
+It contains a laboratory called “color_lab”, the “color_mixing” protocol, and
 various devices and tasks. The package also contains a device client under <cite>common</cite>,
 and a README file.</p>
 <figure class="align-center">
