@@ -1,4 +1,4 @@
-# EOS - ProtocolRun Orchestration System Documentation
+# EOS - Experiment Orchestration System Documentation
 
 # File: index.rst
 ================================================================================
