@@ -12,7 +12,7 @@ class DefinitionService:
         Get all definitions, optionally filtered by type.
 
         :param db: Database session
-        :param def_type: Optional type filter (task, device, lab, experiment)
+        :param def_type: Optional type filter (task, device, lab, protocol)
         :return: List of definitions
         """
         stmt = select(DefinitionModel).where(DefinitionModel.type == def_type) if def_type else select(DefinitionModel)
@@ -26,7 +26,7 @@ class DefinitionService:
         Get a single definition by type and name.
 
         :param db: Database session
-        :param def_type: Definition type (task, device, lab, experiment)
+        :param def_type: Definition type (task, device, lab, protocol)
         :param name: Definition name
         :return: Definition if found, None otherwise
         """

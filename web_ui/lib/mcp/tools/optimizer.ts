@@ -9,18 +9,18 @@ export function registerOptimizerTools(server: McpServer) {
     {
       title: 'Get Optimizer Defaults',
       description:
-        'Get default optimizer parameters for an experiment type, including inputs, outputs, constraints, and tuning params.',
+        'Get default optimizer parameters for a protocol, including inputs, outputs, constraints, and tuning params.',
       inputSchema: {
-        experiment_type: z.string().describe('Experiment type name'),
+        protocol: z.string().describe('ProtocolRun type name'),
       },
     },
-    async ({ experiment_type }) => {
+    async ({ protocol }) => {
       try {
         const result = (await orchestratorGet(
-          `/campaigns/optimizer/defaults/${encodeURIComponent(experiment_type)}/`
+          `/campaigns/optimizer/defaults/${encodeURIComponent(protocol)}/`
         )) as Record<string, unknown>;
 
-        const lines = [`Optimizer Defaults for "${experiment_type}"`, `Type: ${result.optimizer_type ?? 'unknown'}`];
+        const lines = [`Optimizer Defaults for "${protocol}"`, `Type: ${result.optimizer_type ?? 'unknown'}`];
 
         const params = result.params as Record<string, unknown> | undefined;
         if (params) {
@@ -146,7 +146,7 @@ export function registerOptimizerTools(server: McpServer) {
     {
       title: 'Add Optimizer Insight',
       description:
-        'Add an expert insight to the optimizer for a campaign. Insights guide the AI in future experiment suggestions.',
+        'Add an expert insight to the optimizer for a campaign. Insights guide the AI in future protocol run suggestions.',
       inputSchema: {
         campaign_name: z.string().describe('Campaign name'),
         insight: z.string().describe('Expert insight text to add'),

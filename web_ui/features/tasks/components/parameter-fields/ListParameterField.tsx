@@ -1,5 +1,6 @@
 import { memo, useState, useEffect } from 'react';
-import { ParameterSpec } from '@/lib/types/experiment';
+import { ParameterSpec } from '@/lib/types/protocol';
+import { DescriptionTooltip } from '@/components/ui/DescriptionTooltip';
 import { validateList } from '@/lib/validation/parameter-validation';
 
 interface ListParameterFieldProps {
@@ -55,19 +56,12 @@ export const ListParameterField = memo(({ name, spec, value, onChange }: ListPar
     }
   };
 
-  const getHint = () => {
-    const hints: string[] = [];
-
-    if (spec.element_type) {
-      hints.push(`element type: ${spec.element_type}`);
-    }
-
-    if (spec.length !== undefined) {
-      hints.push(`length: ${spec.length}`);
-    }
-
-    return hints.length > 0 ? ` (${hints.join(', ')})` : '';
-  };
+  const constraints = [
+    spec.element_type && `element type: ${spec.element_type}`,
+    spec.length !== undefined && `length: ${spec.length}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const getPlaceholder = () => {
     if (spec.element_type) {
@@ -84,23 +78,23 @@ export const ListParameterField = memo(({ name, spec, value, onChange }: ListPar
   };
 
   return (
-    <div className="border border-gray-200 dark:border-slate-700 rounded-md p-3 bg-white dark:bg-slate-800">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+    <div className="border border-gray-200 dark:border-slate-700 rounded-md px-3 py-2 bg-white dark:bg-slate-800">
+      <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {name}
-        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
-          ({spec.type}
-          {getHint()})
+        <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-700 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+          {spec.type}
         </span>
+        {(spec.desc || constraints) && (
+          <DescriptionTooltip description={spec.desc} constraints={constraints || undefined} />
+        )}
       </label>
-
-      {spec.desc && <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{spec.desc}</p>}
 
       <textarea
         value={textValue}
         onChange={handleChange}
-        rows={3}
+        rows={2}
         placeholder={getPlaceholder()}
-        className={`w-full px-2.5 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 font-mono ${
+        className={`w-full px-2.5 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 font-mono ${
           error
             ? 'border-red-500 focus:ring-red-500'
             : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500 dark:focus:ring-yellow-500'
@@ -108,8 +102,6 @@ export const ListParameterField = memo(({ name, spec, value, onChange }: ListPar
       />
 
       {error && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{error}</p>}
-
-      <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Enter a JSON array, e.g., {getPlaceholder()}</p>
     </div>
   );
 });

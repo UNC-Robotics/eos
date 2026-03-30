@@ -35,8 +35,8 @@ class TaskService:
 
         self._on_demand_futures: dict[str, asyncio.Task] = {}
 
-    async def get_task(self, db: AsyncDbSession, experiment_name: str, task_name: str) -> Task:
-        return await self._task_manager.get_task(db, experiment_name, task_name)
+    async def get_task(self, db: AsyncDbSession, protocol_run_name: str, task_name: str) -> Task:
+        return await self._task_manager.get_task(db, protocol_run_name, task_name)
 
     async def submit_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> None:
         """Submit an on-demand task. Routes through the scheduler for unified scheduling."""
@@ -59,9 +59,9 @@ class TaskService:
             log.error(f"Failed to submit task '{task_submission.name}': {traceback.format_exc()}")
             raise
 
-    async def cancel_task(self, task_name: str, experiment_name: str | None = None) -> None:
+    async def cancel_task(self, task_name: str, protocol_run_name: str | None = None) -> None:
         try:
-            await self._task_executor.cancel_task(experiment_name, task_name)
+            await self._task_executor.cancel_task(protocol_run_name, task_name)
             self._on_demand_futures.pop(task_name, None)
         except EosTaskCancellationError:
             log.error(f"Failed to cancel task '{task_name}'.")
@@ -72,12 +72,12 @@ class TaskService:
         if not running_tasks:
             return
 
-        task_keys = [(t.experiment_name, t.name) for t in running_tasks]
+        task_keys = [(t.protocol_run_name, t.name) for t in running_tasks]
         await self._task_manager.fail_tasks_batch(
             db, task_keys, error_message="Task was running when the orchestrator restarted"
         )
         for task in running_tasks:
-            log.warning(f"EXP '{task.experiment_name}' - Failed task '{task.name}'.")
+            log.warning(f"RUN '{task.protocol_run_name}' - Failed task '{task.name}'.")
         log.warning("All running tasks have been marked as failed. Please review the state of the system.")
 
     async def get_task_types(self) -> list[str]:

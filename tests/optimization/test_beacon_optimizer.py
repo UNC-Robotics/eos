@@ -98,14 +98,14 @@ class TestBeaconOptimizer:
         )
 
         # Consume all 5 initial samples in one batch
-        params_batch = await optimizer.sample(num_experiments=5)
+        params_batch = await optimizer.sample(num_protocol_runs=5)
         assert len(params_batch) == 5
 
-        # Report only 1 result (simulating 1 experiment completing before the others)
+        # Report only 1 result (simulating 1 protocol run completing before the others)
         first_params = params_batch.iloc[[0]]
         first_results = pd.DataFrame({"y": -((first_params["x"] - 2) ** 2) + 4})
         await optimizer.report(first_params, first_results)
 
         # Request 1 more sample to fill the empty slot — this should NOT raise
-        extra = await optimizer.sample(num_experiments=1)
+        extra = await optimizer.sample(num_protocol_runs=1)
         assert len(extra) == 1

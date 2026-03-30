@@ -70,9 +70,9 @@ devices: {}
 `,
     python: '',
   },
-  experiments: {
-    yaml: `type: my_experiment
-desc: Description of the experiment
+  protocols: {
+    yaml: `type: my_protocol
+desc: Description of the protocol
 
 labs: []
 
@@ -127,7 +127,7 @@ export async function scanPackages(): Promise<Package[]> {
     const packagePath = path.join(userDir, packageName);
 
     // Check which entity types exist
-    const [hasDevices, hasTasks, hasLabs, hasExperiments] = await Promise.all([
+    const [hasDevices, hasTasks, hasLabs, hasProtocols] = await Promise.all([
       fs
         .access(path.join(packagePath, 'devices'))
         .then(() => true)
@@ -141,20 +141,20 @@ export async function scanPackages(): Promise<Package[]> {
         .then(() => true)
         .catch(() => false),
       fs
-        .access(path.join(packagePath, 'experiments'))
+        .access(path.join(packagePath, 'protocols'))
         .then(() => true)
         .catch(() => false),
     ]);
 
     // Only include if it has at least one entity directory (valid EOS package)
-    if (hasDevices || hasTasks || hasLabs || hasExperiments) {
+    if (hasDevices || hasTasks || hasLabs || hasProtocols) {
       packages.push({
         name: packageName,
         path: packagePath,
         hasDevices,
         hasTasks,
         hasLabs,
-        hasExperiments,
+        hasProtocols,
       });
     }
   }
@@ -172,10 +172,10 @@ export async function getPackageTree(packageName: string): Promise<EntityTree> {
     devices: [],
     tasks: [],
     labs: [],
-    experiments: [],
+    protocols: [],
   };
 
-  const entityTypes: EntityType[] = ['devices', 'tasks', 'labs', 'experiments'];
+  const entityTypes: EntityType[] = ['devices', 'tasks', 'labs', 'protocols'];
 
   for (const entityType of entityTypes) {
     const entityDir = path.join(packagePath, entityType);
@@ -239,7 +239,7 @@ export async function readEntityFiles(
 
   const yamlPath = path.join(entityPath, fileNames.yaml);
   const pythonPath = fileNames.python ? path.join(entityPath, fileNames.python) : '';
-  const jsonPath = entityType === 'experiments' ? path.join(entityPath, 'layout.json') : '';
+  const jsonPath = entityType === 'protocols' ? path.join(entityPath, 'layout.json') : '';
 
   const yamlContent = await fs.readFile(yamlPath, 'utf-8').catch(() => '');
   const python = pythonPath ? await fs.readFile(pythonPath, 'utf-8').catch(() => '') : '';
@@ -277,8 +277,8 @@ export async function writeEntityFiles(
     await fs.writeFile(path.join(entityPath, fileNames.python), files.python, 'utf-8');
   }
 
-  // Write JSON layout file for experiments
-  if (entityType === 'experiments' && files.json) {
+  // Write JSON layout file for protocols
+  if (entityType === 'protocols' && files.json) {
     await fs.writeFile(path.join(entityPath, 'layout.json'), files.json, 'utf-8');
   }
 }
@@ -305,9 +305,9 @@ export async function createEntity(packageName: string, entityType: EntityType, 
   const template = ENTITY_TEMPLATES[entityType];
   let yamlContent = template.yaml;
 
-  // For experiments, replace the template type with the entity name
-  if (entityType === 'experiments') {
-    yamlContent = yamlContent.replace('type: my_experiment', `type: ${entityName}`);
+  // For protocols, replace the template type with the entity name
+  if (entityType === 'protocols') {
+    yamlContent = yamlContent.replace('type: my_protocol', `type: ${entityName}`);
   }
 
   await fs.writeFile(path.join(entityPath, fileNames.yaml), yamlContent, 'utf-8');
@@ -355,8 +355,8 @@ export async function renameEntity(
   // Rename the directory
   await fs.rename(oldPath, newPath);
 
-  // For experiments, also update the type field in the YAML to match the new name
-  if (entityType === 'experiments') {
+  // For protocols, also update the type field in the YAML to match the new name
+  if (entityType === 'protocols') {
     const fileNames = ENTITY_FILE_NAMES[entityType];
     const yamlPath = path.join(newPath, fileNames.yaml);
 
@@ -370,7 +370,7 @@ export async function renameEntity(
         await fs.writeFile(yamlPath, newYamlContent, 'utf-8');
       }
     } catch (error) {
-      console.error('Failed to update experiment type after rename:', error);
+      console.error('Failed to update protocol type after rename:', error);
       // Don't fail the rename operation if we can't update the YAML
     }
   }

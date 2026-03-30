@@ -13,21 +13,21 @@ EOS is a software framework and runtime for laboratory automation, designed to s
 the foundation for one or more automated or self-driving labs (SDLs).
 
 **Core**
-* Plugin system for defining labs, devices, tasks, experiments, and optimizers
+* Plugin system for defining labs, devices, tasks, protocols, and optimizers
 * Package system for sharing and reusing automation code
-* Validation of experiments, parameters, and configurations at load time and runtime
+* Validation of protocols, parameters, and configurations at load time and runtime
 
 **Execution & Scheduling**
-* Central orchestrator that coordinates devices and experiments across multiple computers
+* Central orchestrator that coordinates devices and protocols across multiple computers
 * Intelligent task scheduling with dynamic device and resource allocation
 * Scheduling simulation for testing strategies offline without hardware
 
 **Optimization**
-* Built-in Bayesian optimization for experiment campaigns, with single and multi-objective support
+* Built-in Bayesian optimization for protocol run campaigns, with single and multi-objective support
 * Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
 
 **Interfaces**
-* Web UI with visual experiment editor, real-time monitoring, device inspector, and file browser
+* Web UI with visual protocol editor, real-time monitoring, device inspector, and file browser
 * REST API with OpenAPI documentation
 * MCP server for connecting AI assistants
 * SiLA 2 instrument protocol integration
@@ -78,21 +78,26 @@ run with Docker Compose.
    eos start
    ```
 
-6. **Install the Web UI**
+6. **Configure the Web UI**
    ```shell
    cd web_ui
-   npm install
-   ```
-
-7. **Configure the Web UI**
-   ```shell
    cp .env.example .env
    # Edit .env and provide values
    ```
 
-8. **Start the Web UI** (in a new terminal)
+7. **Launch the Web UI**
+
+   **Option A: Without Docker**
    ```shell
+   npm install
    eos ui
+   ```
+
+   **Option B: With Docker**
+   ```shell
+   cp .env.docker.example .env.docker
+   # Edit .env.docker and provide values
+   docker compose up -d
    ```
 
 ## Citation

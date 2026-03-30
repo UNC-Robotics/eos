@@ -75,30 +75,29 @@ uv manages dependencies for EOS.
 
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" experiment from an example
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example
 package. You can modify this in the configuration file.
 
-6. Install the Web UI
-^^^^^^^^^^^^^^^^^^^^^
+6. Launch the Web UI
+^^^^^^^^^^^^^^^^^^^^
+
+**Option A: Without Docker**
 
 .. code-block:: shell
 
     cd web_ui
-    npm install
-
-7. Configure the Web UI
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: shell
-
     cp .env.example .env
     # Edit .env and provide values
+    npm install
+    eos ui
 
-8. Start the Web UI (in a new terminal)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**Option B: With Docker**
 
 .. code-block:: shell
 
-    eos ui
+    cd web_ui
+    cp .env.docker.example .env.docker
+    # Edit .env.docker and provide values
+    docker compose up -d
 
 The web UI is available at ``http://localhost:3000``.

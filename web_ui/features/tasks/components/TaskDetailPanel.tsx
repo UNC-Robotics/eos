@@ -56,12 +56,12 @@ export function TaskDetailPanel({ task, open, onOpenChange }: TaskDetailPanelPro
                 </div>
               </div>
 
-              {task.experiment_name && (
+              {task.protocol_run_name && (
                 <div>
                   <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Experiment
+                    Protocol Run
                   </div>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{task.experiment_name}</div>
+                  <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{task.protocol_run_name}</div>
                 </div>
               )}
 
@@ -145,7 +145,7 @@ export function TaskDetailPanel({ task, open, onOpenChange }: TaskDetailPanelPro
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <TaskOutputFiles
                   fileNames={task.output_file_names}
-                  experimentName={task.experiment_name ?? null}
+                  protocolRunName={task.protocol_run_name ?? null}
                   taskName={task.name}
                 />
               </div>

@@ -51,11 +51,11 @@ type SortOrder = 'completion' | 'index';
 
 const SORT_OPTIONS: { label: string; value: SortOrder }[] = [
   { label: 'Completion Order', value: 'completion' },
-  { label: 'Experiment Index', value: 'index' },
+  { label: 'Protocol Run Index', value: 'index' },
 ];
 
-function getExpNumber(name: string): number {
-  const match = name.match(/_exp_(\d+)$/);
+function getRunNumber(name: string): number {
+  const match = name.match(/_(\d+)$/);
   return match ? parseInt(match[1]) : 0;
 }
 
@@ -70,14 +70,14 @@ export function OptimizationProgressChart({ samples, outputNames, campaignName }
 
   const orderedSamples = React.useMemo(() => {
     if (sortOrder === 'completion') return samples;
-    return [...samples].sort((a, b) => getExpNumber(a.experimentName) - getExpNumber(b.experimentName));
+    return [...samples].sort((a, b) => getRunNumber(a.protocolRunName) - getRunNumber(b.protocolRunName));
   }, [samples, sortOrder]);
 
   const chartData = React.useMemo(() => {
     const colors = isDark ? COLORS_DARK : COLORS_LIGHT;
     const labels = orderedSamples.map((s) => {
-      const match = s.experimentName.match(/_exp_(\d+)$/);
-      return match ? match[1] : s.experimentName;
+      const match = s.protocolRunName.match(/_(\d+)$/);
+      return match ? match[1] : s.protocolRunName;
     });
 
     const datasets = outputNames.map((name, idx) => ({
@@ -116,7 +116,7 @@ export function OptimizationProgressChart({ samples, outputNames, campaignName }
         },
         tooltip: {
           callbacks: {
-            title: (items) => `Experiment ${items[0].label}`,
+            title: (items) => `Protocol Run ${items[0].label}`,
             label: (context) => {
               const value = context.parsed.y;
               return `${context.dataset.label}: ${value?.toFixed(4) ?? '-'}`;
@@ -128,7 +128,7 @@ export function OptimizationProgressChart({ samples, outputNames, campaignName }
         x: {
           title: {
             display: true,
-            text: 'Experiment',
+            text: 'Protocol Run',
             color: textColor,
           },
           ticks: {
@@ -167,7 +167,7 @@ export function OptimizationProgressChart({ samples, outputNames, campaignName }
       const sample = orderedSamples[elements[0].index];
       if (sample) {
         router.push(
-          `/experiments/${encodeURIComponent(sample.experimentName)}?from=campaign&campaign=${encodeURIComponent(campaignName)}`
+          `/protocol-runs/${encodeURIComponent(sample.protocolRunName)}?from=campaign&campaign=${encodeURIComponent(campaignName)}`
         );
       }
     },

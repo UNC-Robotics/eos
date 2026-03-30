@@ -3,7 +3,7 @@ import { db } from '@/lib/db/client';
 import { definitions } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import type { TaskSpec as DbTaskSpec, LabSpec } from '@/lib/api/specs';
-import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
+import type { TaskSpec, ParameterSpec } from '@/lib/types/protocol';
 
 /**
  * Transform a DB-layer TaskSpec into the editor-layer TaskSpec.

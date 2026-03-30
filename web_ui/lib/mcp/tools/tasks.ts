@@ -1,6 +1,6 @@
 import { z } from 'zod/v3';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { getAllTasks, getTaskByName, getTasksByExperiment } from '@/lib/db/queries';
+import { getAllTasks, getTaskByName, getTasksByProtocolRun } from '@/lib/db/queries';
 import { orchestratorPost } from '@/lib/api/orchestrator';
 import { formatDate, formatDuration, formatPagination, textResult, errorResult } from '../helpers/format';
 
@@ -9,7 +9,7 @@ export function registerTaskTools(server: McpServer) {
     'list_tasks',
     {
       title: 'List Tasks',
-      description: 'List recent tasks with pagination. Returns name, type, status, experiment, and timing info.',
+      description: 'List recent tasks with pagination. Returns name, type, status, protocol run, and timing info.',
       inputSchema: {
         limit: z.number().int().min(1).max(200).default(20).describe('Max rows to return'),
         offset: z.number().int().min(0).default(0).describe('Number of rows to skip'),
@@ -19,7 +19,7 @@ export function registerTaskTools(server: McpServer) {
       const result = await getAllTasks({ limit, offset });
       const lines = result.data.map((t) => {
         const dur = formatDuration(t.startTime, t.endTime);
-        return `• ${t.name} [${t.status}] type=${t.type} exp=${t.experimentName ?? 'standalone'} dur=${dur}`;
+        return `• ${t.name} [${t.status}] type=${t.type} exp=${t.protocolRunName ?? 'standalone'} dur=${dur}`;
       });
       const header = formatPagination(result.total, result.limit, result.offset);
       return textResult(`${header}\n\n${lines.join('\n')}`);
@@ -33,19 +33,19 @@ export function registerTaskTools(server: McpServer) {
       description: 'Get full details for a specific task including inputs, outputs, devices, and timing.',
       inputSchema: {
         task_name: z.string().describe('Task name'),
-        experiment_name: z.string().describe('Experiment name the task belongs to'),
+        protocol_run_name: z.string().describe('ProtocolRun name the task belongs to'),
       },
     },
-    async ({ task_name, experiment_name }) => {
-      const task = await getTaskByName(task_name, experiment_name);
-      if (!task) return errorResult(`Task "${task_name}" not found in experiment "${experiment_name}"`);
+    async ({ task_name, protocol_run_name }) => {
+      const task = await getTaskByName(task_name, protocol_run_name);
+      if (!task) return errorResult(`Task "${task_name}" not found in protocol run "${protocol_run_name}"`);
 
       const lines = [
         `Task: ${task.name}`,
         `Type: ${task.type}`,
         `Status: ${task.status}`,
         `Priority: ${task.priority}`,
-        `Experiment: ${task.experimentName ?? 'standalone'}`,
+        `Protocol Run: ${task.protocolRunName ?? 'standalone'}`,
         `Created: ${formatDate(task.createdAt)}`,
         `Started: ${formatDate(task.startTime)}`,
         `Ended: ${formatDate(task.endTime)}`,
@@ -63,23 +63,23 @@ export function registerTaskTools(server: McpServer) {
   );
 
   server.registerTool(
-    'get_tasks_by_experiment',
+    'get_tasks_by_protocol_run',
     {
-      title: 'Get Tasks by Experiment',
-      description: 'Get all tasks belonging to a specific experiment.',
+      title: 'Get Tasks by ProtocolRun',
+      description: 'Get all tasks belonging to a specific protocol run.',
       inputSchema: {
-        experiment_name: z.string().describe('Experiment name'),
+        protocol_run_name: z.string().describe('ProtocolRun name'),
       },
     },
-    async ({ experiment_name }) => {
-      const tasks = await getTasksByExperiment(experiment_name);
-      if (tasks.length === 0) return textResult(`No tasks found for experiment "${experiment_name}"`);
+    async ({ protocol_run_name }) => {
+      const tasks = await getTasksByProtocolRun(protocol_run_name);
+      if (tasks.length === 0) return textResult(`No tasks found for protocol run "${protocol_run_name}"`);
 
       const lines = tasks.map((t) => {
         const dur = formatDuration(t.startTime, t.endTime);
         return `• ${t.name} [${t.status}] type=${t.type} dur=${dur}`;
       });
-      return textResult(`${tasks.length} task(s) in experiment "${experiment_name}":\n\n${lines.join('\n')}`);
+      return textResult(`${tasks.length} task(s) in protocol run "${protocol_run_name}":\n\n${lines.join('\n')}`);
     }
   );
 
@@ -100,14 +100,14 @@ export function registerTaskTools(server: McpServer) {
           )
           .describe('Device assignments: { device_role: { lab, type } }'),
         parameters: z.record(z.unknown()).optional().describe('Task input parameters'),
-        experiment_name: z.string().optional().describe('Parent experiment name'),
+        protocol_run_name: z.string().optional().describe('Parent protocol run name'),
       },
     },
-    async ({ name, type, devices, parameters, experiment_name }) => {
+    async ({ name, type, devices, parameters, protocol_run_name }) => {
       try {
         const body: Record<string, unknown> = { name, type, devices };
         if (parameters) body.input_parameters = parameters;
-        if (experiment_name) body.experiment_name = experiment_name;
+        if (protocol_run_name) body.protocol_run_name = protocol_run_name;
         const result = await orchestratorPost('/tasks/', body);
         return textResult(`Task submitted successfully.\n${JSON.stringify(result, null, 2)}`);
       } catch (e) {

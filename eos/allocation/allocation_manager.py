@@ -63,7 +63,7 @@ class AllocationManager:
         return list(all_resources - set(self._resource_allocations.keys()))
 
     async def allocate_devices(
-        self, db: AsyncDbSession, devices: list[tuple[str, str]], owner: str, experiment_name: str | None = None
+        self, db: AsyncDbSession, devices: list[tuple[str, str]], owner: str, protocol_run_name: str | None = None
     ) -> None:
         if not devices:
             return
@@ -72,7 +72,7 @@ class AllocationManager:
         for lab_name, device_name in devices:
             self._validate_device_exists(lab_name, device_name)
             allocations.append(
-                DeviceAllocation(name=device_name, lab_name=lab_name, owner=owner, experiment_name=experiment_name)
+                DeviceAllocation(name=device_name, lab_name=lab_name, owner=owner, protocol_run_name=protocol_run_name)
             )
 
         if len(devices) == 1:
@@ -95,7 +95,7 @@ class AllocationManager:
             self._device_allocations[(alloc.lab_name, alloc.name)] = alloc
 
     async def allocate_resources(
-        self, db: AsyncDbSession, resource_names: list[str], owner: str, experiment_name: str | None = None
+        self, db: AsyncDbSession, resource_names: list[str], owner: str, protocol_run_name: str | None = None
     ) -> None:
         if not resource_names:
             return
@@ -103,7 +103,7 @@ class AllocationManager:
         allocations = []
         for name in resource_names:
             self._validate_resource_exists(name)
-            allocations.append(ResourceAllocation(name=name, owner=owner, experiment_name=experiment_name))
+            allocations.append(ResourceAllocation(name=name, owner=owner, protocol_run_name=protocol_run_name))
 
         await db.execute(delete(ResourceAllocationModel).where(ResourceAllocationModel.name.in_(resource_names)))
         db.add_all([ResourceAllocationModel(**a.model_dump(exclude={"created_at"})) for a in allocations])

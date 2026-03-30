@@ -16,8 +16,8 @@ class BaseTask(ABC):
     OutputType = tuple[ParametersType, ResourcesType, FilesType]
     MAX_OUTPUT_LENGTH = 3
 
-    def __init__(self, experiment_name: str, task_name: str) -> None:
-        self._experiment_name = experiment_name
+    def __init__(self, protocol_run_name: str, task_name: str) -> None:
+        self._protocol_run_name = protocol_run_name
         self._task_name = task_name
 
     async def execute(

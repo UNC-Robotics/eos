@@ -18,7 +18,7 @@ export interface TaskDeviceConfig {
 export interface TaskDefinition {
   name: string;
   type: string;
-  experiment_name?: string | null;
+  protocol_run_name?: string | null;
   devices?: Record<string, TaskDeviceConfig>;
   input_parameters?: Record<string, unknown> | null;
   input_resources?: Record<string, unknown> | null;
@@ -39,12 +39,12 @@ export interface Task extends TaskDefinition {
 }
 
 // ============================================================================
-// Experiment Types
+// ProtocolRun Types
 // ============================================================================
 
-export type ExperimentStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'SUSPENDED' | 'CANCELLED' | 'FAILED';
+export type ProtocolRunStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'SUSPENDED' | 'CANCELLED' | 'FAILED';
 
-export interface ExperimentDefinition {
+export interface ProtocolRunDefinition {
   name: string;
   type: string;
   owner: string;
@@ -54,9 +54,9 @@ export interface ExperimentDefinition {
   resume?: boolean;
 }
 
-export interface Experiment extends ExperimentDefinition {
+export interface ProtocolRun extends ProtocolRunDefinition {
   campaign?: string | null;
-  status: ExperimentStatus;
+  status: ProtocolRunStatus;
   error_message?: string | null;
   start_time?: string | null;
   end_time?: string | null;
@@ -71,15 +71,15 @@ export type CampaignStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'SUSPENDED' |
 
 export interface CampaignDefinition {
   name: string;
-  experiment_type: string;
+  protocol: string;
   owner: string;
   priority?: number;
-  max_experiments?: number;
-  max_concurrent_experiments?: number;
+  max_protocol_runs?: number;
+  max_concurrent_protocol_runs?: number;
   optimize: boolean;
   optimizer_ip?: string;
   global_parameters?: Record<string, Record<string, unknown>> | null;
-  experiment_parameters?: Array<Record<string, Record<string, unknown>>> | null;
+  protocol_run_parameters?: Array<Record<string, Record<string, unknown>>> | null;
   meta?: Record<string, unknown>;
   resume?: boolean;
 }
@@ -87,7 +87,7 @@ export interface CampaignDefinition {
 export interface Campaign extends CampaignDefinition {
   status: CampaignStatus;
   error_message?: string | null;
-  experiments_completed: number;
+  protocol_runs_completed: number;
   pareto_solutions?: Array<Record<string, unknown>> | null;
   start_time?: string | null;
   end_time?: string | null;
@@ -139,9 +139,13 @@ export interface TaskTypesResponse {
   task_types: string[];
 }
 
-export interface ExperimentTypesResponse {
+export interface ProtocolTypesResponse {
   [key: string]: boolean;
 }
+
+// ============================================================================
+// Error Types
+// ============================================================================
 
 export interface ApiError {
   detail: string;

@@ -4,7 +4,7 @@ import {
   getTaskSpecs,
   getDeviceSpecs,
   getLabSpecs,
-  getExperimentSpecs,
+  getProtocolSpecs,
   getLoadedStatus,
   getDefsMetadata,
 } from '@/lib/api/specs';
@@ -89,21 +89,21 @@ export function registerDefinitionTools(server: McpServer) {
   );
 
   server.registerTool(
-    'list_experiment_defs',
+    'list_protocol_defs',
     {
-      title: 'List Experiment Definitions',
-      description: 'Get all experiment type definitions with task workflows.',
+      title: 'List Protocol Definitions',
+      description: 'Get all protocol type definitions with task workflows.',
       inputSchema: {
-        loaded_only: z.boolean().default(false).describe('Only show currently loaded experiments'),
+        loaded_only: z.boolean().default(false).describe('Only show currently loaded protocols'),
       },
     },
     async ({ loaded_only }) => {
-      const specs = await getExperimentSpecs(loaded_only);
+      const specs = await getProtocolSpecs(loaded_only);
       const entries = Object.entries(specs);
-      if (entries.length === 0) return textResult('No experiment definitions found.');
+      if (entries.length === 0) return textResult('No protocol definitions found.');
 
       const lines = entries.map(([type, spec]) => {
-        const parts = [`Experiment: ${type}`];
+        const parts = [`Protocol: ${type}`];
         if (spec.desc) parts.push(`  Description: ${spec.desc}`);
         parts.push(`  Labs: ${spec.labs.join(', ')}`);
         parts.push(`  Tasks (${spec.tasks.length}):`);
@@ -114,7 +114,7 @@ export function registerDefinitionTools(server: McpServer) {
         return parts.join('\n');
       });
 
-      return textResult(`${entries.length} experiment definition(s):\n\n${lines.join('\n\n')}`);
+      return textResult(`${entries.length} protocol definition(s):\n\n${lines.join('\n\n')}`);
     }
   );
 
@@ -122,14 +122,14 @@ export function registerDefinitionTools(server: McpServer) {
     'get_loaded_status',
     {
       title: 'Get Loaded Status',
-      description: 'Show which entities (labs, experiments, tasks, devices) are currently loaded in EOS.',
+      description: 'Show which entities (labs, protocols, tasks, devices) are currently loaded in EOS.',
       inputSchema: {},
     },
     async () => {
       const loaded = await getLoadedStatus();
       const lines = [
         `Labs (${loaded.labs.length}): ${loaded.labs.join(', ') || 'none'}`,
-        `Experiments (${loaded.experiments.length}): ${loaded.experiments.join(', ') || 'none'}`,
+        `Protocols (${loaded.protocols.length}): ${loaded.protocols.join(', ') || 'none'}`,
         `Tasks (${loaded.tasks.length}): ${loaded.tasks.join(', ') || 'none'}`,
         `Devices (${loaded.devices.length}): ${loaded.devices.join(', ') || 'none'}`,
       ];
@@ -144,7 +144,7 @@ export function registerDefinitionTools(server: McpServer) {
       description:
         'Get lightweight definition metadata (name, type, package, loaded status) without full data payloads.',
       inputSchema: {
-        type: z.enum(['task', 'device', 'lab', 'experiment']).optional().describe('Filter by definition type'),
+        type: z.enum(['task', 'device', 'lab', 'protocol']).optional().describe('Filter by definition type'),
       },
     },
     async ({ type }) => {

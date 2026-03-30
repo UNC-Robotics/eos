@@ -2,10 +2,10 @@ Packages
 ========
 Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
 Each package is essentially a folder.
-These packages can contain laboratory, device, task, and experiment definitions, code, and data, allowing reuse and
+These packages can contain laboratory, device, task, and protocol definitions, code, and data, allowing reuse and
 sharing.
 For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
-another package may only contain experiments that run on a specific lab.
+another package may only contain protocols that run on a specific lab.
 
 .. figure:: ../_static/img/package.png
    :alt: EOS package
@@ -15,7 +15,7 @@ Using a package is as simple as placing it in a directory that EOS loads package
 By default, this directory is called `user` and is located in the root of the EOS repository.
 
 Below is the directory tree of an example EOS package called "color_lab".
-It contains a laboratory called "color_lab", the "color_mixing" experiment, and
+It contains a laboratory called "color_lab", the "color_mixing" protocol, and
 various devices and tasks. The package also contains a device client under `common`,
 and a README file.
 

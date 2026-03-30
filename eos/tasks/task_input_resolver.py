@@ -7,7 +7,7 @@ from eos.configuration.utils import (
     is_parameter_reference,
     is_resource_reference,
 )
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.tasks.entities.task import Task
 from eos.tasks.exceptions import EosTaskInputResolutionError
@@ -17,49 +17,49 @@ from eos.tasks.task_manager import TaskManager
 class TaskInputResolver:
     """
     Resolves parameters, input parameter references, and input resource references for a task that is
-    part of an experiment.
+    part of a protocol run.
     """
 
-    def __init__(self, task_manager: TaskManager, experiment_manager: ExperimentManager):
+    def __init__(self, task_manager: TaskManager, protocol_run_manager: ProtocolRunManager):
         self._task_manager = task_manager
-        self._experiment_manager = experiment_manager
+        self._protocol_run_manager = protocol_run_manager
 
-    async def resolve_task_inputs(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef:
+    async def resolve_task_inputs(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> TaskDef:
         config = copy.deepcopy(task)
-        config = await self._resolve_parameters(db, experiment_name, config)
+        config = await self._resolve_parameters(db, protocol_run_name, config)
 
-        ref_tasks = await self._fetch_ref_tasks(db, experiment_name, config)
+        ref_tasks = await self._fetch_ref_tasks(db, protocol_run_name, config)
         self._apply_parameter_references(ref_tasks, config)
         self._apply_resource_references(ref_tasks, config)
         self._apply_device_references(ref_tasks, config)
 
         return config
 
-    async def resolve_parameters(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef:
+    async def resolve_parameters(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> TaskDef:
         config = copy.deepcopy(task)
-        return await self._resolve_parameters(db, experiment_name, config)
+        return await self._resolve_parameters(db, protocol_run_name, config)
 
     async def resolve_input_parameter_references(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> TaskDef:
         config = copy.deepcopy(task)
-        ref_tasks = await self._fetch_ref_tasks(db, experiment_name, config)
+        ref_tasks = await self._fetch_ref_tasks(db, protocol_run_name, config)
         self._apply_parameter_references(ref_tasks, config)
         return config
 
     async def resolve_input_resource_references(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> TaskDef:
         config = copy.deepcopy(task)
-        ref_tasks = await self._fetch_ref_tasks(db, experiment_name, config)
+        ref_tasks = await self._fetch_ref_tasks(db, protocol_run_name, config)
         self._apply_resource_references(ref_tasks, config)
         return config
 
-    async def _fetch_ref_tasks(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> dict[str, Task]:
+    async def _fetch_ref_tasks(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> dict[str, Task]:
         ref_names = self._collect_referenced_task_names(task)
         if not ref_names:
             return {}
-        task_lookup = await self._task_manager.get_tasks_by_experiments(db, [experiment_name], list(ref_names))
+        task_lookup = await self._task_manager.get_tasks_by_protocol_runs(db, [protocol_run_name], list(ref_names))
         return {task_name: t for (_, task_name), t in task_lookup.items()}
 
     @staticmethod
@@ -76,9 +76,9 @@ class TaskInputResolver:
                 ref_names.add(device_value.split(".")[0])
         return ref_names
 
-    async def _resolve_parameters(self, db: AsyncDbSession, experiment_name: str, task: TaskDef) -> TaskDef:
-        experiment = await self._experiment_manager.get_experiment(db, experiment_name)
-        task_parameters = experiment.parameters.get(task.name, {})
+    async def _resolve_parameters(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> TaskDef:
+        protocol_run = await self._protocol_run_manager.get_protocol_run(db, protocol_run_name)
+        task_parameters = protocol_run.parameters.get(task.name, {})
 
         task.parameters.update(task_parameters)
 

@@ -9,26 +9,26 @@ import yaml
 from eos.configuration.constants import (
     DEVICES_DIR,
     DEVICE_CONFIG_FILE_NAME,
-    EXPERIMENTS_DIR,
-    EXPERIMENT_CONFIG_FILE_NAME,
+    PROTOCOLS_DIR,
+    PROTOCOL_CONFIG_FILE_NAME,
     LABS_DIR,
     LAB_CONFIG_FILE_NAME,
     TASKS_DIR,
     TASK_CONFIG_FILE_NAME,
 )
 from eos.configuration.entities.device_spec_def import DeviceSpecDef
-from eos.configuration.entities.experiment_def import ExperimentDef
+from eos.configuration.entities.protocol_def import ProtocolDef
 from eos.configuration.entities.lab_def import LabDef
 from eos.configuration.entities.task_spec_def import TaskSpecDef
 from eos.configuration.exceptions import EosConfigurationError, EosMissingConfigurationError
 from eos.logging.logger import log
 
-EntityConfigType = LabDef | ExperimentDef | TaskSpecDef | DeviceSpecDef
+EntityConfigType = LabDef | ProtocolDef | TaskSpecDef | DeviceSpecDef
 
 
 class EntityType(Enum):
     LAB = auto()
-    EXPERIMENT = auto()
+    PROTOCOL = auto()
     TASK = auto()
     DEVICE = auto()
 
@@ -48,7 +48,7 @@ class EntityLocationInfo:
 
 ENTITY_INFO: dict[EntityType, EntityInfo] = {
     EntityType.LAB: EntityInfo(LABS_DIR, LAB_CONFIG_FILE_NAME, LabDef),
-    EntityType.EXPERIMENT: EntityInfo(EXPERIMENTS_DIR, EXPERIMENT_CONFIG_FILE_NAME, ExperimentDef),
+    EntityType.PROTOCOL: EntityInfo(PROTOCOLS_DIR, PROTOCOL_CONFIG_FILE_NAME, ProtocolDef),
     EntityType.TASK: EntityInfo(TASKS_DIR, TASK_CONFIG_FILE_NAME, TaskSpecDef),
     EntityType.DEVICE: EntityInfo(DEVICES_DIR, DEVICE_CONFIG_FILE_NAME, DeviceSpecDef),
 }
@@ -56,7 +56,7 @@ ENTITY_INFO: dict[EntityType, EntityInfo] = {
 
 @dataclass
 class Package:
-    """A collection of user-defined experiments, labs, devices, tasks, and any code and data."""
+    """A collection of user-defined protocols, labs, devices, tasks, and any code and data."""
 
     name: str
     path: Path
@@ -130,8 +130,8 @@ class PackageManager:
     def read_lab(self, lab_name: str) -> LabDef:
         return self._read_entity(lab_name, EntityType.LAB)
 
-    def read_experiment(self, experiment_name: str) -> ExperimentDef:
-        return self._read_entity(experiment_name, EntityType.EXPERIMENT)
+    def read_protocol(self, protocol_run_name: str) -> ProtocolDef:
+        return self._read_entity(protocol_run_name, EntityType.PROTOCOL)
 
     def read_task_spec(self, task_name: str) -> TaskSpecDef:
         return self._read_entity(task_name, EntityType.TASK)

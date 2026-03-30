@@ -4,12 +4,12 @@ import { orchestratorGet, orchestratorPost, orchestratorPut } from '@/lib/api/or
 import type { OptimizerDefaults, OptimizerInfo, ActionResult } from '@/lib/types/api';
 
 /**
- * Get default optimizer parameters for an experiment type.
+ * Get default optimizer parameters for a protocol.
  * Returns null if no optimizer is configured.
  */
-export async function getOptimizerDefaults(experimentType: string): Promise<OptimizerDefaults | null> {
+export async function getOptimizerDefaults(protocolType: string): Promise<OptimizerDefaults | null> {
   try {
-    const result = await orchestratorGet(`/campaigns/optimizer/defaults/${experimentType}`);
+    const result = await orchestratorGet(`/campaigns/optimizer/defaults/${protocolType}`);
     return result as OptimizerDefaults;
   } catch {
     return null;

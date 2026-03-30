@@ -33,19 +33,19 @@ _BACKOFF_MIN_SECONDS = 2
 _BACKOFF_MAX_SECONDS = 30
 
 
-class ExperimentSuggestion(BaseModel):
+class ProtocolRunSuggestion(BaseModel):
     parameters: dict[str, float | int | str]
 
 
-class ExperimentSuggestions(BaseModel):
-    suggestions: list[ExperimentSuggestion]
+class ProtocolRunSuggestions(BaseModel):
+    suggestions: list[ProtocolRunSuggestion]
     journal_entry: str
 
 
 @dataclass
 class BeaconDeps:
     domain: Domain
-    num_experiments: int
+    num_protocol_runs: int
     history: list[dict[str, Any]]
     best_results: list[dict[str, Any]]
     insights: list[str]
@@ -143,12 +143,12 @@ def _get_journal(entry: dict[str, Any]) -> str | None:
 
 def _build_history_section(history: list[dict[str, Any]]) -> str:
     """
-    Build the experimental history section, grouping experiments into rounds.
+    Build the experimental history section, grouping protocols into rounds.
 
-    Consecutive experiments with the same journal entry are grouped together.
+    Consecutive protocols with the same journal entry are grouped together.
     Experiments without a journal (e.g. from Bayesian sampling) form separate rounds.
     """
-    lines: list[str] = [f"EXPERIMENTAL HISTORY ({len(history)} experiments):"]
+    lines: list[str] = [f"EXPERIMENTAL HISTORY ({len(history)} protocols):"]
     for round_num, (journal, group) in enumerate(groupby(history, key=_get_journal), 1):
         batch = [{k: v for k, v in e.items() if k != "_beacon"} for e in group]
         method = "AI" if journal else "Bayesian"
@@ -165,7 +165,7 @@ def build_system_prompt(domain: Domain) -> str:
     sections: list[str] = [
         "You are an expert experiment designer working in a sequential optimization loop. "
         "Each experiment is costly and time-consuming — your goal is to find optimal solutions "
-        "in as few experiments as possible. You must return structured output matching the "
+        "in as few protocols as possible. You must return structured output matching the "
         "required schema exactly.",
         _build_input_section(domain),
         _build_objective_section(domain),
@@ -180,7 +180,7 @@ def build_system_prompt(domain: Domain) -> str:
     sections.append(
         "OPTIMIZATION STRATEGY:\n"
         "  1. EXPLORE AGGRESSIVELY: Default to exploration. Move 30-70% of parameter ranges between "
-        "experiments. Push parameters to extremes — optima are often near boundaries. Small tweaks waste experiments.\n"
+        "protocols. Push parameters to extremes — optima are often near boundaries. Small tweaks waste protocols.\n"
         "  2. MAXIMIZE INFORMATION: Every experiment should reveal something new. Test corners, edges, "
         "and extreme combinations. An experiment that confirms what you know is wasted.\n"
         "  3. USE DOMAIN KNOWLEDGE: Apply scientific expertise to predict promising regions and "
@@ -189,12 +189,12 @@ def build_system_prompt(domain: Domain) -> str:
         "skepticism about patterns until confirmed by multiple data points.\n"
         "  5. RESIST PREMATURE EXPLOITATION: Do not converge early. Keep exploring distant regions "
         "even when a promising area is found. Missing the global optimum is costlier than extra exploration.\n"
-        "  6. NEVER REPEAT: Never suggest parameters identical or nearly identical to past experiments.\n"
+        "  6. NEVER REPEAT: Never suggest parameters identical or nearly identical to past protocols.\n"
         "  7. DIVERSIFY BATCHES: Spread suggestions across maximally different regions — never cluster.\n"
         "  8. ESCAPE PLATEAUS DECISIVELY: If results plateau, make radical changes to ALL parameters. "
         "Jump to unexplored regions. Try counterintuitive combinations.\n"
         "  9. THINK CONTRARIAN: Periodically test the opposite of your current hypothesis. "
-        "The most valuable experiments challenge your assumptions.\n"
+        "The most valuable protocols challenge your assumptions.\n"
         "  10. RESPECT EXPERT INSIGHTS: When expert insights are provided, acknowledge them explicitly in your "
         "journal entry and incorporate them into your experimental design. Expert insights represent "
         "domain knowledge from the user — treat them as high-priority directives. If an insight "
@@ -209,7 +209,7 @@ def build_system_prompt(domain: Domain) -> str:
         "  - What patterns or trends you observe in the data so far\n"
         "  - What hypothesis you are testing with this batch of suggestions\n"
         "  - Why you chose these specific parameter values\n"
-        "  - What you expect to learn from these experiments\n"
+        "  - What you expect to learn from these protocols\n"
         "  - If expert insights were provided, explicitly state how you incorporated them"
     )
 
@@ -261,16 +261,16 @@ class BeaconAIAgent:
         retries: int,
         model_settings: dict[str, Any] | None = None,
         additional_context: str | None = None,
-        experiment_parameters_schedule: list[dict[str, dict[str, Any]]] | None = None,
+        protocol_run_parameters_schedule: list[dict[str, dict[str, Any]]] | None = None,
     ):
         _set_api_key(model, api_key)
         self._domain = domain
         self._input_names = [f.key for f in domain.inputs.features]
         static_prompt = build_system_prompt(domain)
 
-        self._experiment_context: str | None = None
+        self._protocol_context: str | None = None
         self._additional_context: str | None = additional_context
-        self._experiment_parameters_schedule = experiment_parameters_schedule
+        self._protocol_run_parameters_schedule = protocol_run_parameters_schedule
 
         resolved_model = model
         if model.startswith(_CLAUDE_AGENT_SDK_PREFIX):
@@ -290,10 +290,10 @@ class BeaconAIAgent:
         filtered = {k: v for k, v in model_settings.items() if k not in sdk_keys} if model_settings else {}
         self._model_settings = ModelSettings(**filtered) if filtered else None
 
-        self._agent: Agent[BeaconDeps, ExperimentSuggestions] = Agent(
+        self._agent: Agent[BeaconDeps, ProtocolRunSuggestions] = Agent(
             model=resolved_model,
             system_prompt=static_prompt,
-            output_type=ExperimentSuggestions,
+            output_type=ProtocolRunSuggestions,
             deps_type=BeaconDeps,
             retries=retries,
         )
@@ -302,15 +302,15 @@ class BeaconAIAgent:
         def dynamic_prompt(ctx: RunContext[BeaconDeps]) -> str:
             parts: list[str] = []
 
-            if self._experiment_context:
-                parts.append(f"EXPERIMENT DEFINITION (YAML):\n```\n{self._experiment_context}```")
+            if self._protocol_context:
+                parts.append(f"EXPERIMENT DEFINITION (YAML):\n```\n{self._protocol_context}```")
 
             if self._additional_context:
                 parts.append(f"ADDITIONAL CONTEXT:\n{self._additional_context}")
 
-            if self._experiment_parameters_schedule:
+            if self._protocol_run_parameters_schedule:
                 lines = ["PARAMETER SCHEDULE (fixed parameters for specific iterations):"]
-                for i, params in enumerate(self._experiment_parameters_schedule):
+                for i, params in enumerate(self._protocol_run_parameters_schedule):
                     lines.append(f"  Iteration {i}: {json.dumps(params)}")
                 parts.append("\n".join(lines))
 
@@ -327,10 +327,10 @@ class BeaconAIAgent:
                     + "\n".join(f"  - {insight}" for insight in ctx.deps.insights)
                 )
 
-            total_experiments = len(ctx.deps.history)
+            total_runs = len(ctx.deps.history)
             parts.append(
-                f"You have {total_experiments} completed experiment(s) so far. "
-                f"Please suggest {ctx.deps.num_experiments} new experiment(s)."
+                f"You have {total_runs} completed experiment(s) so far. "
+                f"Please suggest {ctx.deps.num_protocol_runs} new experiment(s)."
             )
 
             return "\n\n".join(parts)
@@ -338,8 +338,8 @@ class BeaconAIAgent:
         @self._agent.output_validator
         def validate_suggestions(
             ctx: RunContext[BeaconDeps],
-            output: ExperimentSuggestions,
-        ) -> ExperimentSuggestions:
+            output: ProtocolRunSuggestions,
+        ) -> ProtocolRunSuggestions:
             return _validate_suggestions(ctx, output)
 
     @property
@@ -350,19 +350,19 @@ class BeaconAIAgent:
     def additional_context(self, value: str | None) -> None:
         self._additional_context = value
 
-    def set_experiment_context(self, experiment_yaml: str) -> None:
-        self._experiment_context = experiment_yaml
+    def set_protocol_context(self, protocol_yaml: str) -> None:
+        self._protocol_context = protocol_yaml
 
     def suggest(
         self,
-        num_experiments: int,
+        num_protocol_runs: int,
         history: list[dict[str, Any]],
         best_results: list[dict[str, Any]],
         insights: list[str],
     ) -> tuple[pd.DataFrame, str]:
         deps = BeaconDeps(
             domain=self._domain,
-            num_experiments=num_experiments,
+            num_protocol_runs=num_protocol_runs,
             history=round_floats(history),
             best_results=round_floats(best_results),
             insights=insights,
@@ -385,7 +385,7 @@ class BeaconAIAgent:
 
     async def suggest_async(
         self,
-        num_experiments: int,
+        num_protocol_runs: int,
         history: list[dict[str, Any]],
         best_results: list[dict[str, Any]],
         insights: list[str],
@@ -393,7 +393,7 @@ class BeaconAIAgent:
         """Async version of suggest() that yields during the LLM API call."""
         deps = BeaconDeps(
             domain=self._domain,
-            num_experiments=num_experiments,
+            num_protocol_runs=num_protocol_runs,
             history=round_floats(history),
             best_results=round_floats(best_results),
             insights=insights,
@@ -421,7 +421,7 @@ class BeaconAIAgent:
         before_sleep=before_sleep_log(log.logger, logging.WARNING),
         reraise=True,
     )
-    def _run_with_backoff(self, deps: BeaconDeps) -> "AgentRunResult[ExperimentSuggestions]":
+    def _run_with_backoff(self, deps: BeaconDeps) -> "AgentRunResult[ProtocolRunSuggestions]":
         """
         Run the agent with exponential backoff for transient API errors.
 
@@ -436,7 +436,7 @@ class BeaconAIAgent:
         before_sleep=before_sleep_log(log.logger, logging.WARNING),
         reraise=True,
     )
-    async def _run_with_backoff_async(self, deps: BeaconDeps) -> "AgentRunResult[ExperimentSuggestions]":
+    async def _run_with_backoff_async(self, deps: BeaconDeps) -> "AgentRunResult[ProtocolRunSuggestions]":
         """Async version with exponential backoff — yields during the LLM API call."""
         return await self._agent.run("", deps=deps, model_settings=self._model_settings)
 
@@ -521,15 +521,15 @@ def _normalize_param_keys(params: dict[str, Any], valid_keys: set[str]) -> dict[
 
 def _validate_suggestions(
     ctx: RunContext[BeaconDeps],
-    output: ExperimentSuggestions,
-) -> ExperimentSuggestions:
+    output: ProtocolRunSuggestions,
+) -> ProtocolRunSuggestions:
     """Validate AI suggestions against the BoFire domain."""
     domain = ctx.deps.domain
-    num_experiments = ctx.deps.num_experiments
+    num_protocol_runs = ctx.deps.num_protocol_runs
     errors: list[str] = []
 
-    if len(output.suggestions) != num_experiments:
-        errors.append(f"Expected {num_experiments} suggestions, got {len(output.suggestions)}.")
+    if len(output.suggestions) != num_protocol_runs:
+        errors.append(f"Expected {num_protocol_runs} suggestions, got {len(output.suggestions)}.")
 
     valid_input_keys = {f.key for f in domain.inputs.features}
     feature_map = {f.key: f for f in domain.inputs.features}

@@ -56,9 +56,9 @@ export function Sidebar() {
       label: 'Tasks',
     },
     {
-      href: '/experiments',
+      href: '/protocol-runs',
       icon: FlaskConical,
-      label: 'Experiments',
+      label: 'Protocol Runs',
     },
     {
       href: '/campaigns',

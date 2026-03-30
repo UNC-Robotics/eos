@@ -427,36 +427,36 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
             config_file_name=None,  # Campaign optimizers don't have a separate config file
             implementation_file_name=CAMPAIGN_OPTIMIZER_FILE_NAME,
             exception_class=EosCampaignOptimizerPluginError,
-            entity_type=EntityType.EXPERIMENT,
+            entity_type=EntityType.PROTOCOL,
         )
         super().__init__(package_manager, config, initialize=False)
 
     def get_campaign_optimizer_creation_parameters(
-        self, experiment_type: str
+        self, protocol_type: str
     ) -> tuple[dict[str, Any], type[AbstractSequentialOptimizer]] | None:
         """
         Get a function that can be used to get the constructor arguments and the optimizer type so it can be
         constructed later. Lazy-loads the optimizer plugin on first access.
 
-        :param experiment_type: The type of the experiment.
+        :param protocol_type: The type of the protocol.
         :return: A tuple containing the constructor arguments and the optimizer type, or None if not found.
         """
-        if experiment_type not in self.plugin_types:
-            self.load_campaign_optimizer(experiment_type)
-        optimizer_function = self.plugin_types.get(experiment_type)
+        if protocol_type not in self.plugin_types:
+            self.load_campaign_optimizer(protocol_type)
+        optimizer_function = self.plugin_types.get(protocol_type)
         if optimizer_function:
             return optimizer_function()
         return None
 
     def _load_single_plugin(self, package_name: str, dir_path: str, implementation_path: str) -> None:
-        log.info(f"Loading campaign optimizer for experiment '{Path(dir_path).name}' from package '{package_name}'.")
+        log.info(f"Loading campaign optimizer for protocol '{Path(dir_path).name}' from package '{package_name}'.")
         module = self._import_optimizer_module(dir_path, implementation_path)
 
-        experiment_type = Path(dir_path).name
-        if not self._register_optimizer_if_valid(module, experiment_type, package_name, implementation_path):
+        protocol_type = Path(dir_path).name
+        if not self._register_optimizer_if_valid(module, protocol_type, package_name, implementation_path):
             log.warning(
                 f"Optimizer configuration function '{CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME}' not found in the "
-                f"campaign optimizer file '{self._config.implementation_file_name}' of experiment "
+                f"campaign optimizer file '{self._config.implementation_file_name}' of protocol "
                 f"'{Path(dir_path).name}' in package '{package_name}'."
             )
 
@@ -471,7 +471,7 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
     def _register_optimizer_if_valid(
         self,
         module: object,
-        experiment_type: str,
+        protocol_type: str,
         package_name: str,
         implementation_path: str,
     ) -> bool:
@@ -480,56 +480,55 @@ class CampaignOptimizerPluginRegistry(PluginRegistry[CampaignOptimizerCreationFu
             return False
 
         optimizer_creator = module.__dict__[CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME]
-        self.plugin_types[experiment_type] = optimizer_creator
-        self.plugin_modules[experiment_type] = implementation_path
+        self.plugin_types[protocol_type] = optimizer_creator
+        self.plugin_modules[protocol_type] = implementation_path
 
-        log.info(f"Loaded campaign optimizer for experiment '{experiment_type}' from package '{package_name}'.")
+        log.info(f"Loaded campaign optimizer for protocol '{protocol_type}' from package '{package_name}'.")
         return True
 
-    def load_campaign_optimizer(self, experiment_type: str) -> None:
+    def load_campaign_optimizer(self, protocol_type: str) -> None:
         """
-        Load the optimizer configuration function for the given experiment from the appropriate package.
+        Load the optimizer configuration function for the given protocol from the appropriate package.
         If the optimizer doesn't exist, log a warning and return without raising an error.
         """
-        experiment_package = self._package_manager.find_package_for_entity(experiment_type, EntityType.EXPERIMENT)
-        if not experiment_package:
-            log.warning(f"No package found for experiment '{experiment_type}'.")
+        protocol_package = self._package_manager.find_package_for_entity(protocol_type, EntityType.PROTOCOL)
+        if not protocol_package:
+            log.warning(f"No package found for protocol '{protocol_type}'.")
             return
 
         optimizer_file = (
-            self._package_manager.get_entity_dir(experiment_type, EntityType.EXPERIMENT) / CAMPAIGN_OPTIMIZER_FILE_NAME
+            self._package_manager.get_entity_dir(protocol_type, EntityType.PROTOCOL) / CAMPAIGN_OPTIMIZER_FILE_NAME
         )
         if not optimizer_file.exists():
             log.warning(
-                f"No campaign optimizer found for experiment '{experiment_type}' in package "
-                f"'{experiment_package.name}'."
+                f"No campaign optimizer found for protocol '{protocol_type}' in package '{protocol_package.name}'."
             )
             return
 
-        self._load_single_plugin(experiment_package.name, experiment_type, optimizer_file)
+        self._load_single_plugin(protocol_package.name, protocol_type, optimizer_file)
 
-    def unload_campaign_optimizer(self, experiment_type: str) -> None:
+    def unload_campaign_optimizer(self, protocol_type: str) -> None:
         """
-        Unload the optimizer configuration function for the given experiment.
+        Unload the optimizer configuration function for the given protocol.
         """
-        if experiment_type in self.plugin_types:
-            del self.plugin_types[experiment_type]
-            del self.plugin_modules[experiment_type]
-            log.info(f"Unloaded campaign optimizer for experiment '{experiment_type}'.")
+        if protocol_type in self.plugin_types:
+            del self.plugin_types[protocol_type]
+            del self.plugin_modules[protocol_type]
+            log.info(f"Unloaded campaign optimizer for protocol '{protocol_type}'.")
 
-    def reload_plugin(self, experiment_type: str) -> None:
+    def reload_plugin(self, protocol_type: str) -> None:
         """
-        Reload a specific campaign optimizer by its experiment type.
+        Reload a specific campaign optimizer by its protocol type.
         """
-        self.unload_campaign_optimizer(experiment_type)
-        self.load_campaign_optimizer(experiment_type)
-        log.info(f"Reloaded campaign optimizer for experiment '{experiment_type}'.")
+        self.unload_campaign_optimizer(protocol_type)
+        self.load_campaign_optimizer(protocol_type)
+        log.info(f"Reloaded campaign optimizer for protocol '{protocol_type}'.")
 
     def reload_all_plugins(self) -> None:
         """
         Reload all campaign optimizers.
         """
-        experiment_types = list(self.plugin_types.keys())
-        for experiment_type in experiment_types:
-            self.reload_plugin(experiment_type)
+        protocol_types = list(self.plugin_types.keys())
+        for protocol_type in protocol_types:
+            self.reload_plugin(protocol_type)
         log.info("Reloaded all campaign optimizers.")

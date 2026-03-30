@@ -3,16 +3,16 @@ import asyncio
 from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.entities.campaign import CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
-from eos.experiments.exceptions import EosExperimentExecutionError
+from eos.protocols.exceptions import EosProtocolRunExecutionError
 from tests.fixtures import *
 
 CAMPAIGN_CONFIG = {
     "LAB_NAME": "multiplication_lab",
     "CAMPAIGN_NAME": "optimize_multiplication_campaign",
-    "EXPERIMENT_TYPE": "optimize_multiplication",
+    "PROTOCOL": "optimize_multiplication",
     "OWNER": "test",
-    "MAX_EXPERIMENTS": 30,
-    "MAX_CONCURRENT_EXPERIMENTS": 1,
+    "MAX_PROTOCOL_RUNS": 30,
+    "MAX_CONCURRENT_PROTOCOL_RUNS": 1,
     "OPTIMIZE": True,
     "OPTIMIZER_IP": "127.0.0.1",
 }
@@ -23,10 +23,10 @@ def campaign_submission():
     """Create a standard campaign submission for testing."""
     return CampaignSubmission(
         name=CAMPAIGN_CONFIG["CAMPAIGN_NAME"],
-        experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
+        protocol=CAMPAIGN_CONFIG["PROTOCOL"],
         owner=CAMPAIGN_CONFIG["OWNER"],
-        max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
-        max_concurrent_experiments=CAMPAIGN_CONFIG["MAX_CONCURRENT_EXPERIMENTS"],
+        max_protocol_runs=CAMPAIGN_CONFIG["MAX_PROTOCOL_RUNS"],
+        max_concurrent_protocol_runs=CAMPAIGN_CONFIG["MAX_CONCURRENT_PROTOCOL_RUNS"],
         optimize=CAMPAIGN_CONFIG["OPTIMIZE"],
         optimizer_ip=CAMPAIGN_CONFIG["OPTIMIZER_IP"],
     )
@@ -38,8 +38,8 @@ def campaign_executor_setup(
     campaign_manager,
     campaign_optimizer_manager,
     task_manager,
-    experiment_manager,
-    experiment_executor_factory,
+    protocol_run_manager,
+    protocol_executor_factory,
     db_interface,
     campaign_submission,
 ):
@@ -49,15 +49,15 @@ def campaign_executor_setup(
         campaign_manager=campaign_manager,
         campaign_optimizer_manager=campaign_optimizer_manager,
         task_manager=task_manager,
-        experiment_executor_factory=experiment_executor_factory,
-        experiment_manager=experiment_manager,
+        protocol_executor_factory=protocol_executor_factory,
+        protocol_run_manager=protocol_run_manager,
         db_interface=db_interface,
     )
 
 
 @pytest.mark.parametrize(
-    "setup_lab_experiment",
-    [(CAMPAIGN_CONFIG["LAB_NAME"], CAMPAIGN_CONFIG["EXPERIMENT_TYPE"])],
+    "setup_lab_protocol",
+    [(CAMPAIGN_CONFIG["LAB_NAME"], CAMPAIGN_CONFIG["PROTOCOL"])],
     indirect=True,
 )
 class TestCampaignExecutor:
@@ -105,16 +105,16 @@ class TestCampaignExecutor:
         async with db_interface.get_async_session() as db:
             await campaign_executor_setup.start_campaign(db)
 
-        while not campaign_executor_setup._experiment_executors:
+        while not campaign_executor_setup._protocol_executors:
             await campaign_executor_setup.progress_campaign()
             await task_executor.process_tasks()
             await asyncio.sleep(0.01)
 
-        async def mock_progress_experiment(*args, **kwargs):
-            raise EosExperimentExecutionError("Simulated experiment execution error")
+        async def mock_progress_protocol_run(*args, **kwargs):
+            raise EosProtocolRunExecutionError("Simulated protocol run execution error")
 
         monkeypatch.setattr(
-            "eos.experiments.experiment_executor.ExperimentExecutor.progress_experiment", mock_progress_experiment
+            "eos.protocols.protocol_executor.ProtocolExecutor.progress_protocol_run", mock_progress_protocol_run
         )
 
         with pytest.raises(EosCampaignExecutionError):
@@ -133,11 +133,11 @@ class TestCampaignExecutor:
         campaign_executor_setup.cleanup()
 
     async def wait_for_campaign_progress(
-        self, campaign_executor, campaign_manager, task_executor, db_interface, num_experiments=1
+        self, campaign_executor, campaign_manager, task_executor, db_interface, num_protocol_runs=1
     ):
-        """Helper method to wait for campaign to complete specified number of experiments."""
-        completed_experiments = 0
-        while completed_experiments < num_experiments:
+        """Helper method to wait for campaign to complete specified number of protocols."""
+        completed_protocol_runs = 0
+        while completed_protocol_runs < num_protocol_runs:
             campaign_finished = await campaign_executor.progress_campaign()
             if campaign_finished:
                 break
@@ -146,7 +146,7 @@ class TestCampaignExecutor:
 
             async with db_interface.get_async_session() as db:
                 campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
-            completed_experiments = campaign.experiments_completed
+            completed_protocol_runs = campaign.protocol_runs_completed
 
     @pytest.mark.slow
     @pytest.mark.asyncio
@@ -156,8 +156,8 @@ class TestCampaignExecutor:
         campaign_manager,
         campaign_optimizer_manager,
         task_manager,
-        experiment_manager,
-        experiment_executor_factory,
+        protocol_run_manager,
+        protocol_executor_factory,
         db_interface,
         task_executor,
     ):
@@ -166,7 +166,7 @@ class TestCampaignExecutor:
             await campaign_executor_setup.start_campaign(db)
 
         await self.wait_for_campaign_progress(
-            campaign_executor_setup, campaign_manager, task_executor, db_interface, num_experiments=3
+            campaign_executor_setup, campaign_manager, task_executor, db_interface, num_protocol_runs=3
         )
 
         async with db_interface.get_async_session() as db:
@@ -177,9 +177,9 @@ class TestCampaignExecutor:
 
         resume_submission = CampaignSubmission(
             name=CAMPAIGN_CONFIG["CAMPAIGN_NAME"],
-            experiment_type=CAMPAIGN_CONFIG["EXPERIMENT_TYPE"],
+            protocol=CAMPAIGN_CONFIG["PROTOCOL"],
             owner=CAMPAIGN_CONFIG["OWNER"],
-            max_experiments=CAMPAIGN_CONFIG["MAX_EXPERIMENTS"],
+            max_protocol_runs=CAMPAIGN_CONFIG["MAX_PROTOCOL_RUNS"],
             optimize=CAMPAIGN_CONFIG["OPTIMIZE"],
             resume=True,
         )
@@ -188,8 +188,8 @@ class TestCampaignExecutor:
             campaign_manager,
             campaign_optimizer_manager,
             task_manager,
-            experiment_executor_factory,
-            experiment_manager,
+            protocol_executor_factory,
+            protocol_run_manager,
             db_interface,
         )
 
@@ -198,17 +198,17 @@ class TestCampaignExecutor:
             resumed_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
 
         assert resumed_campaign.status == CampaignStatus.RUNNING
-        assert resumed_campaign.experiments_completed == initial_campaign.experiments_completed
+        assert resumed_campaign.protocol_runs_completed == initial_campaign.protocol_runs_completed
 
         while resumed_executor.optimizer is None:
             await resumed_executor.progress_campaign()
             await asyncio.sleep(0.01)
 
         resumed_samples = ray.get(resumed_executor.optimizer.get_num_samples_reported.remote())
-        assert resumed_samples == initial_campaign.experiments_completed
+        assert resumed_samples == initial_campaign.protocol_runs_completed
 
         await self.wait_for_campaign_progress(
-            resumed_executor, campaign_manager, task_executor, db_interface, num_experiments=5
+            resumed_executor, campaign_manager, task_executor, db_interface, num_protocol_runs=5
         )
 
         await resumed_executor.cancel_campaign()
@@ -221,14 +221,14 @@ class TestCampaignExecutor:
         async with db_interface.get_async_session() as db:
             await campaign_executor_setup.start_campaign(db)
 
-        # Mock slow experiment cancellation
-        class SlowCancelExperimentExecutor:
-            async def cancel_experiment(self):
+        # Mock slow protocol run cancellation
+        class SlowCancelProtocolRunExecutor:
+            async def cancel_protocol_run(self):
                 await asyncio.sleep(16)
 
-        campaign_executor_setup._experiment_executors = {
-            "exp1": SlowCancelExperimentExecutor(),
-            "exp2": SlowCancelExperimentExecutor(),
+        campaign_executor_setup._protocol_executors = {
+            "run1": SlowCancelProtocolRunExecutor(),
+            "run2": SlowCancelProtocolRunExecutor(),
         }
 
         with pytest.raises(EosCampaignExecutionError):

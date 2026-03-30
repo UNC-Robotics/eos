@@ -16,7 +16,7 @@ def _first_resource(configuration_manager):
     return next(iter(lab.resources.keys()))
 
 
-@pytest.mark.parametrize("setup_lab_experiment", [(LAB_ID, "water_purification")], indirect=True)
+@pytest.mark.parametrize("setup_lab_protocol", [(LAB_ID, "water_purification")], indirect=True)
 class TestAllocationManager:
     @pytest.mark.asyncio
     async def test_allocate_device(self, db, allocation_manager):

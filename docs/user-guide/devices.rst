@@ -20,7 +20,7 @@ Then, the GC Sampling task uses both of the EOS devices to automate the sample i
 
 Most often, an EOS device will represent a physical device in the lab.
 But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
-throughout one or more experiments.
+throughout one or more protocols.
 This could be an AI module that records inputs given to it.
 Remember that a device in EOS is a persistent process.
 

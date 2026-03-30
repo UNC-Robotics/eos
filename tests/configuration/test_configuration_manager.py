@@ -48,20 +48,20 @@ class TestConfigurationManager:
     def test_unload_lab(self, configuration_manager):
         configuration_manager.load_lab(LAB_1_ID)
         configuration_manager.load_lab(LAB_2_ID)
-        configuration_manager.load_experiment("water_purification")
+        configuration_manager.load_protocol("water_purification")
 
         expected_labs = copy.deepcopy(configuration_manager.labs)
-        expected_experiments = copy.deepcopy(configuration_manager.experiments)
+        expected_protocols = copy.deepcopy(configuration_manager.protocols)
         configuration_manager.unload_lab(LAB_1_ID)
 
         assert LAB_1_ID not in configuration_manager.labs
-        assert "water_purification" not in configuration_manager.experiments
+        assert "water_purification" not in configuration_manager.protocols
 
         expected_labs.pop(LAB_1_ID)
         assert configuration_manager.labs == expected_labs
 
-        expected_experiments.pop("water_purification")
-        assert configuration_manager.experiments == expected_experiments
+        expected_protocols.pop("water_purification")
+        assert configuration_manager.protocols == expected_protocols
 
     def test_unload_nonexistent_lab(self, configuration_manager):
         configuration_manager.load_lab(LAB_1_ID)
@@ -70,41 +70,41 @@ class TestConfigurationManager:
         with pytest.raises(EosConfigurationError):
             configuration_manager.unload_lab("nonexistent_lab")
 
-    def test_load_experiment(self, configuration_manager):
+    def test_load_protocol(self, configuration_manager):
         configuration_manager.load_lab(LAB_1_ID)
 
-        initial_experiments = configuration_manager.experiments
-        configuration_manager.load_experiment("water_purification")
-        assert "water_purification" in configuration_manager.experiments
+        initial_protocols = configuration_manager.protocols
+        configuration_manager.load_protocol("water_purification")
+        assert "water_purification" in configuration_manager.protocols
 
-        expected_experiments = copy.deepcopy(initial_experiments)
-        expected_experiments["water_purification"] = configuration_manager.experiments["water_purification"]
+        expected_protocols = copy.deepcopy(initial_protocols)
+        expected_protocols["water_purification"] = configuration_manager.protocols["water_purification"]
 
-        assert configuration_manager.experiments == expected_experiments
+        assert configuration_manager.protocols == expected_protocols
 
-    def test_load_nonexistent_experiment(self, configuration_manager):
+    def test_load_nonexistent_protocol(self, configuration_manager):
         configuration_manager.load_lab(LAB_1_ID)
 
-        initial_experiments = configuration_manager.experiments
+        initial_protocols = configuration_manager.protocols
         with pytest.raises(EosMissingConfigurationError):
-            configuration_manager.load_experiment("nonexistent_experiment")
+            configuration_manager.load_protocol("nonexistent_protocol")
 
-        assert configuration_manager.experiments == initial_experiments
+        assert configuration_manager.protocols == initial_protocols
 
-    def test_unload_experiment(self, configuration_manager):
+    def test_unload_protocol(self, configuration_manager):
         configuration_manager.load_lab(LAB_1_ID)
 
-        if "water_purification" not in configuration_manager.experiments:
-            configuration_manager.load_experiment("water_purification")
+        if "water_purification" not in configuration_manager.protocols:
+            configuration_manager.load_protocol("water_purification")
 
-        expected_experiments = copy.deepcopy(configuration_manager.experiments)
-        configuration_manager.unload_experiment("water_purification")
+        expected_protocols = copy.deepcopy(configuration_manager.protocols)
+        configuration_manager.unload_protocol("water_purification")
 
-        assert "water_purification" not in configuration_manager.experiments
-        expected_experiments.pop("water_purification")
-        assert configuration_manager.experiments == expected_experiments
+        assert "water_purification" not in configuration_manager.protocols
+        expected_protocols.pop("water_purification")
+        assert configuration_manager.protocols == expected_protocols
 
-    def test_unload_nonexistent_experiment(self, configuration_manager):
+    def test_unload_nonexistent_protocol(self, configuration_manager):
         configuration_manager.load_lab(LAB_1_ID)
         with pytest.raises(EosConfigurationError):
-            configuration_manager.unload_experiment("nonexistent_experiment")
+            configuration_manager.unload_protocol("nonexistent_protocol")

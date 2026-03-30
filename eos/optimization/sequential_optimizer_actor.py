@@ -17,16 +17,16 @@ async def _maybe_await(result) -> Any:
 @ray.remote
 class SequentialOptimizerActor(AbstractSequentialOptimizer):
     def __init__(self, constructor_args: dict[str, Any], optimizer_type: type[AbstractSequentialOptimizer]):
-        experiment_context = constructor_args.pop("experiment_context", None)
+        protocol_context = constructor_args.pop("protocol_context", None)
         self.optimizer = optimizer_type(**constructor_args)
-        if experiment_context and hasattr(self.optimizer, "set_experiment_context"):
-            self.optimizer.set_experiment_context(experiment_context)
+        if protocol_context and hasattr(self.optimizer, "set_protocol_context"):
+            self.optimizer.set_protocol_context(protocol_context)
 
-    async def sample(self, num_experiments: int = 1) -> pd.DataFrame:
-        return await _maybe_await(self.optimizer.sample(num_experiments))
+    async def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
+        return await _maybe_await(self.optimizer.sample(num_protocol_runs))
 
-    async def sample_and_get_meta(self, num_experiments: int = 1) -> tuple[pd.DataFrame, dict[str, Any] | None]:
-        df = await _maybe_await(self.optimizer.sample(num_experiments))
+    async def sample_and_get_meta(self, num_protocol_runs: int = 1) -> tuple[pd.DataFrame, dict[str, Any] | None]:
+        df = await _maybe_await(self.optimizer.sample(num_protocol_runs))
         meta = self.optimizer.get_meta() if hasattr(self.optimizer, "get_meta") else None
         return df, meta
 

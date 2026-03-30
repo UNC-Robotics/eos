@@ -1,0 +1,29 @@
+services:
+  eos-web-ui:
+    build:
+      context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        ORCHESTRATOR_API_URL: ${ORCHESTRATOR_API_URL}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        EOS_S3_BUCKET: ${EOS_S3_BUCKET}
+        EOS_S3_ENDPOINT_URL: ${EOS_S3_ENDPOINT_URL}
+        EOS_S3_ACCESS_KEY_ID: ${EOS_S3_ACCESS_KEY_ID}
+        EOS_S3_SECRET_ACCESS_KEY: ${EOS_S3_SECRET_ACCESS_KEY}
+    environment:
+      USER_DIR: /app/user
+    env_file:
+      - .env.docker
+    ports:
+      - '3000:3000'
+    volumes:
+      - ${USER_DIR}:/app/user
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - eos_network
+
+networks:
+  eos_network:
+    external: true
+    name: eos_network

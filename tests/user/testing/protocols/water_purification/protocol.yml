@@ -1,0 +1,43 @@
+type: water_purification
+desc: Protocol to find best parameters for purifying water using evaporation
+
+labs:
+  - small_lab
+
+resources:
+  026749f8f40342b38157f9824ae2f512:
+    meta:
+      substance: salt_water
+
+tasks:
+  - name: mixing
+    type: Magnetic Mixing
+    desc: Magnetically mix water and salt
+    devices:
+      magnetic_mixer:
+        lab_name: small_lab
+        name: magnetic_mixer
+    resources:
+      beaker: 026749f8f40342b38157f9824ae2f512
+    parameters:
+      speed: 60
+      time: eos_dynamic
+
+  - name: evaporation
+    type: Purification
+    desc: Purification of water using evaporation
+    devices:
+      evaporator:
+        lab_name: small_lab
+        name: evaporator
+    resources:
+      beaker: 026749f8f40342b38157f9824ae2f512
+    parameters:
+      method: evaporation
+      evaporation_time: mixing.mixing_time
+      evaporation_temperature: eos_dynamic
+      evaporation_rotation_speed: eos_dynamic
+      evaporation_sparging: true
+      evaporation_sparging_flow: eos_dynamic
+
+    dependencies: [ "mixing" ]

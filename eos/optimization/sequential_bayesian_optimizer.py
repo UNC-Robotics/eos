@@ -24,7 +24,7 @@ from eos.optimization.exceptions import EosCampaignOptimizerDomainError
 
 class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
     """
-    Uses BoFire's Bayesian optimization to optimize the parameters of a series of experiments.
+    Uses BoFire's Bayesian optimization to optimize the parameters of a series of protocols.
     """
 
     InputType = ContinuousInput | DiscreteInput | CategoricalInput
@@ -67,27 +67,27 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
         )
         self._optimizer = strategies.map(data_model=self._optimizer_data_model)
 
-    def sample(self, num_experiments: int = 1) -> pd.DataFrame:
+    def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
         if self._generate_initial_samples and self._num_samples_reported < self._num_initial_samples:
             if self._initial_samples_df is None:
                 self._generate_initial_samples_df()
 
             if self._initial_samples_df is not None and not self._initial_samples_df.empty:
-                initial = self._fetch_and_remove_initial_samples(num_experiments)
-                if len(initial) >= num_experiments:
+                initial = self._fetch_and_remove_initial_samples(num_protocol_runs)
+                if len(initial) >= num_protocol_runs:
                     return initial
-                remaining = num_experiments - len(initial)
+                remaining = num_protocol_runs - len(initial)
                 extra = self._domain.inputs.sample(n=remaining, method=self._initial_sampling_method)
                 return pd.concat([initial, extra], ignore_index=True)
 
             self._initial_samples_df = None
-            return self._domain.inputs.sample(n=num_experiments, method=self._initial_sampling_method)
+            return self._domain.inputs.sample(n=num_protocol_runs, method=self._initial_sampling_method)
 
         try:
-            new_parameters_df = self._optimizer.ask(candidate_count=num_experiments, add_pending=True)
+            new_parameters_df = self._optimizer.ask(candidate_count=num_protocol_runs, add_pending=True)
         except ValueError as e:
             if "Not enough experiments" in str(e):
-                return self._domain.inputs.sample(n=num_experiments, method=self._initial_sampling_method)
+                return self._domain.inputs.sample(n=num_protocol_runs, method=self._initial_sampling_method)
             raise
 
         return new_parameters_df[self._input_names]
@@ -97,10 +97,10 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
             n=self._num_initial_samples, method=self._initial_sampling_method
         )
 
-    def _fetch_and_remove_initial_samples(self, num_experiments: int) -> pd.DataFrame:
-        num_experiments = min(num_experiments, len(self._initial_samples_df))
-        new_parameters_df = self._initial_samples_df.iloc[:num_experiments]
-        self._initial_samples_df = self._initial_samples_df.iloc[num_experiments:]
+    def _fetch_and_remove_initial_samples(self, num_protocol_runs: int) -> pd.DataFrame:
+        num_protocol_runs = min(num_protocol_runs, len(self._initial_samples_df))
+        new_parameters_df = self._initial_samples_df.iloc[:num_protocol_runs]
+        self._initial_samples_df = self._initial_samples_df.iloc[num_protocol_runs:]
         return new_parameters_df
 
     def report(self, inputs_df: pd.DataFrame, outputs_df: pd.DataFrame) -> None:
@@ -133,36 +133,36 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
             self._optimizer.set_candidates(remaining)
 
     def get_optimal_solutions(self) -> pd.DataFrame:
-        experiments = self._optimizer.experiments
+        completed_runs = self._optimizer.experiments  # bofire API returns completed runs
         outputs = self._domain.outputs.get_by_objective(
             includes=[MaximizeObjective, MinimizeObjective, CloseToTargetObjective]
         ).features
 
-        def is_dominated(exp: Series, other_exp: Series) -> bool:
+        def is_dominated(row: Series, other_row: Series) -> bool:
             at_least_one_worse = False
             for output in outputs:
                 if isinstance(output.objective, MaximizeObjective):
-                    if exp[output.key] > other_exp[output.key]:
+                    if row[output.key] > other_row[output.key]:
                         return False
-                    if exp[output.key] < other_exp[output.key]:
+                    if row[output.key] < other_row[output.key]:
                         at_least_one_worse = True
                 elif isinstance(output.objective, MinimizeObjective):
-                    if exp[output.key] < other_exp[output.key]:
+                    if row[output.key] < other_row[output.key]:
                         return False
-                    if exp[output.key] > other_exp[output.key]:
+                    if row[output.key] > other_row[output.key]:
                         at_least_one_worse = True
                 elif isinstance(output.objective, CloseToTargetObjective):
                     target = output.objective.target
-                    if abs(exp[output.key] - target) < abs(other_exp[output.key] - target):
+                    if abs(row[output.key] - target) < abs(other_row[output.key] - target):
                         return False
-                    if abs(exp[output.key] - target) > abs(other_exp[output.key] - target):
+                    if abs(row[output.key] - target) > abs(other_row[output.key] - target):
                         at_least_one_worse = True
             return at_least_one_worse
 
         pareto_solutions = [
-            exp
-            for i, exp in experiments.iterrows()
-            if not any(is_dominated(exp, other_exp) for j, other_exp in experiments.iterrows() if i != j)
+            row
+            for i, row in completed_runs.iterrows()
+            if not any(is_dominated(row, other_row) for j, other_row in completed_runs.iterrows() if i != j)
         ]
 
         result_df = pd.DataFrame(pareto_solutions)
@@ -192,8 +192,8 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
         """
         Validate that all expected input and output columns are present in their respective DataFrames.
 
-        :param inputs_df: DataFrame with input parameters for the experiments.
-        :param outputs_df: DataFrame with output parameters for the experiments.
+        :param inputs_df: DataFrame with input parameters for the protocols.
+        :param outputs_df: DataFrame with output parameters for the protocols.
         :raises EosCampaignOptimizerDomainError: If any expected input or output columns are missing.
         """
         missing_inputs = set(self._input_names) - set(inputs_df.columns)

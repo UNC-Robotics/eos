@@ -67,7 +67,7 @@ def _block_shutdown_signals() -> None:
 
 
 async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
-    """Initialize and set up the orchestrator with labs and experiments."""
+    """Initialize and set up the orchestrator with labs and protocols."""
     from eos.orchestration.orchestrator import Orchestrator
 
     orchestrator = Orchestrator(config)
@@ -75,7 +75,7 @@ async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
 
     async with orchestrator.db_interface.get_async_session() as db:
         await orchestrator.loading.load_labs(db, config.labs)
-        await orchestrator.loading.load_experiments(db, config.experiments)
+        await orchestrator.loading.load_protocols(db, config.protocols)
 
     return orchestrator
 
@@ -91,7 +91,7 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
     import uvicorn
     from eos.web_api.controllers.campaign_controller import CampaignController
     from eos.web_api.controllers.definition_controller import DefinitionController
-    from eos.web_api.controllers.experiment_controller import ExperimentController
+    from eos.web_api.controllers.protocol_controller import ProtocolController
     from eos.web_api.controllers.file_controller import FileController
     from eos.web_api.controllers.health_controller import HealthController
     from eos.web_api.controllers.lab_controller import LabController
@@ -113,7 +113,7 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
     controllers: list[type[Controller]] = [
         CampaignController,
         DefinitionController,
-        ExperimentController,
+        ProtocolController,
         FileController,
         HealthController,
         LabController,
@@ -271,10 +271,10 @@ def start_orchestrator(
     labs: (
         Annotated[str, typer.Option("--labs", "-l", help="Comma-separated list of lab configurations to load")] | None
     ) = None,
-    experiments: (
+    protocols: (
         Annotated[
             str,
-            typer.Option("--experiments", "-e", help="Comma-separated list of experiment configurations to load"),
+            typer.Option("--protocols", "-e", help="Comma-separated list of protocol configurations to load"),
         ]
         | None
     ) = None,
@@ -304,9 +304,9 @@ def start_orchestrator(
     parsed_labs = parse_list_arg(labs)
     if parsed_labs:
         cli_overrides["labs"] = parsed_labs
-    parsed_experiments = parse_list_arg(experiments)
-    if parsed_experiments:
-        cli_overrides["experiments"] = parsed_experiments
+    parsed_protocols = parse_list_arg(protocols)
+    if parsed_protocols:
+        cli_overrides["protocols"] = parsed_protocols
     if log_level is not None:
         cli_overrides["log_level"] = log_level.value
 

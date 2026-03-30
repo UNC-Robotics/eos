@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { RefreshControl } from '@/components/ui/RefreshControl';
 import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { CampaignInfoPanel } from './CampaignInfoPanel';
-import { RunningExperimentsTable } from './RunningExperimentsTable';
+import { RunningProtocolRunsTable } from './RunningProtocolRunsTable';
 
 import { ChartSkeleton } from '@/components/ui/ChartSkeleton';
 
@@ -29,20 +29,20 @@ import { BeaconJournalPanel } from './BeaconJournalPanel';
 import { extractBeaconInfo } from '../utils/beaconMeta';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
-import type { Campaign, Experiment } from '@/lib/types/api';
+import type { Campaign, ProtocolRun } from '@/lib/types/api';
 
 interface CampaignExecutionViewProps {
   campaign: Campaign;
   initialSamples: CampaignSample[];
-  initialExperiments: Experiment[];
+  initialProtocolRuns: ProtocolRun[];
 }
 
-export function CampaignExecutionView({ campaign, initialSamples, initialExperiments }: CampaignExecutionViewProps) {
+export function CampaignExecutionView({ campaign, initialSamples, initialProtocolRuns }: CampaignExecutionViewProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
   const [currentCampaign, setCurrentCampaign] = React.useState<Campaign>(campaign);
   const [samples, setSamples] = React.useState<CampaignSample[]>(initialSamples);
-  const [experiments, setExperiments] = React.useState<Experiment[]>(initialExperiments);
+  const [protocolRuns, setProtocolRuns] = React.useState<ProtocolRun[]>(initialProtocolRuns);
   const [pollingInterval, setPollingInterval] = React.useState(campaign.status === 'RUNNING' ? 5000 : 0);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isCancelling, setIsCancelling] = React.useState(false);
@@ -54,13 +54,13 @@ export function CampaignExecutionView({ campaign, initialSamples, initialExperim
       const {
         campaign: freshCampaign,
         samples: freshSamples,
-        experiments: freshExperiments,
+        protocolRuns: freshProtocolRuns,
       } = await getCampaignWithDetails(campaign.name);
 
       if (freshCampaign) {
         setCurrentCampaign(freshCampaign);
         setSamples(freshSamples);
-        setExperiments(freshExperiments);
+        setProtocolRuns(freshProtocolRuns);
 
         if (freshCampaign.status !== 'RUNNING' && pollingInterval !== 0) {
           setPollingInterval(0);
@@ -109,8 +109,8 @@ export function CampaignExecutionView({ campaign, initialSamples, initialExperim
   }, [samples]);
 
   const activeCount = React.useMemo(() => {
-    return experiments.filter((e) => e.status === 'RUNNING' || e.status === 'CREATED').length;
-  }, [experiments]);
+    return protocolRuns.filter((e) => e.status === 'RUNNING' || e.status === 'CREATED').length;
+  }, [protocolRuns]);
 
   const isRunning = currentCampaign.status === 'RUNNING';
   const canCancel = currentCampaign.status === 'RUNNING' || currentCampaign.status === 'CREATED';
@@ -140,7 +140,7 @@ export function CampaignExecutionView({ campaign, initialSamples, initialExperim
                 <Badge variant={getStatusBadgeVariant(currentCampaign.status)}>{currentCampaign.status}</Badge>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {currentCampaign.experiment_type} • {currentCampaign.owner}
+                {currentCampaign.protocol} • {currentCampaign.owner}
               </p>
             </div>
           </div>
@@ -240,7 +240,7 @@ export function CampaignExecutionView({ campaign, initialSamples, initialExperim
                 </Tabs.Root>
               ) : (
                 <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                  No optimization data yet. Data will appear after experiments complete.
+                  No optimization data yet. Data will appear after protocol runs complete.
                 </p>
               )}
             </div>
@@ -267,13 +267,13 @@ export function CampaignExecutionView({ campaign, initialSamples, initialExperim
             />
           )}
 
-          {/* Experiments */}
+          {/* Protocol Runs */}
           <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <FlaskConical className="h-5 w-5" />
-              Experiments
+              Protocol Runs
             </h2>
-            <RunningExperimentsTable experiments={experiments} campaignName={campaign.name} />
+            <RunningProtocolRunsTable protocolRuns={protocolRuns} campaignName={campaign.name} />
           </div>
         </div>
       </div>
@@ -283,7 +283,7 @@ export function CampaignExecutionView({ campaign, initialSamples, initialExperim
         onClose={() => setShowCancelDialog(false)}
         onConfirm={handleCancelCampaign}
         title="Cancel Campaign"
-        message={`Are you sure you want to cancel campaign "${currentCampaign.name}"? This will stop all running experiments.`}
+        message={`Are you sure you want to cancel campaign "${currentCampaign.name}"? This will stop all running protocol runs.`}
         confirmText="Cancel Campaign"
         cancelText="Keep Running"
         variant="danger"

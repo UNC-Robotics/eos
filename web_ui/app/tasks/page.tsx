@@ -1,7 +1,9 @@
 import { getTasks } from '@/features/tasks/api/tasks';
 import { TasksTable } from '@/features/tasks/components/TasksTable';
 import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
-import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
+import type { TaskSpec, ParameterSpec } from '@/lib/types/protocol';
+
+export const dynamic = 'force-dynamic';
 
 export default async function TasksPage() {
   const [initialData, rawTaskSpecs, labSpecs] = await Promise.all([
@@ -10,7 +12,7 @@ export default async function TasksPage() {
     getLabSpecs(true), // Only loaded labs
   ]);
 
-  // Transform task specs to match experiment editor format
+  // Transform task specs to match protocol editor format
   const taskSpecs: Record<string, TaskSpec> = Object.fromEntries(
     Object.entries(rawTaskSpecs).map(([type, spec]) => {
       // Extract unique device types from the devices record

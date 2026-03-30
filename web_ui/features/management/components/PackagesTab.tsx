@@ -123,7 +123,7 @@ export function PackagesTab({ initialPackages }: PackagesTabProps) {
         return {
           title: 'Unload Packages',
           description:
-            'Are you sure you want to unload these packages? Their entities will no longer be available. Packages with loaded labs or experiments cannot be unloaded.',
+            'Are you sure you want to unload these packages? Their entities will no longer be available. Packages with loaded labs or protocols cannot be unloaded.',
           confirmLabel: 'Unload',
           variant: 'destructive' as const,
         };

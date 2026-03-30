@@ -39,8 +39,8 @@ const CodeEditorPanel = dynamic(() => import('./CodeEditorPanel').then((m) => m.
   loading: () => <EditorPanelSkeleton />,
 });
 
-const VisualExperimentEditorWithProvider = dynamic(
-  () => import('./VisualExperimentEditorWithProvider').then((m) => m.VisualExperimentEditorWithProvider),
+const VisualProtocolEditorWithProvider = dynamic(
+  () => import('./VisualProtocolEditorWithProvider').then((m) => m.VisualProtocolEditorWithProvider),
   { ssr: false, loading: () => <EditorPanelSkeleton /> }
 );
 import { ToastContainer } from '@/components/ui/Toast';
@@ -48,10 +48,10 @@ import { useToast } from '@/components/ui/useToast';
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { hasJinjaSyntax, parseYaml, extractHoldsFromRawTasks } from '@/lib/utils/editor-utils';
 import { refreshPackages } from '@/features/editor/api/refresh';
-import { serializeCurrentExperiment } from '@/lib/utils/experimentSerializer';
+import { serializeCurrentProtocol } from '@/lib/utils/protocolSerializer';
 import { autoLayoutTasks } from '@/lib/utils/autoLayout';
 import type { Package, EntityTree, EntityFiles, EntityType } from '@/lib/types/filesystem';
-import type { TaskSpec, TaskNode, ExperimentDefinition } from '@/lib/types/experiment';
+import type { TaskSpec, TaskNode, ProtocolDefinition } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import type { EditorMode } from '@/lib/stores/editorStore';
 
@@ -70,7 +70,7 @@ interface EditorClientProps {
 }
 
 /**
- * Parse YAML, apply layout positions, load experiment fields, serialize back
+ * Parse YAML, apply layout positions, load protocol fields, serialize back
  * (round-trip normalization), and update baseline so no false dirty.
  */
 function loadVisualEditor() {
@@ -80,10 +80,10 @@ function loadVisualEditor() {
   if (!yaml) {
     // Empty file — bootstrap with entity name as type
     const entityName = selectedEntityName || '';
-    useEditorStore.getState().loadExperiment({ type: entityName, desc: '', labs: [], tasks: [] });
+    useEditorStore.getState().loadProtocol({ type: entityName, desc: '', labs: [], tasks: [] });
     // Clear history since this is a fresh load
     useEditorStore.setState({ past: [], future: [] });
-    const { yaml: normalizedYaml, layoutJson: normalizedLayout } = serializeCurrentExperiment();
+    const { yaml: normalizedYaml, layoutJson: normalizedLayout } = serializeCurrentProtocol();
     useEditorStore.getState().setBaseline(normalizedYaml, python, normalizedLayout);
     return;
   }
@@ -100,7 +100,7 @@ function loadVisualEditor() {
     ) as unknown as TaskNode[];
   }
 
-  // Ensure experiment type matches entity name
+  // Ensure protocol type matches entity name
   if (selectedEntityName && typedData.type !== selectedEntityName) {
     typedData.type = selectedEntityName;
   }
@@ -125,13 +125,13 @@ function loadVisualEditor() {
     }));
   }
 
-  // Load experiment fields
-  useEditorStore.getState().loadExperiment(typedData as ExperimentDefinition);
+  // Load protocol fields
+  useEditorStore.getState().loadProtocol(typedData as ProtocolDefinition);
   // Clear history since this is a fresh load
   useEditorStore.setState({ past: [], future: [] });
 
   // Round-trip normalization
-  const { yaml: normalizedYaml, layoutJson: normalizedLayout } = serializeCurrentExperiment();
+  const { yaml: normalizedYaml, layoutJson: normalizedLayout } = serializeCurrentProtocol();
 
   // Only normalize baseline if not dirty (no cached changes)
   if (!useEditorStore.getState().isDirty) {
@@ -217,7 +217,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
           const cacheKey = `${selectedPackage}/${selectedEntityType}/${selectedEntityName}`;
           useEditorStore.getState().deleteCache(cacheKey);
           clearSelection();
-          useEditorStore.getState().resetExperiment();
+          useEditorStore.getState().resetProtocol();
           showToast('error', `${selectedEntityName} no longer exists on disk`);
           return;
         }
@@ -227,11 +227,11 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
         const files: EntityFiles = await response.json();
         if (cancelled) return;
 
-        const layout = selectedEntityType === 'experiments' && files.json ? files.json : '';
+        const layout = selectedEntityType === 'protocols' && files.json ? files.json : '';
         useEditorStore.getState().loadFromDisk({ yaml: files.yaml, python: files.python, layout });
 
         // Determine editor mode and load visual editor if needed
-        if (selectedEntityType === 'experiments' && !hasJinjaSyntax(files.yaml)) {
+        if (selectedEntityType === 'protocols' && !hasJinjaSyntax(files.yaml)) {
           useEditorStore.getState().setEditorMode('visual');
           loadVisualEditor();
         } else {
@@ -295,7 +295,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
     if (appliedSelectionRef.current === selectionKey) return;
     appliedSelectionRef.current = selectionKey;
 
-    const validEntityTypes: EntityType[] = ['devices', 'tasks', 'labs', 'experiments'];
+    const validEntityTypes: EntityType[] = ['devices', 'tasks', 'labs', 'protocols'];
     if (!validEntityTypes.includes(entityType)) {
       showToast('error', `Invalid entity type: ${entityType}`);
       return;
@@ -303,7 +303,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
 
     isSyncingUrl.current = true;
     selectEntity(packageName, entityType, entityName);
-    if (mode && entityType === 'experiments') setEditorMode(mode);
+    if (mode && entityType === 'protocols') setEditorMode(mode);
     isSyncingUrl.current = false;
   }, [initialSelection, selectEntity, setEditorMode, showToast]);
 
@@ -315,7 +315,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
       params.set('pkg', selectedPackage);
       params.set('type', selectedEntityType);
       params.set('name', selectedEntityName);
-      if (selectedEntityType === 'experiments' && editorMode) params.set('mode', editorMode);
+      if (selectedEntityType === 'protocols' && editorMode) params.set('mode', editorMode);
       window.history.pushState(null, '', `/editor?${params.toString()}`);
     } else {
       window.history.pushState(null, '', '/editor');
@@ -333,7 +333,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
       if (pkg && type && name) {
         isSyncingUrl.current = true;
         selectEntity(pkg, type as EntityType, name);
-        if (mode && type === 'experiments') setEditorMode(mode as EditorMode);
+        if (mode && type === 'protocols') setEditorMode(mode as EditorMode);
         isSyncingUrl.current = false;
       } else {
         clearSelection();
@@ -356,10 +356,10 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
     try {
       setLoading(true);
 
-      // In visual mode, synchronously derive YAML and layout from experiment state
+      // In visual mode, synchronously derive YAML and layout from protocol state
       const currentMode = useEditorStore.getState().editorMode;
-      if (currentMode === 'visual' && selectedEntityType === 'experiments') {
-        const { yaml: serializedYaml, layoutJson: serializedLayout } = serializeCurrentExperiment();
+      if (currentMode === 'visual' && selectedEntityType === 'protocols') {
+        const { yaml: serializedYaml, layoutJson: serializedLayout } = serializeCurrentProtocol();
         useEditorStore.getState().updateYaml(serializedYaml);
         useEditorStore.getState().updateLayout(serializedLayout);
       }
@@ -367,7 +367,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
       const state = useEditorStore.getState();
       const body: Record<string, string> = { yaml: state.yaml, python: state.python };
 
-      if (selectedEntityType === 'experiments' && state.layout) {
+      if (selectedEntityType === 'protocols' && state.layout) {
         body.json = state.layout;
       }
 
@@ -454,7 +454,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
 
       if (selectedPackage === packageName && selectedEntityType === entityType && selectedEntityName === entityName) {
         clearSelection();
-        useEditorStore.getState().resetExperiment();
+        useEditorStore.getState().resetProtocol();
       }
 
       await fetchEntityTree(packageName);
@@ -494,8 +494,8 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
       if (selectedPackage === packageName && selectedEntityType === entityType && selectedEntityName === oldName) {
         useEditorStore.setState({ selectedEntityName: newName });
 
-        if (entityType === 'experiments') {
-          useEditorStore.setState({ experimentType: newName });
+        if (entityType === 'protocols') {
+          useEditorStore.setState({ protocolType: newName });
           const currentYaml = useEditorStore.getState().yaml;
           if (currentYaml) {
             const updatedYaml = currentYaml.replace(/^type:\s*['"]?[^'"#\n]+['"]?/m, `type: ${newName}`);
@@ -532,7 +532,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
   // Render
   // -----------------------------------------------------------------------
 
-  const canUseVisualMode = selectedEntityType === 'experiments' && !hasJinjaSyntax(yaml);
+  const canUseVisualMode = selectedEntityType === 'protocols' && !hasJinjaSyntax(yaml);
   const isVisualMode = editorMode === 'visual' && canUseVisualMode;
 
   return (
@@ -555,7 +555,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
 
           <Panel defaultSize="85%" minSize="50%">
             {isVisualMode ? (
-              <VisualExperimentEditorWithProvider
+              <VisualProtocolEditorWithProvider
                 hasJinja={hasJinjaSyntax(yaml)}
                 onSave={handleSave}
                 onReload={refetchCurrentEntity}
@@ -567,7 +567,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
                 onReload={refetchCurrentEntity}
                 onToggleMode={canUseVisualMode ? handleToggleMode : undefined}
                 canUseVisualMode={canUseVisualMode}
-                hasJinja={!canUseVisualMode && selectedEntityType === 'experiments'}
+                hasJinja={!canUseVisualMode && selectedEntityType === 'protocols'}
               />
             )}
           </Panel>

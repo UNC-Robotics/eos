@@ -6,7 +6,7 @@ from eos.configuration.entities.task_def import (
 )
 from eos.configuration.utils import is_device_reference
 from eos.devices.device_manager import DeviceManager
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.allocation.allocation_manager import AllocationManager
@@ -25,40 +25,40 @@ class GreedyScheduler(BaseScheduler):
     def __init__(
         self,
         configuration_manager: ConfigurationManager,
-        experiment_manager: ExperimentManager,
+        protocol_run_manager: ProtocolRunManager,
         task_manager: TaskManager,
         device_manager: DeviceManager,
         allocation_manager: AllocationManager,
     ):
-        super().__init__(configuration_manager, experiment_manager, task_manager, device_manager, allocation_manager)
+        super().__init__(configuration_manager, protocol_run_manager, task_manager, device_manager, allocation_manager)
         # Track device assignments for reference resolution
         self._scheduled_device_assignments: dict[str, dict[str, dict[str, DeviceAssignmentDef]]] = {}
         log.debug("Greedy scheduler initialized.")
 
-    async def request_tasks(self, db: AsyncDbSession, experiment_name: str) -> list[ScheduledTask]:
+    async def request_tasks(self, db: AsyncDbSession, protocol_run_name: str) -> list[ScheduledTask]:
         async with self._lock:
             self._clear_per_cycle_caches()
-            if experiment_name not in self._registered_experiments:
+            if protocol_run_name not in self._registered_protocol_runs:
                 raise EosSchedulerRegistrationError(
-                    f"Cannot request tasks from the scheduler for unregistered experiment {experiment_name}."
+                    f"Cannot request tasks from the scheduler for unregistered protocol run {protocol_run_name}."
                 )
-            _experiment_graph = self._registered_experiments[experiment_name][1]
-            _all_tasks = self._topo_sorted_cache[experiment_name]
+            _protocol_graph = self._registered_protocol_runs[protocol_run_name][1]
+            _all_tasks = self._topo_sorted_cache[protocol_run_name]
 
-        completed_tasks = self._completed_tasks_cache.pop(experiment_name, None)
+        completed_tasks = self._completed_tasks_cache.pop(protocol_run_name, None)
         if completed_tasks is None:
-            completed_tasks = await self._experiment_manager.get_completed_tasks(db, experiment_name)
+            completed_tasks = await self._protocol_run_manager.get_completed_tasks(db, protocol_run_name)
         pending_tasks = [t for t in _all_tasks if t not in completed_tasks]
 
         async with self._lock:
             try:
                 self._current_completed_tasks = completed_tasks
-                await self._release_completed_allocations(db, {experiment_name: set(completed_tasks)})
+                await self._release_completed_allocations(db, {protocol_run_name: set(completed_tasks)})
 
                 scheduled_tasks: list[ScheduledTask] = []
                 for task_name in pending_tasks:
                     scheduled_task = await self._check_and_allocate_resources(
-                        db, experiment_name, task_name, completed_tasks, _experiment_graph
+                        db, protocol_run_name, task_name, completed_tasks, _protocol_graph
                     )
                     if scheduled_task:
                         scheduled_tasks.append(scheduled_task)
@@ -68,9 +68,9 @@ class GreedyScheduler(BaseScheduler):
                 self._current_completed_tasks = None
                 self._clear_per_cycle_caches()
 
-    async def unregister_experiment(self, db: AsyncDbSession, experiment_name: str) -> None:
-        await super().unregister_experiment(db, experiment_name)
-        self._scheduled_device_assignments.pop(experiment_name, None)
+    async def unregister_protocol_run(self, db: AsyncDbSession, protocol_run_name: str) -> None:
+        await super().unregister_protocol_run(db, protocol_run_name)
+        self._scheduled_device_assignments.pop(protocol_run_name, None)
 
     # ---- Device resolution ----
 
@@ -87,14 +87,14 @@ class GreedyScheduler(BaseScheduler):
         self,
         db: AsyncDbSession,
         task: TaskDef,
-        experiment_name: str,
+        protocol_run_name: str,
         device_pool: list[tuple[str, str]],
         chosen_device_pairs: set[tuple[str, str]],
     ) -> DeviceAssignmentDef | None:
         for lab_name, device_name in device_pool:
             if (lab_name, device_name) in chosen_device_pairs:
                 continue
-            if not self._is_device_available(lab_name, device_name, task.name, experiment_name):
+            if not self._is_device_available(lab_name, device_name, task.name, protocol_run_name):
                 continue
             if not await self._check_device_active(db, lab_name, device_name, task.name):
                 continue
@@ -103,7 +103,7 @@ class GreedyScheduler(BaseScheduler):
         return None
 
     async def _build_assigned_devices(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> dict[str, DeviceAssignmentDef] | None:
         assigned_devices, chosen_device_pairs = self._collect_specific_devices(task)
 
@@ -112,11 +112,11 @@ class GreedyScheduler(BaseScheduler):
             if isinstance(device_value, str) and is_device_reference(device_value):
                 ref_task_name, ref_device_name = device_value.split(".")
                 if (
-                    experiment_name in self._scheduled_device_assignments
-                    and ref_task_name in self._scheduled_device_assignments[experiment_name]
-                    and ref_device_name in self._scheduled_device_assignments[experiment_name][ref_task_name]
+                    protocol_run_name in self._scheduled_device_assignments
+                    and ref_task_name in self._scheduled_device_assignments[protocol_run_name]
+                    and ref_device_name in self._scheduled_device_assignments[protocol_run_name][ref_task_name]
                 ):
-                    resolved_device = self._scheduled_device_assignments[experiment_name][ref_task_name][
+                    resolved_device = self._scheduled_device_assignments[protocol_run_name][ref_task_name][
                         ref_device_name
                     ]
                     assigned_devices[device_name] = resolved_device
@@ -133,15 +133,15 @@ class GreedyScheduler(BaseScheduler):
             device_pool = filter_device_pool(req, eligible_devices_by_type.get(req.device_type, []))
             if not device_pool:
                 log.warning(
-                    "No devices of type '%s' found for task '%s' in experiment '%s'.",
+                    "No devices of type '%s' found for task '%s' in protocol run '%s'.",
                     req.device_type,
                     task.name,
-                    experiment_name,
+                    protocol_run_name,
                 )
                 return None
 
             selected_device = await self._pick_first_available_device(
-                db, task, experiment_name, device_pool, chosen_device_pairs
+                db, task, protocol_run_name, device_pool, chosen_device_pairs
             )
             if not selected_device:
                 return None
@@ -152,7 +152,7 @@ class GreedyScheduler(BaseScheduler):
     # ---- Resource resolution ----
 
     async def _resolve_specific_resources(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> tuple[dict[str, str], set[str]] | None:
         resolved: dict[str, str] = {}
         chosen: set[str] = set()
@@ -162,7 +162,7 @@ class GreedyScheduler(BaseScheduler):
                 continue
             if value in chosen:
                 continue
-            if not self._is_resource_available(value, task.name, experiment_name):
+            if not self._is_resource_available(value, task.name, protocol_run_name):
                 return None
             resolved[name] = value
             chosen.add(value)
@@ -170,22 +170,22 @@ class GreedyScheduler(BaseScheduler):
         return resolved, chosen
 
     async def _pick_first_available_resource(
-        self, db: AsyncDbSession, task: TaskDef, experiment_name: str, pool: list[str], chosen: set[str]
+        self, db: AsyncDbSession, task: TaskDef, protocol_run_name: str, pool: list[str], chosen: set[str]
     ) -> str | None:
         for resource_name in pool:
             if resource_name in chosen:
                 continue
-            if self._is_resource_available(resource_name, task.name, experiment_name):
+            if self._is_resource_available(resource_name, task.name, protocol_run_name):
                 chosen.add(resource_name)
                 return resource_name
         return None
 
     async def _build_resolved_resources(
-        self, db: AsyncDbSession, experiment_name: str, task: TaskDef
+        self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef
     ) -> dict[str, str] | None:
         resources_by_type = self._resources_by_type()
 
-        specific = await self._resolve_specific_resources(db, experiment_name, task)
+        specific = await self._resolve_specific_resources(db, protocol_run_name, task)
         if specific is None:
             return None
         resolved, chosen = specific
@@ -199,7 +199,7 @@ class GreedyScheduler(BaseScheduler):
             if not filtered_pool:
                 return None
 
-            selected = await self._pick_first_available_resource(db, task, experiment_name, filtered_pool, chosen)
+            selected = await self._pick_first_available_resource(db, task, protocol_run_name, filtered_pool, chosen)
             if not selected:
                 return None
             resolved[name] = selected
@@ -211,15 +211,15 @@ class GreedyScheduler(BaseScheduler):
     async def _finalize_scheduling(
         self,
         db: AsyncDbSession,
-        experiment_name: str,
+        protocol_run_name: str,
         task_name: str,
         task: TaskDef,
         assigned_devices: dict[str, DeviceAssignmentDef],
         completed_tasks: set[str] | None = None,
     ) -> ScheduledTask | None:
         scheduled = await super()._finalize_scheduling(
-            db, experiment_name, task_name, task, assigned_devices, completed_tasks
+            db, protocol_run_name, task_name, task, assigned_devices, completed_tasks
         )
         if scheduled:
-            self._scheduled_device_assignments.setdefault(experiment_name, {})[task_name] = assigned_devices
+            self._scheduled_device_assignments.setdefault(protocol_run_name, {})[task_name] = assigned_devices
         return scheduled

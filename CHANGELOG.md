@@ -1,18 +1,41 @@
 # Changelog
 
+## 0.19.0
+
+> **Breaking Release:** This version renames experiments to protocols/protocol runs.
+> Existing user code that references experiments will need to be updated.
+> A migration script is provided in `scripts/migration/migrate_experiment_to_protocol.py`.
+
+- Replaced experiments with protocols and protocol runs to describe more general lab workflows beyond experiments
+- Refactored code to support the new naming
+- Added search for parameters in web UI submission dialogs
+- Optimized submission dialog layout to be more vertically compact
+- Collapsed Beacon optimizer domain on submission dialogs by default
+- Added delayed automatic refresh after making a submission
+- Fixed dark theme font color of timestamp columns
+- Updated documentation
+
+## 0.18.0
+
+- Improved entity cloning feature in the web UI to increment a number rather than appending `_clone` suffix
+- Improved task, experiment, and campaign tables to use correct pagination
+- Created Docker setup for running the web UI
+
+Thanks @dirkzon and @yordan-ov!
+
 ## 0.17.0
 
 This is the biggest EOS update to date, bringing a brand new web UI for EOS, a powerful new default optimizer called Beacon combining
 traditional methods like Bayesian optimization with cutting-edge methods like LLMs, an MCP server for connecting AI agents
 to EOS with 50 tools, and many improvements to the EOS scheduler and EOS internals.
 
-- New **web UI** for designing experiments visually, submitting tasks/experiments/campaigns, monitoring optimization, inspecting devices, browsing files, streaming logs, and managing packages.
+- New **web UI** for designing protocols visually, submitting tasks/protocols/campaigns, monitoring optimization, inspecting devices, browsing files, streaming logs, and managing packages.
 - New **Beacon** optimizer that combines Bayesian optimization with LLM reasoning.
 - New **MCP server** allowing AI assistants like Claude to connect to EOS and interact with EOS.
-- New **device and resource holds** in the scheduler to keep allocations locked between tasks so other experiments can't claim them mid-workflow.
+- New **device and resource holds** in the scheduler to keep allocations locked between tasks so other protocols can't claim them mid-workflow.
 - New **scheduling simulator** (`eos sim`) to simulate experiment scheduling offline without hardware.
 - New REST API endpoints for optimizer state, log streaming, and package management.
-- Error messages are now stored for failed tasks, experiments, and campaigns.
+- Error messages are now stored for failed tasks, protocols, and campaigns.
 - On-demand tasks now go through the scheduler, improving efficiency and stability.
 - Optimizer sampling is now async and no longer blocks the orchestrator loop.
 - CP-SAT scheduler runs in a thread executor to avoid blocking the event loop.

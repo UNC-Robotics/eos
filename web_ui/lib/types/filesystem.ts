@@ -1,4 +1,4 @@
-export type EntityType = 'devices' | 'tasks' | 'labs' | 'experiments';
+export type EntityType = 'devices' | 'tasks' | 'labs' | 'protocols';
 
 export interface Package {
   name: string;
@@ -6,7 +6,7 @@ export interface Package {
   hasDevices: boolean;
   hasTasks: boolean;
   hasLabs: boolean;
-  hasExperiments: boolean;
+  hasProtocols: boolean;
 }
 
 export interface EntityNode {
@@ -22,7 +22,7 @@ export interface EntityTree {
   devices: EntityNode[];
   tasks: EntityNode[];
   labs: EntityNode[];
-  experiments: EntityNode[];
+  protocols: EntityNode[];
 }
 
 export interface EntityFiles {
@@ -30,7 +30,7 @@ export interface EntityFiles {
   python: string;
   yamlPath: string;
   pythonPath: string;
-  json?: string; // Optional layout JSON for experiments
+  json?: string; // Optional layout JSON for protocols
   jsonPath?: string;
 }
 
@@ -55,7 +55,7 @@ export interface CreateEntityRequest {
 export interface WriteFilesRequest {
   yaml: string;
   python: string;
-  json?: string; // Optional layout JSON for experiments
+  json?: string; // Optional layout JSON for protocols
 }
 
 // File name constants
@@ -63,5 +63,5 @@ export const ENTITY_FILE_NAMES: Record<EntityType, { yaml: string; python: strin
   devices: { yaml: 'device.yml', python: 'device.py' },
   tasks: { yaml: 'task.yml', python: 'task.py' },
   labs: { yaml: 'lab.yml', python: '' }, // Labs don't have Python files
-  experiments: { yaml: 'experiment.yml', python: 'optimizer.py' }, // optimizer.py is optional
+  protocols: { yaml: 'protocol.yml', python: 'optimizer.py' }, // optimizer.py is optional
 };

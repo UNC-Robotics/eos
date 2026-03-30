@@ -10,7 +10,7 @@ from eos.database.abstract_sql_db_interface import Base
 
 
 class Definition(BaseModel):
-    """A definition entity (task, device, lab, or experiment def)."""
+    """A definition entity (task, device, lab, or protocol def)."""
 
     type: str
     name: str

@@ -1,12 +1,14 @@
 import { getCampaigns } from '@/features/campaigns/api/campaigns';
 import { CampaignsTable } from '@/features/campaigns/components/CampaignsTable';
-import { getExperimentSpecs, getTaskSpecs } from '@/lib/api/specs';
-import type { TaskSpec, ParameterSpec } from '@/lib/types/experiment';
+import { getProtocolSpecs, getTaskSpecs } from '@/lib/api/specs';
+import type { TaskSpec, ParameterSpec } from '@/lib/types/protocol';
+
+export const dynamic = 'force-dynamic';
 
 export default async function CampaignsPage() {
-  const [initialData, experimentSpecs, rawTaskSpecs] = await Promise.all([
+  const [initialData, protocolSpecs, rawTaskSpecs] = await Promise.all([
     getCampaigns(),
-    getExperimentSpecs(true),
+    getProtocolSpecs(true),
     getTaskSpecs(),
   ]);
 
@@ -51,7 +53,7 @@ export default async function CampaignsPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <CampaignsTable initialData={initialData} experimentSpecs={experimentSpecs} taskSpecs={taskSpecs} />
+      <CampaignsTable initialData={initialData} protocolSpecs={protocolSpecs} taskSpecs={taskSpecs} />
     </div>
   );
 }

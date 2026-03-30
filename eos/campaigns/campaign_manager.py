@@ -12,7 +12,7 @@ from eos.campaigns.entities.campaign import (
 )
 from eos.campaigns.exceptions import EosCampaignStateError
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.experiments.entities.experiment import ExperimentStatus, ExperimentModel
+from eos.protocols.entities.protocol_run import ProtocolRunStatus, ProtocolRunModel
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.tasks.entities.task import TaskModel
@@ -21,7 +21,7 @@ from eos.utils.di.di_container import inject
 
 class CampaignManager:
     """
-    Responsible for managing the state of all experiment campaigns in EOS and tracking their execution.
+    Responsible for managing the state of all campaigns in EOS and tracking their execution.
     """
 
     @inject
@@ -45,11 +45,9 @@ class CampaignManager:
         if await self._check_campaign_exists(db, submission.name):
             raise EosCampaignStateError(f"Campaign '{submission.name}' already exists.")
 
-        experiment = self._configuration_manager.experiments.get(submission.experiment_type)
-        if not experiment:
-            raise EosCampaignStateError(
-                f"Experiment type '{submission.experiment_type}' not found in the configuration."
-            )
+        protocol_def = self._configuration_manager.protocols.get(submission.protocol)
+        if not protocol_def:
+            raise EosCampaignStateError(f"ProtocolRun type '{submission.protocol}' not found in the configuration.")
 
         campaign = Campaign.from_submission(submission)
         campaign_model = CampaignModel(**campaign.model_dump())
@@ -60,18 +58,18 @@ class CampaignManager:
         log.info(f"Created campaign '{submission.name}'.")
 
     async def delete_campaign(self, db: AsyncDbSession, campaign_name: str) -> None:
-        """Delete a campaign and all associated experiments and samples."""
+        """Delete a campaign and all associated protocols and samples."""
         await self._validate_campaign_exists(db, campaign_name)
 
-        # Get all experiment names for this campaign
-        stmt = select(ExperimentModel.name).where(ExperimentModel.campaign == campaign_name)
+        # Get all protocol run names for this campaign
+        stmt = select(ProtocolRunModel.name).where(ProtocolRunModel.campaign == campaign_name)
         result = await db.execute(stmt)
-        experiment_names = [row[0] for row in result.all()]
+        protocol_run_names = [row[0] for row in result.all()]
 
-        # Delete experiments and their tasks
-        if experiment_names:
-            await db.execute(delete(TaskModel).where(TaskModel.experiment_name.in_(experiment_names)))
-            await db.execute(delete(ExperimentModel).where(ExperimentModel.campaign == campaign_name))
+        # Delete protocols and their tasks
+        if protocol_run_names:
+            await db.execute(delete(TaskModel).where(TaskModel.protocol_run_name.in_(protocol_run_names)))
+            await db.execute(delete(ProtocolRunModel).where(ProtocolRunModel.campaign == campaign_name))
 
         await db.execute(delete(CampaignSampleModel).where(CampaignSampleModel.campaign_name == campaign_name))
         await db.execute(delete(CampaignModel).where(CampaignModel.name == campaign_name))
@@ -101,15 +99,15 @@ class CampaignManager:
         await db.execute(
             update(CampaignModel)
             .where(CampaignModel.name == campaign_name)
-            .values(experiments_completed=CampaignModel.experiments_completed + 1)
+            .values(protocol_runs_completed=CampaignModel.protocol_runs_completed + 1)
         )
 
-    async def set_experiments_completed(self, db: AsyncDbSession, campaign_name: str, count: int) -> None:
-        """Set the experiments_completed count for a campaign."""
+    async def set_protocol_runs_completed(self, db: AsyncDbSession, campaign_name: str, count: int) -> None:
+        """Set the protocol_runs_completed count for a campaign."""
         await self._validate_campaign_exists(db, campaign_name)
 
         await db.execute(
-            update(CampaignModel).where(CampaignModel.name == campaign_name).values(experiments_completed=count)
+            update(CampaignModel).where(CampaignModel.name == campaign_name).values(protocol_runs_completed=count)
         )
 
     async def update_campaign_submission(self, db: AsyncDbSession, submission: CampaignSubmission) -> None:
@@ -121,48 +119,48 @@ class CampaignManager:
             .where(CampaignModel.name == submission.name)
             .values(
                 priority=submission.priority,
-                max_experiments=submission.max_experiments,
-                max_concurrent_experiments=submission.max_concurrent_experiments,
+                max_protocol_runs=submission.max_protocol_runs,
+                max_concurrent_protocol_runs=submission.max_concurrent_protocol_runs,
                 optimize=submission.optimize,
                 optimizer_ip=submission.optimizer_ip,
                 global_parameters=submission.global_parameters,
-                experiment_parameters=submission.experiment_parameters,
+                protocol_run_parameters=submission.protocol_run_parameters,
                 meta=submission.meta,
             )
         )
 
-    async def delete_non_completed_campaign_experiments(self, db: AsyncDbSession, campaign_name: str) -> None:
-        """Delete all non-completed experiments from a campaign (for resume)."""
+    async def delete_non_completed_campaign_protocol_runs(self, db: AsyncDbSession, campaign_name: str) -> None:
+        """Delete all non-completed protocols from a campaign (for resume)."""
         await self._validate_campaign_exists(db, campaign_name)
 
-        # Get non-completed experiments for this campaign
-        stmt = select(ExperimentModel.name).where(
-            ExperimentModel.campaign == campaign_name,
-            ExperimentModel.status.not_in([ExperimentStatus.COMPLETED]),
+        # Get non-completed protocols for this campaign
+        stmt = select(ProtocolRunModel.name).where(
+            ProtocolRunModel.campaign == campaign_name,
+            ProtocolRunModel.status.not_in([ProtocolRunStatus.COMPLETED]),
         )
         result = await db.execute(stmt)
-        experiment_names = [row[0] for row in result.all()]
+        protocol_run_names = [row[0] for row in result.all()]
 
-        if experiment_names:
-            await db.execute(delete(TaskModel).where(TaskModel.experiment_name.in_(experiment_names)))
-            await db.execute(delete(ExperimentModel).where(ExperimentModel.name.in_(experiment_names)))
+        if protocol_run_names:
+            await db.execute(delete(TaskModel).where(TaskModel.protocol_run_name.in_(protocol_run_names)))
+            await db.execute(delete(ProtocolRunModel).where(ProtocolRunModel.name.in_(protocol_run_names)))
 
-    async def get_campaign_experiment_names(
-        self, db: AsyncDbSession, campaign_name: str, status: ExperimentStatus | None = None
+    async def get_campaign_protocol_run_names(
+        self, db: AsyncDbSession, campaign_name: str, status: ProtocolRunStatus | None = None
     ) -> list[str]:
-        """Get all experiment names of a campaign with an optional status filter."""
-        stmt = select(ExperimentModel.name).where(ExperimentModel.campaign == campaign_name)
+        """Get all protocol run names of a campaign with an optional status filter."""
+        stmt = select(ProtocolRunModel.name).where(ProtocolRunModel.campaign == campaign_name)
         if status:
-            stmt = stmt.where(ExperimentModel.status == status)
+            stmt = stmt.where(ProtocolRunModel.status == status)
 
         result = await db.execute(stmt)
         return [row[0] for row in result.all()]
 
-    async def get_running_campaign_experiment_count(self, db: AsyncDbSession, campaign_name: str) -> int:
-        """Get count of running experiments for a campaign."""
+    async def get_running_campaign_protocol_run_count(self, db: AsyncDbSession, campaign_name: str) -> int:
+        """Get count of running protocol runs for a campaign."""
         stmt = select(func.count()).where(
-            ExperimentModel.campaign == campaign_name,
-            ExperimentModel.status == ExperimentStatus.RUNNING,
+            ProtocolRunModel.campaign == campaign_name,
+            ProtocolRunModel.status == ProtocolRunStatus.RUNNING,
         )
         result = await db.execute(stmt)
         return result.scalar_one()

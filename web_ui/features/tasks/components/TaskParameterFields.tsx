@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { ParameterSpec } from '@/lib/types/experiment';
+import { ParameterSpec } from '@/lib/types/protocol';
 import {
   NumericParameterField,
   StringParameterField,

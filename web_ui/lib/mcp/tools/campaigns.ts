@@ -1,6 +1,6 @@
 import { z } from 'zod/v3';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { getAllCampaigns, getCampaignByName, getCampaignSamples, getExperimentsByCampaign } from '@/lib/db/queries';
+import { getAllCampaigns, getCampaignByName, getCampaignSamples, getProtocolRunsByCampaign } from '@/lib/db/queries';
 import { orchestratorPost } from '@/lib/api/orchestrator';
 import { formatDate, formatDuration, formatPagination, textResult, errorResult } from '../helpers/format';
 
@@ -19,7 +19,7 @@ export function registerCampaignTools(server: McpServer) {
       const result = await getAllCampaigns({ limit, offset });
       const lines = result.data.map((c) => {
         const dur = formatDuration(c.startTime, c.endTime);
-        return `• ${c.name} [${c.status}] type=${c.experimentType} owner=${c.owner} completed=${c.experimentsCompleted}/${c.maxExperiments} optimize=${c.optimize} dur=${dur}`;
+        return `• ${c.name} [${c.status}] type=${c.protocol} owner=${c.owner} completed=${c.protocolRunsCompleted}/${c.maxProtocolRuns} optimize=${c.optimize} dur=${dur}`;
       });
       return textResult(`${formatPagination(result.total, result.limit, result.offset)}\n\n${lines.join('\n')}`);
     }
@@ -30,7 +30,7 @@ export function registerCampaignTools(server: McpServer) {
     {
       title: 'Get Campaign',
       description:
-        'Get campaign configuration and metadata (status, parameters, timestamps). Does not include experiments or samples.',
+        'Get campaign configuration and metadata (status, parameters, timestamps). Does not include protocols or samples.',
       inputSchema: {
         name: z.string().describe('Campaign name'),
       },
@@ -41,12 +41,12 @@ export function registerCampaignTools(server: McpServer) {
 
       const lines = [
         `Campaign: ${c.name}`,
-        `Experiment Type: ${c.experimentType}`,
+        `Protocol: ${c.protocol}`,
         `Status: ${c.status}`,
         `Owner: ${c.owner}`,
         `Priority: ${c.priority}`,
-        `Progress: ${c.experimentsCompleted}/${c.maxExperiments} experiments`,
-        `Max Concurrent: ${c.maxConcurrentExperiments}`,
+        `Progress: ${c.protocolRunsCompleted}/${c.maxProtocolRuns} protocol_runs`,
+        `Max Concurrent: ${c.maxConcurrentProtocolRuns}`,
         `Optimize: ${c.optimize}`,
         `Resume: ${c.resume}`,
         `Created: ${formatDate(c.createdAt)}`,
@@ -66,7 +66,7 @@ export function registerCampaignTools(server: McpServer) {
     'get_campaign_details',
     {
       title: 'Get Campaign Details',
-      description: 'Get campaign summary with the list of its experiments and optimization samples.',
+      description: 'Get campaign summary with the list of its protocols and optimization samples.',
       inputSchema: {
         name: z.string().describe('Campaign name'),
       },
@@ -74,21 +74,21 @@ export function registerCampaignTools(server: McpServer) {
     async ({ name }) => {
       const [campaign, exps, samples] = await Promise.all([
         getCampaignByName(name),
-        getExperimentsByCampaign(name),
+        getProtocolRunsByCampaign(name),
         getCampaignSamples(name),
       ]);
       if (!campaign) return errorResult(`Campaign "${name}" not found`);
 
       const lines = [
         `Campaign: ${campaign.name}`,
-        `Type: ${campaign.experimentType}`,
+        `Type: ${campaign.protocol}`,
         `Status: ${campaign.status}`,
         `Owner: ${campaign.owner}`,
-        `Progress: ${campaign.experimentsCompleted}/${campaign.maxExperiments}`,
+        `Progress: ${campaign.protocolRunsCompleted}/${campaign.maxProtocolRuns}`,
         `Optimize: ${campaign.optimize}`,
         `Duration: ${formatDuration(campaign.startTime, campaign.endTime)}`,
         '',
-        `--- Experiments (${exps.length}) ---`,
+        `--- Protocol Runs (${exps.length}) ---`,
       ];
 
       for (const e of exps) {
@@ -98,7 +98,7 @@ export function registerCampaignTools(server: McpServer) {
       if (samples.length > 0) {
         lines.push('', `--- Samples (${samples.length}) ---`);
         for (const s of samples) {
-          lines.push(`• ${s.experimentName}: inputs=${JSON.stringify(s.inputs)} outputs=${JSON.stringify(s.outputs)}`);
+          lines.push(`• ${s.protocolRunName}: inputs=${JSON.stringify(s.inputs)} outputs=${JSON.stringify(s.outputs)}`);
         }
       }
 
@@ -121,7 +121,7 @@ export function registerCampaignTools(server: McpServer) {
 
       const lines = samples.map(
         (s, i) =>
-          `${i + 1}. ${s.experimentName}: inputs=${JSON.stringify(s.inputs)} outputs=${JSON.stringify(s.outputs)}`
+          `${i + 1}. ${s.protocolRunName}: inputs=${JSON.stringify(s.inputs)} outputs=${JSON.stringify(s.outputs)}`
       );
       return textResult(`${samples.length} sample(s) for campaign "${campaign_name}":\n\n${lines.join('\n')}`);
     }
@@ -134,43 +134,44 @@ export function registerCampaignTools(server: McpServer) {
       description: 'Submit a new campaign to the orchestrator.',
       inputSchema: {
         name: z.string().describe('Unique campaign name'),
-        experiment_type: z.string().describe('Experiment type to run'),
+        protocol: z.string().describe('ProtocolRun type to run'),
         owner: z.string().describe('Owner name'),
-        max_experiments: z.number().int().min(1).describe('Maximum number of experiments'),
+        max_protocol_runs: z.number().int().min(1).describe('Maximum number of protocols'),
         optimize: z.boolean().describe('Whether to use Bayesian optimization'),
-        max_concurrent_experiments: z.number().int().min(1).optional().describe('Max concurrent experiments'),
+        max_concurrent_protocol_runs: z.number().int().min(1).optional().describe('Max concurrent protocols'),
         priority: z.number().int().optional().describe('Priority (default 0)'),
         global_parameters: z
           .record(z.record(z.unknown()))
           .optional()
-          .describe('Parameters shared across all experiments'),
-        experiment_parameters: z
+          .describe('Parameters shared across all protocols'),
+        protocol_run_parameters: z
           .array(z.record(z.record(z.unknown())))
           .optional()
-          .describe('Per-experiment parameter overrides'),
+          .describe('Per-protocol-run parameter overrides'),
         meta: z.record(z.unknown()).optional().describe('Metadata (e.g. optimizer_overrides)'),
         resume: z.boolean().optional().describe('Whether to resume from previous state'),
       },
     },
     async ({
       name,
-      experiment_type,
+      protocol,
       owner,
-      max_experiments,
+      max_protocol_runs,
       optimize,
-      max_concurrent_experiments,
+      max_concurrent_protocol_runs,
       priority,
       global_parameters,
-      experiment_parameters,
+      protocol_run_parameters,
       meta,
       resume,
     }) => {
       try {
-        const body: Record<string, unknown> = { name, experiment_type, owner, max_experiments, optimize };
-        if (max_concurrent_experiments !== undefined) body.max_concurrent_experiments = max_concurrent_experiments;
+        const body: Record<string, unknown> = { name, protocol, owner, max_protocol_runs, optimize };
+        if (max_concurrent_protocol_runs !== undefined)
+          body.max_concurrent_protocol_runs = max_concurrent_protocol_runs;
         if (priority !== undefined) body.priority = priority;
         if (global_parameters) body.global_parameters = global_parameters;
-        if (experiment_parameters) body.experiment_parameters = experiment_parameters;
+        if (protocol_run_parameters) body.protocol_run_parameters = protocol_run_parameters;
         if (meta) body.meta = meta;
         if (resume !== undefined) body.resume = resume;
         const result = await orchestratorPost('/campaigns/', body);

@@ -1,4 +1,4 @@
-import { ParameterSpec } from '../types/experiment';
+import { ParameterSpec } from '../types/protocol';
 
 export interface ValidationResult {
   valid: boolean;

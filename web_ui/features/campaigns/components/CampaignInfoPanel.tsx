@@ -13,9 +13,9 @@ interface CampaignInfoPanelProps {
 export function CampaignInfoPanel({ campaign, activeCount }: CampaignInfoPanelProps) {
   const [showParameters, setShowParameters] = React.useState(false);
 
-  const maxExperiments = campaign.max_experiments ?? 0;
-  const progress = maxExperiments > 0 ? (campaign.experiments_completed / maxExperiments) * 100 : null;
-  const activeProgress = maxExperiments > 0 ? (activeCount / maxExperiments) * 100 : 0;
+  const maxProtocolRuns = campaign.max_protocol_runs ?? 0;
+  const progress = maxProtocolRuns > 0 ? (campaign.protocol_runs_completed / maxProtocolRuns) * 100 : null;
+  const activeProgress = maxProtocolRuns > 0 ? (activeCount / maxProtocolRuns) * 100 : 0;
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
@@ -29,7 +29,7 @@ export function CampaignInfoPanel({ campaign, activeCount }: CampaignInfoPanelPr
                 className="bg-blue-600 dark:bg-yellow-500 h-3 transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
-              {/* Running experiments (animated shimmer) */}
+              {/* Running protocols (animated shimmer) */}
               {activeCount > 0 && (
                 <div
                   className="h-3 relative overflow-hidden bg-blue-400 dark:bg-orange-400"
@@ -53,11 +53,11 @@ export function CampaignInfoPanel({ campaign, activeCount }: CampaignInfoPanelPr
         {/* Progress stats */}
         <div>
           <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Experiments
+            Protocol Runs
           </div>
           <div className="mt-1">
-            <span className="text-2xl font-bold text-gray-900 dark:text-white">{campaign.experiments_completed}</span>
-            <span className="text-gray-500 dark:text-gray-400"> / {maxExperiments || '∞'}</span>
+            <span className="text-2xl font-bold text-gray-900 dark:text-white">{campaign.protocol_runs_completed}</span>
+            <span className="text-gray-500 dark:text-gray-400"> / {maxProtocolRuns || '∞'}</span>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ export function CampaignInfoPanel({ campaign, activeCount }: CampaignInfoPanelPr
             Max Concurrent
           </div>
           <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-            {campaign.max_concurrent_experiments}
+            {campaign.max_concurrent_protocol_runs}
           </div>
         </div>
 

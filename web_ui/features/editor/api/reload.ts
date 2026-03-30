@@ -13,10 +13,10 @@ export interface ActionResult {
   message?: string;
 }
 
-export type EntityType = 'experiments' | 'labs' | 'tasks' | 'devices';
+export type EntityType = 'protocols' | 'labs' | 'tasks' | 'devices';
 
 /**
- * Load a specific entity (experiment, lab, or device).
+ * Load a specific entity (protocol, lab, or device).
  * This triggers the EOS orchestrator to load the entity.
  *
  * @param entityType - The type of entity to load
@@ -27,9 +27,9 @@ export async function loadEntity(entityType: EntityType, entityName: string, lab
   try {
     // Map entity type to appropriate API endpoint and request body
     const endpointConfig = {
-      experiments: {
-        path: '/experiments/load',
-        body: { experiment_types: [entityName] },
+      protocols: {
+        path: '/protocols/load',
+        body: { protocol_types: [entityName] },
       },
       labs: {
         path: '/labs/load',
@@ -82,7 +82,7 @@ export async function loadEntity(entityType: EntityType, entityName: string, lab
 }
 
 /**
- * Unload a specific entity (experiment or lab).
+ * Unload a specific entity (protocol or lab).
  * This triggers the EOS orchestrator to unload the entity.
  *
  * @param entityType - The type of entity to unload
@@ -97,9 +97,9 @@ export async function unloadEntity(
   try {
     // Map entity type to appropriate API endpoint and request body
     const endpointConfig = {
-      experiments: {
-        path: '/experiments/unload',
-        body: { experiment_types: [entityName] },
+      protocols: {
+        path: '/protocols/unload',
+        body: { protocol_types: [entityName] },
       },
       labs: {
         path: '/labs/unload',
@@ -152,7 +152,7 @@ export async function unloadEntity(
 }
 
 /**
- * Reload a specific entity (experiment, lab, task, or device).
+ * Reload a specific entity (protocol, lab, task, or device).
  * This triggers the EOS orchestrator to reload the entity's code from disk.
  *
  * @param entityType - The type of entity to reload
@@ -167,9 +167,9 @@ export async function reloadEntity(
   try {
     // Map entity type to appropriate API endpoint and request body
     const endpointConfig = {
-      experiments: {
-        path: '/experiments/reload',
-        body: { experiment_types: [entityName] },
+      protocols: {
+        path: '/protocols/reload',
+        body: { protocol_types: [entityName] },
       },
       labs: {
         path: '/labs/reload',

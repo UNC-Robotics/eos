@@ -26,13 +26,13 @@ class DefSync:
         self._device_spec_registry = device_spec_registry
 
     async def sync_all_defs(self, db: AsyncDbSession) -> None:
-        """Sync all definitions (tasks, devices, labs, experiments) to the database."""
+        """Sync all definitions (tasks, devices, labs, protocols) to the database."""
         log.info("Syncing defs to database...")
         try:
             await self.sync_task_defs(db)
             await self.sync_device_defs(db)
             await self.sync_lab_defs(db)
-            await self.sync_experiment_defs(db)
+            await self.sync_protocol_defs(db)
             await self._mark_unloaded_package_defs(db)
             log.info("Successfully synced all defs to database")
         except Exception:
@@ -76,10 +76,10 @@ class DefSync:
         """Sync lab definitions to the database."""
         await self._sync_entity_defs(db, EntityType.LAB, "lab", self._package_manager.read_lab, is_loaded=False)
 
-    async def sync_experiment_defs(self, db: AsyncDbSession) -> None:
-        """Sync experiment definitions to the database."""
+    async def sync_protocol_defs(self, db: AsyncDbSession) -> None:
+        """Sync protocol definitions to the database."""
         await self._sync_entity_defs(
-            db, EntityType.EXPERIMENT, "experiment", self._package_manager.read_experiment, is_loaded=False
+            db, EntityType.PROTOCOL, "protocol", self._package_manager.read_protocol, is_loaded=False
         )
 
     async def _sync_entity_defs(
@@ -124,9 +124,9 @@ class DefSync:
         """Update is_loaded status for lab definitions."""
         await self._mark_defs_loaded(db, "lab", lab_names, is_loaded)
 
-    async def mark_experiments_loaded(self, db: AsyncDbSession, experiment_names: set[str], is_loaded: bool) -> None:
-        """Update is_loaded status for experiment definitions."""
-        await self._mark_defs_loaded(db, "experiment", experiment_names, is_loaded)
+    async def mark_protocols_loaded(self, db: AsyncDbSession, protocol_types: set[str], is_loaded: bool) -> None:
+        """Update is_loaded status for protocol definitions."""
+        await self._mark_defs_loaded(db, "protocol", protocol_types, is_loaded)
 
     async def _mark_defs_loaded(self, db: AsyncDbSession, def_type: str, names: set[str], is_loaded: bool) -> None:
         """Update is_loaded status for multiple defs."""
@@ -189,7 +189,7 @@ class DefSync:
             "task": EntityType.TASK,
             "device": EntityType.DEVICE,
             "lab": EntityType.LAB,
-            "experiment": EntityType.EXPERIMENT,
+            "protocol": EntityType.PROTOCOL,
         }
 
         existing_entities: dict[str, set[str]] = {}

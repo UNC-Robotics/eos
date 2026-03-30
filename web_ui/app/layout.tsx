@@ -18,8 +18,8 @@ export const metadata: Metadata = {
     default: 'EOS - Experiment Orchestration System',
     template: '%s - EOS',
   },
-  description: 'Visual graph editor and experiment orchestration system for robotics and automation',
-  keywords: ['experiment', 'orchestration', 'robotics', 'automation', 'workflow', 'editor'],
+  description: 'Visual graph editor and protocol orchestration system for robotics and automation',
+  keywords: ['protocol', 'orchestration', 'robotics', 'automation', 'workflow', 'editor'],
   authors: [{ name: 'EOS Team' }],
   creator: 'EOS Team',
   openGraph: {
@@ -27,12 +27,12 @@ export const metadata: Metadata = {
     locale: 'en_US',
     siteName: 'EOS',
     title: 'EOS - Experiment Orchestration System',
-    description: 'Visual graph editor and experiment orchestration system for robotics and automation',
+    description: 'Visual graph editor and protocol orchestration system for robotics and automation',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'EOS - Experiment Orchestration System',
-    description: 'Visual graph editor and experiment orchestration system for robotics and automation',
+    description: 'Visual graph editor and protocol orchestration system for robotics and automation',
   },
   robots: {
     index: true,

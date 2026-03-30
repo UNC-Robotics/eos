@@ -1,0 +1,35 @@
+type: hold_test_protocol
+desc: Test protocol for device hold behavior — D1 is shared tool, D2 is held across tasks
+
+labs:
+  - abstract_lab
+
+tasks:
+  - name: setup
+    type: Noop
+    devices:
+      shared_device:
+        lab_name: abstract_lab
+        name: D1
+      held_device:
+        lab_name: abstract_lab
+        name: D2
+        hold: true
+
+  - name: process
+    type: Noop
+    dependencies: [setup]
+    devices:
+      held_device:
+        ref: setup.held_device
+        hold: true
+
+  - name: cleanup
+    type: Noop
+    dependencies: [process]
+    devices:
+      shared_device:
+        lab_name: abstract_lab
+        name: D1
+      held_device:
+        ref: setup.held_device

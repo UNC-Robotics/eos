@@ -11,12 +11,12 @@ from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.eos_config import DatabaseType, EosConfig
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
-from eos.experiments.experiment_executor_factory import ExperimentExecutorFactory
-from eos.experiments.experiment_manager import ExperimentManager
+from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
+from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.logging.logger import log
 from eos.orchestration.services.campaign_service import CampaignService
 from eos.orchestration.services.definition_service import DefinitionService
-from eos.orchestration.services.experiment_service import ExperimentService
+from eos.orchestration.services.protocol_service import ProtocolService
 from eos.orchestration.services.lab_service import LabService
 from eos.orchestration.services.loading_service import LoadingService
 from eos.orchestration.services.result_service import ResultService
@@ -62,7 +62,7 @@ class Orchestrator(metaclass=Singleton):
         self._labs: LabService | None = None
         self._results: ResultService | None = None
         self._tasks: TaskService | None = None
-        self._experiments: ExperimentService | None = None
+        self._protocols: ProtocolService | None = None
         self._campaigns: CampaignService | None = None
 
         self._work_signal: WorkSignal | None = None
@@ -127,8 +127,8 @@ class Orchestrator(metaclass=Singleton):
         task_manager = TaskManager()
         di.register(TaskManager, task_manager)
 
-        experiment_manager = ExperimentManager()
-        di.register(ExperimentManager, experiment_manager)
+        protocol_run_manager = ProtocolRunManager()
+        di.register(ProtocolRunManager, protocol_run_manager)
 
         campaign_manager = CampaignManager()
         di.register(CampaignManager, campaign_manager)
@@ -148,8 +148,8 @@ class Orchestrator(metaclass=Singleton):
         di.register(TaskExecutor, task_executor)
         self._task_executor = task_executor
 
-        experiment_executor_factory = ExperimentExecutorFactory()
-        di.register(ExperimentExecutorFactory, experiment_executor_factory)
+        protocol_executor_factory = ProtocolExecutorFactory()
+        di.register(ProtocolExecutorFactory, protocol_executor_factory)
 
         campaign_executor_factory = CampaignExecutorFactory()
         di.register(CampaignExecutorFactory, campaign_executor_factory)
@@ -160,7 +160,7 @@ class Orchestrator(metaclass=Singleton):
         self._labs = LabService()
         self._results = ResultService()
         self._tasks = TaskService()
-        self._experiments = ExperimentService()
+        self._protocols = ProtocolService()
         self._campaigns = CampaignService()
 
         await self._fail_running_work()
@@ -216,7 +216,7 @@ class Orchestrator(metaclass=Singleton):
             start = time.time()
 
             has_work = (
-                bool(self._experiments.submitted_experiments)
+                bool(self._protocols.submitted_protocol_runs)
                 or bool(self._campaigns.submitted_campaigns)
                 or bool(self._task_executor.has_work)
             )
@@ -232,7 +232,7 @@ class Orchestrator(metaclass=Singleton):
 
             elapsed = time.time() - start
             has_more_work = (
-                bool(self._experiments.submitted_experiments)
+                bool(self._protocols.submitted_protocol_runs)
                 or bool(self._campaigns.submitted_campaigns)
                 or bool(self._task_executor.has_work)
             )
@@ -242,7 +242,7 @@ class Orchestrator(metaclass=Singleton):
 
     async def spin_once(self) -> None:
         """Process submitted work."""
-        await self._experiments.process_experiment_cancellations()
+        await self._protocols.process_protocol_run_cancellations()
         await self._campaigns.process_campaign_cancellations()
 
         await self._task_executor.process_tasks()
@@ -254,7 +254,7 @@ class Orchestrator(metaclass=Singleton):
         # Retry queued on-demand tasks
         await self._tasks.process_pending_on_demand()
 
-        await self._experiments.process_experiments()
+        await self._protocols.process_protocol_runs()
         await self._campaigns.process_campaigns()
 
         await asyncio.sleep(0)
@@ -262,14 +262,14 @@ class Orchestrator(metaclass=Singleton):
 
     async def _fail_running_work(self) -> None:
         """
-        When the orchestrator starts, fail all running tasks, experiments, and campaigns.
+        When the orchestrator starts, fail all running tasks, protocols, and campaigns.
         This is for safety, as if the orchestrator was terminated while there was running work then the state of the
         system may be unknown. We want to force manual review of the state of the system and explicitly require
         re-submission of any work that was running.
         """
         async with get_db_interface().get_async_session() as db:
             await self._tasks.fail_running_tasks(db)
-            await self._experiments.fail_running_experiments(db)
+            await self._protocols.fail_running_protocol_runs(db)
             await self._campaigns.fail_running_campaigns(db)
 
     @property
@@ -293,8 +293,8 @@ class Orchestrator(metaclass=Singleton):
         return self._tasks
 
     @property
-    def experiments(self) -> ExperimentService:
-        return self._experiments
+    def protocols(self) -> ProtocolService:
+        return self._protocols
 
     @property
     def campaigns(self) -> CampaignService:

@@ -15,19 +15,19 @@ from eos.configuration.registries import (
 )
 from eos.configuration.def_sync import DefSync
 from eos.configuration.validation import (
-    ExperimentValidator,
+    ProtocolValidator,
     LabValidator,
     MultiLabValidator,
 )
 from eos.logging.logger import log
 
 if TYPE_CHECKING:
-    from eos.configuration.entities.experiment_def import ExperimentDef
+    from eos.configuration.entities.protocol_def import ProtocolDef
     from eos.configuration.entities.lab_def import LabDef
 
 
 class ConfigurationManager:
-    """Manages the data-driven configuration layer for labs, experiments, tasks, and devices."""
+    """Manages the data-driven configuration layer for labs, protocols, tasks, and devices."""
 
     def __init__(self, user_dir: str, allowed_packages: set[str] | None = None):
         self._user_dir = user_dir
@@ -42,7 +42,7 @@ class ConfigurationManager:
         self.devices = create_device_plugin_registry(self.package_manager, self.device_specs)
 
         self.labs: dict[str, LabDef] = {}
-        self.experiments: dict[str, ExperimentDef] = {}
+        self.protocols: dict[str, ProtocolDef] = {}
 
         self.campaign_optimizers = CampaignOptimizerPluginRegistry(self.package_manager)
         self.def_sync = DefSync(self.package_manager, self.task_specs, self.device_specs)
@@ -81,85 +81,85 @@ class ConfigurationManager:
         MultiLabValidator(list(self.labs.values())).validate()
 
     def unload_lab(self, lab_type: str) -> None:
-        """Unload a lab and its associated experiments."""
+        """Unload a lab and its associated protocols."""
         if lab_type not in self.labs:
             raise EosConfigurationError(
                 f"Lab '{lab_type}' that was requested to be unloaded does not exist in the configuration manager"
             )
 
-        self._unload_experiments_associated_with_labs({lab_type})
+        self._unload_protocols_associated_with_labs({lab_type})
         self.labs.pop(lab_type)
         log.info(f"Unloaded lab '{lab_type}'")
 
     def unload_labs(self, lab_types: set[str]) -> None:
-        """Unload multiple labs and their associated experiments."""
+        """Unload multiple labs and their associated protocols."""
         for lab_type in lab_types:
             self.unload_lab(lab_type)
 
-    def get_loaded_experiments(self) -> dict[str, bool]:
-        """Return all experiment types mapped to their loaded status."""
-        all_experiments = set()
+    def get_loaded_protocols(self) -> dict[str, bool]:
+        """Return all protocol types mapped to their loaded status."""
+        all_protocols = set()
         for package in self.package_manager.get_all_packages():
-            all_experiments.update(self.package_manager.get_entities_in_package(package.name, EntityType.EXPERIMENT))
-        return {exp: exp in self.experiments for exp in all_experiments}
+            all_protocols.update(self.package_manager.get_entities_in_package(package.name, EntityType.PROTOCOL))
+        return {p: p in self.protocols for p in all_protocols}
 
-    def load_experiment(self, experiment_type: str) -> None:
-        """Load an experiment configuration and validate it."""
-        if experiment_type in self.experiments:
-            log.debug(f"Experiment '{experiment_type}' is already loaded, skipping")
+    def load_protocol(self, protocol_type: str) -> None:
+        """Load a protocol configuration and validate it."""
+        if protocol_type in self.protocols:
+            log.debug(f"Protocol '{protocol_type}' is already loaded, skipping")
             return
 
         try:
-            experiment = self.package_manager.read_experiment(experiment_type)
+            protocol_def = self.package_manager.read_protocol(protocol_type)
 
-            ExperimentValidator(experiment, list(self.labs.values())).validate()
+            ProtocolValidator(protocol_def, list(self.labs.values())).validate()
 
-            self.experiments[experiment_type] = experiment
+            self.protocols[protocol_type] = protocol_def
 
-            log.info(f"Loaded experiment '{experiment_type}'")
+            log.info(f"Loaded protocol '{protocol_type}'")
         except Exception:
-            self._cleanup_experiment_resources(experiment_type)
+            self._cleanup_protocol_resources(protocol_type)
             raise
 
-    def unload_experiment(self, experiment_name: str) -> None:
-        """Unload an experiment from the configuration manager."""
-        if experiment_name not in self.experiments:
-            raise EosConfigurationError(
-                f"Experiment '{experiment_name}' that was requested to be unloaded is not loaded."
-            )
+    def unload_protocol(self, protocol_type: str) -> None:
+        """Unload a protocol from the configuration manager."""
+        if protocol_type not in self.protocols:
+            raise EosConfigurationError(f"Protocol '{protocol_type}' that was requested to be unloaded is not loaded.")
 
-        self._cleanup_experiment_resources(experiment_name)
-        self.experiments.pop(experiment_name)
-        log.info(f"Unloaded experiment '{experiment_name}'")
+        self._cleanup_protocol_resources(protocol_type)
+        self.protocols.pop(protocol_type)
+        log.info(f"Unloaded protocol '{protocol_type}'")
 
-    def load_experiments(self, experiment_types: set[str]) -> None:
-        """Load multiple experiments."""
-        for experiment_type in experiment_types:
-            self.load_experiment(experiment_type)
+    def load_protocols(self, protocol_types: set[str]) -> None:
+        """Load multiple protocols."""
+        for protocol_type in protocol_types:
+            self.load_protocol(protocol_type)
 
-    def unload_experiments(self, experiment_types: set[str]) -> None:
-        """Unload multiple experiments."""
-        for experiment_type in experiment_types:
-            self.unload_experiment(experiment_type)
+    def unload_protocols(self, protocol_types: set[str]) -> None:
+        """Unload multiple protocols."""
+        for protocol_type in protocol_types:
+            self.unload_protocol(protocol_type)
 
-    def _cleanup_experiment_resources(self, experiment_name: str) -> None:
-        """Clean up resources associated with an experiment."""
+    def _cleanup_protocol_resources(self, protocol_type: str) -> None:
+        """Clean up resources associated with a protocol."""
         try:
-            self.campaign_optimizers.unload_campaign_optimizer(experiment_name)
+            self.campaign_optimizers.unload_campaign_optimizer(protocol_type)
         except Exception as e:
             raise EosConfigurationError(
-                f"Error unloading campaign optimizer for experiment '{experiment_name}': {e!s}"
+                f"Error unloading campaign optimizer for protocol '{protocol_type}': {e!s}"
             ) from e
 
-    def _unload_experiments_associated_with_labs(self, lab_names: set[str]) -> None:
-        """Unload all experiments that depend on any of the given labs."""
-        experiments_to_remove = [
-            exp_name for exp_name, exp in self.experiments.items() if any(lab in exp.labs for lab in lab_names)
+    def _unload_protocols_associated_with_labs(self, lab_names: set[str]) -> None:
+        """Unload all protocols that depend on any of the given labs."""
+        protocols_to_remove = [
+            protocol_type
+            for protocol_type, protocol in self.protocols.items()
+            if any(lab in protocol.labs for lab in lab_names)
         ]
 
-        for experiment_name in experiments_to_remove:
-            self.unload_experiment(experiment_name)
-            log.debug(f"Unloaded experiment '{experiment_name}' as it was associated with lab(s) {lab_names}")
+        for protocol_type in protocols_to_remove:
+            self.unload_protocol(protocol_type)
+            log.debug(f"Unloaded protocol '{protocol_type}' as it was associated with lab(s) {lab_names}")
 
     def refresh_task_spec(self, task_type: str) -> None:
         """Re-read a single task spec from disk and update the registry."""

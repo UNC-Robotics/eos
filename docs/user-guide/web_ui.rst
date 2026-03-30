@@ -1,6 +1,6 @@
 Web UI
 ======
-EOS includes a rich web UI for visually designing experiments, monitoring execution, controlling devices,
+EOS includes a rich web UI for visually designing protocols, monitoring execution, controlling devices,
 browsing results, and more. It connects to the EOS orchestrator and provides real-time updates.
 
 Access it at ``http://localhost:3000`` (default host and port).
@@ -15,10 +15,10 @@ Editor
 ------
 The editor is the central workspace for designing and building EOS packages.
 
-* Visual experiment designer with interactive task graphs showing dependencies and data flow
-* Build experiments by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
+* Visual protocol designer with interactive task graphs showing dependencies and data flow
+* Build protocols by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
 * Seamless switching between visual and code views (changes sync both ways)
-* Reload tasks, devices, labs, and experiments without restarting EOS
+* Reload tasks, devices, labs, and protocols without restarting EOS
 * Syntax-highlighted code editing for YAML configs and Python code
 * Package file tree for creating, renaming, and deleting entities
 
@@ -31,18 +31,18 @@ The tasks view manages individual task submissions.
 * Clone previous tasks for easy re-submission
 
 
-Experiments
------------
-The experiments view tracks individual experiment execution.
+Protocol Runs
+-------------
+The protocol runs view tracks individual protocol run execution.
 
-* Submit experiments with specific task parameters
+* Submit protocol runs with specific task parameters
 * Visual task flow graph with real-time status updates (pending, running, completed, failed)
 * Inspect task inputs, outputs, devices, and timing
 
 
 Campaigns
 ---------
-The campaigns view manages repeated experiment execution and optimization.
+The campaigns view manages repeated protocol run execution and optimization.
 
 * Submit campaigns with parameters as JSON/CSV, or via optimizer sampling
 * Configure optimizer settings when optimization is enabled
@@ -75,7 +75,7 @@ The management view handles system configuration.
 * **Labs** -- Load, unload, and reload laboratory configurations
 * **Devices** -- Device health status and lab assignments
 * **Task Plugins** -- Available task types and their parameter specs
-* **Experiment Types** -- Load, unload, and reload experiment configurations
+* **Protocol Types** -- Load, unload, and reload protocol configurations
 
 
 Logs

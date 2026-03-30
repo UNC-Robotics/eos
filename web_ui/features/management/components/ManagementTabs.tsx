@@ -6,19 +6,19 @@ import { Server, FlaskConical, ListChecks, Boxes, Package } from 'lucide-react';
 import { DevicesTab } from './DevicesTab';
 import { LabsTab } from './LabsTab';
 import { TaskPluginsTab } from './TaskPluginsTab';
-import { ExperimentTypesTab } from './ExperimentTypesTab';
+import { ProtocolTypesTab } from './ProtocolTypesTab';
 import { PackagesTab } from './PackagesTab';
-import type { Device, Lab, TaskPluginInfo, ExperimentType, PackageInfo } from '@/lib/types/management';
+import type { Device, Lab, TaskPluginInfo, ProtocolType, PackageInfo } from '@/lib/types/management';
 
 interface ManagementTabsProps {
   packages: PackageInfo[];
   devices: Device[];
   labs: Lab[];
   taskPlugins: TaskPluginInfo[];
-  experimentTypes: ExperimentType[];
+  protocolTypes: ProtocolType[];
 }
 
-export function ManagementTabs({ packages, devices, labs, taskPlugins, experimentTypes }: ManagementTabsProps) {
+export function ManagementTabs({ packages, devices, labs, taskPlugins, protocolTypes }: ManagementTabsProps) {
   const [activeTab, setActiveTab] = React.useState('packages');
 
   return (
@@ -69,13 +69,13 @@ export function ManagementTabs({ packages, devices, labs, taskPlugins, experimen
         </Tabs.Trigger>
 
         <Tabs.Trigger
-          value="experiments"
+          value="protocols"
           className="flex items-center gap-2 px-6 py-4 text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-yellow-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-yellow-500 transition-colors"
         >
           <FlaskConical className="h-5 w-5" />
-          Experiment Types
+          Protocols
           <span className="ml-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
-            {experimentTypes.filter((e) => e.loaded).length}/{experimentTypes.length}
+            {protocolTypes.filter((e) => e.loaded).length}/{protocolTypes.length}
           </span>
         </Tabs.Trigger>
       </Tabs.List>
@@ -96,8 +96,8 @@ export function ManagementTabs({ packages, devices, labs, taskPlugins, experimen
         <TaskPluginsTab initialTaskPlugins={taskPlugins} />
       </Tabs.Content>
 
-      <Tabs.Content value="experiments" className="focus:outline-none">
-        <ExperimentTypesTab initialExperimentTypes={experimentTypes} />
+      <Tabs.Content value="protocols" className="focus:outline-none">
+        <ProtocolTypesTab initialProtocolTypes={protocolTypes} />
       </Tabs.Content>
     </Tabs.Root>
   );

@@ -2,7 +2,8 @@ import asyncio
 from collections.abc import AsyncIterable
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import ClientError, EndpointConnectionError, ConnectTimeoutError
 
 from eos.configuration.eos_config import FileDbConfig
 from eos.database.exceptions import EosFileDbError
@@ -21,20 +22,34 @@ class FileDbInterface:
             aws_access_key_id=file_db_config.access_key_id,
             aws_secret_access_key=file_db_config.secret_access_key,
             region_name=file_db_config.region_name,
+            config=BotoConfig(
+                connect_timeout=file_db_config.connect_timeout,
+                read_timeout=file_db_config.read_timeout,
+                retries={"max_attempts": 2},
+            ),
         )
         self._bucket_name = file_db_config.bucket
 
         try:
             self._client.head_bucket(Bucket=self._bucket_name)
-        except ClientError:
-            create_kwargs: dict = {"Bucket": self._bucket_name}
-            if file_db_config.endpoint_url or file_db_config.region_name == "us-east-1":
-                pass
+        except (EndpointConnectionError, ConnectTimeoutError) as e:
+            raise EosFileDbError(
+                f"Cannot connect to file storage at '{file_db_config.endpoint_url}'. "
+                f"Ensure the S3-compatible storage (e.g. SeaweedFS) is running and reachable: {e}"
+            ) from e
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code in {"404", "NoSuchBucket"}:
+                create_kwargs: dict = {"Bucket": self._bucket_name}
+                if file_db_config.endpoint_url or file_db_config.region_name == "us-east-1":
+                    pass
+                else:
+                    create_kwargs["CreateBucketConfiguration"] = {
+                        "LocationConstraint": file_db_config.region_name,
+                    }
+                self._client.create_bucket(**create_kwargs)
             else:
-                create_kwargs["CreateBucketConfiguration"] = {
-                    "LocationConstraint": file_db_config.region_name,
-                }
-            self._client.create_bucket(**create_kwargs)
+                raise EosFileDbError(f"Error accessing file storage bucket '{self._bucket_name}': {e}") from e
 
         log.debug("File database interface initialized.")
 

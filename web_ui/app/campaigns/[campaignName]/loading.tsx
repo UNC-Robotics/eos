@@ -44,7 +44,7 @@ export default function CampaignDetailLoading() {
             <Skeleton className="h-64 w-full rounded-lg" />
           </div>
 
-          {/* Experiments table */}
+          {/* Protocol runs table */}
           <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
             <Skeleton className="h-6 w-32 mb-4" />
             <div className="space-y-3">

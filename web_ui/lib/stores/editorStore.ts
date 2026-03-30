@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Package, EntityTree, EntityType } from '@/lib/types/filesystem';
-import type { TaskNode, TaskSpec, ExperimentDefinition } from '@/lib/types/experiment';
+import type { TaskNode, TaskSpec, ProtocolDefinition } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 
 // ---------------------------------------------------------------------------
@@ -16,9 +16,9 @@ interface CachedFiles {
   layout: string;
 }
 
-interface ExperimentState {
-  experimentType: string;
-  experimentDesc: string;
+interface ProtocolState {
+  protocolType: string;
+  protocolDesc: string;
   labs: string[];
   tasks: TaskNode[];
   nextTaskNumber: number;
@@ -51,15 +51,15 @@ interface EditorStore {
   isLoading: boolean;
   error: string | null;
 
-  // --- Experiment slice (visual editor state) ---
-  experimentType: string;
-  experimentDesc: string;
+  // --- ProtocolRun slice (visual editor state) ---
+  protocolType: string;
+  protocolDesc: string;
   labs: string[];
   tasks: TaskNode[];
   nextTaskNumber: number;
 
-  past: ExperimentState[];
-  future: ExperimentState[];
+  past: ProtocolState[];
+  future: ProtocolState[];
 
   taskTemplates: TaskSpec[];
   labSpecs: Record<string, LabSpec>;
@@ -104,9 +104,9 @@ interface EditorStore {
   deleteCache: (key: string) => void;
   renameCache: (oldKey: string, newKey: string) => void;
 
-  // --- Experiment actions ---
-  setExperimentType: (type: string) => void;
-  setExperimentDesc: (desc: string) => void;
+  // --- ProtocolRun actions ---
+  setProtocolType: (type: string) => void;
+  setProtocolDesc: (desc: string) => void;
   setLabs: (labs: string[]) => void;
   addTask: (task: TaskNode) => void;
   updateTask: (taskName: string, updates: Partial<TaskNode>) => void;
@@ -119,9 +119,9 @@ interface EditorStore {
   setLabSpecs: (labSpecs: Record<string, LabSpec>) => void;
   mergeLabSpecs: (specs: Record<string, LabSpec>) => void;
   refreshSpecsIfChanged: () => Promise<boolean>;
-  resetExperiment: () => void;
-  loadExperiment: (experiment: ExperimentDefinition) => void;
-  exportExperiment: () => ExperimentDefinition;
+  resetProtocol: () => void;
+  loadProtocol: (protocol: ProtocolDefinition) => void;
+  exportProtocol: () => ProtocolDefinition;
   getNextTaskName: () => string;
   copyNodes: (nodeNames: string[]) => void;
   pasteNodes: (position: { x: number; y: number }) => string[];
@@ -163,9 +163,9 @@ const computeDirty = (
 
 const MAX_HISTORY_SIZE = 64;
 
-const getCurrentExperimentState = (state: EditorStore): ExperimentState => ({
-  experimentType: state.experimentType,
-  experimentDesc: state.experimentDesc,
+const getCurrentProtocolState = (state: EditorStore): ProtocolState => ({
+  protocolType: state.protocolType,
+  protocolDesc: state.protocolDesc,
   labs: state.labs,
   tasks: state.tasks,
   nextTaskNumber: state.nextTaskNumber,
@@ -258,7 +258,7 @@ const saveToHistory = () => {
   const state = useEditorStore.getState();
   if (state.isBatchOperation) return;
 
-  const currentState = getCurrentExperimentState(state);
+  const currentState = getCurrentProtocolState(state);
   useEditorStore.setState({
     past: [...state.past, currentState].slice(-MAX_HISTORY_SIZE),
     future: [],
@@ -367,10 +367,10 @@ export const useEditorStore = create<EditorStore>()(
       error: null,
 
       // =====================================================================
-      // Initial state — Experiment slice
+      // Initial state — ProtocolRun slice
       // =====================================================================
-      experimentType: '',
-      experimentDesc: '',
+      protocolType: '',
+      protocolDesc: '',
       labs: [],
       tasks: [],
       nextTaskNumber: 1,
@@ -567,8 +567,8 @@ export const useEditorStore = create<EditorStore>()(
           isSaving: false,
           isLoading: false,
           error: null,
-          experimentType: '',
-          experimentDesc: '',
+          protocolType: '',
+          protocolDesc: '',
           labs: [],
           tasks: [],
           nextTaskNumber: 1,
@@ -616,17 +616,17 @@ export const useEditorStore = create<EditorStore>()(
         }),
 
       // =====================================================================
-      // Experiment actions
+      // ProtocolRun actions
       // =====================================================================
 
-      setExperimentType: (type) => {
+      setProtocolType: (type) => {
         saveToHistory();
-        set({ experimentType: type });
+        set({ protocolType: type });
       },
 
-      setExperimentDesc: (desc) => {
+      setProtocolDesc: (desc) => {
         saveToHistory();
-        set({ experimentDesc: desc });
+        set({ protocolDesc: desc });
       },
 
       setLabs: (labs) => {
@@ -772,10 +772,10 @@ export const useEditorStore = create<EditorStore>()(
         }
       },
 
-      resetExperiment: () =>
+      resetProtocol: () =>
         set({
-          experimentType: '',
-          experimentDesc: '',
+          protocolType: '',
+          protocolDesc: '',
           labs: [],
           tasks: [],
           past: [],
@@ -784,29 +784,29 @@ export const useEditorStore = create<EditorStore>()(
           isPropertiesPanelOpen: false,
         }),
 
-      loadExperiment: (experiment) => {
+      loadProtocol: (protocol) => {
         saveToHistory();
 
-        const taskNumbers = experiment.tasks
+        const taskNumbers = protocol.tasks
           .map((t) => parseInt(t.name.match(/^task-(\d+)$/)?.[1] ?? '0', 10))
           .filter((n) => n > 0);
 
         const nextTaskNumber = taskNumbers.length > 0 ? Math.max(...taskNumbers) + 1 : 1;
 
         set({
-          experimentType: experiment.type,
-          experimentDesc: experiment.desc,
-          labs: experiment.labs,
-          tasks: experiment.tasks,
+          protocolType: protocol.type,
+          protocolDesc: protocol.desc,
+          labs: protocol.labs,
+          tasks: protocol.tasks,
           nextTaskNumber,
         });
       },
 
-      exportExperiment: () => {
+      exportProtocol: () => {
         const state = get();
         return {
-          type: state.experimentType,
-          desc: state.experimentDesc,
+          type: state.protocolType,
+          desc: state.protocolDesc,
           labs: state.labs,
           tasks: state.tasks,
         };
@@ -885,7 +885,7 @@ export const useEditorStore = create<EditorStore>()(
         set({
           ...previous,
           past: newPast,
-          future: [getCurrentExperimentState(state), ...state.future],
+          future: [getCurrentProtocolState(state), ...state.future],
         });
       },
 
@@ -898,7 +898,7 @@ export const useEditorStore = create<EditorStore>()(
 
         set({
           ...next,
-          past: [...state.past, getCurrentExperimentState(state)],
+          past: [...state.past, getCurrentProtocolState(state)],
           future: newFuture,
         });
       },

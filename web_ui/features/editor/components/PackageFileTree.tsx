@@ -52,7 +52,7 @@ const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   devices: 'Devices',
   tasks: 'Tasks',
   labs: 'Labs',
-  experiments: 'Experiments',
+  protocols: 'Protocols',
 };
 
 const ENTITY_TYPE_KEYS = Object.keys(ENTITY_TYPE_LABELS) as EntityType[];
@@ -61,14 +61,14 @@ const ENTITY_ICONS: Record<EntityType, React.ReactNode> = {
   devices: <Cpu className="w-3.5 h-3.5" />,
   tasks: <Settings className="w-3.5 h-3.5" />,
   labs: <FlaskConical className="w-3.5 h-3.5" />,
-  experiments: <Microscope className="w-3.5 h-3.5" />,
+  protocols: <Microscope className="w-3.5 h-3.5" />,
 };
 
 function hasEntities(pkg: Package, type: EntityType): boolean {
   if (type === 'devices') return pkg.hasDevices;
   if (type === 'tasks') return pkg.hasTasks;
   if (type === 'labs') return pkg.hasLabs;
-  if (type === 'experiments') return pkg.hasExperiments;
+  if (type === 'protocols') return pkg.hasProtocols;
   return false;
 }
 

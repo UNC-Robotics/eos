@@ -1,7 +1,7 @@
 Laboratories
 ============
-Laboratories are the space in which devices and resources exist and where tasks, experiments, and campaigns
-of experiments take place.
+Laboratories are the space in which devices and resources exist and where tasks, protocols, and campaigns
+of protocols take place.
 
 A laboratory in EOS is a collection of:
 

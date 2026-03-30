@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
+import { ParameterSearchInput } from '@/components/ui/ParameterSearchInput';
 import { submitTask } from '@/features/tasks/api/tasks';
 import { getTaskPlugins } from '@/features/management/api/taskPlugins';
 import { TaskDeviceAssignment } from './TaskDeviceAssignment';
@@ -19,7 +20,7 @@ import { TaskParameterFields } from './TaskParameterFields';
 import { serializeDeviceAssignment, serializeResourceAssignment } from '@/lib/utils/assignment-utils';
 import { validateParameter } from '@/lib/validation/parameter-validation';
 import type { TaskDefinition, Task } from '@/lib/types/api';
-import type { TaskSpec, DeviceAssignment, ResourceAssignment, ParameterSpec } from '@/lib/types/experiment';
+import type { TaskSpec, DeviceAssignment, ResourceAssignment, ParameterSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 
 const taskFormSchema = z.object({
@@ -35,6 +36,7 @@ type TaskFormValues = z.infer<typeof taskFormSchema>;
 interface SubmitTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
   taskSpecs: Record<string, TaskSpec>;
   labSpecs: Record<string, LabSpec>;
   initialTask?: Task | null;
@@ -44,6 +46,7 @@ interface SubmitTaskDialogProps {
 export function SubmitTaskDialog({
   open,
   onOpenChange,
+  onSuccess,
   taskSpecs,
   labSpecs,
   initialTask,
@@ -58,6 +61,7 @@ export function SubmitTaskDialog({
   const [devices, setDevices] = React.useState<Record<string, DeviceAssignment>>({});
   const [inputParameters, setInputParameters] = React.useState<Record<string, unknown>>({});
   const [inputResources, setInputResources] = React.useState<Record<string, ResourceAssignment>>({});
+  const [inputSearch, setInputSearch] = React.useState('');
 
   // Track if we've already populated from initialTask to prevent re-population
   const populatedFromTaskRef = React.useRef<string | null>(null);
@@ -199,10 +203,13 @@ export function SubmitTaskDialog({
       let input_parameters: Record<string, unknown> | null = null;
       let input_resources: Record<string, unknown> | null = null;
 
-      // Handle devices - serialize device assignments from state
+      // Handle devices - serialize only devices defined in current task spec
       if (selectedTaskSpec?.input_devices) {
-        Object.entries(devices).forEach(([name, assignment]) => {
-          submittedDevices[name] = serializeDeviceAssignment(assignment);
+        Object.keys(selectedTaskSpec.input_devices).forEach((name) => {
+          const assignment = devices[name];
+          if (assignment !== undefined) {
+            submittedDevices[name] = serializeDeviceAssignment(assignment);
+          }
         });
       }
 
@@ -231,11 +238,14 @@ export function SubmitTaskDialog({
         input_parameters = Object.keys(filteredParams).length > 0 ? filteredParams : null;
       }
 
-      // Handle resources - serialize resource assignments
+      // Handle resources - serialize only resources defined in current task spec
       if (selectedTaskSpec?.input_resources) {
         const serializedResources: Record<string, unknown> = {};
-        Object.entries(inputResources).forEach(([name, assignment]) => {
-          serializedResources[name] = serializeResourceAssignment(assignment);
+        Object.keys(selectedTaskSpec.input_resources).forEach((name) => {
+          const assignment = inputResources[name];
+          if (assignment !== undefined) {
+            serializedResources[name] = serializeResourceAssignment(assignment);
+          }
         });
         input_resources = Object.keys(serializedResources).length > 0 ? serializedResources : null;
       }
@@ -246,7 +256,7 @@ export function SubmitTaskDialog({
       const taskDefinition: TaskDefinition = {
         name: data.name,
         type: data.type,
-        experiment_name: null,
+        protocol_run_name: null,
         priority: data.priority,
         allocation_timeout: data.allocation_timeout,
         devices: submittedDevices as unknown as TaskDefinition['devices'],
@@ -258,7 +268,8 @@ export function SubmitTaskDialog({
       const result = await submitTask(taskDefinition);
 
       if (result.success) {
-        onOpenChange(false); // Just close the dialog, keep all values
+        onOpenChange(false);
+        onSuccess?.();
       } else {
         setError(result.error || 'Failed to submit task');
       }
@@ -268,6 +279,19 @@ export function SubmitTaskDialog({
       setIsSubmitting(false);
     }
   };
+
+  const searchLower = inputSearch.toLowerCase();
+  const hasSpecInputs =
+    selectedTaskSpec &&
+    ((selectedTaskSpec.input_devices && Object.keys(selectedTaskSpec.input_devices).length > 0) ||
+      (selectedTaskSpec.input_parameters && Object.keys(selectedTaskSpec.input_parameters).length > 0) ||
+      (selectedTaskSpec.input_resources && Object.keys(selectedTaskSpec.input_resources).length > 0));
+
+  const matchesSearch = (name: string, spec: { type?: string; desc?: string }) =>
+    !searchLower ||
+    name.toLowerCase().includes(searchLower) ||
+    (spec.type && spec.type.toLowerCase().includes(searchLower)) ||
+    (spec.desc && spec.desc.toLowerCase().includes(searchLower));
 
   return (
     <BaseSubmitDialog
@@ -325,57 +349,91 @@ export function SubmitTaskDialog({
         </div>
       </div>
 
-      {/* Devices Section */}
-      {selectedTaskSpec?.input_devices && Object.keys(selectedTaskSpec.input_devices).length > 0 && (
-        <div className="space-y-2">
-          <Label>Input Devices *</Label>
-          <div className="space-y-2.5">
-            {Object.entries(selectedTaskSpec.input_devices).map(([name, spec]) => (
-              <TaskDeviceAssignment
-                key={name}
-                deviceName={name}
-                deviceSpec={spec}
-                value={devices[name]}
-                onChange={(value) => setDevices({ ...devices, [name]: value })}
-                labSpecs={labSpecs}
-                selectedLabs={allLabNames}
-              />
-            ))}
-          </div>
-        </div>
+      {/* Search filter for spec-driven inputs */}
+      {hasSpecInputs && (
+        <>
+          <div className="border-t border-gray-200 dark:border-slate-700" />
+          <ParameterSearchInput value={inputSearch} onChange={setInputSearch} />
+        </>
       )}
+
+      {/* Devices Section */}
+      {selectedTaskSpec?.input_devices &&
+        Object.keys(selectedTaskSpec.input_devices).length > 0 &&
+        (() => {
+          const filtered = Object.entries(selectedTaskSpec.input_devices).filter(([name, spec]) =>
+            matchesSearch(name, spec)
+          );
+          if (filtered.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <Label>Input Devices *</Label>
+              <div className="space-y-2.5">
+                {filtered.map(([name, spec]) => (
+                  <TaskDeviceAssignment
+                    key={name}
+                    deviceName={name}
+                    deviceSpec={spec}
+                    value={devices[name]}
+                    onChange={(value) => setDevices({ ...devices, [name]: value })}
+                    labSpecs={labSpecs}
+                    selectedLabs={allLabNames}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Parameters Section */}
-      {selectedTaskSpec?.input_parameters && Object.keys(selectedTaskSpec.input_parameters).length > 0 && (
-        <div className="space-y-2">
-          <Label>Input Parameters</Label>
-          <TaskParameterFields
-            parameters={selectedTaskSpec.input_parameters}
-            values={inputParameters}
-            onChange={(name, value) => setInputParameters({ ...inputParameters, [name]: value })}
-          />
-        </div>
-      )}
+      {selectedTaskSpec?.input_parameters &&
+        Object.keys(selectedTaskSpec.input_parameters).length > 0 &&
+        (() => {
+          const filtered = Object.fromEntries(
+            Object.entries(selectedTaskSpec.input_parameters).filter(([name, spec]) =>
+              matchesSearch(name, spec as ParameterSpec)
+            )
+          );
+          if (Object.keys(filtered).length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <Label>Input Parameters</Label>
+              <TaskParameterFields
+                parameters={filtered}
+                values={inputParameters}
+                onChange={(name, value) => setInputParameters({ ...inputParameters, [name]: value })}
+              />
+            </div>
+          );
+        })()}
 
       {/* Resources Section */}
-      {selectedTaskSpec?.input_resources && Object.keys(selectedTaskSpec.input_resources).length > 0 && (
-        <div className="space-y-2">
-          <Label>Input Resources</Label>
-          <div className="space-y-2.5">
-            {Object.entries(selectedTaskSpec.input_resources).map(([name, spec]) => (
-              <TaskResourceAssignment
-                key={name}
-                resourceName={name}
-                resourceSpec={spec}
-                value={inputResources[name]}
-                onChange={(value) => setInputResources({ ...inputResources, [name]: value })}
-                labSpecs={labSpecs}
-                selectedLabs={allLabNames}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {selectedTaskSpec?.input_resources &&
+        Object.keys(selectedTaskSpec.input_resources).length > 0 &&
+        (() => {
+          const filtered = Object.entries(selectedTaskSpec.input_resources).filter(([name, spec]) =>
+            matchesSearch(name, spec)
+          );
+          if (filtered.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <Label>Input Resources</Label>
+              <div className="space-y-2.5">
+                {filtered.map(([name, spec]) => (
+                  <TaskResourceAssignment
+                    key={name}
+                    resourceName={name}
+                    resourceSpec={spec}
+                    value={inputResources[name]}
+                    onChange={(value) => setInputResources({ ...inputResources, [name]: value })}
+                    labSpecs={labSpecs}
+                    selectedLabs={allLabNames}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Metadata Section (always JSON) */}
       <div className="space-y-2">

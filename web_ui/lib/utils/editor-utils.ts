@@ -225,7 +225,7 @@ export function getEntityIcon(entityType: EntityType): string {
     devices: 'Cpu',
     tasks: 'Settings',
     labs: 'FlaskConical',
-    experiments: 'Microscope',
+    protocols: 'Microscope',
   };
   return icons[entityType];
 }
@@ -238,7 +238,7 @@ export function getEntityColor(entityType: EntityType): string {
     devices: 'text-blue-600 dark:text-blue-400',
     tasks: 'text-green-600 dark:text-green-400',
     labs: 'text-purple-600 dark:text-purple-400',
-    experiments: 'text-orange-600 dark:text-orange-400',
+    protocols: 'text-orange-600 dark:text-orange-400',
   };
   return colors[entityType];
 }

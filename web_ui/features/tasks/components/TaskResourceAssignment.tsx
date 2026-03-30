@@ -2,8 +2,8 @@
  * Task resource assignment component - wrapper around unified ResourceAssignment
  * This version only supports static and dynamic modes (no reference mode)
  */
-import { ResourceAssignment } from '@/features/experiment-editor/components/ResourceAssignment';
-import type { ResourceAssignment as ResourceAssignmentType, ResourceSpec } from '@/lib/types/experiment';
+import { ResourceAssignment } from '@/features/protocol-editor/components/ResourceAssignment';
+import type { ResourceAssignment as ResourceAssignmentType, ResourceSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 
 interface TaskResourceAssignmentProps {

@@ -4,14 +4,14 @@ from pathlib import Path
 from typing import Any
 
 from eos.configuration.constants import EOS_COMPUTER_NAME, LABS_DIR
-from eos.configuration.entities.experiment_def import ExperimentDef
+from eos.configuration.entities.protocol_def import ProtocolDef
 from eos.configuration.entities.lab_def import LabDef, ResourceDef
 from eos.configuration.entities.task_def import DeviceAssignmentDef, DynamicDeviceAssignmentDef, TaskDef
 from eos.configuration.entities.task_parameters import TaskParameterFactory, TaskParameterType
 from eos.configuration.entities.task_spec_def import TaskSpecDef, ResourceRequirement
 from eos.configuration.exceptions import (
     EosConfigurationError,
-    EosExperimentConfigurationError,
+    EosProtocolConfigurationError,
     EosLabConfigurationError,
     EosResourceConfigurationError,
     EosTaskValidationError,
@@ -187,11 +187,11 @@ class MultiLabValidator:
             )
 
 
-class ExperimentResourceRegistry:
-    """Stores resource information for labs used by an experiment."""
+class ProtocolResourceRegistry:
+    """Stores resource information for labs used by a protocol."""
 
-    def __init__(self, experiment: ExperimentDef, labs: list[LabDef]):
-        self._labs = [lab for lab in labs if lab.name in experiment.labs]
+    def __init__(self, protocol: ProtocolDef, labs: list[LabDef]):
+        self._labs = [lab for lab in labs if lab.name in protocol.labs]
 
     def find_resource_by_name(self, resource_name: str) -> ResourceDef | None:
         """Find a resource by name across all labs."""
@@ -201,17 +201,17 @@ class ExperimentResourceRegistry:
         return None
 
 
-class ExperimentValidator:
-    """Validates experiment configuration."""
+class ProtocolValidator:
+    """Validates protocol configuration."""
 
-    def __init__(self, experiment: ExperimentDef, labs: list[LabDef]):
-        self._experiment = experiment
+    def __init__(self, protocol: ProtocolDef, labs: list[LabDef]):
+        self._protocol = protocol
         self._labs = labs
-        self._resource_registry = ExperimentResourceRegistry(experiment, labs)
-        self._task_validator = TaskValidator(experiment, labs, self._resource_registry)
+        self._resource_registry = ProtocolResourceRegistry(protocol, labs)
+        self._task_validator = TaskValidator(protocol, labs, self._resource_registry)
 
     def validate(self) -> None:
-        """Run all experiment validation checks."""
+        """Run all protocol validation checks."""
         self._validate_labs()
         self._validate_resources()
         self._task_validator.validate_all_tasks()
@@ -219,20 +219,20 @@ class ExperimentValidator:
     def _validate_labs(self) -> None:
         """Ensure all required labs exist."""
         lab_types = [lab.name for lab in self._labs]
-        invalid_labs = [lab for lab in self._experiment.labs if lab not in lab_types]
+        invalid_labs = [lab for lab in self._protocol.labs if lab not in lab_types]
 
         if invalid_labs:
-            raise EosExperimentConfigurationError(
-                f"The following labs required by experiment '{self._experiment.type}' do not exist:"
+            raise EosProtocolConfigurationError(
+                f"The following labs required by protocol '{self._protocol.type}' do not exist:"
                 f"\n  {chr(10).join(invalid_labs)}"
             )
 
     def _validate_resources(self) -> None:
         """Ensure all required resources exist."""
-        if not self._experiment.resources:
+        if not self._protocol.resources:
             return
 
-        for resource_name in self._experiment.resources:
+        for resource_name in self._protocol.resources:
             if not any(resource_name in lab.resources for lab in self._labs):
                 raise EosResourceConfigurationError(f"Resource '{resource_name}' does not exist.")
 
@@ -242,18 +242,18 @@ class TaskValidator:
 
     def __init__(
         self,
-        experiment: ExperimentDef,
+        protocol: ProtocolDef,
         labs: list[LabDef],
-        resource_registry: ExperimentResourceRegistry | None = None,
+        resource_registry: ProtocolResourceRegistry | None = None,
     ):
-        self._experiment = experiment
+        self._protocol = protocol
         self._labs = labs
         self._task_specs = TaskSpecRegistry()
-        self._resource_registry = resource_registry or ExperimentResourceRegistry(experiment, labs)
+        self._resource_registry = resource_registry or ProtocolResourceRegistry(protocol, labs)
 
     def validate_all_tasks(self) -> None:
-        """Validate all tasks in the experiment."""
-        for task in self._experiment.tasks:
+        """Validate all tasks in the protocol."""
+        for task in self._protocol.tasks:
             self._validate_task(task)
 
     def _validate_task(self, task: TaskDef) -> None:
@@ -582,5 +582,5 @@ class TaskValidator:
             )
 
     def _find_task_by_name(self, task_name: str) -> TaskDef | None:
-        """Find a task by name in the experiment."""
-        return next((task for task in self._experiment.tasks if task.name == task_name), None)
+        """Find a task by name in the protocol."""
+        return next((task for task in self._protocol.tasks if task.name == task_name), None)

@@ -82,7 +82,7 @@ export function registerSqlTools(server: McpServer) {
     'query_database',
     {
       title: 'Query Database',
-      description: `Execute a read-only SQL query against the EOS database. Only SELECT/WITH queries allowed. Results limited to ${MAX_ROWS} rows with ${TIMEOUT_MS / 1000}s timeout. Available tables: tasks, experiments, campaigns, campaign_samples, definitions.`,
+      description: `Execute a read-only SQL query against the EOS database. Only SELECT/WITH queries allowed. Results limited to ${MAX_ROWS} rows with ${TIMEOUT_MS / 1000}s timeout. Available tables: tasks, protocol_runs, campaigns, campaign_samples, definitions.`,
       inputSchema: {
         sql: z.string().describe('SQL query (SELECT or WITH only)'),
       },

@@ -9,7 +9,7 @@ class EosMissingConfigurationError(Exception):
     pass
 
 
-class EosExperimentConfigurationError(Exception):
+class EosProtocolConfigurationError(Exception):
     pass
 
 

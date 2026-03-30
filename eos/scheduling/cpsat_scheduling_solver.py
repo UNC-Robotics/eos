@@ -9,7 +9,7 @@ from eos.configuration.entities.task_def import (
     TaskDef,
     DeviceAssignmentDef,
 )
-from eos.configuration.experiment_graph import ExperimentGraph
+from eos.configuration.protocol_graph import ProtocolGraph
 from eos.configuration.utils import is_device_reference, is_resource_reference
 from eos.logging.logger import log
 from eos.scheduling.exceptions import EosSchedulerError
@@ -55,26 +55,26 @@ class CpSatSchedulingSolver:
 
     def __init__(
         self,
-        experiments: dict[str, tuple[str, ExperimentGraph]],
+        protocol_runs: dict[str, tuple[str, ProtocolGraph]],
         task_durations: dict[str, dict[str, int]],
         schedule: dict[str, dict[str, int]],
         completed_by_exp: dict[str, set[str]],
         running_by_exp: dict[str, set[str]],
         current_time: int,
-        experiment_priorities: dict[str, int],
+        protocol_run_priorities: dict[str, int],
         eligible_devices_by_type: dict[str, list[tuple[str, str]]],
         eligible_resources_by_type: dict[str, list[tuple[str, str]]],
         previous_device_assignments: dict[str, dict[str, dict[str, DeviceAssignmentDef]]] | None = None,
         previous_resource_assignments: dict[str, dict[str, dict[str, str]]] | None = None,
         parameter_overrides: dict[str, float | int | bool] | None = None,
     ):
-        self._experiments = experiments
+        self._protocol_runs = protocol_runs
         self._task_durations = task_durations
         self._schedule = schedule
         self._completed_by_exp = completed_by_exp
         self._running_by_exp = running_by_exp
         self._current_time = current_time
-        self._experiment_priorities = experiment_priorities
+        self._protocol_run_priorities = protocol_run_priorities
         self._eligible_devices_by_type = eligible_devices_by_type
         self._eligible_resources_by_type = eligible_resources_by_type
         self._previous_device_assignments = previous_device_assignments or {}
@@ -117,11 +117,11 @@ class CpSatSchedulingSolver:
         total_duration = 0
         self._task_durations.clear()
 
-        for exp_name, (_, exp_graph) in self._experiments.items():
-            tasks = exp_graph.get_topologically_sorted_tasks()
-            durations = {task_name: exp_graph.get_task(task_name).duration for task_name in tasks}
+        for run_name, (_, protocol_graph) in self._protocol_runs.items():
+            tasks = protocol_graph.get_topologically_sorted_tasks()
+            durations = {task_name: protocol_graph.get_task(task_name).duration for task_name in tasks}
             total_duration += sum(durations.values())
-            self._task_durations[exp_name] = durations
+            self._task_durations[run_name] = durations
 
         return self._current_time + total_duration * 2
 
@@ -135,7 +135,7 @@ class CpSatSchedulingSolver:
 
     def _create_dynamic_device_slot(
         self,
-        exp_name: str,
+        run_name: str,
         task_name: str,
         dev_req: DynamicDeviceAssignmentDef,
         eligible: list[tuple[str, str]],
@@ -154,10 +154,10 @@ class CpSatSchedulingSolver:
                 end_var,
                 duration,
                 present_name=(
-                    f"assign_{exp_name}_{task_name}_{dev_req.device_type}_slot{slot_index}_{lab_name}_{device_name}"
+                    f"assign_{run_name}_{task_name}_{dev_req.device_type}_slot{slot_index}_{lab_name}_{device_name}"
                 ),
                 interval_name=(
-                    f"opt_{exp_name}_{task_name}_iv_{dev_req.device_type}_slot{slot_index}_{lab_name}_{device_name}"
+                    f"opt_{run_name}_{task_name}_iv_{dev_req.device_type}_slot{slot_index}_{lab_name}_{device_name}"
                 ),
                 resource_bucket=f"device_{lab_name}_{device_name}",
             )
@@ -169,7 +169,7 @@ class CpSatSchedulingSolver:
 
     def _add_dynamic_device_constraints(
         self,
-        exp_name: str,
+        run_name: str,
         task_name: str,
         task: TaskDef,
         start_var: cp_model.IntVar,
@@ -186,19 +186,19 @@ class CpSatSchedulingSolver:
             eligible = self._eligible_dynamic_devices_for(dev_req)
             if not eligible:
                 # Force infeasibility if no eligible devices exist
-                dummy = self.model.NewIntVar(0, 0, f"{exp_name}_{task_name}_no_dynamic_options")
+                dummy = self.model.NewIntVar(0, 0, f"{run_name}_{task_name}_no_dynamic_options")
                 self.model.Add(dummy == 1)
                 continue
 
             # Single selection
             slot_choices, present_bools = self._create_dynamic_device_slot(
-                exp_name, task_name, dev_req, eligible, 0, start_var, end_var, duration
+                run_name, task_name, dev_req, eligible, 0, start_var, end_var, duration
             )
             self.model.AddExactlyOne(present_bools)
             slots.append(slot_choices)
 
         if slots:
-            self._dynamic_choice_vars[(exp_name, task_name)] = slots
+            self._dynamic_choice_vars[(run_name, task_name)] = slots
 
     def _new_opt_interval_and_bool(
         self,
@@ -217,7 +217,7 @@ class CpSatSchedulingSolver:
 
     def _add_dynamic_resource_constraints(
         self,
-        exp_name: str,
+        run_name: str,
         task_name: str,
         task: TaskDef,
         start_var: cp_model.IntVar,
@@ -235,7 +235,7 @@ class CpSatSchedulingSolver:
             eligible = self._eligible_dynamic_resources_for(value)
             if not eligible:
                 # Force infeasibility if no eligible resources exist
-                dummy = self.model.NewIntVar(0, 0, f"{exp_name}_{task_name}_no_dynamic_resource_options")
+                dummy = self.model.NewIntVar(0, 0, f"{run_name}_{task_name}_no_dynamic_resource_options")
                 self.model.Add(dummy == 1)
                 continue
 
@@ -248,8 +248,8 @@ class CpSatSchedulingSolver:
                     start_var,
                     end_var,
                     duration,
-                    present_name=(f"assign_{exp_name}_{task_name}_resource_{name}_slot0_{lab_name}_{resource_name}"),
-                    interval_name=(f"opt_{exp_name}_{task_name}_civ_{name}_slot0_{resource_name}"),
+                    present_name=(f"assign_{run_name}_{task_name}_resource_{name}_slot0_{lab_name}_{resource_name}"),
+                    interval_name=(f"opt_{run_name}_{task_name}_civ_{name}_slot0_{resource_name}"),
                     resource_bucket=f"resource_{resource_name}",
                 )
                 choices.append(((lab_name, resource_name), present))
@@ -261,22 +261,22 @@ class CpSatSchedulingSolver:
             entries.append((name, choices))
 
         if entries:
-            self._dynamic_resource_choice_vars[(exp_name, task_name)] = entries
+            self._dynamic_resource_choice_vars[(run_name, task_name)] = entries
 
     def _create_task_time_variables(
-        self, exp_name: str, task_name: str, duration: int, is_running: bool
+        self, run_name: str, task_name: str, duration: int, is_running: bool
     ) -> TaskVariables:
         """Create time variables (start, end, interval) for a task."""
         start_lb = 0 if is_running else self._current_time
         end_lb = 0 if is_running else self._current_time
 
-        start_var = self.model.NewIntVar(start_lb, self._horizon, f"{exp_name}_{task_name}_start")
-        end_var = self.model.NewIntVar(end_lb, self._horizon, f"{exp_name}_{task_name}_end")
-        interval_var = self.model.NewIntervalVar(start_var, duration, end_var, f"{exp_name}_{task_name}_interval")
+        start_var = self.model.NewIntVar(start_lb, self._horizon, f"{run_name}_{task_name}_start")
+        end_var = self.model.NewIntVar(end_lb, self._horizon, f"{run_name}_{task_name}_end")
+        interval_var = self.model.NewIntervalVar(start_var, duration, end_var, f"{run_name}_{task_name}_interval")
 
         return TaskVariables(start=start_var, end=end_var, interval=interval_var)
 
-    def _process_task_devices(self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables) -> None:
+    def _process_task_devices(self, run_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables) -> None:
         """Process specific and dynamic device requirements for a task."""
         # Specific devices: create fixed resource intervals
         for dev in task.devices.values():
@@ -285,9 +285,9 @@ class CpSatSchedulingSolver:
                 self._resource_intervals.setdefault(resource_name, []).append(task_vars.interval)
 
         # Dynamic devices: create optional intervals for each eligible device
-        self._add_dynamic_device_constraints(exp_name, task_name, task, task_vars.start, task_vars.end, task.duration)
+        self._add_dynamic_device_constraints(run_name, task_name, task, task_vars.start, task_vars.end, task.duration)
 
-    def _process_task_resources(self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables) -> None:
+    def _process_task_resources(self, run_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables) -> None:
         """Process specific and dynamic resource requirements for a task."""
         # Specific resources (non-references): create fixed resource intervals
         for resource_value in task.resources.values():
@@ -296,15 +296,15 @@ class CpSatSchedulingSolver:
                 self._resource_intervals.setdefault(resource_name, []).append(task_vars.interval)
 
         # Dynamic resources: optional intervals for eligible resources
-        self._add_dynamic_resource_constraints(exp_name, task_name, task, task_vars.start, task_vars.end, task.duration)
+        self._add_dynamic_resource_constraints(run_name, task_name, task, task_vars.start, task_vars.end, task.duration)
 
-    def _track_task_references(self, exp_name: str, task_name: str, task: TaskDef) -> None:
+    def _track_task_references(self, run_name: str, task_name: str, task: TaskDef) -> None:
         """Track device and resource references for later constraint creation."""
         # Track device references
         for device_name, device_value in task.devices.items():
             if isinstance(device_value, str) and is_device_reference(device_value):
                 ref_task_name, ref_device_name = device_value.split(".")
-                self._device_references.setdefault((exp_name, task_name), []).append(
+                self._device_references.setdefault((run_name, task_name), []).append(
                     (device_name, ref_task_name, ref_device_name)
                 )
 
@@ -312,16 +312,16 @@ class CpSatSchedulingSolver:
         for resource_name, resource_value in task.resources.items():
             if isinstance(resource_value, str) and is_resource_reference(resource_value):
                 ref_task_name, ref_resource_name = resource_value.split(".")
-                self._resource_references.setdefault((exp_name, task_name), []).append(
+                self._resource_references.setdefault((run_name, task_name), []).append(
                     (resource_name, ref_task_name, ref_resource_name)
                 )
 
     def _apply_task_timing_constraints(
-        self, exp_name: str, task_name: str, task_vars: TaskVariables, duration: int, is_running: bool
+        self, run_name: str, task_name: str, task_vars: TaskVariables, duration: int, is_running: bool
     ) -> None:
         """Apply timing constraints: fix running tasks or constrain duration."""
         if is_running:
-            fixed_start = self._schedule.get(exp_name, {})[task_name]
+            fixed_start = self._schedule.get(run_name, {})[task_name]
             self.model.Add(task_vars.start == fixed_start)
             self.model.Add(task_vars.end == fixed_start + duration)
         else:
@@ -329,42 +329,42 @@ class CpSatSchedulingSolver:
 
     def _create_task_variables(self) -> None:
         """Create task variables, resource intervals, and dynamic choice variables."""
-        for exp_name, (_, exp_graph) in self._experiments.items():
-            tasks = exp_graph.get_topologically_sorted_tasks()
+        for run_name, (_, protocol_graph) in self._protocol_runs.items():
+            tasks = protocol_graph.get_topologically_sorted_tasks()
             for task_name in tasks:
-                if task_name in self._completed_by_exp.get(exp_name, set()):
+                if task_name in self._completed_by_exp.get(run_name, set()):
                     continue
 
-                task: TaskDef = exp_graph.get_task(task_name)
-                is_running = task_name in self._running_by_exp.get(exp_name, set())
+                task: TaskDef = protocol_graph.get_task(task_name)
+                is_running = task_name in self._running_by_exp.get(run_name, set())
 
                 # Create time variables
-                task_vars = self._create_task_time_variables(exp_name, task_name, task.duration, is_running)
-                self._task_vars[(exp_name, task_name)] = task_vars
+                task_vars = self._create_task_time_variables(run_name, task_name, task.duration, is_running)
+                self._task_vars[(run_name, task_name)] = task_vars
 
                 # Process devices and resources
-                self._process_task_devices(exp_name, task_name, task, task_vars)
-                self._process_task_resources(exp_name, task_name, task, task_vars)
+                self._process_task_devices(run_name, task_name, task, task_vars)
+                self._process_task_resources(run_name, task_name, task, task_vars)
 
                 # Track references
-                self._track_task_references(exp_name, task_name, task)
+                self._track_task_references(run_name, task_name, task)
 
                 # Apply timing constraints
-                self._apply_task_timing_constraints(exp_name, task_name, task_vars, task.duration, is_running)
+                self._apply_task_timing_constraints(run_name, task_name, task_vars, task.duration, is_running)
 
     def _apply_precedence_constraints(self) -> None:
         """Apply precedence constraints: start(task) >= end(dep) for each dependency."""
-        for exp_name, (_, exp_graph) in self._experiments.items():
-            tasks = exp_graph.get_topologically_sorted_tasks()
+        for run_name, (_, protocol_graph) in self._protocol_runs.items():
+            tasks = protocol_graph.get_topologically_sorted_tasks()
             for task_name in tasks:
-                if (exp_name, task_name) not in self._task_vars:
+                if (run_name, task_name) not in self._task_vars:
                     continue
 
-                for dep_task_name in exp_graph.get_task_dependencies(task_name):
-                    if (exp_name, dep_task_name) in self._task_vars:
+                for dep_task_name in protocol_graph.get_task_dependencies(task_name):
+                    if (run_name, dep_task_name) in self._task_vars:
                         self.model.Add(
-                            self._task_vars[(exp_name, task_name)].start
-                            >= self._task_vars[(exp_name, dep_task_name)].end
+                            self._task_vars[(run_name, task_name)].start
+                            >= self._task_vars[(run_name, dep_task_name)].end
                         )
 
     def _apply_resource_constraints(self) -> None:
@@ -375,16 +375,16 @@ class CpSatSchedulingSolver:
 
     def _apply_group_constraints(self) -> None:
         """Tasks in the same group are consecutive: next.start == current.end."""
-        for exp_name, (_, exp_graph) in self._experiments.items():
-            all_tasks_sorted = exp_graph.get_topologically_sorted_tasks()
+        for run_name, (_, protocol_graph) in self._protocol_runs.items():
+            all_tasks_sorted = protocol_graph.get_topologically_sorted_tasks()
 
             # Collect tasks by group, maintaining topological order
             groups: dict[str, list[str]] = {}
             for task_name in all_tasks_sorted:
-                if (exp_name, task_name) not in self._task_vars:
+                if (run_name, task_name) not in self._task_vars:
                     continue
 
-                task = exp_graph.get_task(task_name)
+                task = protocol_graph.get_task(task_name)
                 if task.group:
                     groups.setdefault(task.group, []).append(task_name)
 
@@ -397,12 +397,12 @@ class CpSatSchedulingSolver:
                     current_task = task_names[i]
                     next_task = task_names[i + 1]
                     self.model.Add(
-                        self._task_vars[(exp_name, next_task)].start == self._task_vars[(exp_name, current_task)].end
+                        self._task_vars[(run_name, next_task)].start == self._task_vars[(run_name, current_task)].end
                     )
 
     @staticmethod
     def _resolve_device_root(
-        exp_graph: ExperimentGraph, ref_task_name: str, ref_device_name: str
+        protocol_graph: ProtocolGraph, ref_task_name: str, ref_device_name: str
     ) -> tuple[str, str, object] | None:
         """
         Follow a chain of device string references to the root definition.
@@ -416,7 +416,7 @@ class CpSatSchedulingSolver:
                 return None
             visited.add(key)
 
-            ref_task = exp_graph.get_task(ref_task_name)
+            ref_task = protocol_graph.get_task(ref_task_name)
             ref_device_value = ref_task.devices.get(ref_device_name)
 
             if isinstance(ref_device_value, str) and is_device_reference(ref_device_value):
@@ -426,7 +426,7 @@ class CpSatSchedulingSolver:
 
     @staticmethod
     def _resolve_resource_root(
-        exp_graph: ExperimentGraph, ref_task_name: str, ref_resource_name: str
+        protocol_graph: ProtocolGraph, ref_task_name: str, ref_resource_name: str
     ) -> tuple[str, str, object] | None:
         """
         Follow a chain of resource string references to the root definition.
@@ -440,7 +440,7 @@ class CpSatSchedulingSolver:
                 return None
             visited.add(key)
 
-            ref_task = exp_graph.get_task(ref_task_name)
+            ref_task = protocol_graph.get_task(ref_task_name)
             ref_resource_value = ref_task.resources.get(ref_resource_name)
 
             if isinstance(ref_resource_value, str) and is_resource_reference(ref_resource_value):
@@ -450,19 +450,19 @@ class CpSatSchedulingSolver:
 
     def _apply_device_reference_constraints(self) -> None:
         """Enforce that device references use the same device as the referenced task."""
-        for (exp_name, task_name), refs in self._device_references.items():
-            _, exp_graph = self._experiments[exp_name]
-            task = exp_graph.get_task(task_name)
-            task_vars = self._task_vars[(exp_name, task_name)]
+        for (run_name, task_name), refs in self._device_references.items():
+            _, protocol_graph = self._protocol_runs[run_name]
+            task = protocol_graph.get_task(task_name)
+            task_vars = self._task_vars[(run_name, task_name)]
             duration = task.duration
 
             for device_name, ref_task_name, ref_device_name in refs:
                 # Resolve chained references to the root device definition
-                root = self._resolve_device_root(exp_graph, ref_task_name, ref_device_name)
+                root = self._resolve_device_root(protocol_graph, ref_task_name, ref_device_name)
                 if root is None:
                     continue
                 root_task_name, root_device_name, ref_device_value = root
-                ref_task = exp_graph.get_task(root_task_name)
+                ref_task = protocol_graph.get_task(root_task_name)
 
                 if isinstance(ref_device_value, DynamicDeviceAssignmentDef):
                     # Find the slot index in the referenced task
@@ -474,7 +474,7 @@ class CpSatSchedulingSolver:
                             ref_slot_idx += 1
 
                     # Get the choice variables from the referenced task
-                    ref_slots = self._dynamic_choice_vars.get((exp_name, root_task_name), [])
+                    ref_slots = self._dynamic_choice_vars.get((run_name, root_task_name), [])
                     if ref_slot_idx >= len(ref_slots):
                         continue
 
@@ -489,7 +489,7 @@ class CpSatSchedulingSolver:
                             duration,
                             task_vars.end,
                             ref_bool_var,  # Only active when referenced task selects this device
-                            f"opt_ref_{exp_name}_{task_name}_{device_name}_{lab_name}_{dev_name}",
+                            f"opt_ref_{run_name}_{task_name}_{device_name}_{lab_name}_{dev_name}",
                         )
                         resource_name = f"device_{lab_name}_{dev_name}"
                         self._resource_intervals.setdefault(resource_name, []).append(optional_interval)
@@ -501,22 +501,22 @@ class CpSatSchedulingSolver:
 
     def _apply_resource_reference_constraints(self) -> None:
         """Enforce that resource references use the same resource as the referenced task."""
-        for (exp_name, task_name), refs in self._resource_references.items():
-            _, exp_graph = self._experiments[exp_name]
-            task = exp_graph.get_task(task_name)
-            task_vars = self._task_vars[(exp_name, task_name)]
+        for (run_name, task_name), refs in self._resource_references.items():
+            _, protocol_graph = self._protocol_runs[run_name]
+            task = protocol_graph.get_task(task_name)
+            task_vars = self._task_vars[(run_name, task_name)]
             duration = task.duration
 
             for resource_name, ref_task_name, ref_resource_name in refs:
                 # Resolve chained references to the root resource definition
-                root = self._resolve_resource_root(exp_graph, ref_task_name, ref_resource_name)
+                root = self._resolve_resource_root(protocol_graph, ref_task_name, ref_resource_name)
                 if root is None:
                     continue
                 root_task_name, root_resource_name, ref_resource_value = root
 
                 if isinstance(ref_resource_value, DynamicResourceAssignmentDef):
                     # Find the entry index in the referenced task's dynamic resource choices
-                    ref_entries = self._dynamic_resource_choice_vars.get((exp_name, root_task_name), [])
+                    ref_entries = self._dynamic_resource_choice_vars.get((run_name, root_task_name), [])
                     for entry_name, choices in ref_entries:
                         if entry_name == root_resource_name:
                             # Create optional intervals for each possible resource choice
@@ -528,7 +528,7 @@ class CpSatSchedulingSolver:
                                     duration,
                                     task_vars.end,
                                     ref_bool_var,  # Only active when referenced task selects this resource
-                                    f"opt_res_ref_{exp_name}_{task_name}_{resource_name}_{concrete_resource_name}",
+                                    f"opt_res_ref_{run_name}_{task_name}_{resource_name}_{concrete_resource_name}",
                                 )
                                 bucket_name = f"resource_{concrete_resource_name}"
                                 self._resource_intervals.setdefault(bucket_name, []).append(optional_interval)
@@ -545,22 +545,22 @@ class CpSatSchedulingSolver:
 
         When a task declares hold=true on a device/resource, a bridge interval is added
         between the task's end and its successor's start on that device/resource.
-        This prevents the solver from scheduling other experiments' tasks in the gap.
+        This prevents the solver from scheduling other protocols' tasks in the gap.
 
         For static devices, a regular bridge interval is created.
         For dynamic devices, optional bridge intervals are created per choice variable.
         """
-        for exp_name, (_, exp_graph) in self._experiments.items():
-            for task_name in exp_graph.get_topologically_sorted_tasks():
-                if (exp_name, task_name) not in self._task_vars:
+        for run_name, (_, protocol_graph) in self._protocol_runs.items():
+            for task_name in protocol_graph.get_topologically_sorted_tasks():
+                if (run_name, task_name) not in self._task_vars:
                     continue
-                task = exp_graph.get_task(task_name)
-                task_vars = self._task_vars[(exp_name, task_name)]
-                self._apply_device_hold_bridges(exp_name, task_name, task, task_vars, exp_graph)
-                self._apply_resource_hold_bridges(exp_name, task_name, task, task_vars, exp_graph)
+                task = protocol_graph.get_task(task_name)
+                task_vars = self._task_vars[(run_name, task_name)]
+                self._apply_device_hold_bridges(run_name, task_name, task, task_vars, protocol_graph)
+                self._apply_resource_hold_bridges(run_name, task_name, task, task_vars, protocol_graph)
 
     def _apply_device_hold_bridges(
-        self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables, exp_graph: ExperimentGraph
+        self, run_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables, protocol_graph: ProtocolGraph
     ) -> None:
         """Add bridge intervals for held device slots."""
         for slot, dev in task.devices.items():
@@ -569,32 +569,42 @@ class CpSatSchedulingSolver:
 
             if isinstance(dev, DeviceAssignmentDef):
                 bucket = f"device_{dev.lab_name}_{dev.name}"
-                self._add_bridge_for_successors(exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=True)
+                self._add_bridge_for_successors(
+                    run_name, task_name, task_vars, protocol_graph, slot, bucket, is_device=True
+                )
             elif isinstance(dev, DynamicDeviceAssignmentDef):
                 self._add_dynamic_bridge_for_successors(
-                    exp_name, task_name, task_vars, exp_graph, slot, task_name, slot, is_device=True
+                    run_name, task_name, task_vars, protocol_graph, slot, task_name, slot, is_device=True
                 )
             elif isinstance(dev, str) and is_device_reference(dev):
-                self._add_device_ref_hold_bridge(exp_name, task_name, task_vars, exp_graph, slot, dev)
+                self._add_device_ref_hold_bridge(run_name, task_name, task_vars, protocol_graph, slot, dev)
 
     def _add_device_ref_hold_bridge(
-        self, exp_name: str, task_name: str, task_vars: TaskVariables, exp_graph: ExperimentGraph, slot: str, ref: str
+        self,
+        run_name: str,
+        task_name: str,
+        task_vars: TaskVariables,
+        protocol_graph: ProtocolGraph,
+        slot: str,
+        ref: str,
     ) -> None:
         """Add bridge for a device reference hold (resolves to static or dynamic root)."""
-        root = self._resolve_device_root(exp_graph, *ref.split("."))
+        root = self._resolve_device_root(protocol_graph, *ref.split("."))
         if not root:
             return
         root_task_name, root_device_name, root_dev = root
         if isinstance(root_dev, DeviceAssignmentDef):
             bucket = f"device_{root_dev.lab_name}_{root_dev.name}"
-            self._add_bridge_for_successors(exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=True)
+            self._add_bridge_for_successors(
+                run_name, task_name, task_vars, protocol_graph, slot, bucket, is_device=True
+            )
         elif isinstance(root_dev, DynamicDeviceAssignmentDef):
             self._add_dynamic_bridge_for_successors(
-                exp_name, task_name, task_vars, exp_graph, slot, root_task_name, root_device_name, is_device=True
+                run_name, task_name, task_vars, protocol_graph, slot, root_task_name, root_device_name, is_device=True
             )
 
     def _apply_resource_hold_bridges(
-        self, exp_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables, exp_graph: ExperimentGraph
+        self, run_name: str, task_name: str, task: TaskDef, task_vars: TaskVariables, protocol_graph: ProtocolGraph
     ) -> None:
         """Add bridge intervals for held resource slots."""
         for slot, res in task.resources.items():
@@ -603,84 +613,99 @@ class CpSatSchedulingSolver:
 
             if isinstance(res, DynamicResourceAssignmentDef):
                 self._add_dynamic_bridge_for_successors(
-                    exp_name, task_name, task_vars, exp_graph, slot, task_name, slot, is_device=False
+                    run_name, task_name, task_vars, protocol_graph, slot, task_name, slot, is_device=False
                 )
             elif isinstance(res, str):
                 if not is_resource_reference(res):
                     bucket = f"resource_{res}"
                     self._add_bridge_for_successors(
-                        exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=False
+                        run_name, task_name, task_vars, protocol_graph, slot, bucket, is_device=False
                     )
                 else:
-                    self._add_resource_ref_hold_bridge(exp_name, task_name, task_vars, exp_graph, slot, res)
+                    self._add_resource_ref_hold_bridge(run_name, task_name, task_vars, protocol_graph, slot, res)
 
     def _add_resource_ref_hold_bridge(
-        self, exp_name: str, task_name: str, task_vars: TaskVariables, exp_graph: ExperimentGraph, slot: str, ref: str
+        self,
+        run_name: str,
+        task_name: str,
+        task_vars: TaskVariables,
+        protocol_graph: ProtocolGraph,
+        slot: str,
+        ref: str,
     ) -> None:
         """Add bridge for a resource reference hold (resolves to static or dynamic root)."""
-        root = self._resolve_resource_root(exp_graph, *ref.split("."))
+        root = self._resolve_resource_root(protocol_graph, *ref.split("."))
         if not root:
             return
         root_task_name, root_resource_name, root_res = root
         if isinstance(root_res, str) and not is_resource_reference(root_res):
             bucket = f"resource_{root_res}"
-            self._add_bridge_for_successors(exp_name, task_name, task_vars, exp_graph, slot, bucket, is_device=False)
+            self._add_bridge_for_successors(
+                run_name, task_name, task_vars, protocol_graph, slot, bucket, is_device=False
+            )
         elif isinstance(root_res, DynamicResourceAssignmentDef):
             self._add_dynamic_bridge_for_successors(
-                exp_name, task_name, task_vars, exp_graph, slot, root_task_name, root_resource_name, is_device=False
+                run_name,
+                task_name,
+                task_vars,
+                protocol_graph,
+                slot,
+                root_task_name,
+                root_resource_name,
+                is_device=False,
             )
 
-    def _get_task_successors(self, exp_name: str, task_name: str, exp_graph: ExperimentGraph) -> list[str]:
+    def _get_task_successors(self, run_name: str, task_name: str, protocol_graph: ProtocolGraph) -> list[str]:
         """Get direct task-node successors that have solver variables."""
-        graph = exp_graph.get_graph()
+        graph = protocol_graph.get_graph()
         return [
             s
             for s in graph.successors(task_name)
-            if graph.nodes[s].get("node_type") == "task" and (exp_name, s) in self._task_vars
+            if graph.nodes[s].get("node_type") == "task" and (run_name, s) in self._task_vars
         ]
 
     def _add_bridge_for_successors(
         self,
-        exp_name: str,
+        run_name: str,
         task_name: str,
         task_vars: TaskVariables,
-        exp_graph: ExperimentGraph,
+        protocol_graph: ProtocolGraph,
         slot: str,
         bucket: str,
         is_device: bool,
     ) -> None:
         """Add a bridge interval between task_name and each successor that uses the same device/resource."""
-        for succ_name in self._get_task_successors(exp_name, task_name, exp_graph):
-            succ_task = exp_graph.get_task(succ_name)
-            succ_vars = self._task_vars[(exp_name, succ_name)]
+        for succ_name in self._get_task_successors(run_name, task_name, protocol_graph):
+            succ_task = protocol_graph.get_task(succ_name)
+            succ_vars = self._task_vars[(run_name, succ_name)]
 
             if is_device:
-                uses_same = self._successor_uses_device_bucket(exp_graph, succ_task, bucket)
+                uses_same = self._successor_uses_device_bucket(protocol_graph, succ_task, bucket)
             else:
-                uses_same = self._successor_uses_resource_bucket(exp_graph, succ_task, bucket)
+                uses_same = self._successor_uses_resource_bucket(protocol_graph, succ_task, bucket)
 
             if not uses_same:
                 continue
 
             bridge_size = self.model.NewIntVar(
-                0, self._horizon, f"bridge_size_{exp_name}_{task_name}_to_{succ_name}_{bucket}"
+                0, self._horizon, f"bridge_size_{run_name}_{task_name}_to_{succ_name}_{bucket}"
             )
             bridge_interval = self.model.NewIntervalVar(
                 task_vars.end,
                 bridge_size,
                 succ_vars.start,
-                f"bridge_iv_{exp_name}_{task_name}_to_{succ_name}_{bucket}",
+                f"bridge_iv_{run_name}_{task_name}_to_{succ_name}_{bucket}",
             )
             self._resource_intervals.setdefault(bucket, []).append(bridge_interval)
 
-    def _successor_uses_device_bucket(self, exp_graph: ExperimentGraph, succ_task: TaskDef, bucket: str) -> bool:
+    def _successor_uses_device_bucket(self, protocol_graph: ProtocolGraph, succ_task: TaskDef, bucket: str) -> bool:
         """Check if a successor task uses the device identified by bucket."""
         for _slot, s_dev in succ_task.devices.items():
             if isinstance(s_dev, DeviceAssignmentDef):
                 if f"device_{s_dev.lab_name}_{s_dev.name}" == bucket:
                     return True
             elif isinstance(s_dev, str) and is_device_reference(s_dev):
-                root = self._resolve_device_root(exp_graph, *s_dev.split("."))
+                root = self._resolve_device_root(protocol_graph, *s_dev.split("."))
                 if root:
                     _, _, root_dev = root
                     if (
@@ -690,12 +715,12 @@ class CpSatSchedulingSolver:
                         return True
         return False
 
-    def _successor_uses_resource_bucket(self, exp_graph: ExperimentGraph, succ_task: TaskDef, bucket: str) -> bool:
+    def _successor_uses_resource_bucket(self, protocol_graph: ProtocolGraph, succ_task: TaskDef, bucket: str) -> bool:
         """Check if a successor task uses the resource identified by bucket."""
         for _slot, s_res in succ_task.resources.items():
             if isinstance(s_res, str):
                 if is_resource_reference(s_res):
-                    root = self._resolve_resource_root(exp_graph, *s_res.split("."))
+                    root = self._resolve_resource_root(protocol_graph, *s_res.split("."))
                     if root:
                         _, _, root_res = root
                         if (
@@ -708,9 +733,9 @@ class CpSatSchedulingSolver:
                     return True
         return False
 
-    def _find_dynamic_device_slot_index(self, exp_graph: ExperimentGraph, task_name: str, slot_name: str) -> int:
+    def _find_dynamic_device_slot_index(self, protocol_graph: ProtocolGraph, task_name: str, slot_name: str) -> int:
         """Compute the slot index for a dynamic device by counting prior dynamic entries."""
-        task = exp_graph.get_task(task_name)
+        task = protocol_graph.get_task(task_name)
         idx = 0
         for dev_name, dev_val in task.devices.items():
             if dev_name == slot_name:
@@ -721,10 +746,10 @@ class CpSatSchedulingSolver:
 
     def _add_dynamic_bridge_for_successors(
         self,
-        exp_name: str,
+        run_name: str,
         task_name: str,
         task_vars: TaskVariables,
-        exp_graph: ExperimentGraph,
+        protocol_graph: ProtocolGraph,
         slot: str,
         dynamic_root_task: str,
         dynamic_root_slot: str,
@@ -739,13 +764,13 @@ class CpSatSchedulingSolver:
         """
         # Find the choice variables for the dynamic root
         if is_device:
-            slot_idx = self._find_dynamic_device_slot_index(exp_graph, dynamic_root_task, dynamic_root_slot)
-            choices = self._dynamic_choice_vars.get((exp_name, dynamic_root_task), [])
+            slot_idx = self._find_dynamic_device_slot_index(protocol_graph, dynamic_root_task, dynamic_root_slot)
+            choices = self._dynamic_choice_vars.get((run_name, dynamic_root_task), [])
             if slot_idx >= len(choices):
                 return
             slot_choices = choices[slot_idx]
         else:
-            entries = self._dynamic_resource_choice_vars.get((exp_name, dynamic_root_task), [])
+            entries = self._dynamic_resource_choice_vars.get((run_name, dynamic_root_task), [])
             slot_choices = None
             for entry_name, entry_choices in entries:
                 if entry_name == dynamic_root_slot:
@@ -754,13 +779,13 @@ class CpSatSchedulingSolver:
             if not slot_choices:
                 return
 
-        for succ_name in self._get_task_successors(exp_name, task_name, exp_graph):
-            succ_task = exp_graph.get_task(succ_name)
-            succ_vars = self._task_vars[(exp_name, succ_name)]
+        for succ_name in self._get_task_successors(run_name, task_name, protocol_graph):
+            succ_task = protocol_graph.get_task(succ_name)
+            succ_vars = self._task_vars[(run_name, succ_name)]
 
             # Check if successor uses the same dynamic device/resource
             uses_same = self._successor_uses_dynamic_root(
-                exp_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices, is_device
+                protocol_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices, is_device
             )
             if not uses_same:
                 continue
@@ -772,20 +797,20 @@ class CpSatSchedulingSolver:
                 bridge_size = self.model.NewIntVar(
                     0,
                     self._horizon,
-                    f"bridge_size_{exp_name}_{task_name}_to_{succ_name}_{bucket}",
+                    f"bridge_size_{run_name}_{task_name}_to_{succ_name}_{bucket}",
                 )
                 bridge_interval = self.model.NewOptionalIntervalVar(
                     task_vars.end,
                     bridge_size,
                     succ_vars.start,
                     bool_var,
-                    f"bridge_iv_{exp_name}_{task_name}_to_{succ_name}_{bucket}",
+                    f"bridge_iv_{run_name}_{task_name}_to_{succ_name}_{bucket}",
                 )
                 self._resource_intervals.setdefault(bucket, []).append(bridge_interval)
 
     def _successor_uses_dynamic_root(
         self,
-        exp_graph: ExperimentGraph,
+        protocol_graph: ProtocolGraph,
         succ_task: TaskDef,
         dynamic_root_task: str,
         dynamic_root_slot: str,
@@ -795,15 +820,15 @@ class CpSatSchedulingSolver:
         """Check if a successor task uses the same dynamic device/resource root."""
         if is_device:
             return self._successor_uses_dynamic_device_root(
-                exp_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices
+                protocol_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices
             )
         return self._successor_uses_dynamic_resource_root(
-            exp_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices
+            protocol_graph, succ_task, dynamic_root_task, dynamic_root_slot, slot_choices
         )
 
     def _successor_uses_dynamic_device_root(
         self,
-        exp_graph: ExperimentGraph,
+        protocol_graph: ProtocolGraph,
         succ_task: TaskDef,
         dynamic_root_task: str,
         dynamic_root_slot: str,
@@ -812,7 +837,7 @@ class CpSatSchedulingSolver:
         """Check if successor uses the same dynamic device root."""
         for _s_slot, s_dev in succ_task.devices.items():
             if isinstance(s_dev, str) and is_device_reference(s_dev):
-                root = self._resolve_device_root(exp_graph, *s_dev.split("."))
+                root = self._resolve_device_root(protocol_graph, *s_dev.split("."))
                 if root:
                     r_task, r_slot, r_dev = root
                     if (
@@ -829,7 +854,7 @@ class CpSatSchedulingSolver:
 
     def _successor_uses_dynamic_resource_root(
         self,
-        exp_graph: ExperimentGraph,
+        protocol_graph: ProtocolGraph,
         succ_task: TaskDef,
         dynamic_root_task: str,
         dynamic_root_slot: str,
@@ -839,7 +864,7 @@ class CpSatSchedulingSolver:
         for _s_slot, s_res in succ_task.resources.items():
             if isinstance(s_res, str):
                 if is_resource_reference(s_res):
-                    root = self._resolve_resource_root(exp_graph, *s_res.split("."))
+                    root = self._resolve_resource_root(protocol_graph, *s_res.split("."))
                     if root:
                         r_task, r_slot, r_dev = root
                         if (
@@ -872,16 +897,16 @@ class CpSatSchedulingSolver:
 
     def _apply_solution_hints(self) -> None:
         """Warm-start the solver with start times from the previous solution."""
-        for (exp_name, task_name), tv in self._task_vars.items():
-            prev_start = self._schedule.get(exp_name, {}).get(task_name)
+        for (run_name, task_name), tv in self._task_vars.items():
+            prev_start = self._schedule.get(run_name, {}).get(task_name)
             if prev_start is not None:
                 self.model.AddHint(tv.start, prev_start)
 
     def _extract_schedule(self) -> dict[str, dict[str, int]]:
         """Extract task schedule from solved model efficiently in a single pass."""
-        schedule: dict[str, dict[str, int]] = {exp: {} for exp in self._experiments}
-        for (exp_name, task_name), tv in self._task_vars.items():
-            schedule[exp_name][task_name] = self.solver.Value(tv.start)
+        schedule: dict[str, dict[str, int]] = {exp: {} for exp in self._protocol_runs}
+        for (run_name, task_name), tv in self._task_vars.items():
+            schedule[run_name][task_name] = self.solver.Value(tv.start)
         return schedule
 
     def _extract_device_assignments(self) -> dict[str, dict[str, dict[str, DeviceAssignmentDef]]]:
@@ -892,13 +917,13 @@ class CpSatSchedulingSolver:
             for exp, tasks in self._previous_device_assignments.items()
         }
 
-        for (exp_name, task_name), _tv in self._task_vars.items():
-            _, exp_graph = self._experiments[exp_name]
-            task: TaskDef = exp_graph.get_task(task_name)
+        for (run_name, task_name), _tv in self._task_vars.items():
+            _, protocol_graph = self._protocol_runs[run_name]
+            task: TaskDef = protocol_graph.get_task(task_name)
             task_devices: dict[str, DeviceAssignmentDef] = {}
 
             # Extract selections preserving device names from task
-            slots = self._dynamic_choice_vars.get((exp_name, task_name), [])
+            slots = self._dynamic_choice_vars.get((run_name, task_name), [])
             slot_idx = 0
 
             # Dynamic and specific devices
@@ -918,13 +943,13 @@ class CpSatSchedulingSolver:
             for device_name, dev in task.devices.items():
                 if isinstance(dev, str) and is_device_reference(dev):
                     ref_task_name, ref_device_name = dev.split(".")
-                    ref_map = device_assignments.get(exp_name, {}).get(ref_task_name, {})
+                    ref_map = device_assignments.get(run_name, {}).get(ref_task_name, {})
                     ref_device = ref_map.get(ref_device_name)
                     if ref_device:
                         task_devices[device_name] = ref_device
 
             if task_devices:
-                device_assignments.setdefault(exp_name, {})[task_name] = task_devices
+                device_assignments.setdefault(run_name, {})[task_name] = task_devices
 
         return device_assignments
 
@@ -936,13 +961,13 @@ class CpSatSchedulingSolver:
             for exp, tasks in self._previous_resource_assignments.items()
         }
 
-        for (exp_name, task_name), _tv in self._task_vars.items():
-            _, exp_graph = self._experiments[exp_name]
-            task: TaskDef = exp_graph.get_task(task_name)
+        for (run_name, task_name), _tv in self._task_vars.items():
+            _, protocol_graph = self._protocol_runs[run_name]
+            task: TaskDef = protocol_graph.get_task(task_name)
             assigned: dict[str, str] = {}
 
             # Dynamic resource assignments
-            entries = self._dynamic_resource_choice_vars.get((exp_name, task_name), [])
+            entries = self._dynamic_resource_choice_vars.get((run_name, task_name), [])
             for name, choices in entries:
                 for (_lab_name, resource_name), b in choices:
                     if self.solver.Value(b) == 1:
@@ -958,13 +983,13 @@ class CpSatSchedulingSolver:
             for name, value in task.resources.items():
                 if isinstance(value, str) and is_resource_reference(value):
                     ref_task_name, ref_resource_name = value.split(".")
-                    ref_map = resource_assignments.get(exp_name, {}).get(ref_task_name, {})
+                    ref_map = resource_assignments.get(run_name, {}).get(ref_task_name, {})
                     ref_value = ref_map.get(ref_resource_name)
                     if ref_value:
                         assigned[name] = ref_value
 
             if assigned:
-                resource_assignments.setdefault(exp_name, {})[task_name] = assigned
+                resource_assignments.setdefault(run_name, {})[task_name] = assigned
 
         return resource_assignments
 
@@ -980,10 +1005,10 @@ class CpSatSchedulingSolver:
 
         relative_horizon = self._horizon - self._current_time
 
-        total_task_weight = sum(self._experiment_priorities.get(exp_name, 0) + 1 for (exp_name, _) in self._task_vars)
+        total_task_weight = sum(self._protocol_run_priorities.get(run_name, 0) + 1 for (run_name, _) in self._task_vars)
         weighted_start_sum = sum(
-            (self._experiment_priorities.get(exp_name, 0) + 1) * (task_vars.start - self._current_time)
-            for (exp_name, _), task_vars in self._task_vars.items()
+            (self._protocol_run_priorities.get(run_name, 0) + 1) * (task_vars.start - self._current_time)
+            for (run_name, _), task_vars in self._task_vars.items()
         )
 
         makespan_weight = total_task_weight * relative_horizon + 1

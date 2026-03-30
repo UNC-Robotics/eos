@@ -1,5 +1,5 @@
 type: Compute Multiplication Objective
-desc: This task computes the objective for the optimize_multiplication experiment.
+desc: This task computes the objective for the optimize_multiplication protocol.
 
 devices:
   analyzer:
@@ -19,4 +19,4 @@ output_parameters:
   objective:
     type: int
     unit: none
-    desc: The objective for the find_smallest_number experiment.
+    desc: The objective for the find_smallest_number protocol.

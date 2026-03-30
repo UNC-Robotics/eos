@@ -5,7 +5,7 @@ from tests.fixtures import *
 LAB_NAME = "small_lab"
 
 
-@pytest.mark.parametrize("setup_lab_experiment", [(LAB_NAME, "water_purification")], indirect=True)
+@pytest.mark.parametrize("setup_lab_protocol", [(LAB_NAME, "water_purification")], indirect=True)
 class TestDeviceManager:
     @pytest.mark.asyncio
     async def test_get_device(self, db, device_manager):
