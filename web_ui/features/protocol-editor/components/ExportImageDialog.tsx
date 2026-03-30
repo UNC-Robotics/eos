@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Download, X } from 'lucide-react';
-import { useReactFlow, getNodesBounds } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import { useEditorStore } from '@/lib/stores/editorStore';
 
 interface ExportImageDialogProps {
@@ -13,10 +13,50 @@ interface ExportImageDialogProps {
 
 const PADDING = 50;
 
+/** Collect @font-face rules from same-origin stylesheets with font data inlined as data URIs. */
+async function getSafeFontEmbedCSS(): Promise<string> {
+  const rules: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (rule instanceof CSSFontFaceRule) {
+          rules.push(await inlineFontUrls(rule.cssText));
+        }
+      }
+    } catch {
+      // Cross-origin stylesheet — browser blocks .cssRules access, skip it
+    }
+  }
+  return rules.join('\n');
+}
+
+/** Replace url() references in a CSS rule with inline data URIs so fonts render in canvas exports. */
+async function inlineFontUrls(cssText: string): Promise<string> {
+  const urlPattern = /url\(["']?(https?:\/\/[^"')]+)["']?\)/g;
+  const matches = [...cssText.matchAll(urlPattern)];
+  let result = cssText;
+  for (const match of matches) {
+    try {
+      const response = await fetch(match[1]);
+      const blob = await response.blob();
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      result = result.replace(match[0], `url(${dataUri})`);
+    } catch {
+      // If fetch fails, leave the original URL in place
+    }
+  }
+  return result;
+}
+
 export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
   const [zoom, setZoom] = useState(2);
   const [isExporting, setIsExporting] = useState(false);
-  const { getNodes } = useReactFlow();
+  const { getNodes, getNodesBounds } = useReactFlow();
   const protocolType = useEditorStore((state) => state.protocolType);
 
   const handleExport = async () => {
@@ -42,9 +82,11 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
       const canvas = await toCanvas(viewportEl, {
         width: imageWidth,
         height: imageHeight,
+        backgroundColor: 'transparent',
         pixelRatio: 1,
         cacheBust: false,
         skipAutoScale: true,
+        fontEmbedCSS: await getSafeFontEmbedCSS(),
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
@@ -54,21 +96,28 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
           if (node instanceof HTMLElement) {
             if (node.classList.contains('react-flow__background')) return false;
             if (node.classList.contains('react-flow__controls')) return false;
+            if (node.tagName === 'LINK' && node.getAttribute('rel') === 'stylesheet') {
+              const href = node.getAttribute('href') || '';
+              try {
+                if (new URL(href, window.location.origin).origin !== window.location.origin) return false;
+              } catch {
+                return false;
+              }
+            }
           }
           return true;
         },
       });
 
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.download = `${protocolType || 'protocol'}.png`;
-        a.href = url;
-        a.click();
-        URL.revokeObjectURL(url);
-        onClose();
-      }, 'image/png');
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.download = `${protocolType || 'protocol'}-export.png`;
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+      onClose();
     } finally {
       setIsExporting(false);
     }
@@ -88,7 +137,7 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
                 Export as Image
               </Dialog.Title>
               <Dialog.Description className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                Download the canvas as a PNG with transparent background.
+                Export the canvas as a PNG with transparent background.
               </Dialog.Description>
 
               <div className="mt-4">
@@ -138,7 +187,7 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
               disabled={isExporting}
               className="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-blue-600 hover:bg-blue-700 dark:bg-yellow-500 dark:hover:bg-yellow-600 text-white dark:text-slate-900 disabled:opacity-50"
             >
-              {isExporting ? 'Exporting...' : 'Download'}
+              {isExporting ? 'Exporting...' : 'Export'}
             </button>
           </div>
         </Dialog.Content>
