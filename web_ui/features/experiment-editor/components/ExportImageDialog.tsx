@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Download, X } from 'lucide-react';
-import { useReactFlow, getNodesBounds } from '@xyflow/react';
+import { useReactFlow } from '@xyflow/react';
 import { useEditorStore } from '@/lib/stores/editorStore';
 
 interface ExportImageDialogProps {
@@ -13,10 +13,27 @@ interface ExportImageDialogProps {
 
 const PADDING = 50;
 
+/** Collect @font-face rules from same-origin stylesheets, skipping cross-origin ones. */
+function getSafeFontEmbedCSS(): string {
+  const rules: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (rule instanceof CSSFontFaceRule) {
+          rules.push(rule.cssText);
+        }
+      }
+    } catch {
+      // Cross-origin stylesheet — browser blocks .cssRules access, skip it
+    }
+  }
+  return rules.join('\n');
+}
+
 export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
   const [zoom, setZoom] = useState(2);
   const [isExporting, setIsExporting] = useState(false);
-  const { getNodes } = useReactFlow();
+  const { getNodes, getNodesBounds } = useReactFlow();
   const experimentType = useEditorStore((state) => state.experimentType);
 
   const handleExport = async () => {
@@ -25,7 +42,7 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
 
     setIsExporting(true);
     try {
-      const bounds = getNodesBounds(nodes);
+      const bounds = getNodesBounds(nodes.map((n) => n.id));
 
       // Image dimensions = tight bounds + small padding, scaled by user zoom
       const imageWidth = Math.round((bounds.width + PADDING * 2) * zoom);
@@ -45,6 +62,7 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
         pixelRatio: 1,
         cacheBust: false,
         skipAutoScale: true,
+        fontEmbedCSS: getSafeFontEmbedCSS(),
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
@@ -54,6 +72,10 @@ export function ExportImageDialog({ isOpen, onClose }: ExportImageDialogProps) {
           if (node instanceof HTMLElement) {
             if (node.classList.contains('react-flow__background')) return false;
             if (node.classList.contains('react-flow__controls')) return false;
+            if (node.tagName === 'LINK' && node.getAttribute('rel') === 'stylesheet') {
+              const href = node.getAttribute('href') || '';
+              if (href.startsWith('http')) return false;
+            }
           }
           return true;
         },
