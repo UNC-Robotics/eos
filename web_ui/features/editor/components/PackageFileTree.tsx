@@ -301,7 +301,7 @@ interface PackageNodeProps {
   renameValue: string;
   creatingEntity: { packageName: string; entityType: EntityType } | null;
   newEntityName: string;
-  getEntityTree: (packageName: string) => EntityTree | undefined;
+  entityTrees: Record<string, EntityTree>;
   onTogglePackage: (packageName: string) => void;
   onToggleEntityType: (key: string) => void;
   onCreateStart: (packageName: string, entityType: EntityType) => void;
@@ -312,7 +312,7 @@ interface PackageNodeProps {
   onRenameConfirm: () => void;
   onRenameCancel: () => void;
   onEntityClick: (packageName: string, entityType: EntityType, entityName: string) => void;
-  onContextMenu: (e: React.MouseEvent, packageName: string, entityType: EntityType, entityName: string) => void;
+  onContextMenu: (e: React.MouseEvent, packageName: string, entityType: EntityType, entityName?: string) => void;
   onDeleteRequest: (packageName: string, entityType: EntityType, entityName: string) => void;
 }
 
@@ -329,7 +329,7 @@ function PackageNode({
   renameValue,
   creatingEntity,
   newEntityName,
-  getEntityTree,
+  entityTrees,
   onTogglePackage,
   onToggleEntityType,
   onCreateStart,
@@ -343,7 +343,7 @@ function PackageNode({
   onContextMenu,
   onDeleteRequest,
 }: PackageNodeProps) {
-  const entityTree = isExpanded ? getEntityTree(pkg.name) : null;
+  const entityTree = isExpanded ? entityTrees[pkg.name] : null;
 
   return (
     <div className="mb-1">
@@ -419,7 +419,7 @@ interface PackageFileTreeProps {
   onDeleteEntity: (packageName: string, entityType: EntityType, entityName: string) => void;
   onRenameEntity: (packageName: string, entityType: EntityType, oldName: string, newName: string) => void;
   onRefresh?: () => void;
-  onPackageExpand: (packageName: string) => void;
+  onPackageExpand: (packageName: string) => Promise<void>;
 }
 
 export function PackageFileTree({
@@ -433,7 +433,7 @@ export function PackageFileTree({
   const selectedPackage = useEditorStore((state) => state.selectedPackage);
   const selectedEntityType = useEditorStore((state) => state.selectedEntityType);
   const selectedEntityName = useEditorStore((state) => state.selectedEntityName);
-  const getEntityTree = useEditorStore((state) => state.getEntityTree);
+  const entityTrees = useEditorStore((state) => state.entityTrees);
   const selectEntity = useEditorStore((state) => state.selectEntity);
   const cache = useEditorStore((state) => state.cache);
 
@@ -499,9 +499,19 @@ export function PackageFileTree({
 
   // Fetch entity trees for all packages on mount
   useEffect(() => {
-    packages.forEach((pkg) => {
-      onPackageExpand(pkg.name);
-    });
+    const loadEntityTrees = async () => {
+      for (const pkg of packages) {
+        await onPackageExpand(pkg.name);
+      }
+      // Auto-expand packages if none are expanded
+      setExpandedPackages((prev) => {
+        if (prev.size === 0) {
+          return new Set(packages.map(p => p.name));
+        }
+        return prev;
+      });
+    };
+    loadEntityTrees();
   }, [packages, onPackageExpand]);
 
   const togglePackage = useCallback(
@@ -634,7 +644,7 @@ export function PackageFileTree({
     const filtered: FilteredPackage[] = [];
 
     packages.forEach((pkg) => {
-      const entityTree = getEntityTree(pkg.name);
+      const entityTree = entityTrees[pkg.name];
       if (!entityTree) return;
 
       const matchingTypes: Partial<Record<EntityType, EntityNode[]>> = {};
@@ -658,7 +668,7 @@ export function PackageFileTree({
     });
 
     return filtered;
-  }, [debouncedQuery, packages, getEntityTree]);
+  }, [debouncedQuery, packages, entityTrees]);
 
   // Auto-expand packages and entity types when searching
   useEffect(() => {
@@ -772,7 +782,7 @@ export function PackageFileTree({
               renameValue={renameValue}
               creatingEntity={creatingEntity}
               newEntityName={newEntityName}
-              getEntityTree={getEntityTree}
+              entityTrees={entityTrees}
               onTogglePackage={togglePackage}
               onToggleEntityType={toggleEntityType}
               onCreateStart={handleCreateEntityStart}
