@@ -1,6 +1,7 @@
 import { EditorClient } from '@/features/editor/components/EditorClient';
 import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
-import type { Package, EntityType } from '@/lib/types/filesystem';
+import { scanPackages } from '@/lib/filesystem/operations';
+import type { EntityType } from '@/lib/types/filesystem';
 import type { ParameterSpec } from '@/lib/types/protocol';
 
 export const dynamic = 'force-dynamic';
@@ -9,25 +10,6 @@ export const metadata = {
   title: 'Editor',
   description: 'Edit EOS packages, protocols, devices, tasks, and labs',
 };
-
-async function getPackages(): Promise<Package[]> {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/filesystem/packages`, {
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      console.error('Failed to fetch packages:', response.statusText);
-      return [];
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error('Error fetching packages:', error);
-    return [];
-  }
-}
 
 interface EditorPageProps {
   searchParams: Promise<{
@@ -43,7 +25,7 @@ export default async function EditorPage({ searchParams }: EditorPageProps) {
   const params = await searchParams;
 
   // Fetch packages and specs in parallel
-  const [packages, taskSpecs, labSpecs] = await Promise.all([getPackages(), getTaskSpecs(), getLabSpecs()]);
+  const [packages, taskSpecs, labSpecs] = await Promise.all([scanPackages(), getTaskSpecs(), getLabSpecs()]);
 
   // Transform task specs for protocol editor (keep existing logic)
   const taskSpecsArray = Object.entries(taskSpecs).map(([type, spec]) => {
