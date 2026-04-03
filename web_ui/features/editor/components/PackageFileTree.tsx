@@ -499,19 +499,15 @@ export function PackageFileTree({
 
   // Fetch entity trees for all packages on mount
   useEffect(() => {
-    const loadEntityTrees = async () => {
-      for (const pkg of packages) {
-        await onPackageExpand(pkg.name);
-      }
+    Promise.all(packages.map((pkg) => onPackageExpand(pkg.name))).then(() => {
       // Auto-expand packages if none are expanded
       setExpandedPackages((prev) => {
         if (prev.size === 0) {
-          return new Set(packages.map(p => p.name));
+          return new Set(packages.map((p) => p.name));
         }
         return prev;
       });
-    };
-    loadEntityTrees();
+    });
   }, [packages, onPackageExpand]);
 
   const togglePackage = useCallback(
