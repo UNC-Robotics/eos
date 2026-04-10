@@ -128,9 +128,9 @@ export function TaskPropertiesPanel({
 
   if (isMissingSpec) {
     return (
-      <div className="h-full flex flex-col bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-700">
+      <div className="h-full flex flex-col bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-700 min-w-0 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-          <h3 className="font-semibold text-gray-900 dark:text-white">{taskNode.name}</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-white truncate">{taskNode.name}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <X className="h-4 w-4" />
           </button>
@@ -184,7 +184,7 @@ export function TaskPropertiesPanel({
     // Convert value based on parameter type, but don't add .0 suffix during typing
     // The .0 suffix for floats is added at YAML serialization time by ensureFloatNotationInYaml
     const normalizedType = paramType.toLowerCase();
-    let convertedValue: string | number | boolean;
+    let convertedValue: unknown;
 
     if (normalizedType === 'int' || normalizedType === 'integer') {
       // For integers, parse to number if valid
@@ -206,8 +206,15 @@ export function TaskPropertiesPanel({
     } else if (normalizedType === 'bool' || normalizedType === 'boolean') {
       const lower = value.toLowerCase().trim();
       convertedValue = lower === 'true' || lower === '1';
+    } else if (normalizedType === 'list' || normalizedType === 'dict' || normalizedType === 'dictionary') {
+      // Parse JSON for list/dict types so they serialize as native YAML structures
+      try {
+        const parsed = JSON.parse(value);
+        convertedValue = parsed;
+      } catch {
+        convertedValue = value; // Keep as string while user is still typing
+      }
     } else {
-      // For other types (string, list, etc.), keep as string
       convertedValue = value;
     }
 
@@ -258,7 +265,7 @@ export function TaskPropertiesPanel({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-700">
+    <div className="h-full flex flex-col bg-white dark:bg-slate-900 border-l border-gray-200 dark:border-slate-700 min-w-0 overflow-hidden">
       {/* Header */}
       <div className="px-4 py-2.5 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
         <h2 className="text-base font-semibold text-gray-900 dark:text-white">Task Properties</h2>
@@ -270,9 +277,9 @@ export function TaskPropertiesPanel({
         </button>
       </div>
 
-      <ScrollArea.Root className="flex-1 min-h-0">
-        <ScrollArea.Viewport className="w-full h-full">
-          <div className="p-4 space-y-4">
+      <ScrollArea.Root className="flex-1 min-h-0 min-w-0">
+        <ScrollArea.Viewport className="w-full h-full" style={{ overflowX: 'hidden' }}>
+          <div className="p-4 space-y-4 min-w-0">
             {/* Validation Errors */}
             <TaskValidationAlert taskName={taskNode.name} />
 
@@ -446,7 +453,12 @@ export function TaskPropertiesPanel({
                       key={name}
                       name={name}
                       type={spec.type}
-                      value={String(taskNode.parameters?.[name] ?? '')}
+                      value={(() => {
+                        const v = taskNode.parameters?.[name];
+                        if (v == null) return '';
+                        if (typeof v === 'object') return JSON.stringify(v);
+                        return String(v);
+                      })()}
                       placeholder={spec.desc ?? ''}
                       onChange={(value) => handleParameterChange(name, value, spec.type)}
                     />

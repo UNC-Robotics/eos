@@ -15,6 +15,7 @@ import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
 import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitTaskDialog } from './SubmitTaskDialog';
+import { TaskOutputFiles } from '@/features/files/components/TaskOutputFiles';
 import type { TaskSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
@@ -31,7 +32,10 @@ interface TasksTableProps {
 }
 
 export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps) {
-  const { isConnected } = useOrchestratorConnected();
+  const { isConnected: _isConnected } = useOrchestratorConnected();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const isConnected = mounted ? _isConnected : true; // Avoid hydration mismatch
   const [pollingInterval, setPollingInterval] = React.useState(5000);
   const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
   const [cancellingTask, setCancellingTask] = React.useState<string | null>(null);
@@ -373,16 +377,11 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
             {/* Output Files */}
             {selectedTask.output_file_names && selectedTask.output_file_names.length > 0 && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                  Output Files
-                </div>
-                <ul className="space-y-1">
-                  {selectedTask.output_file_names.map((file, idx) => (
-                    <li key={idx} className="text-sm text-gray-700 dark:text-gray-300">
-                      • {file}
-                    </li>
-                  ))}
-                </ul>
+                <TaskOutputFiles
+                  fileNames={selectedTask.output_file_names}
+                  protocolRunName={selectedTask.protocol_run_name ?? null}
+                  taskName={selectedTask.name}
+                />
               </div>
             )}
 

@@ -8,6 +8,7 @@ import { serializeCurrentProtocol } from '@/lib/utils/protocolSerializer';
 import { loadEntity, unloadEntity, reloadEntity } from '@/features/editor/api/reload';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 import { getLoadedStatus } from '@/features/editor/api/loaded-status';
+import { DiskChangedBanner } from './DiskChangedBanner';
 
 interface VisualProtocolEditorProps {
   hasJinja: boolean;
@@ -214,6 +215,8 @@ export function VisualProtocolEditor({ hasJinja, onSave, onReload, onSwitchToCod
           </button>
         </div>
       </div>
+
+      <DiskChangedBanner onReload={onReload} />
 
       {/* Visual Editor */}
       <div className="flex-1 overflow-hidden">

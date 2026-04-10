@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.20.0
+
+- Added **scheduling simulator** in the web UI, allowing users to simulate how protocol tasks would run, estimate parallelism and resource utilization, and more
+- Added file change detection in the web UI editor page, warning users if source files on disk were changed outside the web UI before saving
+- Added **resources view** in the web UI, allowing users to view the state of all resources in EOS, such as view metadata, and reset their state to default
+- Fixed several bugs
+
 ## 0.19.0
 
 > **Breaking Release:** This version renames experiments to protocols/protocol runs.

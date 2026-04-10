@@ -113,6 +113,12 @@ body {
   display: block !important;
 }
 
+/* Fix Radix ScrollArea display:table wrapper preventing task properties panel from shrinking */
+#task-properties-panel [data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  min-width: 0 !important;
+}
+
 /* Skeleton: delayed fade-in (200ms delay) prevents brief flash on fast loads */
 @keyframes skeleton-fade-in {
   0% {

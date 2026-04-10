@@ -6,6 +6,7 @@ import {
   getPackageTree,
   readEntityFiles,
   writeEntityFiles,
+  getEntityMtimeOnly,
   createEntity,
   deleteEntity,
   renameEntity,
@@ -55,6 +56,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     // GET /api/filesystem/packages/[packageName]/[entityType]/[entityName] - Read entity files
     if (pathSegments.length === 4 && pathSegments[0] === 'packages') {
       const [, packageName, entityType, entityName] = pathSegments;
+
+      // Lightweight mtime-only check (no file reads)
+      const url = new URL(_request.url);
+      if (url.searchParams.has('mtimes')) {
+        const mtime = await getEntityMtimeOnly(packageName, entityType as EntityType, entityName);
+        if (mtime === null) {
+          return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
+        }
+        return NextResponse.json({ mtime });
+      }
+
       const files = await readEntityFiles(packageName, entityType as EntityType, entityName);
       if (!files) {
         return NextResponse.json({ error: 'Entity not found' }, { status: 404 });
@@ -81,8 +93,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (pathSegments.length === 4 && pathSegments[0] === 'packages') {
       const [, packageName, entityType, entityName] = pathSegments;
       const body: WriteFilesRequest = await request.json();
-      await writeEntityFiles(packageName, entityType as EntityType, entityName, body);
-      return NextResponse.json({ success: true });
+      const result = await writeEntityFiles(packageName, entityType as EntityType, entityName, body);
+
+      if (result.conflict) {
+        return NextResponse.json({ error: 'File modified externally', mtime: result.mtime }, { status: 409 });
+      }
+
+      return NextResponse.json({ success: true, mtime: result.mtime });
     }
 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

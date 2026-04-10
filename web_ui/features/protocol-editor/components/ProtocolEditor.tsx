@@ -692,7 +692,7 @@ export function ProtocolEditor() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full w-full flex flex-col overflow-hidden">
       <Toolbar
         labSpecs={labSpecs}
         onAutoLayout={handleAutoLayout}
@@ -700,7 +700,7 @@ export function ProtocolEditor() {
         onValidate={validate}
       />
 
-      <Group orientation="horizontal" className="flex-1">
+      <Group orientation="horizontal" className="flex-1 overflow-hidden">
         {/* Main Canvas Panel */}
         <Panel id="canvas-panel" defaultSize={getCanvasSize()} minSize="30%">
           <div className="h-full flex flex-col">

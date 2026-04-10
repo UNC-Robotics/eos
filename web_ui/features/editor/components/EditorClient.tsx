@@ -45,6 +45,7 @@ const VisualProtocolEditorWithProvider = dynamic(
 );
 import { ToastContainer } from '@/components/ui/Toast';
 import { useToast } from '@/components/ui/useToast';
+import { ConflictDialog } from './ConflictDialog';
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { hasJinjaSyntax, parseYaml, extractHoldsFromRawTasks } from '@/lib/utils/editor-utils';
 import { refreshPackages } from '@/features/editor/api/refresh';
@@ -228,7 +229,7 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
         if (cancelled) return;
 
         const layout = selectedEntityType === 'protocols' && files.json ? files.json : '';
-        useEditorStore.getState().loadFromDisk({ yaml: files.yaml, python: files.python, layout });
+        useEditorStore.getState().loadFromDisk({ yaml: files.yaml, python: files.python, layout, mtime: files.mtime });
 
         // Determine editor mode and load visual editor if needed
         if (selectedEntityType === 'protocols' && !hasJinjaSyntax(files.yaml)) {
@@ -266,16 +267,35 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
     if (selectedPackage) fetchEntityTree(selectedPackage);
   }, [selectedPackage, fetchEntityTree]);
 
-  // Refresh specs when window regains focus (catches changes from management page)
+  // Refresh specs and check for external file changes when window regains focus
   useEffect(() => {
     let lastCheck = 0;
     const DEBOUNCE_MS = 5000;
 
-    const handleFocus = () => {
+    const handleFocus = async () => {
       const now = Date.now();
       if (now - lastCheck < DEBOUNCE_MS) return;
       lastCheck = now;
+
       refreshSpecs();
+
+      // Check if the current entity's files were modified externally
+      const state = useEditorStore.getState();
+      const { selectedPackage: pkg, selectedEntityType: type, selectedEntityName: name, diskMtime } = state;
+      if (!pkg || !type || !name || diskMtime == null) return;
+
+      try {
+        const res = await fetch(`/api/filesystem/packages/${encodeURIComponent(pkg)}/${type}/${name}?mtimes`, {
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.mtime > diskMtime) {
+          useEditorStore.getState().setDiskChanged(true);
+        }
+      } catch {
+        // Non-critical check — silently ignore
+      }
     };
 
     window.addEventListener('focus', handleFocus);
@@ -348,65 +368,98 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
   // Save
   // -----------------------------------------------------------------------
 
-  const handleSave = useCallback(async () => {
-    if (!selectedPackage || !selectedEntityType || !selectedEntityName) return;
-    if (useEditorStore.getState().isSaving) return;
+  const handleSave = useCallback(
+    async (forceOverwrite = false) => {
+      if (!selectedPackage || !selectedEntityType || !selectedEntityName) return;
+      if (useEditorStore.getState().isSaving) return;
 
-    setIsSaving(true);
-    try {
-      setLoading(true);
+      setIsSaving(true);
+      try {
+        setLoading(true);
 
-      // In visual mode, synchronously derive YAML and layout from protocol state
-      const currentMode = useEditorStore.getState().editorMode;
-      if (currentMode === 'visual' && selectedEntityType === 'protocols') {
-        const { yaml: serializedYaml, layoutJson: serializedLayout } = serializeCurrentProtocol();
-        useEditorStore.getState().updateYaml(serializedYaml);
-        useEditorStore.getState().updateLayout(serializedLayout);
-      }
-
-      const state = useEditorStore.getState();
-      const body: Record<string, string> = { yaml: state.yaml, python: state.python };
-
-      if (selectedEntityType === 'protocols' && state.layout) {
-        body.json = state.layout;
-      }
-
-      const response = await fetch(
-        `/api/filesystem/packages/${encodeURIComponent(selectedPackage)}/${selectedEntityType}/${selectedEntityName}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+        // In visual mode, synchronously derive YAML and layout from protocol state
+        const currentMode = useEditorStore.getState().editorMode;
+        if (currentMode === 'visual' && selectedEntityType === 'protocols') {
+          const { yaml: serializedYaml, layoutJson: serializedLayout } = serializeCurrentProtocol();
+          useEditorStore.getState().updateYaml(serializedYaml);
+          useEditorStore.getState().updateLayout(serializedLayout);
         }
-      );
 
-      if (!response.ok) throw new Error('Failed to save files');
+        const state = useEditorStore.getState();
+        const body: Record<string, unknown> = { yaml: state.yaml, python: state.python };
 
-      markSaved();
-      showToast('success', 'Saved successfully');
-    } catch (error) {
-      console.error('Error saving files:', error);
-      showToast('error', 'Failed to save files');
-    } finally {
-      setIsSaving(false);
-      setLoading(false);
-    }
-  }, [selectedPackage, selectedEntityType, selectedEntityName, setIsSaving, setLoading, markSaved, showToast]);
+        if (selectedEntityType === 'protocols' && state.layout) {
+          body.json = state.layout;
+        }
+
+        // Include expectedMtime for conflict detection (skip on force overwrite or new entities)
+        if (!forceOverwrite && state.diskMtime != null) {
+          body.expectedMtime = state.diskMtime;
+        }
+
+        const response = await fetch(
+          `/api/filesystem/packages/${encodeURIComponent(selectedPackage)}/${selectedEntityType}/${selectedEntityName}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }
+        );
+
+        if (response.status === 409) {
+          const data = await response.json();
+          useEditorStore.getState().setConflictMtime(data.mtime);
+          return;
+        }
+
+        if (!response.ok) throw new Error('Failed to save files');
+
+        const data = await response.json();
+        markSaved(data.mtime);
+        showToast('success', 'Saved successfully');
+      } catch (error) {
+        console.error('Error saving files:', error);
+        showToast('error', 'Failed to save files');
+      } finally {
+        setIsSaving(false);
+        setLoading(false);
+      }
+    },
+    [selectedPackage, selectedEntityType, selectedEntityName, setIsSaving, setLoading, markSaved, showToast]
+  );
 
   const refetchCurrentEntity = useCallback(() => {
     if (selectedPackage && selectedEntityType && selectedEntityName) {
+      useEditorStore.getState().setDiskChanged(false);
+      // Clear cache so loadFromDisk uses fresh disk content instead of stale edits
+      const cacheKey = `${selectedPackage}/${selectedEntityType}/${selectedEntityName}`;
+      useEditorStore.getState().deleteCache(cacheKey);
       // Re-trigger the fetch effect by toggling selection
       const pkg = selectedPackage;
       const type = selectedEntityType;
       const name = selectedEntityName;
-      // Clear and re-select to trigger the fetch effect
       useEditorStore.setState({ selectedEntityName: null });
-      // Use setTimeout to ensure the state change triggers a new effect cycle
       setTimeout(() => selectEntity(pkg, type, name), 0);
     }
     // Also refresh specs in case task/lab definitions changed
     refreshSpecs();
   }, [selectedPackage, selectedEntityType, selectedEntityName, selectEntity, refreshSpecs]);
+
+  // -----------------------------------------------------------------------
+  // Conflict resolution
+  // -----------------------------------------------------------------------
+
+  const conflictMtime = useEditorStore((s) => s.conflictMtime);
+
+  const handleConflictOverwrite = useCallback(() => {
+    useEditorStore.getState().setConflictMtime(null);
+    handleSave(true);
+  }, [handleSave]);
+
+  const handleConflictReload = useCallback(() => {
+    useEditorStore.getState().setConflictMtime(null);
+    refetchCurrentEntity();
+  }, [refetchCurrentEntity]);
 
   // -----------------------------------------------------------------------
   // Entity CRUD
@@ -538,6 +591,12 @@ export function EditorClient({ initialPackages, taskSpecs, labSpecs, initialSele
   return (
     <>
       <ToastContainer toasts={toasts} onClose={closeToast} />
+      <ConflictDialog
+        isOpen={conflictMtime != null}
+        onClose={() => useEditorStore.getState().setConflictMtime(null)}
+        onOverwrite={handleConflictOverwrite}
+        onReload={handleConflictReload}
+      />
 
       <div className="h-screen flex flex-col">
         <Group orientation="horizontal">

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from sqlalchemy import select, delete, exists, update
 
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.packages import EntityType
 from eos.resources.entities.resource import Resource, ResourceModel
 from eos.resources.exceptions import EosResourceStateError
 from eos.logging.logger import log
@@ -24,11 +25,38 @@ class ResourceManager:
     def __init__(self, configuration_manager: ConfigurationManager):
         self._configuration_manager = configuration_manager
         self._locks = defaultdict(AsyncRLock)
+        self._defaults: dict[str, Resource] = {}
 
     async def initialize(self, db: AsyncDbSession) -> None:
         """Initialize the resource manager and create initial resources."""
+        self._build_defaults()
         await self._create_resources(db)
         log.debug("Resource manager initialized.")
+
+    def _build_defaults(self) -> None:
+        """Build default resource objects from all lab configs (loaded or not)."""
+        pm = self._configuration_manager.package_manager
+        for package in pm.get_all_packages():
+            for lab_name in pm.get_entities_in_package(package.name, EntityType.LAB):
+                lab = pm.read_lab(lab_name)
+                for resource_name, lab_resource in lab.resources.items():
+                    self._defaults[resource_name] = self._build_resource(resource_name, lab_resource, lab)
+
+    def get_default_resource(self, resource_name: str) -> Resource | None:
+        """Get the default resource configuration for a resource name."""
+        return self._defaults.get(resource_name)
+
+    def _refresh_defaults_for_labs(self, lab_names: set[str]) -> None:
+        """Re-read defaults for resources belonging to the given labs."""
+        pm = self._configuration_manager.package_manager
+        for lab_name in lab_names:
+            try:
+                lab = pm.read_lab(lab_name)
+            except Exception:
+                log.error(f"Failed to read lab '{lab_name}' for refreshing resource defaults")
+                continue
+            for resource_name, lab_resource in lab.resources.items():
+                self._defaults[resource_name] = self._build_resource(resource_name, lab_resource, lab)
 
     async def _check_resource_exists(self, db: AsyncDbSession, resource_name: str) -> bool:
         """Check if a resource exists."""
@@ -178,6 +206,7 @@ class ResourceManager:
 
         if loaded_labs:
             await asyncio.gather(*[self._create_resources_for_lab(db, lab_name) for lab_name in loaded_labs])
+            self._refresh_defaults_for_labs(loaded_labs)
 
         log.debug("Resources have been updated.")
 

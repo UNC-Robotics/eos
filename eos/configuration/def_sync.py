@@ -221,6 +221,7 @@ class DefSync:
             existing = existing_map.get((defn["type"], defn["name"]))
             if existing:
                 existing.data = defn["data"]
+                existing.is_loaded = defn.get("is_loaded", existing.is_loaded)
                 existing.package_name = defn["package_name"]
                 existing.source_path = defn["source_path"]
                 existing.updated_at = now

@@ -449,7 +449,7 @@ function SubmissionPanel({
         <div className="space-y-1">
           <Label className="text-xs">Additional Context</Label>
           <Textarea
-            value={get<string>('ai_additional_context', params.ai_additional_context ?? '')}
+            value={get<string | null>('ai_additional_context', params.ai_additional_context) ?? ''}
             onChange={(e) => set('ai_additional_context', e.target.value || null)}
             placeholder="Additional context for the AI agent..."
             className="text-xs min-h-[60px]"

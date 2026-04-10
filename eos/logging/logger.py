@@ -21,7 +21,7 @@ class Logger:
     def __init__(self):
         self.logger = logging.getLogger("rich")
         self.logger.name = "eos"
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         self.logger.addHandler(RichConsoleHandler())
         self.logger.addHandler(BufferHandler())
 

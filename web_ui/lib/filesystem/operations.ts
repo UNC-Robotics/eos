@@ -220,6 +220,39 @@ export async function getPackageTree(packageName: string): Promise<EntityTree> {
   return tree;
 }
 
+// Get max mtime across all files belonging to an entity
+async function getEntityMtime(entityPath: string, entityType: EntityType): Promise<number> {
+  const fileNames = ENTITY_FILE_NAMES[entityType];
+  const paths = [path.join(entityPath, fileNames.yaml)];
+  if (fileNames.python) paths.push(path.join(entityPath, fileNames.python));
+  if (entityType === 'protocols') paths.push(path.join(entityPath, 'layout.json'));
+
+  const mtimes = await Promise.all(
+    paths.map((p) =>
+      fs
+        .stat(p)
+        .then((s) => s.mtimeMs)
+        .catch(() => 0)
+    )
+  );
+  return Math.max(...mtimes);
+}
+
+// Lightweight mtime-only check (no file reads)
+export async function getEntityMtimeOnly(
+  packageName: string,
+  entityType: EntityType,
+  entityName: string
+): Promise<number | null> {
+  const entityPath = path.join(getUserDir(), packageName, entityType, entityName);
+  try {
+    await fs.access(entityPath);
+  } catch {
+    return null;
+  }
+  return getEntityMtime(entityPath, entityType);
+}
+
 // Read entity files
 export async function readEntityFiles(
   packageName: string,
@@ -241,9 +274,12 @@ export async function readEntityFiles(
   const pythonPath = fileNames.python ? path.join(entityPath, fileNames.python) : '';
   const jsonPath = entityType === 'protocols' ? path.join(entityPath, 'layout.json') : '';
 
-  const yamlContent = await fs.readFile(yamlPath, 'utf-8').catch(() => '');
-  const python = pythonPath ? await fs.readFile(pythonPath, 'utf-8').catch(() => '') : '';
-  const json = jsonPath ? await fs.readFile(jsonPath, 'utf-8').catch(() => '') : '';
+  const [yamlContent, python, json, mtime] = await Promise.all([
+    fs.readFile(yamlPath, 'utf-8').catch(() => ''),
+    pythonPath ? fs.readFile(pythonPath, 'utf-8').catch(() => '') : Promise.resolve(''),
+    jsonPath ? fs.readFile(jsonPath, 'utf-8').catch(() => '') : Promise.resolve(''),
+    getEntityMtime(entityPath, entityType),
+  ]);
 
   return {
     yaml: yamlContent,
@@ -252,19 +288,28 @@ export async function readEntityFiles(
     pythonPath,
     json,
     jsonPath,
+    mtime,
   };
 }
 
-// Write entity files
+// Write entity files with optional optimistic concurrency check
 export async function writeEntityFiles(
   packageName: string,
   entityType: EntityType,
   entityName: string,
   files: WriteFilesRequest
-): Promise<void> {
+): Promise<{ conflict: boolean; mtime: number }> {
   const userDir = getUserDir();
   const fileNames = ENTITY_FILE_NAMES[entityType];
   const entityPath = path.join(userDir, packageName, entityType, entityName);
+
+  // Conflict check: reject if disk is newer than what the client last saw
+  if (files.expectedMtime != null) {
+    const currentMtime = await getEntityMtime(entityPath, entityType);
+    if (currentMtime > files.expectedMtime) {
+      return { conflict: true, mtime: currentMtime };
+    }
+  }
 
   // Ensure directory exists
   await fs.mkdir(entityPath, { recursive: true });
@@ -281,6 +326,9 @@ export async function writeEntityFiles(
   if (entityType === 'protocols' && files.json) {
     await fs.writeFile(path.join(entityPath, 'layout.json'), files.json, 'utf-8');
   }
+
+  const newMtime = await getEntityMtime(entityPath, entityType);
+  return { conflict: false, mtime: newMtime };
 }
 
 // Create new entity

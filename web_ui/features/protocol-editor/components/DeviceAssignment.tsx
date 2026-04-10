@@ -80,8 +80,8 @@ export function DeviceAssignment({
 
   return (
     <div className="border border-gray-200 dark:border-slate-600 rounded-md px-3 py-2 space-y-1.5 bg-white dark:bg-slate-800">
-      <div className="flex items-center justify-between gap-2">
-        <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-white whitespace-nowrap">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <label className="shrink min-w-0 text-sm font-medium text-gray-700 dark:text-white truncate">
           {deviceName} <span className="text-xs text-gray-400 dark:text-gray-500">({deviceSpec.type})</span>
           {deviceSpec.desc && <DescriptionTooltip description={deviceSpec.desc} />}
         </label>
@@ -89,13 +89,13 @@ export function DeviceAssignment({
         {enableReferenceMode ? (
           <AssignmentModeSelector mode={selectedMode} onChange={handleModeChange} color="blue" />
         ) : (
-          <div className="flex gap-1.5">
+          <div className="flex gap-1 min-w-0 shrink-0">
             {(['static', 'dynamic'] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => handleModeChange(mode)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
+                className={`px-1.5 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${
                   selectedMode === mode
                     ? 'bg-blue-600 dark:bg-yellow-500 text-white dark:text-slate-900'
                     : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600'

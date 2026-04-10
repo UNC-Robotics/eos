@@ -85,19 +85,19 @@ class ClaudeAgentSDKModel(Model):
 
     _sdk_model_name: str = field(repr=False)
     _full_model_name: str = field(repr=False)
-    _max_thinking_tokens: int | None = field(default=None, repr=False)
+    _effort: str | None = field(default=None, repr=False)
 
     def __init__(
         self,
         model_name: str = "sonnet",
         *,
-        max_thinking_tokens: int | None = None,
+        effort: str | None = None,
         profile: ModelProfile | None = None,
         settings: ModelSettings | None = None,
     ) -> None:
         self._sdk_model_name = model_name
         self._full_model_name = f"claude-agent-sdk:{model_name}"
-        self._max_thinking_tokens = max_thinking_tokens
+        self._effort = effort
 
         if profile is None:
             profile = ModelProfile(
@@ -137,8 +137,8 @@ class ClaudeAgentSDKModel(Model):
             sdk_options.system_prompt = instructions
         if output_format:
             sdk_options.output_format = output_format
-        if self._max_thinking_tokens is not None:
-            sdk_options.max_thinking_tokens = self._max_thinking_tokens
+        if self._effort is not None:
+            sdk_options.effort = self._effort
 
         result_text: str | None = None
         structured_output: Any = None

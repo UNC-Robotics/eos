@@ -105,7 +105,7 @@ export function Combobox({
           disabled={disabled}
           className={cn(
             'flex h-10 w-full items-center justify-between rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50',
+            'focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500 disabled:cursor-not-allowed disabled:opacity-50',
             className
           )}
         >
@@ -148,9 +148,9 @@ export function Combobox({
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                  {value === searchQuery.trim() && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                  {value === searchQuery.trim() && <Check className="h-4 w-4 text-blue-600 dark:text-yellow-500" strokeWidth={3} />}
                 </span>
-                <div className="ml-3 flex flex-col items-start min-w-0 flex-1">
+                <div className="ml-6 flex flex-col items-start min-w-0 flex-1">
                   <span className="font-medium text-gray-900 dark:text-gray-100">Use: {searchQuery.trim()}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">Custom model</span>
                 </div>
@@ -186,9 +186,9 @@ export function Combobox({
                       )}
                     >
                       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                        {value === option.value && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                        {value === option.value && <Check className="h-4 w-4 text-blue-600 dark:text-yellow-500" strokeWidth={3} />}
                       </span>
-                      <div className="ml-3 flex flex-col items-start min-w-0 flex-1">
+                      <div className="ml-6 flex flex-col items-start min-w-0 flex-1">
                         <span className="font-medium text-gray-900 dark:text-gray-100">{option.label}</span>
                         {option.description && (
                           <span

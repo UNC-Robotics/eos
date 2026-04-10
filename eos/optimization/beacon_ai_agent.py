@@ -277,16 +277,16 @@ class BeaconAIAgent:
             from eos.optimization.claude_agent_sdk_model import ClaudeAgentSDKModel  # noqa: PLC0415
 
             sdk_model_name = model[len(_CLAUDE_AGENT_SDK_PREFIX) :]
-            max_thinking_tokens = model_settings.get("max_thinking_tokens") if model_settings else None
+            effort = model_settings.get("effort") if model_settings else None
             resolved_model = ClaudeAgentSDKModel(
                 model_name=sdk_model_name,
-                max_thinking_tokens=max_thinking_tokens,
+                effort=effort,
             )
 
         # Filter out SDK-specific keys before passing to Pydantic AI ModelSettings
         if isinstance(model_settings, str):
             model_settings = json.loads(model_settings) if model_settings.strip() else None
-        sdk_keys = {"max_thinking_tokens"}
+        sdk_keys = {"effort"}
         filtered = {k: v for k, v in model_settings.items() if k not in sdk_keys} if model_settings else {}
         self._model_settings = ModelSettings(**filtered) if filtered else None
 

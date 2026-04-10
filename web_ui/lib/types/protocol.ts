@@ -80,7 +80,7 @@ export interface TaskNode {
   position: { x: number; y: number };
   devices?: Record<string, DeviceAssignment>;
   resources?: Record<string, ResourceAssignment>;
-  parameters?: Record<string, string | number | boolean>;
+  parameters?: Record<string, unknown>;
   dependencies?: string[];
   color?: string;
   desc?: string;

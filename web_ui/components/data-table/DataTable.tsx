@@ -439,11 +439,10 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   className={`hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${
                     row.getIsSelected() ? 'bg-blue-50 dark:bg-blue-900/30' : ''
-                  } ${onRowClick && !enableRowSelection ? 'cursor-pointer' : ''}`}
+                  } ${onRowClick ? 'cursor-pointer' : ''}`}
                   onClick={(e) => {
-                    // Only trigger row click if not clicking on checkbox or if selection is disabled
                     const target = e.target as HTMLElement;
-                    if (onRowClick && !enableRowSelection && target.tagName !== 'INPUT' && !target.closest('button')) {
+                    if (onRowClick && target.tagName !== 'INPUT' && !target.closest('button')) {
                       onRowClick(row.original);
                     }
                   }}

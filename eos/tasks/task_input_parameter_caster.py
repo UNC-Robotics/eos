@@ -20,6 +20,8 @@ class TaskInputParameterCaster:
         task_name = task_submission.name
         task_type = task_submission.type
         input_parameters = task_submission.input_parameters
+        if not input_parameters:
+            return input_parameters or {}
 
         task_spec = self.task_spec_registry.get_spec_by_type(task_type)
 

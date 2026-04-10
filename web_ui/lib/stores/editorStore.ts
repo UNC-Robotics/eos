@@ -51,6 +51,11 @@ interface EditorStore {
   isLoading: boolean;
   error: string | null;
 
+  // --- File sync state (not persisted) ---
+  diskMtime: number | null;
+  diskChanged: boolean;
+  conflictMtime: number | null;
+
   // --- ProtocolRun slice (visual editor state) ---
   protocolType: string;
   protocolDesc: string;
@@ -88,16 +93,19 @@ interface EditorStore {
   setEntityTree: (packageName: string, tree: EntityTree) => void;
   getEntityTree: (packageName: string) => EntityTree | undefined;
   selectEntity: (packageName: string, entityType: EntityType, entityName: string) => void;
-  loadFromDisk: (files: { yaml: string; python: string; layout?: string }) => void;
+  loadFromDisk: (files: { yaml: string; python: string; layout?: string; mtime?: number }) => void;
   setBaseline: (yaml: string, python: string, layout: string) => void;
   updateYaml: (content: string) => void;
   updatePython: (content: string) => void;
   updateLayout: (content: string) => void;
   setEditorMode: (mode: EditorMode) => void;
   setIsSaving: (saving: boolean) => void;
-  markSaved: () => void;
+  markSaved: (newMtime?: number) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setDiskMtime: (mtime: number) => void;
+  setDiskChanged: (changed: boolean) => void;
+  setConflictMtime: (mtime: number | null) => void;
   reset: () => void;
   clearSelection: () => void;
   hasUnsavedFile: (key: string) => boolean;
@@ -192,7 +200,7 @@ const reconcileTasksWithSpecs = (get: () => EditorStore) => {
     // Filter parameters to only those in spec
     if (task.parameters && spec.input_parameters) {
       const validKeys = new Set(Object.keys(spec.input_parameters));
-      const filtered: Record<string, string | number | boolean> = {};
+      const filtered: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(task.parameters)) {
         if (validKeys.has(key)) {
           filtered[key] = value;
@@ -366,6 +374,10 @@ export const useEditorStore = create<EditorStore>()(
       isLoading: false,
       error: null,
 
+      diskMtime: null,
+      diskChanged: false,
+      conflictMtime: null,
+
       // =====================================================================
       // Initial state — ProtocolRun slice
       // =====================================================================
@@ -438,6 +450,7 @@ export const useEditorStore = create<EditorStore>()(
           const cacheKey = getCacheKey(state.selectedPackage, state.selectedEntityType, state.selectedEntityName);
           const cached = cacheKey ? state.cache[cacheKey] : undefined;
           const diskLayout = files.layout || '';
+          const mtime = files.mtime ?? null;
 
           if (cached) {
             return {
@@ -449,6 +462,8 @@ export const useEditorStore = create<EditorStore>()(
               baselineLayout: diskLayout,
               isDirty: true,
               isLoading: false,
+              diskMtime: mtime,
+              diskChanged: false,
             };
           }
 
@@ -461,6 +476,8 @@ export const useEditorStore = create<EditorStore>()(
             baselineLayout: diskLayout,
             isDirty: false,
             isLoading: false,
+            diskMtime: mtime,
+            diskChanged: false,
           };
         }),
 
@@ -527,7 +544,7 @@ export const useEditorStore = create<EditorStore>()(
 
       setIsSaving: (saving) => set({ isSaving: saving }),
 
-      markSaved: () =>
+      markSaved: (newMtime) =>
         set((state) => {
           const cacheKey = getCacheKey(state.selectedPackage, state.selectedEntityType, state.selectedEntityName);
           let cache = state.cache;
@@ -541,12 +558,19 @@ export const useEditorStore = create<EditorStore>()(
             baselineLayout: state.layout,
             isDirty: false,
             cache,
+            diskMtime: newMtime ?? state.diskMtime,
+            diskChanged: false,
+            conflictMtime: null,
           };
         }),
 
       setLoading: (loading) => set({ isLoading: loading }),
 
       setError: (error) => set({ error }),
+
+      setDiskMtime: (mtime) => set({ diskMtime: mtime }),
+      setDiskChanged: (changed) => set({ diskChanged: changed }),
+      setConflictMtime: (mtime) => set({ conflictMtime: mtime }),
 
       reset: () =>
         set({
@@ -582,6 +606,9 @@ export const useEditorStore = create<EditorStore>()(
           isValidating: false,
           isValid: null,
           isValidationPanelOpen: false,
+          diskMtime: null,
+          diskChanged: false,
+          conflictMtime: null,
         }),
 
       clearSelection: () =>
@@ -596,6 +623,9 @@ export const useEditorStore = create<EditorStore>()(
           baselineLayout: '',
           isDirty: false,
           editorMode: 'code' as EditorMode,
+          diskMtime: null,
+          diskChanged: false,
+          conflictMtime: null,
         }),
 
       hasUnsavedFile: (key: string) => key in get().cache,

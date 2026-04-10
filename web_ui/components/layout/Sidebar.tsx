@@ -12,6 +12,8 @@ import {
   Target,
   FolderOpen,
   Microscope,
+  GanttChart,
+  Box,
   Settings,
   Sun,
   Moon,
@@ -30,7 +32,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const { isConnected } = useOrchestratorConnected();
+  const { isConnected, isChecking, checkNow } = useOrchestratorConnected();
   const { showLogs, toggleLogs } = useLogPanel();
 
   // Avoid hydration mismatch
@@ -66,6 +68,11 @@ export function Sidebar() {
       label: 'Campaigns',
     },
     {
+      href: '/resources',
+      icon: Box,
+      label: 'Resources',
+    },
+    {
       href: '/files',
       icon: FolderOpen,
       label: 'Files',
@@ -74,6 +81,11 @@ export function Sidebar() {
       href: '/devices/inspect',
       icon: Microscope,
       label: 'Device Inspector',
+    },
+    {
+      href: '/simulator',
+      icon: GanttChart,
+      label: 'Simulator',
     },
     {
       href: '/management',
@@ -219,16 +231,20 @@ export function Sidebar() {
             {!isExpanded ? (
               <Tooltip.Root disableHoverableContent>
                 <Tooltip.Trigger asChild>
-                  <div
-                    className="w-full p-3 rounded-md flex items-center justify-center"
-                    aria-label={isConnected ? 'Orchestrator online' : 'Orchestrator offline'}
+                  <button
+                    onClick={checkNow}
+                    disabled={isChecking}
+                    className="w-full p-3 rounded-md flex items-center justify-center cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                    aria-label={
+                      isConnected ? 'Orchestrator online — click to recheck' : 'Orchestrator offline — click to recheck'
+                    }
                   >
                     {isConnected ? (
-                      <Wifi className="w-5 h-5 text-green-500" />
+                      <Wifi className={`w-5 h-5 text-green-500 ${isChecking ? 'animate-pulse' : ''}`} />
                     ) : (
-                      <WifiOff className="w-5 h-5 text-red-500" />
+                      <WifiOff className={`w-5 h-5 text-red-500 ${isChecking ? 'animate-pulse' : ''}`} />
                     )}
-                  </div>
+                  </button>
                 </Tooltip.Trigger>
                 <Tooltip.Portal>
                   <Tooltip.Content
@@ -237,20 +253,24 @@ export function Sidebar() {
                     sideOffset={20}
                     collisionPadding={10}
                   >
-                    {isConnected ? 'Orchestrator online' : 'Orchestrator offline'}
+                    {isConnected ? 'Orchestrator online — click to recheck' : 'Orchestrator offline — click to recheck'}
                     <Tooltip.Arrow className="fill-gray-900 dark:fill-slate-700" />
                   </Tooltip.Content>
                 </Tooltip.Portal>
               </Tooltip.Root>
             ) : (
-              <div
-                className="w-full p-3 rounded-md flex items-center gap-3"
-                aria-label={isConnected ? 'Orchestrator online' : 'Orchestrator offline'}
+              <button
+                onClick={checkNow}
+                disabled={isChecking}
+                className="w-full p-3 rounded-md flex items-center gap-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label={
+                  isConnected ? 'Orchestrator online — click to recheck' : 'Orchestrator offline — click to recheck'
+                }
               >
                 {isConnected ? (
-                  <Wifi className="w-5 h-5 flex-shrink-0 text-green-500" />
+                  <Wifi className={`w-5 h-5 flex-shrink-0 text-green-500 ${isChecking ? 'animate-pulse' : ''}`} />
                 ) : (
-                  <WifiOff className="w-5 h-5 flex-shrink-0 text-red-500" />
+                  <WifiOff className={`w-5 h-5 flex-shrink-0 text-red-500 ${isChecking ? 'animate-pulse' : ''}`} />
                 )}
                 <span
                   className={`transition-opacity duration-300 whitespace-nowrap ${
@@ -259,7 +279,7 @@ export function Sidebar() {
                 >
                   {isConnected ? 'Online' : 'Offline'}
                 </span>
-              </div>
+              </button>
             )}
 
             {/* Theme Toggle */}

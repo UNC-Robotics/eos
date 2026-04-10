@@ -6,15 +6,16 @@ import { useOrchestratorStatus } from '@/hooks/useOrchestratorStatus';
 interface OrchestratorStatusContextValue {
   isConnected: boolean;
   isChecking: boolean;
+  checkNow: () => void;
 }
 
 const OrchestratorStatusContext = createContext<OrchestratorStatusContextValue | null>(null);
 
 export function OrchestratorStatusProvider({ children }: { children: ReactNode }) {
-  const { isConnected, isChecking } = useOrchestratorStatus();
+  const { isConnected, isChecking, checkNow } = useOrchestratorStatus();
 
   return (
-    <OrchestratorStatusContext.Provider value={{ isConnected, isChecking }}>
+    <OrchestratorStatusContext.Provider value={{ isConnected, isChecking, checkNow }}>
       {children}
     </OrchestratorStatusContext.Provider>
   );

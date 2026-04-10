@@ -97,9 +97,11 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
     from eos.web_api.controllers.lab_controller import LabController
     from eos.web_api.controllers.package_controller import PackageController
     from eos.web_api.controllers.refresh_controller import RefreshController
+    from eos.web_api.controllers.resource_controller import ResourceController
     from eos.web_api.controllers.rpc_controller import RPCController
     from eos.web_api.controllers.optimizer_controller import OptimizerController
     from eos.web_api.controllers.log_controller import LogController
+    from eos.web_api.controllers.simulator_controller import SimulatorController
     from eos.web_api.controllers.task_controller import TaskController
     from eos.web_api.dependencies import get_common_dependencies
     from eos.web_api.exception_handling import general_exception_handler
@@ -121,7 +123,9 @@ def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicor
         OptimizerController,
         PackageController,
         RefreshController,
+        ResourceController,
         RPCController,
+        SimulatorController,
         TaskController,
     ]
 

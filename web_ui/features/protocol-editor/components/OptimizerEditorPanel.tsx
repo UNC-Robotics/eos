@@ -21,7 +21,7 @@ import type { OptimizerDefaults } from '@/lib/types/api';
  */
 async function savePythonOnly(code: string) {
   const store = useEditorStore.getState();
-  const { selectedPackage, selectedEntityType, selectedEntityName, isSaving } = store;
+  const { selectedPackage, selectedEntityType, selectedEntityName, isSaving, diskMtime } = store;
 
   if (!selectedPackage || !selectedEntityType || !selectedEntityName) return;
   if (isSaving) return;
@@ -39,10 +39,14 @@ async function savePythonOnly(code: string) {
       useEditorStore.getState().updateLayout(layoutToWrite);
     }
 
-    const body: Record<string, string> = { yaml: yamlToWrite, python: code };
+    const body: Record<string, unknown> = { yaml: yamlToWrite, python: code };
 
     if (selectedEntityType === 'protocols' && layoutToWrite) {
       body.json = layoutToWrite;
+    }
+
+    if (diskMtime != null) {
+      body.expectedMtime = diskMtime;
     }
 
     const response = await fetch(
@@ -54,9 +58,15 @@ async function savePythonOnly(code: string) {
       }
     );
 
+    if (response.status === 409) {
+      useEditorStore.getState().setConflictMtime((await response.json()).mtime);
+      return;
+    }
+
     if (!response.ok) throw new Error('Failed to save optimizer file');
 
-    useEditorStore.getState().markSaved();
+    const data = await response.json();
+    useEditorStore.getState().markSaved(data.mtime);
   } finally {
     useEditorStore.getState().setIsSaving(false);
   }

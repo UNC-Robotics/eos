@@ -173,7 +173,7 @@ function StaticMode({
 
 function DynamicMode({ resourceSpec }: Pick<ResourceAssignmentProps, 'resourceSpec'>) {
   return (
-    <div className="border border-purple-300 dark:border-purple-600 rounded-md p-2">
+    <div className="border border-gray-200 dark:border-slate-700 rounded-md p-2">
       <div className="flex items-center gap-2 bg-gray-50 dark:bg-slate-700 px-2.5 py-1.5 rounded-md">
         <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Resource Type:</span>
         <span className="text-sm text-gray-900 dark:text-white">{resourceSpec.type}</span>

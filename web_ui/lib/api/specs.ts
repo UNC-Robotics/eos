@@ -276,42 +276,40 @@ export const getDefsMetadata = cache(
  * Returns lists of entity names that are currently loaded in EOS.
  * Optimized with a single database query.
  */
-export const getLoadedStatus = cache(
-  async (): Promise<{
-    labs: string[];
-    protocols: string[];
-    tasks: string[];
-    devices: string[];
-  }> => {
-    const results = await db
-      .select({
-        type: definitions.type,
-        name: definitions.name,
-      })
-      .from(definitions)
-      .where(eq(definitions.isLoaded, true))
-      .execute();
+export async function getLoadedStatus(): Promise<{
+  labs: string[];
+  protocols: string[];
+  tasks: string[];
+  devices: string[];
+}> {
+  const results = await db
+    .select({
+      type: definitions.type,
+      name: definitions.name,
+    })
+    .from(definitions)
+    .where(eq(definitions.isLoaded, true))
+    .execute();
 
-    // Group results by type
-    const loaded = {
-      labs: [] as string[],
-      protocols: [] as string[],
-      tasks: [] as string[],
-      devices: [] as string[],
-    };
+  // Group results by type
+  const loaded = {
+    labs: [] as string[],
+    protocols: [] as string[],
+    tasks: [] as string[],
+    devices: [] as string[],
+  };
 
-    for (const def of results) {
-      if (def.type === 'lab') {
-        loaded.labs.push(def.name);
-      } else if (def.type === 'protocol') {
-        loaded.protocols.push(def.name);
-      } else if (def.type === 'task') {
-        loaded.tasks.push(def.name);
-      } else if (def.type === 'device') {
-        loaded.devices.push(def.name);
-      }
+  for (const def of results) {
+    if (def.type === 'lab') {
+      loaded.labs.push(def.name);
+    } else if (def.type === 'protocol') {
+      loaded.protocols.push(def.name);
+    } else if (def.type === 'task') {
+      loaded.tasks.push(def.name);
+    } else if (def.type === 'device') {
+      loaded.devices.push(def.name);
     }
-
-    return loaded;
   }
-);
+
+  return loaded;
+}

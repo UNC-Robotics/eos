@@ -10,6 +10,7 @@ import { loadEntity, unloadEntity, reloadEntity } from '@/features/editor/api/re
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 import { getLoadedStatus } from '@/features/editor/api/loaded-status';
 import { ENTITY_FILE_NAMES } from '@/lib/types/filesystem';
+import { DiskChangedBanner } from './DiskChangedBanner';
 import type { editor } from 'monaco-editor';
 
 interface CodeEditorPanelProps {
@@ -331,6 +332,8 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
           prevent template corruption.
         </div>
       )}
+
+      <DiskChangedBanner onReload={onReload} />
 
       {/* Tab Bar */}
       {fileNames && (

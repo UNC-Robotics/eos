@@ -8,7 +8,7 @@
 import { desc, count, eq, and, asc, or, ilike, inArray } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { db } from './client';
-import { tasks, protocolRuns, campaigns, campaignSamples } from './schema';
+import { tasks, protocolRuns, campaigns, campaignSamples, resources } from './schema';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions, type ColumnFilterOption } from '@/lib/types/table';
 
 // Paginated result wrapper
@@ -122,6 +122,13 @@ const CAMPAIGN_COLUMNS: Record<string, DrizzleColumn> = {
   created_at: campaigns.createdAt,
 };
 const CAMPAIGN_SEARCH_COLUMNS = [campaigns.name, campaigns.protocol, campaigns.owner];
+
+const RESOURCE_COLUMNS: Record<string, DrizzleColumn> = {
+  name: resources.name,
+  type: resources.type,
+  lab: resources.lab,
+};
+const RESOURCE_SEARCH_COLUMNS = [resources.name, resources.type, resources.lab];
 
 // ─── Database row types ─────────────────────────────────────────────────────
 
@@ -283,6 +290,34 @@ export async function getAllCampaigns(options: TableQueryOptions = {}): Promise<
     campaigns.createdAt
   );
   return { data: rows.map(mapCampaignRow), total, limit, offset };
+}
+
+export interface ResourceRow {
+  name: string;
+  type: string;
+  lab: string | null;
+  meta: Record<string, unknown>;
+}
+
+export async function getAllResources(options: TableQueryOptions = {}): Promise<PaginatedResult<ResourceRow>> {
+  const { rows, total, limit, offset } = await queryPaginated(
+    resources,
+    options,
+    RESOURCE_COLUMNS,
+    RESOURCE_SEARCH_COLUMNS,
+    resources.name
+  );
+  return {
+    data: rows.map((r: { name: string; type: string; lab: string | null; meta: unknown }) => ({
+      name: r.name,
+      type: r.type,
+      lab: r.lab,
+      meta: (r.meta as Record<string, unknown>) ?? {},
+    })),
+    total,
+    limit,
+    offset,
+  };
 }
 
 // ─── Name prefix query (for clone name generation) ──────────────────────────

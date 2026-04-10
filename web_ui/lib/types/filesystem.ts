@@ -32,6 +32,7 @@ export interface EntityFiles {
   pythonPath: string;
   json?: string; // Optional layout JSON for protocols
   jsonPath?: string;
+  mtime: number; // Max mtime across entity files (Unix epoch ms)
 }
 
 export interface ValidationError {
@@ -56,6 +57,7 @@ export interface WriteFilesRequest {
   yaml: string;
   python: string;
   json?: string; // Optional layout JSON for protocols
+  expectedMtime?: number; // If set, reject write when disk mtime is newer
 }
 
 // File name constants

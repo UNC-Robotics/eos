@@ -165,6 +165,21 @@ export function SubmitTaskDialog({
           setDevices(initialDevices);
         }
 
+        // Initialize parameters with defaults (booleans default to false)
+        if (spec.input_parameters) {
+          const initialParams: Record<string, unknown> = {};
+          Object.entries(spec.input_parameters).forEach(([name, paramSpec]) => {
+            const ps = paramSpec as ParameterSpec;
+            const type = ps.type.toLowerCase();
+            if (type === 'bool' || type === 'boolean') {
+              initialParams[name] = false;
+            }
+          });
+          if (Object.keys(initialParams).length > 0) {
+            setInputParameters(initialParams);
+          }
+        }
+
         if (spec.input_resources) {
           const initialResources: Record<string, ResourceAssignment> = {};
           Object.keys(spec.input_resources).forEach((resourceName) => {
@@ -235,16 +250,19 @@ export function SubmitTaskDialog({
           return;
         }
 
-        input_parameters = Object.keys(filteredParams).length > 0 ? filteredParams : null;
+        input_parameters = Object.keys(filteredParams).length > 0 ? filteredParams : {};
       }
 
       // Handle resources - serialize only resources defined in current task spec
+      // The API expects Resource objects ({name, type}), not plain strings
       if (selectedTaskSpec?.input_resources) {
         const serializedResources: Record<string, unknown> = {};
         Object.keys(selectedTaskSpec.input_resources).forEach((name) => {
           const assignment = inputResources[name];
           if (assignment !== undefined) {
-            serializedResources[name] = serializeResourceAssignment(assignment);
+            const serialized = serializeResourceAssignment(assignment);
+            // Wrap plain string (static resource name) into a Resource object for the API
+            serializedResources[name] = typeof serialized === 'string' ? { name: serialized, type: '' } : serialized;
           }
         });
         input_resources = Object.keys(serializedResources).length > 0 ? serializedResources : null;

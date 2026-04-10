@@ -1030,21 +1030,24 @@ def run_simulation(
     jitter: float = 0.0,
     seed: int | None = None,
     scheduler_type: str = "greedy",
+    quiet: bool = False,
 ) -> list[TimelineEvent]:
     """Run a complete scheduling simulation and print results."""
+    echo = _echo if not quiet else lambda *_a, **_k: None
+
     if seed is not None:
         random.seed(seed)
     elif jitter > 0:
         seed = random.randint(0, 2**32 - 1)  # noqa: S311
-        _echo(f"Random seed: {seed} (use --seed {seed} to reproduce)")
+        echo(f"Random seed: {seed} (use --seed {seed} to reproduce)")
         random.seed(seed)
 
     sim_config = load_sim_config(config_path)
     labs, protocols = load_simulation_data(sim_config, Path(user_dir))
 
-    _echo(f"Loaded {len(labs)} lab(s): {', '.join(sorted(labs.keys()))}")
+    echo(f"Loaded {len(labs)} lab(s): {', '.join(sorted(labs.keys()))}")
     for lab in labs.values():
-        _echo(f"  {lab.name}: {len(lab.devices)} devices, {len(lab.resources)} resources")
+        echo(f"  {lab.name}: {len(lab.devices)} devices, {len(lab.resources)} resources")
 
     all_instances: list[ProtocolRunInstance] = []
     concurrency_limits: dict[str, int] = {}
@@ -1054,18 +1057,18 @@ def run_simulation(
         instances = create_protocol_run_instances(protocol_run.type, protocol_def, protocol_run.iterations)
         all_instances.extend(instances)
         total_duration = sum(t.duration for t in protocol_def.tasks)
-        _echo(
+        echo(
             f"Created {len(instances)} instance(s) of '{protocol_run.type}' "
             f"({len(protocol_def.tasks)} tasks, {total_duration}s total per iteration)"
         )
         if protocol_run.max_concurrent > 0:
             concurrency_limits[protocol_run.type] = protocol_run.max_concurrent
 
-    _echo(f"\nTotal: {len(all_instances)} protocol run instances")
+    echo(f"\nTotal: {len(all_instances)} protocol run instances")
     for protocol_type, limit in concurrency_limits.items():
-        _echo(f"  {protocol_type}: max {limit} concurrent")
+        echo(f"  {protocol_type}: max {limit} concurrent")
 
-    _echo(f"\nStarting simulation (scheduler={scheduler_type})...")
+    echo(f"\nStarting simulation (scheduler={scheduler_type})...")
     sim = Simulator(
         labs,
         all_instances,
@@ -1076,8 +1079,83 @@ def run_simulation(
     )
     timeline = sim.run()
 
-    print_timeline(timeline)
-    print_stats(timeline)
-    _print_scheduler_overhead(sim.scheduler_time_ms, sim.scheduler_calls)
+    if not quiet:
+        print_timeline(timeline)
+        print_stats(timeline)
+        _print_scheduler_overhead(sim.scheduler_time_ms, sim.scheduler_calls)
 
     return timeline
+
+
+def compute_sim_stats(
+    starts: list[TimelineEvent],
+    completions: list[TimelineEvent],
+    scheduler_type: str,
+) -> dict:
+    """Compute summary statistics from simulation timeline events."""
+    makespan = max((e.time for e in completions), default=0)
+
+    run_times: dict[str, int] = {}
+    for ev in completions:
+        run_times[ev.protocol_run_name] = max(run_times.get(ev.protocol_run_name, 0), ev.time)
+    run_completions = [(name, format_time(t)) for name, t in sorted(run_times.items())]
+
+    device_intervals: dict[str, list[tuple[int, int]]] = {}
+    for ev in starts:
+        for d in ev.devices.values():
+            key = f"{d.lab_name}.{d.name}"
+            device_intervals.setdefault(key, []).append((ev.time, ev.time + ev.duration))
+    device_util = []
+    for name in sorted(device_intervals):
+        busy = _merged_busy_time(device_intervals[name])
+        pct = (busy / makespan) * 100 if makespan else 0
+        device_util.append({"name": name, "time_fmt": format_time(busy), "pct": pct})
+
+    resource_intervals: dict[str, list[tuple[int, int]]] = {}
+    for ev in starts:
+        for res_name in ev.resources.values():
+            resource_intervals.setdefault(res_name, []).append((ev.time, ev.time + ev.duration))
+    resource_util = []
+    for name in sorted(resource_intervals):
+        busy = _merged_busy_time(resource_intervals[name])
+        pct = (busy / makespan) * 100 if makespan else 0
+        resource_util.append({"name": name, "time_fmt": format_time(busy), "pct": pct})
+
+    deltas: list[tuple[int, int]] = []
+    for ev in starts:
+        deltas.append((ev.time, +1))
+        deltas.append((ev.time + ev.duration, -1))
+    deltas.sort(key=lambda x: (x[0], x[1]))
+
+    max_parallel = 0
+    current = 0
+    weighted_sum = 0
+    prev_time = 0
+    for t, d in deltas:
+        if t != prev_time:
+            weighted_sum += current * (t - prev_time)
+            prev_time = t
+        current += d
+        max_parallel = max(max_parallel, current)
+    if prev_time < makespan:
+        weighted_sum += current * (makespan - prev_time)
+
+    avg_parallel = weighted_sum / makespan if makespan else 0
+    total_task_time = sum(ev.duration for ev in starts)
+    theoretical_min = total_task_time // max_parallel if max_parallel else 0
+    efficiency = (total_task_time / (makespan * max_parallel)) * 100 if max_parallel and makespan else 0
+
+    return {
+        "makespan": makespan,
+        "makespan_fmt": format_time(makespan),
+        "scheduler_type": scheduler_type,
+        "total_tasks": len(starts),
+        "run_completions": run_completions,
+        "device_util": device_util,
+        "resource_util": resource_util,
+        "max_parallel": max_parallel,
+        "avg_parallel": avg_parallel,
+        "total_task_time_fmt": format_time(total_task_time),
+        "theoretical_min_fmt": format_time(theoretical_min),
+        "efficiency": efficiency,
+    }
