@@ -202,6 +202,7 @@ class ProtocolExecutor:
         await self._scheduler.unregister_protocol_run(db, self._protocol_run_name)
         await self._protocol_run_manager.fail_protocol_run(db, self._protocol_run_name, error_message=error_message)
         self._protocol_run_status = ProtocolRunStatus.FAILED
+        await db.commit()
 
         # Ensure any running tasks are cancelled to avoid orphan work
         try:

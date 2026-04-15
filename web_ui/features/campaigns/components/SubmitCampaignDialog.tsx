@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eraser, ChevronDown, ChevronRight, Upload, Info } from 'lucide-react';
+import { Eraser, ChevronDown, ChevronRight, Upload, Info, Loader2 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { BaseSubmitDialog } from '@/components/dialogs/BaseSubmitDialog';
 import { Input } from '@/components/ui/Input';
@@ -186,6 +186,7 @@ export function SubmitCampaignDialog({
   const [selectedProtocolSpec, setSelectedProtocolSpec] = React.useState<ProtocolSpec | null>(null);
   const [optimizerDefaults, setOptimizerDefaults] = React.useState<OptimizerDefaults | null>(null);
   const [optimizerOverrides, setOptimizerOverrides] = React.useState<Record<string, unknown>>({});
+  const [isLoadingOptimizer, setIsLoadingOptimizer] = React.useState(false);
 
   // Visual editor state - task parameters structure: { task_name: { param_name: ParameterValue } }
   const [taskParameters, setTaskParameters] = React.useState<Record<string, Record<string, ParameterValue>>>({});
@@ -300,14 +301,17 @@ export function SubmitCampaignDialog({
   // Fetch optimizer defaults when protocol type changes and optimize is enabled
   React.useEffect(() => {
     if (optimize && protocolType) {
-      getOptimizerDefaults(protocolType).then((defaults) => {
-        setOptimizerDefaults(defaults);
-        if (initialCampaign?.meta?.optimizer_overrides) {
-          setOptimizerOverrides(initialCampaign.meta.optimizer_overrides as Record<string, unknown>);
-        } else {
-          setOptimizerOverrides({});
-        }
-      });
+      setIsLoadingOptimizer(true);
+      getOptimizerDefaults(protocolType)
+        .then((defaults) => {
+          setOptimizerDefaults(defaults);
+          if (initialCampaign?.meta?.optimizer_overrides) {
+            setOptimizerOverrides(initialCampaign.meta.optimizer_overrides as Record<string, unknown>);
+          } else {
+            setOptimizerOverrides({});
+          }
+        })
+        .finally(() => setIsLoadingOptimizer(false));
     } else {
       setOptimizerDefaults(null);
       setOptimizerOverrides({});
@@ -544,6 +548,12 @@ export function SubmitCampaignDialog({
         )}
 
         {/* Beacon Optimizer Settings */}
+        {optimize && isLoadingOptimizer && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading optimizer settings...
+          </div>
+        )}
         {optimize && optimizerDefaults && optimizerDefaults.optimizer_type === 'BeaconOptimizer' && (
           <BeaconOptimizerPanel
             mode="submission"

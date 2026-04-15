@@ -4,6 +4,7 @@ from unittest.mock import patch
 from eos.protocols.entities.protocol_run import ProtocolRunStatus, ProtocolRunSubmission
 from eos.protocols.exceptions import EosProtocolRunExecutionError
 from eos.protocols.protocol_executor import ProtocolExecutor
+from eos.tasks.base_task import BaseTask
 from tests.fixtures import *
 
 LAB_NAME = "small_lab"
@@ -139,3 +140,30 @@ class TestProtocolExecutor:
             mock_resume.assert_called_once()
 
         assert protocol_executor._protocol_run_status == protocol_run_status
+
+    async def test_failed_task_marks_protocol_run_failed_in_db(
+        self, protocol_executor, protocol_run_manager, task_executor, task_manager, db_interface, configuration_manager
+    ):
+        """When a task fails, the protocol run should be marked FAILED in the database."""
+        async with db_interface.get_async_session() as db:
+            await protocol_executor.start_protocol_run(db)
+
+        class FailingTask(BaseTask):
+            async def _execute(self, devices, parameters, resources):
+                raise RuntimeError("Simulated task failure")
+
+        task_registry = configuration_manager.tasks
+        with (
+            patch.dict(task_registry.plugin_types, {"Magnetic Mixing": FailingTask}),
+            pytest.raises(EosProtocolRunExecutionError),
+        ):
+            while True:
+                async with db_interface.get_async_session() as db:
+                    await protocol_executor.progress_protocol_run(db)
+                await task_executor.process_tasks()
+                await asyncio.sleep(0.1)
+
+        async with db_interface.get_async_session() as db:
+            protocol_run = await protocol_run_manager.get_protocol_run(db, PROTOCOL_RUN_NAME)
+            assert protocol_run.status == ProtocolRunStatus.FAILED
+            assert protocol_run.error_message is not None

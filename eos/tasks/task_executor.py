@@ -232,6 +232,7 @@ class TaskExecutor:
                 log.warning(f"Failed on-demand task '{context.task_name}'.")
 
             await self._scheduler.release_task(db, context.task_name, context.protocol_run_name)
+            await db.commit()
         finally:
             self._cleanup_task(context)
 

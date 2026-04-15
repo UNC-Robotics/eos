@@ -1,10 +1,13 @@
 import asyncio
 from asyncio import CancelledError
+from unittest.mock import patch
 
 from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.tasks.entities.task import TaskSubmission
+from eos.tasks.base_task import BaseTask
+from eos.tasks.entities.task import TaskSubmission, TaskStatus
+from eos.tasks.exceptions import EosTaskExecutionError
 from tests.fixtures import *
 
 
@@ -98,3 +101,41 @@ class TestTaskExecutor:
             await future
 
         assert not task_executor._pending_tasks
+
+    @pytest.mark.asyncio
+    async def test_failed_task_is_marked_failed_in_db(
+        self, task_executor, protocol_run_manager, protocol_graph, db_interface, task_manager
+    ):
+        """A task that raises an exception should be marked FAILED in the database."""
+        async with db_interface.get_async_session() as db:
+            await self._setup_protocol_run(db, protocol_run_manager)
+
+        task = protocol_graph.get_task("mixing")
+        task.parameters["time"] = 5
+        devices = {"magnetic_mixer": DeviceAssignmentDef(lab_name="small_lab", name="magnetic_mixer")}
+        task.devices = devices
+
+        class FailingTask(BaseTask):
+            async def _execute(self, devices, parameters, resources):
+                raise RuntimeError("Simulated device failure")
+
+        task_submission = TaskSubmission.from_def(task, "water_purification")
+        task_submission.name = "failing_mix"
+        scheduled_task = ScheduledTask(
+            name="failing_mix",
+            protocol_run_name="water_purification",
+            devices=devices,
+            resources={},
+        )
+
+        with patch.dict(task_executor._task_plugin_registry.plugin_types, {"Magnetic Mixing": FailingTask}):
+            future = asyncio.create_task(task_executor.request_task_execution(task_submission, scheduled_task))
+            await self._process_until_done(task_executor, future)
+
+            with pytest.raises(EosTaskExecutionError):
+                await future
+
+        async with db_interface.get_async_session() as db:
+            task_record = await task_manager.get_task(db, "water_purification", "failing_mix")
+            assert task_record.status == TaskStatus.FAILED
+            assert task_record.error_message is not None

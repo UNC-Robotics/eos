@@ -65,6 +65,19 @@ export function ProtocolRunExecutionView({
       );
       if (freshProtocolRun) {
         setCurrentProtocolRun(freshProtocolRun);
+
+        // Invalidate cached task details when their status changes
+        setTaskDetailsCache((prev) => {
+          const updated = { ...prev };
+          for (const fresh of freshStatuses) {
+            const old = taskStatuses.find((t) => t.name === fresh.name);
+            if (old && old.status !== fresh.status && fresh.name in updated) {
+              delete updated[fresh.name];
+            }
+          }
+          return updated;
+        });
+
         setTaskStatuses(freshStatuses);
 
         // Disable polling if protocol run is no longer running
@@ -126,6 +139,13 @@ export function ProtocolRunExecutionView({
     },
     [protocolRun.name, protocolRun.created_at, protocolSpec.tasks, taskStatuses]
   );
+
+  // Auto-refetch selected task details when its cache entry is invalidated
+  React.useEffect(() => {
+    if (selectedTaskName && !taskDetailsCache[selectedTaskName]) {
+      handleTaskSelect(selectedTaskName);
+    }
+  }, [selectedTaskName, taskDetailsCache, handleTaskSelect]);
 
   const handleClosePanel = React.useCallback(() => {
     setSelectedTaskName(null);

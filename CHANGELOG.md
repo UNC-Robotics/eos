@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.0
+
+- Changed Bayesian optimizer random sampling to use BoFire's RandomStrategy when using constraints, which is more robust
+- Improved protocol run execution view in the UI to update task details when task statuses change
+- Improved campaign submission form when Beacon optimizer is used to show loading indicator while its loading default parameters
+- Fixed error page in the UI to use dark theme when dark theme is enabled
+- Fixed failing tasks not being marked as failed in the DB
+- Added test for task failure
+
 ## 0.21.0
 
 - Improved and fixed device management code to properly handle device loading, unloading, and reloading
