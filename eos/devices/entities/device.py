@@ -2,7 +2,6 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_serializer, Field
-from ray.actor import ActorHandle
 from sqlalchemy import String, JSON, Enum as sa_Enum
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import mapped_column, Mapped
@@ -23,8 +22,6 @@ class Device(BaseModel):
     computer: str
     status: DeviceStatus = DeviceStatus.ACTIVE
     meta: dict[str, Any] = Field(default_factory=dict)
-
-    actor_handle: ActorHandle | None = Field(exclude=True, default=None)
 
     def get_actor_name(self) -> str:
         return f"{self.lab_name}.{self.name}"

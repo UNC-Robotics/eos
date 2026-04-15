@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import { Separator } from '@/components/ui/Separator';
 import { Badge } from '@/components/ui/Badge';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import { toast } from '@/lib/utils/toast';
 import { callDeviceFunction } from '../api/inspector';
 import { useDeviceInspectorStore } from '@/lib/stores/deviceInspectorStore';
@@ -261,11 +262,7 @@ export function FunctionCallDialog({ device, functionName, functionDef, open, on
                 </h3>
 
                 {error ? (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 max-h-48 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap break-words font-mono text-xs text-red-800 dark:text-red-200">
-                      {error.replace(/\u001b\[[0-9;]*m/g, '')}
-                    </pre>
-                  </div>
+                  <ErrorBox error={error} />
                 ) : (
                   <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                     {typeof result === 'object' && result !== null ? (

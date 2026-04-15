@@ -14,6 +14,7 @@ import { cancelTask, getTasks } from '@/features/tasks/api/tasks';
 import { generateCloneNameForEntity } from '@/lib/utils/naming.server';
 import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import { SubmitTaskDialog } from './SubmitTaskDialog';
 import { TaskOutputFiles } from '@/features/files/components/TaskOutputFiles';
 import type { TaskSpec } from '@/lib/types/protocol';
@@ -278,12 +279,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
               </div>
 
               {selectedTask.status === 'FAILED' && selectedTask.error_message && (
-                <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                  <div className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">Error</div>
-                  <p className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap break-words font-mono">
-                    {selectedTask.error_message}
-                  </p>
-                </div>
+                <ErrorBox error={selectedTask.error_message} />
               )}
 
               {selectedTask.protocol_run_name && (

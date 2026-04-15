@@ -3,6 +3,7 @@ from eos.configuration.exceptions import EosConfigurationError
 from eos.configuration.packages import EntityType
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
+from eos.devices.exceptions import EosDeviceInitializationError
 from eos.protocols.entities.protocol_run import ProtocolRunStatus
 from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.logging.logger import log
@@ -34,15 +35,67 @@ class LoadingService:
         self._loading_lock = AsyncRLock()
 
     async def load_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
-        """Load one or more labs into the orchestrator."""
+        """Load one or more labs into the orchestrator. Each lab is all-or-nothing independently."""
         async with self._loading_lock:
-            self._configuration_manager.load_labs(labs)
-            await self._device_manager.update_devices(db, loaded_labs=labs)
-            await self._resource_manager.update_resources(db, loaded_labs=labs)
-            await self._configuration_manager.def_sync.mark_labs_loaded(db, labs, True)
+            errors: list[str] = []
+            for lab_name in labs:
+                try:
+                    await self._load_single_lab(db, lab_name)
+                except Exception as e:
+                    errors.append(str(e))
+
+            if errors:
+                raise EosDeviceInitializationError("\n\n".join(errors))
+
+    async def _load_single_lab(self, db: AsyncDbSession, lab_name: str) -> None:
+        """Load a single lab. Rolls back all state on failure."""
+        self._configuration_manager.load_lab(lab_name)
+        self._reload_device_plugins_for_lab(lab_name)
+        try:
+            await self._device_manager.create_devices_for_labs(db, {lab_name})
+            await self._resource_manager.update_resources(db, loaded_labs={lab_name})
+            await self._configuration_manager.def_sync.mark_labs_loaded(db, {lab_name}, True)
+        except Exception:
+            log.error(f"Failed to load lab '{lab_name}', rolling back...")
+            await self._rollback_lab_load(db, {lab_name})
+            raise
+
+    def _reload_device_plugins_for_lab(self, lab_name: str) -> None:
+        """Reload device plugins for all device types in a lab to pick up code changes from disk."""
+        lab = self._configuration_manager.labs[lab_name]
+        device_types = {device.type for device in lab.devices.values()}
+        for device_type in device_types:
+            if device_type in self._configuration_manager.devices.plugin_types:
+                self._configuration_manager.devices.reload_plugin(device_type)
+
+    async def _rollback_lab_load(self, db: AsyncDbSession, labs: set[str]) -> None:
+        """Clean up all state from a failed lab load attempt. Best-effort: each step is independent."""
+        try:
+            await self._device_manager.cleanup_device_actors(db, lab_names=list(labs))
+            await db.commit()
+        except Exception as e:
+            log.error(f"Rollback: failed to clean up device actors: {e}")
+
+        try:
+            await self._resource_manager.update_resources(db, unloaded_labs=labs)
+            await db.commit()
+        except Exception as e:
+            log.error(f"Rollback: failed to clean up resources: {e}")
+
+        for lab_name in labs:
+            if lab_name in self._configuration_manager.labs:
+                try:
+                    self._configuration_manager.unload_lab(lab_name)
+                except Exception as e:
+                    log.error(f"Rollback: failed to unload lab '{lab_name}' from config: {e}")
+
+        try:
+            await self._configuration_manager.def_sync.mark_labs_loaded(db, labs, False)
+        except Exception as e:
+            log.error(f"Rollback: failed to mark labs as unloaded in DB: {e}")
 
     async def unload_labs(self, db: AsyncDbSession, labs: set[str]) -> None:
-        """Unload one or more labs from the orchestrator."""
+        """Unload one or more labs from the orchestrator. Robust to inconsistent state."""
         for lab_name in labs:
             await self._check_lab_usage(db, lab_name)
 
@@ -50,8 +103,13 @@ class LoadingService:
             # Determine which protocols will be implicitly unloaded with the labs
             protocols_to_unload = self._get_protocols_for_labs(labs)
 
-            self._configuration_manager.unload_labs(labs)
-            await self._device_manager.update_devices(db, unloaded_labs=labs)
+            for lab_name in labs:
+                if lab_name in self._configuration_manager.labs:
+                    self._configuration_manager.unload_lab(lab_name)
+                else:
+                    log.warning(f"Lab '{lab_name}' not in in-memory config, cleaning up DB/actors only")
+
+            await self._device_manager.cleanup_device_actors(db, lab_names=list(labs))
             await self._resource_manager.update_resources(db, unloaded_labs=labs)
             await self._configuration_manager.def_sync.mark_labs_loaded(db, labs, False)
 
@@ -79,21 +137,21 @@ class LoadingService:
             for lab_type in lab_types:
                 await self._check_lab_usage(db, lab_type)
 
+            # Unload phase
+            self._configuration_manager.unload_labs(lab_types)
+            await self._device_manager.cleanup_device_actors(db, lab_names=list(lab_types))
+            await self._resource_manager.update_resources(db, unloaded_labs=lab_types)
+
+            # Load phase
+            self._configuration_manager.load_labs(lab_types)
             try:
-                # Unload: update in-memory config, devices, and containers
-                self._configuration_manager.unload_labs(lab_types)
-                await self._device_manager.update_devices(db, unloaded_labs=lab_types)
-                await self._resource_manager.update_resources(db, unloaded_labs=lab_types)
-
-                # Load: update in-memory config, devices, and containers
-                self._configuration_manager.load_labs(lab_types)
-                await self._device_manager.update_devices(db, loaded_labs=lab_types)
+                await self._device_manager.create_devices_for_labs(db, lab_types)
                 await self._resource_manager.update_resources(db, loaded_labs=lab_types)
-
-                # Finally, reload any dependent protocols
                 await self.load_protocols(db, protocols_to_reload)
-            except Exception as e:
-                log.error(f"Error reloading labs {lab_types}: {e}")
+            except Exception:
+                log.error(f"Reload of labs {lab_types} failed during load phase, rolling back...")
+                await self._rollback_lab_load(db, lab_types)
+                await self._configuration_manager.def_sync.mark_labs_loaded(db, lab_types, False)
                 raise
 
     async def reload_devices(self, db: AsyncDbSession, lab_name: str, device_names: list[str]) -> None:
@@ -254,11 +312,18 @@ class LoadingService:
 
     async def reload_task_plugins(self, db: AsyncDbSession, task_types: set[str]) -> None:
         """Reload one or more task plugins and their specs in the orchestrator."""
+        resolved = set()
+        for name in task_types:
+            task_type = self._configuration_manager.task_specs.resolve_type(name)
+            if task_type is None:
+                raise EosConfigurationError(f"Task '{name}' not found in spec registry.")
+            resolved.add(task_type)
+
         async with self._loading_lock:
-            for task_type in task_types:
+            for task_type in resolved:
                 await self._check_task_usage(db, task_type)
 
-            for task_type in task_types:
+            for task_type in resolved:
                 self._configuration_manager.refresh_task_spec(task_type)
                 self._configuration_manager.tasks.reload_plugin(task_type)
                 log.info(f"Reloaded task '{task_type}'")
@@ -353,7 +418,7 @@ class LoadingService:
         )
 
         if existing_protocol_runs:
-            protocol_run_names = ", ".join(protocol_run.id for protocol_run in existing_protocol_runs)
+            protocol_run_names = ", ".join(protocol_run.name for protocol_run in existing_protocol_runs)
             log.error(
                 f"Cannot modify protocol type '{protocol_type}' as it has running instances: {protocol_run_names}"
             )

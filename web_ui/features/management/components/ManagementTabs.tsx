@@ -62,7 +62,7 @@ export function ManagementTabs({ packages, devices, labs, taskPlugins, protocolT
           className="flex items-center gap-2 px-6 py-4 text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-yellow-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-yellow-500 transition-colors"
         >
           <ListChecks className="h-5 w-5" />
-          Task Plugins
+          Tasks
           <span className="ml-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
             {taskPlugins.length}
           </span>

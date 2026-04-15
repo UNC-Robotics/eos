@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import { ScrollArea } from '@/components/ui/ScrollArea';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import { useDeviceInspectorStore } from '@/lib/stores/deviceInspectorStore';
 
 export function FunctionHistoryPanel() {
@@ -147,11 +148,7 @@ export function FunctionHistoryPanel() {
                                 </pre>
                               )
                             ) : (
-                              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-2 max-h-48 overflow-y-auto">
-                                <pre className="whitespace-pre-wrap break-words font-mono text-xs text-red-800 dark:text-red-200">
-                                  {(call.result.error || 'Unknown error').replace(/\u001b\[[0-9;]*m/g, '')}
-                                </pre>
-                              </div>
+                              <ErrorBox error={call.result.error || 'Unknown error'} />
                             )}
                           </div>
                         </div>

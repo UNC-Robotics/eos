@@ -92,8 +92,8 @@ export function TaskPluginsTab({ initialTaskPlugins }: TaskPluginsTabProps) {
       <ConfirmationDialog
         open={reloadDialogOpen}
         onOpenChange={setReloadDialogOpen}
-        title="Reload Task Plugins"
-        description="Are you sure you want to reload these task plugins? The plugin code will be refreshed."
+        title="Reload Tasks"
+        description="Are you sure you want to reload these tasks? The task code will be refreshed."
         confirmLabel="Reload"
         variant="default"
         items={selectedRows.map((row) => row.type)}

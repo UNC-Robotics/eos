@@ -3,6 +3,7 @@ import type { ProtocolRun } from '@/lib/types/api';
 import { DetailField } from './DetailField';
 import { TimelineSection } from './TimelineEntry';
 import { ConditionalJsonSection } from './ConditionalJsonSection';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import { SECTION_DIVIDER } from '../../styles';
 
 interface ProtocolRunDetailProps {
@@ -24,14 +25,7 @@ export function ProtocolRunDetail({ protocolRun }: ProtocolRunDetailProps) {
           label="Status"
           value={<Badge variant={getStatusBadgeVariant(protocolRun.status)}>{protocolRun.status}</Badge>}
         />
-        {protocolRun.status === 'FAILED' && protocolRun.error_message && (
-          <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-3">
-            <div className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">Error</div>
-            <p className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap break-words font-mono">
-              {protocolRun.error_message}
-            </p>
-          </div>
-        )}
+        {protocolRun.status === 'FAILED' && protocolRun.error_message && <ErrorBox error={protocolRun.error_message} />}
         <DetailField label="Owner" value={protocolRun.owner} />
         <DetailField label="Priority" value={protocolRun.priority} />
         {protocolRun.campaign && <DetailField label="Campaign" value={protocolRun.campaign} />}

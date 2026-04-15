@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { RefreshControl } from '@/components/ui/RefreshControl';
 import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { JsonDisplay } from '@/components/ui/JsonDisplay';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import type { Campaign } from '@/lib/types/api';
 import type { PaginatedResult } from '@/lib/db/queries';
 import type { TaskSpec } from '@/lib/types/protocol';
@@ -319,12 +320,7 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
               </div>
 
               {selectedCampaign.status === 'FAILED' && selectedCampaign.error_message && (
-                <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                  <div className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">Error</div>
-                  <p className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap break-words font-mono">
-                    {selectedCampaign.error_message}
-                  </p>
-                </div>
+                <ErrorBox error={selectedCampaign.error_message} />
               )}
 
               <div>

@@ -148,7 +148,9 @@ export function Combobox({
                 )}
               >
                 <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                  {value === searchQuery.trim() && <Check className="h-4 w-4 text-blue-600 dark:text-yellow-500" strokeWidth={3} />}
+                  {value === searchQuery.trim() && (
+                    <Check className="h-4 w-4 text-blue-600 dark:text-yellow-500" strokeWidth={3} />
+                  )}
                 </span>
                 <div className="ml-6 flex flex-col items-start min-w-0 flex-1">
                   <span className="font-medium text-gray-900 dark:text-gray-100">Use: {searchQuery.trim()}</span>
@@ -186,7 +188,9 @@ export function Combobox({
                       )}
                     >
                       <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                        {value === option.value && <Check className="h-4 w-4 text-blue-600 dark:text-yellow-500" strokeWidth={3} />}
+                        {value === option.value && (
+                          <Check className="h-4 w-4 text-blue-600 dark:text-yellow-500" strokeWidth={3} />
+                        )}
                       </span>
                       <div className="ml-6 flex flex-col items-start min-w-0 flex-1">
                         <span className="font-medium text-gray-900 dark:text-gray-100">{option.label}</span>

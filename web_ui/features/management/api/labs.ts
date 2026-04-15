@@ -5,32 +5,19 @@
  */
 
 import { revalidatePath } from 'next/cache';
-import { orchestratorPost } from '@/lib/api/orchestrator';
-import { db } from '@/lib/db/client';
-import { definitions } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { orchestratorPost, orchestratorGet } from '@/lib/api/orchestrator';
 import type { Lab, ActionResult } from '@/lib/types/management';
 
 /**
- * Get all labs with their loaded status from the database
+ * Get all labs with their loaded status from the orchestrator API (single source of truth)
  */
 export async function getLabs(): Promise<Lab[]> {
   try {
-    const results = await db
-      .select({
-        name: definitions.name,
-        loaded: definitions.isLoaded,
-      })
-      .from(definitions)
-      .where(eq(definitions.type, 'lab'));
-
-    return results.map((row) => ({
-      name: row.name,
-      loaded: row.loaded,
-    }));
+    const response = (await orchestratorGet('/labs/')) as Record<string, boolean>;
+    return Object.entries(response).map(([name, loaded]) => ({ name, loaded }));
   } catch (error) {
     console.error('Failed to fetch labs:', error);
-    throw new Error('Failed to fetch labs from database');
+    throw new Error('Failed to fetch labs');
   }
 }
 
@@ -43,14 +30,11 @@ export async function loadLabs(labTypes: string[]): Promise<ActionResult> {
       lab_types: labTypes,
     });
 
-    // Revalidate the management page to show updated status
     revalidatePath('/management');
-
-    return {
-      success: true,
-    };
+    return { success: true };
   } catch (error) {
     console.error('Failed to load labs:', error);
+    revalidatePath('/management');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to load labs',
@@ -67,14 +51,11 @@ export async function unloadLabs(labTypes: string[]): Promise<ActionResult> {
       lab_types: labTypes,
     });
 
-    // Revalidate the management page to show updated status
     revalidatePath('/management');
-
-    return {
-      success: true,
-    };
+    return { success: true };
   } catch (error) {
     console.error('Failed to unload labs:', error);
+    revalidatePath('/management');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to unload labs',
@@ -91,14 +72,11 @@ export async function reloadLabs(labTypes: string[]): Promise<ActionResult> {
       lab_types: labTypes,
     });
 
-    // Revalidate the management page to show updated status
     revalidatePath('/management');
-
-    return {
-      success: true,
-    };
+    return { success: true };
   } catch (error) {
     console.error('Failed to reload labs:', error);
+    revalidatePath('/management');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to reload labs',

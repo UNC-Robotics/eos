@@ -116,7 +116,7 @@ class Orchestrator(metaclass=Singleton):
 
         device_manager = DeviceManager()
         async with db_interface.get_async_session() as db:
-            await device_manager.cleanup_devices(db)
+            await device_manager.cleanup_device_db_records(db)
         di.register(DeviceManager, device_manager)
 
         resource_manager = ResourceManager()

@@ -4,39 +4,8 @@ import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
-
-function ErrorDisplay({ error }: { error: string }) {
-  const lines = error.split('\n').filter((line) => line.trim());
-  const hasMultipleLines = lines.length > 1;
-
-  const clean = error.replace(/\u001b\[[0-9;]*m/g, '');
-
-  if (!hasMultipleLines) {
-    return (
-      <div className="p-3 text-sm text-red-800 dark:text-red-200 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md max-h-48 overflow-y-auto">
-        <pre className="whitespace-pre-wrap break-words font-mono text-xs">{clean}</pre>
-      </div>
-    );
-  }
-
-  // First line is the header, rest are individual errors
-  const cleanLines = clean.split('\n').filter((line) => line.trim());
-  const [header, ...errorItems] = cleanLines;
-
-  return (
-    <div className="p-3 text-sm text-red-800 dark:text-red-200 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md max-h-48 overflow-y-auto">
-      <div className="font-medium mb-2">{header}</div>
-      <ul className="list-disc list-inside space-y-1">
-        {errorItems.map((item, i) => (
-          <li key={i} className="text-xs font-mono">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 interface BaseSubmitDialogProps {
   open: boolean;
@@ -95,11 +64,11 @@ export function BaseSubmitDialog({
           </div>
 
           <form onSubmit={onSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-            {error && <ErrorDisplay error={error} />}
+            {error && <ErrorBox error={error} />}
 
             {children}
 
-            {error && <ErrorDisplay error={error} />}
+            {error && <ErrorBox error={error} />}
 
             <div className="flex justify-end gap-3 pt-4">
               <Dialog.Close asChild>

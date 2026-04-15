@@ -154,13 +154,9 @@ class CampaignOptimizerManager:
 
     def get_optimizer_defaults(self, protocol: str) -> tuple[str, dict[str, Any]] | None:
         """Get optimizer type name and default constructor args for a protocol type."""
-        try:
-            # Ensure the optimizer plugin is loaded
-            if protocol not in self._campaign_optimizer_plugin_registry.plugin_types:
-                self._campaign_optimizer_plugin_registry.load_campaign_optimizer(protocol)
-            result = self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(protocol)
-        except Exception:
-            return None
+        if protocol not in self._campaign_optimizer_plugin_registry.plugin_types:
+            self._campaign_optimizer_plugin_registry.load_campaign_optimizer(protocol)
+        result = self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(protocol)
         if result is None:
             return None
         constructor_args, optimizer_type = result

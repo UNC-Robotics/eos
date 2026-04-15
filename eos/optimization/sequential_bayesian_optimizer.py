@@ -77,24 +77,48 @@ class BayesianSequentialOptimizer(AbstractSequentialOptimizer):
                 if len(initial) >= num_protocol_runs:
                     return initial
                 remaining = num_protocol_runs - len(initial)
-                extra = self._domain.inputs.sample(n=remaining, method=self._initial_sampling_method)
+                extra = self._sample_constrained(remaining)
                 return pd.concat([initial, extra], ignore_index=True)
 
             self._initial_samples_df = None
-            return self._domain.inputs.sample(n=num_protocol_runs, method=self._initial_sampling_method)
+            return self._sample_constrained(num_protocol_runs)
 
         try:
             new_parameters_df = self._optimizer.ask(candidate_count=num_protocol_runs, add_pending=True)
         except ValueError as e:
             if "Not enough experiments" in str(e):
-                return self._domain.inputs.sample(n=num_protocol_runs, method=self._initial_sampling_method)
+                return self._sample_constrained(num_protocol_runs)
             raise
 
         return new_parameters_df[self._input_names]
 
     def _generate_initial_samples_df(self) -> None:
-        self._initial_samples_df = self._domain.inputs.sample(
-            n=self._num_initial_samples, method=self._initial_sampling_method
+        self._initial_samples_df = self._sample_constrained(self._num_initial_samples)
+
+    def _sample_constrained(self, n: int, max_attempts: int = 100, oversample_factor: int = 10) -> pd.DataFrame:
+        """Generate samples that satisfy all domain constraints via rejection sampling.
+
+        Oversamples by `oversample_factor`, filters to feasible rows, and repeats
+        until `n` feasible samples are collected or `max_attempts` is reached.
+        """
+        if not self._domain.constraints.constraints:
+            return self._domain.inputs.sample(n=n, method=self._initial_sampling_method)
+
+        feasible = pd.DataFrame()
+        for _ in range(max_attempts):
+            batch_size = (n - len(feasible)) * oversample_factor
+            candidates = self._domain.inputs.sample(n=batch_size, method=self._initial_sampling_method)
+            valid = self._domain.is_fulfilled(candidates)
+            feasible = pd.concat([feasible, candidates[valid]], ignore_index=True)
+            if len(feasible) >= n:
+                return feasible.iloc[:n]
+
+        if len(feasible) > 0:
+            return feasible.iloc[: min(n, len(feasible))]
+
+        raise ValueError(
+            f"Could not generate {n} feasible initial samples after {max_attempts} attempts. "
+            f"The constraint-feasible region may be too small relative to the input bounds."
         )
 
     def _fetch_and_remove_initial_samples(self, num_protocol_runs: int) -> pd.DataFrame:

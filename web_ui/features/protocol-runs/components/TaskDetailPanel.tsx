@@ -5,6 +5,7 @@ import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
 import { DetailField, TimelineSection, ConditionalJsonSection } from './shared';
 import { TaskOutputFiles } from '@/features/files/components/TaskOutputFiles';
 import { SECTION_DIVIDER } from '../styles';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 import type { Task } from '@/lib/types/api';
 
 interface TaskDetailPanelProps {
@@ -45,14 +46,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
             label="Status"
             value={<Badge variant={getStatusBadgeVariant(task.status)}>{task.status}</Badge>}
           />
-          {task.status === 'FAILED' && task.error_message && (
-            <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded-lg p-3">
-              <div className="text-xs font-medium text-red-800 dark:text-red-300 mb-1">Error</div>
-              <p className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap break-words font-mono">
-                {task.error_message}
-              </p>
-            </div>
-          )}
+          {task.status === 'FAILED' && task.error_message && <ErrorBox error={task.error_message} />}
           <DetailField label="Priority" value={task.priority} />
           {task.protocol_run_name && <DetailField label="Protocol Run" value={task.protocol_run_name} />}
         </div>

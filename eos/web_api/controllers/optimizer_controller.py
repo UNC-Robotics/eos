@@ -59,7 +59,7 @@ class OptimizerController(Controller):
         """Get default optimizer parameters for a protocol type."""
         result = orchestrator.campaigns.get_optimizer_defaults(protocol)
         if result is None:
-            raise APIError(status_code=404, detail=f"No optimizer configured for protocol type '{protocol}'")
+            raise APIError(status_code=404, detail=f"No optimizer found for protocol type '{protocol}'")
         optimizer_type_name, constructor_args = result
         return _serialize_optimizer_defaults(optimizer_type_name, constructor_args)
 

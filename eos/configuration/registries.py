@@ -63,6 +63,15 @@ class SpecRegistry(Generic[T, C]):
     def get_spec_by_dir(self, dir_path: str) -> str:
         return self._dirs_to_types.get(dir_path)
 
+    def resolve_type(self, name: str) -> str | None:
+        """Resolve a name to a spec type. Accepts a type name or a directory name."""
+        if name in self._specifications:
+            return name
+        for dir_key, type_name in self._dirs_to_types.items():
+            if Path(dir_key).name == name:
+                return type_name
+        return None
+
     def get_dir_by_type(self, spec_type: str) -> Path | None:
         """
         Return the directory key (including package prefix) for the given type,

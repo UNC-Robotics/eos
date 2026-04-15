@@ -171,9 +171,9 @@ async def class_device_manager(setup_lab_protocol, configuration_manager, db_int
             with contextlib.suppress(ValueError):
                 ray.kill(ray.get_actor(f"{lab_name}.{device_name}"))
 
-    dm = DeviceManager(configuration_manager, db_interface)
+    dm = DeviceManager(configuration_manager=configuration_manager)
     async with db_interface.get_async_session() as session:
-        await dm.update_devices(session, loaded_labs=set(configuration_manager.labs.keys()))
+        await dm.create_devices_for_labs(session, set(configuration_manager.labs.keys()))
     yield dm
     async with db_interface.get_async_session() as session:
         await session.execute(delete(DeviceAllocationModel))

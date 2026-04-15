@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.0
+
+- Improved and fixed device management code to properly handle device loading, unloading, and reloading
+- Fixed Bayesian optimizer random sampling not respecting constraints via rejection sampling
+- Improved how error messages are displayed in the web UI
+- Added copy button for error messages displayed in the web UI
+- Added tests for device loading, unloading, and reloading
+- Added tests for task reloading
+- Fixed bugs
+
 ## 0.20.0
 
 - Added **scheduling simulator** in the web UI, allowing users to simulate how protocol tasks would run, estimate parallelism and resource utilization, and more

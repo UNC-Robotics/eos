@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { ErrorBox } from '@/components/ui/ErrorBox';
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ export function ConfirmationDialog({
     <Dialog.Root open={open} onOpenChange={handleCancel}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] bg-white dark:bg-slate-900 rounded-lg shadow-lg">
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-xl translate-x-[-50%] translate-y-[-50%] bg-white dark:bg-slate-900 rounded-lg shadow-lg">
           <div className="p-6">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
@@ -103,13 +104,7 @@ export function ConfirmationDialog({
                 </div>
               )}
 
-              {error && (
-                <div className="p-3 text-sm text-red-800 dark:text-red-200 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md max-h-48 overflow-y-auto">
-                  <pre className="whitespace-pre-wrap break-words font-mono text-xs">
-                    {error.replace(/\u001b\[[0-9;]*m/g, '')}
-                  </pre>
-                </div>
-              )}
+              {error && <ErrorBox error={error} />}
             </div>
 
             {/* Actions */}
