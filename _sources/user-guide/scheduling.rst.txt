@@ -104,7 +104,7 @@ Both schedulers support **specific** and **dynamic** devices and resources for t
 - **CP-SAT**: chooses devices/resources as part of a **global schedule** to reduce conflicts and overall time.
 
 Task groups
---------------
+-----------
 For workflows that must run some tasks **back-to-back** without gaps (e.g., a tightly coupled sequence), assign the same
 ``group`` label to consecutive tasks.
 
@@ -198,7 +198,7 @@ Both schedulers fully support holds.
    See :doc:`references` for details on passing devices and resources between tasks.
 
 Protocol run priorities
-----------------------
+-----------------------
 Each protocol run has an integer priority (default **0**; higher values = higher importance). Priority is set at
 submission time via the REST API or a campaign definition, not in ``protocol.yml``.
 

@@ -1195,6 +1195,16 @@ package. You can modify this in the configuration file.
 
 The web UI is available at ``http://localhost:3000``.
 
+Updating EOS
+^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    eos update
+
+Pulls the latest ``master``, syncs dependencies, and runs database migrations. User package
+code and dependencies are preserved. Run ``eos update --help`` for available flags.
+
 # File: user-guide/jinja2_templating.rst
 ================================================================================
 
@@ -1964,6 +1974,51 @@ Create a Package
 
 This command is a shortcut to create a new package with all subdirectories.
 Feel free to delete subdirectories you don't expect to use.
+
+Add Entities to a Package
+-------------------------
+You can scaffold new labs, devices, tasks, and protocols inside an existing package with the
+``eos pkg add`` subcommands. Each one creates the directory under the correct entity folder and
+seeds it with empty starter files.
+
+.. code-block:: shell
+
+   eos pkg add lab my_package my_lab            # creates labs/my_lab/lab.yml
+   eos pkg add device my_package my_device      # creates devices/my_device/{device.yml, device.py}
+   eos pkg add task my_package my_task          # creates tasks/my_task/{task.yml, task.py}
+   eos pkg add protocol my_package my_proto     # creates protocols/my_proto/{protocol.yml, optimizer.py}
+
+Install Package Dependencies
+----------------------------
+Each package declares its Python dependencies in its ``pyproject.toml``. The ``install`` command
+is a thin wrapper around ``uv pip install -r <package>/pyproject.toml`` that resolves each
+package by name (even if it is nested inside a subdirectory under ``user/``).
+
+.. code-block:: shell
+
+   eos pkg install my_package                  # install deps for one package
+   eos pkg install my_package other_package    # install deps for several packages
+   eos pkg install --all                       # install deps for every discovered package
+
+Any flag-style arguments (and everything after them) are forwarded verbatim to ``uv pip install``.
+Use ``--`` if you need to pass a flag that EOS itself interprets (for example, ``--help``):
+
+.. code-block:: shell
+
+   eos pkg install my_package --upgrade
+   eos pkg install my_package --index-url https://my.registry/simple
+   eos pkg install my_package -- --help        # show uv's help instead of eos's
+
+Dependencies are installed into the active environment and are therefore shared across every
+EOS package — EOS must be able to import user packages from the same interpreter.
+
+Configuring the User Directory
+------------------------------
+All ``eos pkg`` commands resolve the user directory in the following order:
+
+1. ``--user-dir`` / ``-u`` flag (explicit override).
+2. ``user_dir`` field in the config file pointed at by ``--config`` / ``-c`` (default: ``./config.yml``).
+3. Fallback: ``./user``.
 
 # File: user-guide/protocols.rst
 ================================================================================
@@ -2838,7 +2893,7 @@ Both schedulers support **specific** and **dynamic** devices and resources for t
 - **CP-SAT**: chooses devices/resources as part of a **global schedule** to reduce conflicts and overall time.
 
 Task groups
---------------
+-----------
 For workflows that must run some tasks **back-to-back** without gaps (e.g., a tightly coupled sequence), assign the same
 ``group`` label to consecutive tasks.
 
@@ -2932,7 +2987,7 @@ Both schedulers fully support holds.
    See :doc:`references` for details on passing devices and resources between tasks.
 
 Protocol run priorities
-----------------------
+-----------------------
 Each protocol run has an integer priority (default **0**; higher values = higher importance). Priority is set at
 submission time via the REST API or a campaign definition, not in ``protocol.yml``.
 

@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=25b4b00c"></script>
+    <script src="../_static/documentation_options.js?v=417b6048"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -429,6 +429,47 @@ and a README file.</p>
 <p>This command is a shortcut to create a new package with all subdirectories.
 Feel free to delete subdirectories you don’t expect to use.</p>
 </section>
+<section id="add-entities-to-a-package">
+<h2>Add Entities to a Package<a class="headerlink" href="#add-entities-to-a-package" title="Link to this heading">#</a></h2>
+<p>You can scaffold new labs, devices, tasks, and protocols inside an existing package with the
+<code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">pkg</span> <span class="pre">add</span></code> subcommands. Each one creates the directory under the correct entity folder and
+seeds it with empty starter files.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>pkg<span class="w"> </span>add<span class="w"> </span>lab<span class="w"> </span>my_package<span class="w"> </span>my_lab<span class="w">            </span><span class="c1"># creates labs/my_lab/lab.yml</span>
+eos<span class="w"> </span>pkg<span class="w"> </span>add<span class="w"> </span>device<span class="w"> </span>my_package<span class="w"> </span>my_device<span class="w">      </span><span class="c1"># creates devices/my_device/{device.yml, device.py}</span>
+eos<span class="w"> </span>pkg<span class="w"> </span>add<span class="w"> </span>task<span class="w"> </span>my_package<span class="w"> </span>my_task<span class="w">          </span><span class="c1"># creates tasks/my_task/{task.yml, task.py}</span>
+eos<span class="w"> </span>pkg<span class="w"> </span>add<span class="w"> </span>protocol<span class="w"> </span>my_package<span class="w"> </span>my_proto<span class="w">     </span><span class="c1"># creates protocols/my_proto/{protocol.yml, optimizer.py}</span>
+</pre></div>
+</div>
+</section>
+<section id="install-package-dependencies">
+<h2>Install Package Dependencies<a class="headerlink" href="#install-package-dependencies" title="Link to this heading">#</a></h2>
+<p>Each package declares its Python dependencies in its <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>. The <code class="docutils literal notranslate"><span class="pre">install</span></code> command
+is a thin wrapper around <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">&lt;package&gt;/pyproject.toml</span></code> that resolves each
+package by name (even if it is nested inside a subdirectory under <code class="docutils literal notranslate"><span class="pre">user/</span></code>).</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>my_package<span class="w">                  </span><span class="c1"># install deps for one package</span>
+eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>my_package<span class="w"> </span>other_package<span class="w">    </span><span class="c1"># install deps for several packages</span>
+eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>--all<span class="w">                       </span><span class="c1"># install deps for every discovered package</span>
+</pre></div>
+</div>
+<p>Any flag-style arguments (and everything after them) are forwarded verbatim to <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span> <span class="pre">install</span></code>.
+Use <code class="docutils literal notranslate"><span class="pre">--</span></code> if you need to pass a flag that EOS itself interprets (for example, <code class="docutils literal notranslate"><span class="pre">--help</span></code>):</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>my_package<span class="w"> </span>--upgrade
+eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>my_package<span class="w"> </span>--index-url<span class="w"> </span>https://my.registry/simple
+eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>my_package<span class="w"> </span>--<span class="w"> </span>--help<span class="w">        </span><span class="c1"># show uv&#39;s help instead of eos&#39;s</span>
+</pre></div>
+</div>
+<p>Dependencies are installed into the active environment and are therefore shared across every
+EOS package — EOS must be able to import user packages from the same interpreter.</p>
+</section>
+<section id="configuring-the-user-directory">
+<h2>Configuring the User Directory<a class="headerlink" href="#configuring-the-user-directory" title="Link to this heading">#</a></h2>
+<p>All <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">pkg</span></code> commands resolve the user directory in the following order:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">--user-dir</span></code> / <code class="docutils literal notranslate"><span class="pre">-u</span></code> flag (explicit override).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">user_dir</span></code> field in the config file pointed at by <code class="docutils literal notranslate"><span class="pre">--config</span></code> / <code class="docutils literal notranslate"><span class="pre">-c</span></code> (default: <code class="docutils literal notranslate"><span class="pre">./config.yml</span></code>).</p></li>
+<li><p>Fallback: <code class="docutils literal notranslate"><span class="pre">./user</span></code>.</p></li>
+</ol>
+</section>
 </section>
 
 
@@ -479,6 +520,9 @@ Feel free to delete subdirectories you don’t expect to use.</p>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#create-a-package">Create a Package</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#add-entities-to-a-package">Add Entities to a Package</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-package-dependencies">Install Package Dependencies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-user-directory">Configuring the User Directory</a></li>
 </ul>
   </nav></div>
 

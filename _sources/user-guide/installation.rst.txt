@@ -101,3 +101,13 @@ package. You can modify this in the configuration file.
     docker compose up -d
 
 The web UI is available at ``http://localhost:3000``.
+
+Updating EOS
+^^^^^^^^^^^^
+
+.. code-block:: shell
+
+    eos update
+
+Pulls the latest ``master``, syncs dependencies, and runs database migrations. User package
+code and dependencies are preserved. Run ``eos update --help`` for available flags.

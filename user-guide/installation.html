@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../_static/documentation_options.js?v=25b4b00c"></script>
+    <script src="../_static/documentation_options.js?v=417b6048"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -492,6 +492,14 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 </div>
 <p>The web UI is available at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>.</p>
 </section>
+<section id="updating-eos">
+<h2>Updating EOS<a class="headerlink" href="#updating-eos" title="Link to this heading">#</a></h2>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>update
+</pre></div>
+</div>
+<p>Pulls the latest <code class="docutils literal notranslate"><span class="pre">master</span></code>, syncs dependencies, and runs database migrations. User package
+code and dependencies are preserved. Run <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">update</span> <span class="pre">--help</span></code> for available flags.</p>
+</section>
 </section>
 
 
@@ -547,6 +555,7 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-external-services">4. Launch External Services</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-eos">5. Start EOS</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-the-web-ui">6. Launch the Web UI</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-eos">Updating EOS</a></li>
 </ul>
   </nav></div>
 
