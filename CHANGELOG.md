@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.0
+
+- Added `eos pkg install` CLI command for installing user package dependencies more easily
+- Added `eos update` CLI command to pull master, sync dependencies, and run database migrations in one step
+
 ## 0.22.0
 
 - Changed Bayesian optimizer random sampling to use BoFire's RandomStrategy when using constraints, which is more robust

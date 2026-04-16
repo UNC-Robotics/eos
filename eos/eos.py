@@ -7,6 +7,7 @@ from eos.cli.orchestrator_cli import start_orchestrator
 from eos.cli.pkg_cli import pkg_app
 from eos.cli.ray_cli import ray_app
 from eos.cli.sim_cli import simulate
+from eos.cli.update_cli import update
 from eos.cli.web_cli import start_web_ui
 
 eos_app = typer.Typer(pretty_exceptions_show_locals=False, no_args_is_help=True)
@@ -16,6 +17,7 @@ eos_app.add_typer(pkg_app, name="pkg", help="Manage EOS packages")
 eos_app.add_typer(ray_app, name="ray", help="Manage EOS Ray cluster")
 eos_app.command(name="sim", help="Run a scheduling simulation")(simulate)
 eos_app.command(name="ui", help="Start the EOS web UI")(start_web_ui)
+eos_app.command(name="update", help="Update EOS")(update)
 
 if __name__ == "__main__":
     eos_app()

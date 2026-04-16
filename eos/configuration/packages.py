@@ -71,6 +71,36 @@ class Package:
         return self._entity_dirs[entity_type]
 
 
+def discover_packages(user_dir: Path, max_depth: int = 10) -> dict[str, Package]:
+    """Recursively scan ``user_dir`` for packages (directories containing ``pyproject.toml``).
+
+    Raises ``EosConfigurationError`` if two packages share the same directory name — the error
+    lists all conflicting paths so the user can resolve the clash.
+    """
+    found: dict[str, list[Path]] = defaultdict(list)
+
+    def scan(current: Path, depth: int) -> None:
+        if not current.is_dir() or depth > max_depth:
+            return
+        if (current / "pyproject.toml").is_file() and current != user_dir:
+            found[current.name].append(current)
+            return
+        for item in current.iterdir():
+            if item.is_dir():
+                scan(item, depth + 1)
+
+    scan(user_dir, 0)
+
+    duplicates = {name: paths for name, paths in found.items() if len(paths) > 1}
+    if duplicates:
+        detail = "\n".join(
+            f"  '{name}': {', '.join(str(p) for p in paths)}" for name, paths in sorted(duplicates.items())
+        )
+        raise EosConfigurationError(f"Duplicate package names in '{user_dir}':\n{detail}")
+
+    return {name: Package(name, paths[0]) for name, paths in found.items()}
+
+
 class PackageManager:
     """Manages packages and entity configurations within the user directory."""
 
@@ -98,8 +128,7 @@ class PackageManager:
         if not self._user_dir.is_dir():
             raise EosMissingConfigurationError(f"User directory '{self._user_dir}' does not exist")
 
-        self._packages.clear()
-        self._scan_directory(self._user_dir)
+        self._packages = discover_packages(self._user_dir)
 
         if not self._packages:
             log.warning(f"No valid packages found in {self._user_dir}")
@@ -122,10 +151,6 @@ class PackageManager:
                 f"No valid packages found in '{self._user_dir}' matching: {', '.join(allowed_packages)}"
             )
         raise EosMissingConfigurationError(f"No valid packages found in '{self._user_dir}'")
-
-    def _scan_directory(self, directory: Path, depth: int = 0, max_depth: int = 10) -> None:
-        """Recursively scan directories to find packages (directories with pyproject.toml)."""
-        self._scan_directory_into(directory, self._packages, depth, max_depth)
 
     def read_lab(self, lab_name: str) -> LabDef:
         return self._read_entity(lab_name, EntityType.LAB)
@@ -177,9 +202,7 @@ class PackageManager:
         return list(self._packages.values())
 
     def add_package(self, package_name: str) -> None:
-        # Discover the actual path by scanning the filesystem, since packages can be nested
-        discovered: dict[str, Package] = {}
-        self._scan_directory_into(self._user_dir, discovered)
+        discovered = discover_packages(self._user_dir)
         if package_name not in discovered:
             raise EosMissingConfigurationError(f"Package directory '{self._user_dir / package_name}' does not exist")
 
@@ -213,25 +236,7 @@ class PackageManager:
 
     def discover_all_package_names(self) -> list[str]:
         """Scan the filesystem and return all package names without modifying state."""
-        packages: dict[str, Package] = {}
-        self._scan_directory_into(self._user_dir, packages)
-        return sorted(packages.keys())
-
-    def _scan_directory_into(
-        self, directory: Path, target: dict[str, Package], depth: int = 0, max_depth: int = 10
-    ) -> None:
-        """Recursively scan directories to find packages, storing results in target dict."""
-        if not directory.is_dir() or depth > max_depth:
-            return
-
-        if (directory / "pyproject.toml").is_file() and directory != self._user_dir:
-            target[directory.name] = Package(directory.name, directory)
-            log.debug(f"Discovered package: {directory.name} at {directory}")
-            return
-
-        for item in directory.iterdir():
-            if item.is_dir():
-                self._scan_directory_into(item, target, depth + 1, max_depth)
+        return sorted(discover_packages(self._user_dir).keys())
 
     def find_package_for_entity(self, entity_name: str, entity_type: EntityType) -> Package | None:
         entity_location = self._get_entity_location(entity_name, entity_type)
