@@ -3567,6 +3567,41 @@ Dictionary
 
 Dictionaries are key-value pairs. The values can be any type.
 
+Parameter Groups
+""""""""""""""""
+Related parameters can optionally be nested under a named group for
+presentation purposes. A top-level entry under ``input_parameters`` is a
+group when it has **no** ``type:`` field; its direct children are leaf
+parameter specs.
+
+.. code-block:: yaml
+
+    input_parameters:
+      temperature:
+        type: float
+        unit: celsius
+        value: 25.0
+      wafer_parameters:
+        diameter:
+          type: float
+          unit: mm
+          value: 300.0
+        thickness:
+          type: float
+          unit: mm
+          value: 0.5
+
+Notes:
+
+* Grouping is purely a display concept for the visual protocol editor and the
+  submission forms. Runtime payloads, ``protocol.yml`` overrides, and task
+  records remain flat — a submitted parameter dict is ``{diameter: 300.0}``,
+  never ``{wafer_parameters: {diameter: 300.0}}``.
+* Leaf names must be unique across top-level leaves and every group (you
+  cannot have two leaves named ``x`` in different groups).
+* Only one level of nesting is allowed; groups cannot contain groups.
+* Groups are optional — flat ``input_parameters`` continue to work unchanged.
+
 Python File (task.py)
 ~~~~~~~~~~~~~~~~~~~~~~
 * Implements the task
