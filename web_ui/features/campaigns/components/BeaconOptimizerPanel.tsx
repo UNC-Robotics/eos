@@ -42,6 +42,11 @@ const AI_MODEL_OPTIONS: ComboboxOption[] = [
   { value: 'google-gla:gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite', group: 'Google' },
 ];
 
+const CLAUDE_AGENT_SDK_PREFIX = 'claude-agent-sdk:';
+const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+type EffortLevel = (typeof EFFORT_LEVELS)[number];
+const DEFAULT_EFFORT: EffortLevel = 'high';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -294,6 +299,27 @@ function SubmissionPanel({
     onChange({ ...overrides, [key]: value });
   };
 
+  // Derive model + effort state for the Claude Agent SDK slider
+  const currentModel = get<string>('ai_model', params.ai_model);
+  const isClaudeAgentSdk = typeof currentModel === 'string' && currentModel.startsWith(CLAUDE_AGENT_SDK_PREFIX);
+  const rawModelSettings = get<Record<string, unknown> | string | null>('ai_model_settings', params.ai_model_settings);
+  const modelSettingsObj =
+    rawModelSettings && typeof rawModelSettings === 'object' && !Array.isArray(rawModelSettings)
+      ? (rawModelSettings as Record<string, unknown>)
+      : null;
+  const currentEffort = ((modelSettingsObj?.effort as EffortLevel | undefined) ?? DEFAULT_EFFORT) as EffortLevel;
+  const setEffort = (level: EffortLevel) => {
+    set('ai_model_settings', { ...(modelSettingsObj ?? {}), effort: level });
+  };
+
+  // Effort is only meaningful for Claude Agent SDK; drop it when switching to any other model.
+  React.useEffect(() => {
+    if (isClaudeAgentSdk || !modelSettingsObj || !('effort' in modelSettingsObj)) return;
+    const { effort: _effort, ...rest } = modelSettingsObj;
+    void _effort;
+    set('ai_model_settings', Object.keys(rest).length > 0 ? rest : null);
+  }, [isClaudeAgentSdk]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Domain state (Tier 3)
   const [domain, setDomain] = React.useState<DomainValue>(() => {
     if (isResume && persistedDomain) {
@@ -407,20 +433,56 @@ function SubmissionPanel({
           <Label className="text-xs">Model</Label>
           <Combobox
             options={AI_MODEL_OPTIONS}
-            value={get<string>('ai_model', params.ai_model)}
+            value={currentModel}
             onChange={(v) => set('ai_model', v)}
             placeholder="Select a model..."
             searchPlaceholder="Search or type custom model (e.g. ollama:qwen3.5)..."
             allowCustomValue
-            className="text-xs h-8"
+            className="text-xs h-10"
           />
         </div>
+        {isClaudeAgentSdk && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Effort</Label>
+              <span className="text-xs font-medium capitalize text-purple-600">{currentEffort}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={EFFORT_LEVELS.length - 1}
+              step={1}
+              value={Math.max(0, EFFORT_LEVELS.indexOf(currentEffort))}
+              onChange={(e) => setEffort(EFFORT_LEVELS[parseInt(e.target.value)])}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-200 dark:bg-slate-600 accent-purple-600"
+            />
+            <div className="flex justify-between text-[10px] text-gray-500 dark:text-gray-400 px-0.5">
+              {EFFORT_LEVELS.map((l) => (
+                <span key={l} className="capitalize">
+                  {l}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="space-y-1">
           <Label className="text-xs">Model Settings</Label>
           <JsonTextarea
-            value={get<Record<string, unknown> | null>('ai_model_settings', params.ai_model_settings)}
-            onChange={(v) => set('ai_model_settings', v)}
-            placeholder='{"max_thinking_tokens": 1024}'
+            // Effort is owned by the slider — hide it here and re-merge on write so typing can't override it.
+            value={(() => {
+              if (!modelSettingsObj) return modelSettingsObj;
+              const { effort: _effort, ...rest } = modelSettingsObj;
+              void _effort;
+              return Object.keys(rest).length > 0 ? rest : null;
+            })()}
+            onChange={(v) => {
+              const next = v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, unknown>) } : {};
+              if (modelSettingsObj && 'effort' in modelSettingsObj) {
+                next.effort = modelSettingsObj.effort;
+              }
+              set('ai_model_settings', Object.keys(next).length > 0 ? next : null);
+            }}
+            placeholder="{}"
             className="text-xs min-h-[48px] font-mono"
           />
         </div>

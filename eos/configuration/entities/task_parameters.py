@@ -1,10 +1,22 @@
 from enum import StrEnum
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 from typing import Self
 
 from eos.configuration.utils import is_dynamic_parameter
+
+
+ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_.]*$")]
 
 
 class TaskParameterType(StrEnum):
@@ -219,3 +231,38 @@ class TaskParameterFactory:
         kwargs.setdefault("type", parameter_type)
 
         return parameter_class(**kwargs)
+
+
+class TaskParameterGroup(BaseModel):
+    """Optional, presentational grouping of related input parameters (max depth 1).
+
+    Serialized shape mirrors the authored YAML: group name → child leaf dict, no `params:` wrapper.
+    """
+
+    # SerializeAsAny preserves subclass-specific fields (unit, choices, ...) during model_dump.
+    params: dict[ValidName, SerializeAsAny[TaskParameter]] = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("params", mode="before")
+    def _validate_children(cls, params: Any) -> Any:
+        if not isinstance(params, dict):
+            return params
+        built: dict[str, TaskParameter] = {}
+        for child_name, child in params.items():
+            if isinstance(child, TaskParameter):
+                built[child_name] = child
+                continue
+            if not isinstance(child, dict) or "type" not in child:
+                raise ValueError("Nested parameter groups are not supported (max depth 1).")
+            try:
+                built[child_name] = TaskParameterFactory.create(TaskParameterType(child["type"]), **child)
+            except (ValueError, KeyError) as e:
+                raise ValueError(f"Invalid parameter '{child_name}' in group: {e!s}") from e
+        return built
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        # Flatten on the wire: emit children directly, not under a `params` key.
+        default = handler(self)
+        return default["params"]

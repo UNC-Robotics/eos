@@ -1,6 +1,7 @@
 import type { ActionResult } from '@/lib/types/api';
-import type { ParameterValue, TaskSpec } from '@/lib/types/protocol';
+import type { InputParameterEntry, ParameterSpec, ParameterValue, TaskSpec } from '@/lib/types/protocol';
 import type { ProtocolSpec } from '@/lib/api/specs';
+import { flattenInputParameters } from '@/lib/utils/paramGroups';
 
 /**
  * Detects if a value is a reference string (e.g., "task_name.output_param")
@@ -35,31 +36,42 @@ export function hasNonEmptyObject(obj: unknown): boolean {
 }
 
 /**
- * Parses number input, handling empty strings and invalid input.
- * Returns the parsed number without adding .0 suffix - the float notation
- * is added at serialization time by ensureFloatNotationInYaml.
- */
-export function parseNumberInput(rawValue: string, type: 'int' | 'float'): number | string | undefined {
-  if (rawValue === '') return undefined;
-
-  if (type === 'int') {
-    const intValue = parseInt(rawValue, 10);
-    return isNaN(intValue) ? rawValue : intValue;
-  }
-
-  // For floats, just parse the number - don't add .0 suffix during input
-  // The .0 suffix is added at YAML serialization time by ensureFloatNotationInYaml
-  const floatValue = parseFloat(rawValue);
-  if (isNaN(floatValue)) return rawValue;
-
-  return floatValue;
-}
-
-/**
  * Formats a value for display in an input field
  */
 export function formatInputValue(value: unknown): string {
   return value !== undefined && value !== null ? String(value) : '';
+}
+
+/**
+ * Coerce raw form text to the spec type. Non-coercible input (e.g. "eos_dynamic",
+ * partial "-") passes through so validation can flag it and dynamic markers survive.
+ */
+export function coerceForSpec(value: unknown, spec: Pick<ParameterSpec, 'type'>): unknown {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string') return value;
+  const type = spec.type.toLowerCase();
+  if (type === 'int') {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) && String(n) === value.trim() ? n : value;
+  }
+  if (type === 'float' || type === 'number' || type === 'double') {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : value;
+  }
+  if (type === 'bool' || type === 'boolean') {
+    const v = value.trim().toLowerCase();
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+    return value;
+  }
+  if (type === 'list' || type === 'dict' || type === 'dictionary') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+  return value;
 }
 
 /**
@@ -73,8 +85,7 @@ export function convertToParameterValue(value: unknown): ParameterValue {
 }
 
 /**
- * Converts a parameter structure to ParameterValue format
- * Supports both protocol run and campaign parameter structures
+ * Wraps each inner value in ParameterValue form. Used for both protocol-run and campaign structures.
  */
 export function convertParameters(
   params: Record<string, Record<string, unknown>>
@@ -90,51 +101,27 @@ export function convertParameters(
 }
 
 /**
- * Extracts raw parameter values from ParameterValue structure
- * Filters out undefined, null, and empty string values
- *
- * If taskTypeMap and taskSpecs are provided, ensures proper type conversion (e.g., int vs float)
- * taskTypeMap should map task names to their task types: { taskName: taskType }
+ * Unwrap ParameterValue → raw value for submission; drops empty/null/undefined entries.
+ * When `taskTypeMap` + `taskSpecs` are provided, values are coerced per spec type.
  */
 export function extractParameterValues(
   taskParameters: Record<string, Record<string, ParameterValue>>,
   taskTypeMap?: Record<string, string>,
-  taskSpecs?: Record<string, { input_parameters?: Record<string, { type: string }> }>
+  taskSpecs?: Record<string, { input_parameters?: Record<string, InputParameterEntry> }>
 ): Record<string, Record<string, unknown>> {
   const parameters: Record<string, Record<string, unknown>> = {};
   Object.entries(taskParameters).forEach(([taskName, params]) => {
-    const filteredParams = Object.entries(params)
-      .filter(([, paramValue]) => {
-        const value = paramValue.value;
-        return value !== undefined && value !== null && value !== '';
-      })
-      .reduce(
-        (acc, [paramName, paramValue]) => {
-          let value = paramValue.value;
-
-          // If we have task specs, check if this parameter should be a float
-          if (taskTypeMap && taskSpecs) {
-            const taskType = taskTypeMap[taskName];
-            const taskSpec = taskType ? taskSpecs[taskType] : undefined;
-            const paramSpec = taskSpec?.input_parameters?.[paramName];
-            const paramType = paramSpec?.type?.toLowerCase();
-
-            // For float parameters, ensure proper representation
-            if (paramType === 'float' || paramType === 'double') {
-              // If it's a number and a whole number, convert to string with decimal
-              if (typeof value === 'number' && Number.isInteger(value)) {
-                value = value.toFixed(1);
-              }
-              // Keep string values as-is (they should already have decimal point from parseNumberInput)
-            }
-          }
-
-          acc[paramName] = value;
-          return acc;
-        },
-        {} as Record<string, unknown>
-      );
-
+    const flatSpecParams =
+      taskTypeMap && taskSpecs ? flattenInputParameters(taskSpecs[taskTypeMap[taskName]]?.input_parameters) : {};
+    const filteredParams: Record<string, unknown> = {};
+    for (const [paramName, paramValue] of Object.entries(params)) {
+      const spec = flatSpecParams[paramName];
+      // References pass through as strings; other types coerce per spec (string input -> number/bool/list/dict).
+      const coerced =
+        paramValue.mode === 'reference' || !spec ? paramValue.value : coerceForSpec(paramValue.value, spec);
+      if (coerced === undefined || coerced === null || coerced === '') continue;
+      filteredParams[paramName] = coerced;
+    }
     if (Object.keys(filteredParams).length > 0) {
       parameters[taskName] = filteredParams;
     }
@@ -143,8 +130,7 @@ export function extractParameterValues(
 }
 
 /**
- * Build a set of float parameter names for each task type from task specs.
- * Returns a Map: taskType -> Set of float parameter names
+ * Map of taskType → set of float/double leaf param names.
  */
 export function buildFloatParamsMap(taskSpecs: TaskSpec[]): Map<string, Set<string>> {
   const floatParamsMap = new Map<string, Set<string>>();
@@ -152,12 +138,10 @@ export function buildFloatParamsMap(taskSpecs: TaskSpec[]): Map<string, Set<stri
   for (const spec of taskSpecs) {
     const floatParams = new Set<string>();
 
-    if (spec.input_parameters) {
-      for (const [paramName, paramSpec] of Object.entries(spec.input_parameters)) {
-        const paramType = paramSpec.type?.toLowerCase();
-        if (paramType === 'float' || paramType === 'double') {
-          floatParams.add(paramName);
-        }
+    for (const [paramName, paramSpec] of Object.entries(flattenInputParameters(spec.input_parameters))) {
+      const paramType = paramSpec.type?.toLowerCase();
+      if (paramType === 'float' || paramType === 'double') {
+        floatParams.add(paramName);
       }
     }
 
@@ -170,14 +154,8 @@ export function buildFloatParamsMap(taskSpecs: TaskSpec[]): Map<string, Set<stri
 }
 
 /**
- * Post-process YAML string to ensure float parameters have decimal point notation.
- * This converts integer values to float notation (e.g., "300" to "300.0") for parameters
- * that should be floats based on the task spec.
- *
- * @param yaml The serialized YAML string
- * @param tasks Array of tasks with their types
- * @param floatParamsMap Map of task types to their float parameter names
- * @returns The processed YAML string with proper float notation
+ * Rewrites `paramName: 300` → `paramName: 300.0` in the serialized YAML for params
+ * declared as float/double, so integral values round-trip as floats.
  */
 export function ensureFloatNotationInYaml(
   yaml: string,
@@ -237,6 +215,56 @@ export function ensureFloatNotationInYaml(
   return processedLines.join('\n');
 }
 
+/** Deep equality for YAML-safe values (primitives, arrays, plain objects). */
+export function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || a === undefined || b === undefined) return false;
+  if (typeof a !== typeof b || typeof a !== 'object') return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, i) => deepEqual(item, b[i]));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const aKeys = Object.keys(ao);
+  if (aKeys.length !== Object.keys(bo).length) return false;
+  return aKeys.every((k) => deepEqual(ao[k], bo[k]));
+}
+
+/** True when a value should be treated as cleared. */
+export function isEmptyParamValue(value: unknown): boolean {
+  return value === undefined || value === null || value === '';
+}
+
+/** True when a value deep-equals the task.yml default for this param. */
+export function matchesSpecDefault(value: unknown, spec: Pick<ParameterSpec, 'value'>): boolean {
+  if (spec.value === undefined) return false;
+  return deepEqual(value, spec.value);
+}
+
+/** onBlur helper: if the field is empty and a default exists, restore it. */
+export function restoreDefaultIfEmpty(
+  currentValue: unknown,
+  spec: Pick<ParameterSpec, 'value'>,
+  onChange: (value: unknown) => void
+): void {
+  if (!isEmptyParamValue(currentValue) || spec.value === undefined) return;
+  onChange(spec.value);
+}
+
+/** Seed a parameters object with task.yml defaults; booleans without `value:` default to false. */
+export function buildDefaultParameters(spec: Pick<TaskSpec, 'input_parameters'>): Record<string, unknown> {
+  const defaults: Record<string, unknown> = {};
+  for (const [name, paramSpec] of Object.entries(flattenInputParameters(spec.input_parameters))) {
+    if (paramSpec.value !== undefined) {
+      defaults[name] = paramSpec.value;
+    } else if (paramSpec.type.toLowerCase() === 'bool' || paramSpec.type.toLowerCase() === 'boolean') {
+      defaults[name] = false;
+    }
+  }
+  return defaults;
+}
+
 /**
  * Check if a parameter value equals its spec default
  */
@@ -258,8 +286,7 @@ function valuesEqual(value: unknown, specDefault: unknown): boolean {
 }
 
 /**
- * Filters parameters to only include those that differ from spec defaults.
- * Used when cloning to avoid marking default values as overrides.
+ * Drops entries equal to their spec default. Used on clone so defaults aren't flagged as overrides.
  */
 export function filterNonDefaultParameters(
   params: Record<string, Record<string, unknown>>,

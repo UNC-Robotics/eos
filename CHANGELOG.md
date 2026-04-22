@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.24.0
+
+- Added task parameter groups. Task parameters can now be grouped in YAML under parents up to 1 level deep, and groups are rendered in UI
+- Reduced clutter in the task properties panel, as well as in submission dialogs
+- Added description tooltips for parameters in the task properties panel
+- Added effort slider for Claude Agent SDK models in the Beacon optimizer UI
+- Improved parameter default value handling by showing them in the UI rather than having blank fields
+- Fixed parameter default values when submitting protocol runs
+- Fixed auto-rounding when trying to type floating point numbers in the UI
+- Added tests for parameter defaults
+
 ## 0.23.0
 
 - Added `eos pkg install` CLI command for installing user package dependencies more easily

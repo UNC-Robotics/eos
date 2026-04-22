@@ -34,6 +34,7 @@ import { ValidationErrorsPanel } from './ValidationErrorsPanel';
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { useProtocolValidation } from '@/hooks/useProtocolValidation';
 import type { TaskSpec, TaskNodeData, TaskNode as TaskNodeType } from '@/lib/types/protocol';
+import { flattenInputParameters } from '@/lib/utils/paramGroups';
 import { EDITOR_LAYOUT, getEdgeColors } from '@/lib/constants/theme';
 import { performAutoLayout } from '../utils/autolayout';
 import { resolveOverlaps } from '../utils/preventOverlaps';
@@ -315,7 +316,7 @@ export function ProtocolEditor() {
         targetType = targetSpec.input_resources?.[targetParam]?.type;
       } else {
         sourceType = sourceSpec.output_parameters?.[sourceParam]?.type;
-        targetType = targetSpec.input_parameters?.[targetParam]?.type;
+        targetType = flattenInputParameters(targetSpec.input_parameters)[targetParam]?.type;
       }
 
       // Validate types match

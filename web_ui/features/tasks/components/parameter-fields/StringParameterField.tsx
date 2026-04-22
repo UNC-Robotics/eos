@@ -1,6 +1,7 @@
 import { memo, useState, useEffect } from 'react';
 import { ParameterSpec } from '@/lib/types/protocol';
 import { DescriptionTooltip } from '@/components/ui/DescriptionTooltip';
+import { restoreDefaultIfEmpty } from '@/lib/utils/protocolHelpers';
 import { validateString } from '@/lib/validation/parameter-validation';
 
 interface StringParameterFieldProps {
@@ -35,10 +36,10 @@ export const StringParameterField = memo(({ name, spec, value, onChange }: Strin
   };
 
   return (
-    <div className="border border-gray-200 dark:border-slate-700 rounded-md px-3 py-2 bg-white dark:bg-slate-800 space-y-1">
+    <div className="space-y-1">
       <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
         {name}
-        <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-700 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+        <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-600 text-[10px] font-medium text-gray-700 dark:text-gray-200">
           {spec.type}
         </span>
         {spec.desc && <DescriptionTooltip description={spec.desc} />}
@@ -47,6 +48,7 @@ export const StringParameterField = memo(({ name, spec, value, onChange }: Strin
         type="text"
         value={displayValue}
         onChange={handleChange}
+        onBlur={() => restoreDefaultIfEmpty(value, spec, onChange)}
         placeholder={`Enter ${name}`}
         className={`w-full px-2.5 py-1 text-sm border rounded-md focus:outline-none focus:ring-2 ${
           error

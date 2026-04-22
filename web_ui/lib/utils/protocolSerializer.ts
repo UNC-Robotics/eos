@@ -1,7 +1,8 @@
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { serializeYaml } from '@/lib/utils/editor-utils';
 import { serializeDeviceAssignment, serializeResourceAssignment } from '@/lib/utils/assignment-utils';
-import { buildFloatParamsMap, ensureFloatNotationInYaml } from '@/lib/utils/protocolHelpers';
+import { buildFloatParamsMap, coerceForSpec, deepEqual, ensureFloatNotationInYaml } from '@/lib/utils/protocolHelpers';
+import { flattenInputParameters } from '@/lib/utils/paramGroups';
 import type { TaskNode, TaskSpec } from '@/lib/types/protocol';
 
 interface SerializedProtocol {
@@ -15,17 +16,27 @@ function serializeTaskForYaml(task: TaskNode, specMap: Map<string, TaskSpec>): R
 
   const spec = specMap.get(task.type);
 
-  // Filter parameters to only those in the current spec (safety net)
-  if (result.parameters && spec?.input_parameters) {
-    const validKeys = new Set(Object.keys(spec.input_parameters));
-    const params = result.parameters as Record<string, unknown>;
-    const filtered: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(params)) {
-      if (validKeys.has(key)) filtered[key] = value;
+  // Strip values equal to the task.yml default so protocol.yml tracks task.yml; form text is coerced once here.
+  if (result.parameters && spec) {
+    const flatSpecParams = flattenInputParameters(spec.input_parameters);
+    if (Object.keys(flatSpecParams).length === 0) {
+      delete result.parameters;
+    } else {
+      const params = result.parameters as Record<string, unknown>;
+      const filtered: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(params)) {
+        const paramSpec = flatSpecParams[key];
+        if (!paramSpec) continue;
+        const coerced = coerceForSpec(value, paramSpec);
+        if (paramSpec.value !== undefined && deepEqual(coerced, paramSpec.value)) continue;
+        filtered[key] = coerced;
+      }
+      if (Object.keys(filtered).length > 0) {
+        result.parameters = filtered;
+      } else {
+        delete result.parameters;
+      }
     }
-    result.parameters = filtered;
-  } else if (result.parameters && spec && !spec.input_parameters) {
-    delete result.parameters;
   }
 
   if (devices) {
@@ -52,8 +63,7 @@ function serializeTaskForYaml(task: TaskNode, specMap: Map<string, TaskSpec>): R
 }
 
 /**
- * Synchronously serialize the current protocol store state into YAML and layout JSON.
- * Called from both the visual editor sync effect and the save handler to ensure consistency.
+ * Synchronous YAML + layout-JSON snapshot of the current editor store. Shared by the sync effect and save handler.
  */
 export function serializeCurrentProtocol(): SerializedProtocol {
   const { tasks, taskTemplates, protocolType, protocolDesc, labs } = useEditorStore.getState();

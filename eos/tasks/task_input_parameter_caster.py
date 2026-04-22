@@ -26,13 +26,14 @@ class TaskInputParameterCaster:
         task_spec = self.task_spec_registry.get_spec_by_type(task_type)
 
         for parameter_name, parameter in input_parameters.items():
+            param_spec = task_spec.get_parameter(parameter_name)
             try:
-                parameter_type = TaskParameterType(task_spec.input_parameters[parameter_name].type)
+                parameter_type = TaskParameterType(param_spec.type)
                 input_parameters[parameter_name] = parameter_type.python_type(parameter)
             except TypeError as e:
                 raise EosTaskValidationError(
                     f"Failed to cast input parameter '{parameter_name}' of task '{task_name}' of type \
-                    f'{type(parameter)}' to the expected type '{task_spec.input_parameters[parameter_name].type}'."
+                    f'{type(parameter)}' to the expected type '{param_spec.type}'."
                 ) from e
 
         return input_parameters

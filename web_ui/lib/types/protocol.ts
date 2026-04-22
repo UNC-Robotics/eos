@@ -16,6 +16,11 @@ export interface ParameterSpec {
   length?: number;
 }
 
+// Group entry: leaf specs keyed by child name (discriminator: no `type` key). Max depth 1.
+export type ParameterGroupSpec = Record<string, ParameterSpec>;
+
+export type InputParameterEntry = ParameterSpec | ParameterGroupSpec;
+
 export interface ParameterValue {
   mode: 'static' | 'reference';
   value: unknown;
@@ -40,7 +45,7 @@ export interface TaskSpec {
   output_devices?: Record<string, DeviceSpec>;
   input_resources?: Record<string, ResourceSpec>;
   output_resources?: Record<string, ResourceSpec>;
-  input_parameters?: Record<string, ParameterSpec>;
+  input_parameters?: Record<string, InputParameterEntry>;
   output_parameters?: Record<string, ParameterSpec>;
 }
 

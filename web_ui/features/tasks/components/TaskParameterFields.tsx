@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { ParameterSpec } from '@/lib/types/protocol';
+import { InputParameterEntry, ParameterSpec } from '@/lib/types/protocol';
+import { iterateInputParameters } from '@/lib/utils/paramGroups';
 import {
   NumericParameterField,
   StringParameterField,
@@ -10,7 +11,7 @@ import {
 } from './parameter-fields';
 
 interface TaskParameterFieldsProps {
-  parameters: Record<string, ParameterSpec>;
+  parameters: Record<string, InputParameterEntry>;
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
 }
@@ -65,17 +66,44 @@ export const TaskParameterFields = memo(({ parameters, values, onChange }: TaskP
     return null;
   }
 
+  const structure = iterateInputParameters(parameters);
+
   return (
-    <div className="space-y-2.5">
-      {Object.entries(parameters).map(([name, spec]) => (
-        <ParameterField
-          key={name}
-          name={name}
-          spec={spec}
-          value={values[name]}
-          onChange={(value) => onChange(name, value)}
-        />
-      ))}
+    <div className="space-y-4">
+      {structure.map((item) => {
+        if (item.kind === 'param') {
+          return (
+            <ParameterField
+              key={item.name}
+              name={item.name}
+              spec={item.spec}
+              value={values[item.name]}
+              onChange={(value) => onChange(item.name, value)}
+            />
+          );
+        }
+        return (
+          <div key={`group-${item.name}`} className="space-y-2 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-black dark:text-white whitespace-nowrap">
+                {item.name}
+              </span>
+              <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+            </div>
+            <div className="space-y-4">
+              {Object.entries(item.params).map(([name, spec]) => (
+                <ParameterField
+                  key={name}
+                  name={name}
+                  spec={spec}
+                  value={values[name]}
+                  onChange={(value) => onChange(name, value)}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 });

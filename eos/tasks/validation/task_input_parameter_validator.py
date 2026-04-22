@@ -40,7 +40,7 @@ class TaskInputParameterValidator:
         """
         Check that the parameter exists in the task specification.
         """
-        if parameter_name not in self._task_spec.input_parameters:
+        if self._task_spec.get_parameter(parameter_name) is None:
             batch_error(
                 f"Parameter '{parameter_name}' in task '{self._task_name}' is invalid. "
                 f"Expected a parameter found in the task specification.",
@@ -64,7 +64,7 @@ class TaskInputParameterValidator:
         """
         Validate a parameter to make sure it conforms to its task specification.
         """
-        parameter_spec = copy.deepcopy(self._task_spec.input_parameters[parameter_name])
+        parameter_spec = copy.deepcopy(self._task_spec.get_parameter(parameter_name))
 
         try:
             parameter = self._convert_value_type(parameter, TaskParameterType(parameter_spec.type))
@@ -147,4 +147,4 @@ class TaskInputParameterValidator:
         """
         Get all the required input parameters for the task.
         """
-        return [param for param, spec in self._task_spec.input_parameters.items() if spec.value is None]
+        return [param for param, spec in self._task_spec.iter_parameters() if spec.value is None]

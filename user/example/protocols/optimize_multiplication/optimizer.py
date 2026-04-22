@@ -29,7 +29,7 @@ def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimi
         "ai_retries": 3,
         "ai_history_size": 50,
         "ai_model_settings": {
-            "max_thinking_tokens": 1024,
+            "effort": "medium",
         },
     }
     return constructor_args, BeaconOptimizer

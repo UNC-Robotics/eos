@@ -287,7 +287,7 @@ class TaskValidator:
 
     def _validate_parameter_in_task_spec(self, task_name: str, parameter_name: str, task_spec: TaskSpecDef) -> None:
         """Check that the parameter exists in the task specification."""
-        if parameter_name not in task_spec.input_parameters:
+        if task_spec.get_parameter(parameter_name) is None:
             batch_error(
                 f"Parameter '{parameter_name}' in task '{task_name}' is invalid. "
                 f"Expected a parameter found in the task specification.",
@@ -304,7 +304,7 @@ class TaskValidator:
         self, task_name: str, parameter_name: str, parameter: Any, task_spec: TaskSpecDef
     ) -> None:
         """Validate a parameter against its task specification."""
-        parameter_spec = copy.deepcopy(task_spec.input_parameters[parameter_name])
+        parameter_spec = copy.deepcopy(task_spec.get_parameter(parameter_name))
 
         if not isinstance(parameter, TaskParameterType(parameter_spec.type).python_type):
             batch_error(
@@ -329,7 +329,7 @@ class TaskValidator:
         self, task_name: str, parameters: dict[str, Any], task_spec: TaskSpecDef
     ) -> None:
         """Ensure all required parameters are provided."""
-        required_parameters = [param for param, spec in task_spec.input_parameters.items() if spec.value is None]
+        required_parameters = [param for param, spec in task_spec.iter_parameters() if spec.value is None]
         missing_parameters = [param for param in required_parameters if param not in parameters]
 
         if missing_parameters:
@@ -360,8 +360,8 @@ class TaskValidator:
         referenced_parameter_spec = None
         if referenced_task_spec.output_parameters and referenced_parameter in referenced_task_spec.output_parameters:
             referenced_parameter_spec = referenced_task_spec.output_parameters[referenced_parameter]
-        elif referenced_task_spec.input_parameters and referenced_parameter in referenced_task_spec.input_parameters:
-            referenced_parameter_spec = referenced_task_spec.input_parameters[referenced_parameter]
+        else:
+            referenced_parameter_spec = referenced_task_spec.get_parameter(referenced_parameter)
 
         if not referenced_parameter_spec:
             raise EosTaskValidationError(
@@ -370,7 +370,7 @@ class TaskValidator:
             )
 
         task_spec = self._task_specs.get_spec_by_config(task)
-        parameter_spec = task_spec.input_parameters[parameter_name]
+        parameter_spec = task_spec.get_parameter(parameter_name)
 
         if (
             TaskParameterType(parameter_spec.type).python_type

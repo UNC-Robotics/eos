@@ -90,7 +90,7 @@ export function ProtocolRunExecutionView({
     } finally {
       setIsRefreshing(false);
     }
-  }, [protocolRun.name, pollingInterval]);
+  }, [protocolRun.name, pollingInterval, taskStatuses]);
 
   React.useEffect(() => {
     if (pollingInterval === 0) return;

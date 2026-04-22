@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Package, EntityTree, EntityType } from '@/lib/types/filesystem';
 import type { TaskNode, TaskSpec, ProtocolDefinition } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
+import { flattenInputParameters } from '@/lib/utils/paramGroups';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -197,9 +198,9 @@ const reconcileTasksWithSpecs = (get: () => EditorStore) => {
     let taskChanged = false;
     const updates: Partial<TaskNode> = {};
 
-    // Filter parameters to only those in spec
-    if (task.parameters && spec.input_parameters) {
-      const validKeys = new Set(Object.keys(spec.input_parameters));
+    // Filter parameters to only leaves declared in spec (flattens groups)
+    if (task.parameters) {
+      const validKeys = new Set(Object.keys(flattenInputParameters(spec.input_parameters)));
       const filtered: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(task.parameters)) {
         if (validKeys.has(key)) {
@@ -209,9 +210,6 @@ const reconcileTasksWithSpecs = (get: () => EditorStore) => {
         }
       }
       if (taskChanged) updates.parameters = filtered;
-    } else if (task.parameters && !spec.input_parameters) {
-      updates.parameters = {};
-      taskChanged = true;
     }
 
     // Filter devices to only those in spec

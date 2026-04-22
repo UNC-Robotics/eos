@@ -18,6 +18,8 @@ import { TaskDeviceAssignment } from './TaskDeviceAssignment';
 import { TaskResourceAssignment } from './TaskResourceAssignment';
 import { TaskParameterFields } from './TaskParameterFields';
 import { serializeDeviceAssignment, serializeResourceAssignment } from '@/lib/utils/assignment-utils';
+import { buildDefaultParameters, coerceForSpec } from '@/lib/utils/protocolHelpers';
+import { flattenInputParameters, iterateInputParameters } from '@/lib/utils/paramGroups';
 import { validateParameter } from '@/lib/validation/parameter-validation';
 import type { TaskDefinition, Task } from '@/lib/types/api';
 import type { TaskSpec, DeviceAssignment, ResourceAssignment, ParameterSpec } from '@/lib/types/protocol';
@@ -127,12 +129,10 @@ export function SubmitTaskDialog({
         setDevices({});
       }
 
-      // Populate parameters
-      if (initialTask.input_parameters) {
-        setInputParameters(initialTask.input_parameters);
-      } else {
-        setInputParameters({});
-      }
+      // Clone values win over spec defaults
+      const cloneSpec = taskSpecs[initialTask.type];
+      const specDefaults = cloneSpec ? buildDefaultParameters(cloneSpec) : {};
+      setInputParameters({ ...specDefaults, ...(initialTask.input_parameters ?? {}) });
 
       // Populate resources
       if (initialTask.input_resources && Object.keys(initialTask.input_resources).length > 0) {
@@ -141,7 +141,7 @@ export function SubmitTaskDialog({
         setInputResources({});
       }
     }
-  }, [initialTask, generateCloneName, setValue]);
+  }, [initialTask, taskSpecs, generateCloneName, setValue]);
 
   // Load task spec when type changes
   React.useEffect(() => {
@@ -165,16 +165,8 @@ export function SubmitTaskDialog({
           setDevices(initialDevices);
         }
 
-        // Initialize parameters with defaults (booleans default to false)
         if (spec.input_parameters) {
-          const initialParams: Record<string, unknown> = {};
-          Object.entries(spec.input_parameters).forEach(([name, paramSpec]) => {
-            const ps = paramSpec as ParameterSpec;
-            const type = ps.type.toLowerCase();
-            if (type === 'bool' || type === 'boolean') {
-              initialParams[name] = false;
-            }
-          });
+          const initialParams = buildDefaultParameters(spec);
           if (Object.keys(initialParams).length > 0) {
             setInputParameters(initialParams);
           }
@@ -228,19 +220,18 @@ export function SubmitTaskDialog({
         });
       }
 
-      // Validate and handle parameters
+      // Validate and handle parameters (flatten groups; payload stays flat)
       if (selectedTaskSpec?.input_parameters) {
         const validationErrors: string[] = [];
         const filteredParams: Record<string, unknown> = {};
 
-        // Validate all parameters
-        Object.entries(selectedTaskSpec.input_parameters).forEach(([name, spec]) => {
-          const value = inputParameters[name];
-          const result = validateParameter(value, spec as ParameterSpec);
+        Object.entries(flattenInputParameters(selectedTaskSpec.input_parameters)).forEach(([name, spec]) => {
+          const coerced = coerceForSpec(inputParameters[name], spec);
+          const result = validateParameter(coerced, spec);
           if (!result.valid) {
             validationErrors.push(`${name}: ${result.error}`);
-          } else if (value !== undefined && value !== null && value !== '') {
-            filteredParams[name] = value;
+          } else if (coerced !== undefined && coerced !== null && coerced !== '') {
+            filteredParams[name] = coerced;
           }
         });
 
@@ -407,11 +398,21 @@ export function SubmitTaskDialog({
       {selectedTaskSpec?.input_parameters &&
         Object.keys(selectedTaskSpec.input_parameters).length > 0 &&
         (() => {
-          const filtered = Object.fromEntries(
-            Object.entries(selectedTaskSpec.input_parameters).filter(([name, spec]) =>
-              matchesSearch(name, spec as ParameterSpec)
-            )
-          );
+          const filtered: Record<string, (typeof selectedTaskSpec.input_parameters)[string]> = {};
+          for (const item of iterateInputParameters(selectedTaskSpec.input_parameters)) {
+            if (item.kind === 'param') {
+              if (matchesSearch(item.name, item.spec)) filtered[item.name] = item.spec;
+            } else {
+              const groupMatches = !searchLower || item.name.toLowerCase().includes(searchLower);
+              const keptLeaves: Record<string, ParameterSpec> = {};
+              for (const [leafName, leafSpec] of Object.entries(item.params)) {
+                if (groupMatches || matchesSearch(leafName, leafSpec)) {
+                  keptLeaves[leafName] = leafSpec;
+                }
+              }
+              if (Object.keys(keptLeaves).length > 0) filtered[item.name] = keptLeaves;
+            }
+          }
           if (Object.keys(filtered).length === 0) return null;
           return (
             <div className="space-y-2">

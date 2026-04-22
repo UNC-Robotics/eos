@@ -1,6 +1,7 @@
 import copy
 
 from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
+from eos.configuration.registries import TaskSpecRegistry
 from eos.configuration.utils import (
     is_device_reference,
     is_dynamic_parameter,
@@ -23,6 +24,7 @@ class TaskInputResolver:
     def __init__(self, task_manager: TaskManager, protocol_run_manager: ProtocolRunManager):
         self._task_manager = task_manager
         self._protocol_run_manager = protocol_run_manager
+        self._task_spec_registry = TaskSpecRegistry()
 
     async def resolve_task_inputs(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> TaskDef:
         config = copy.deepcopy(task)
@@ -79,6 +81,16 @@ class TaskInputResolver:
     async def _resolve_parameters(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> TaskDef:
         protocol_run = await self._protocol_run_manager.get_protocol_run(db, protocol_run_name)
         task_parameters = protocol_run.parameters.get(task.name, {})
+
+        # Fill task.yml defaults for params not set by protocol.yml or the run submission
+        task_spec = self._task_spec_registry.get_spec_by_type(task.type)
+        if task_spec is not None:
+            for param_name, param_spec in task_spec.iter_parameters():
+                if param_name in task.parameters or param_name in task_parameters:
+                    continue
+                if param_spec.value is None:
+                    continue
+                task.parameters[param_name] = param_spec.value
 
         task.parameters.update(task_parameters)
 

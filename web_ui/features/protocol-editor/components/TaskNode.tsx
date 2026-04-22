@@ -2,9 +2,10 @@
 
 import { memo, useMemo, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import type { TaskNodeData } from '@/lib/types/protocol';
+import type { ParameterSpec, TaskNodeData } from '@/lib/types/protocol';
 import { PORT_COLORS, BADGE_CLASSES, PORT_SIZES, adjustColorBrightness } from '@/lib/constants/theme';
 import { useEditorStore } from '@/lib/stores/editorStore';
+import { flattenInputParameters, iterateInputParameters } from '@/lib/utils/paramGroups';
 
 interface PortProps {
   id: string;
@@ -68,6 +69,8 @@ const isValueConfigured = (value: unknown, type: 'device' | 'resource' | 'parame
   if (value === undefined || value === '') return false;
 
   if (type === 'parameter') {
+    // eos_dynamic means the value must be supplied at run time — treat as unfilled
+    if (value === 'eos_dynamic') return false;
     return true;
   }
 
@@ -97,8 +100,21 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
   const outputDevices = useMemo(() => Object.entries(taskSpec.output_devices || {}), [taskSpec.output_devices]);
   const inputResources = useMemo(() => Object.entries(taskSpec.input_resources || {}), [taskSpec.input_resources]);
   const outputResources = useMemo(() => Object.entries(taskSpec.output_resources || {}), [taskSpec.output_resources]);
-  const inputParams = useMemo(() => Object.entries(taskSpec.input_parameters || {}), [taskSpec.input_parameters]);
+  const inputParamStructure = useMemo(
+    () => iterateInputParameters(taskSpec.input_parameters),
+    [taskSpec.input_parameters]
+  );
+  const flatInputParams = useMemo(() => flattenInputParameters(taskSpec.input_parameters), [taskSpec.input_parameters]);
   const outputParams = useMemo(() => Object.entries(taskSpec.output_parameters || {}), [taskSpec.output_parameters]);
+
+  // Parameter port is "filled" if the user set a value or the task.yml default exists
+  const effectiveInputParams = useMemo(() => {
+    const merged: Record<string, unknown> = {};
+    for (const [name, spec] of Object.entries(flatInputParams)) {
+      if (spec.value !== undefined) merged[name] = spec.value;
+    }
+    return { ...merged, ...(taskNode.parameters ?? {}) };
+  }, [flatInputParams, taskNode.parameters]);
 
   // Input devices and resources should also appear as outputs (pass-through)
   // Deduplicate by name - output takes precedence over input
@@ -166,6 +182,50 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
     },
     [taskNode.name]
   );
+
+  const renderInputParamPort = useCallback(
+    (name: string, spec: ParameterSpec) => {
+      const hasValue = isValueConfigured(effectiveInputParams[name], 'parameter');
+      return (
+        <Port
+          key={name}
+          id={`${taskNode.name}-input-parameter-${name}`}
+          name={name}
+          type={spec.type}
+          position={Position.Left}
+          handleType="target"
+          color={COLORS.parameter}
+          bgColor={COLORS.badge.parameter}
+          hasValue={hasValue}
+        />
+      );
+    },
+    [effectiveInputParams, taskNode.name]
+  );
+
+  const renderInputParamSection = useCallback(() => {
+    if (inputParamStructure.length === 0) return null;
+    return (
+      <div className="mb-3">
+        {inputParamStructure.map((item) => {
+          if (item.kind === 'param') {
+            return renderInputParamPort(item.name, item.spec);
+          }
+          return (
+            <div key={`group-${item.name}`} className="my-3">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-xs font-bold uppercase tracking-wide text-black dark:text-white whitespace-nowrap">
+                  {item.name}
+                </span>
+                <div className="flex-1 h-[2.5px] bg-slate-300 dark:bg-slate-500" />
+              </div>
+              {Object.entries(item.params).map(([leafName, leafSpec]) => renderInputParamPort(leafName, leafSpec))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }, [inputParamStructure, renderInputParamPort]);
 
   return (
     <div
@@ -240,7 +300,7 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
           <div>
             {renderPortSection(inputDevices, 'device', 'input', taskNode.devices)}
             {renderPortSection(inputResources, 'resource', 'input', taskNode.resources)}
-            {renderPortSection(inputParams, 'parameter', 'input', taskNode.parameters)}
+            {renderInputParamSection()}
           </div>
 
           {/* Right Column - Outputs */}

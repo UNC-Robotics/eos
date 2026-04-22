@@ -26,6 +26,7 @@ import {
   extractParameterValues,
   filterNonDefaultParameters,
 } from '@/lib/utils/protocolHelpers';
+import { iterateInputParameters } from '@/lib/utils/paramGroups';
 import type { Campaign, CampaignDefinition, OptimizerDefaults } from '@/lib/types/api';
 import type { TaskSpec, ParameterSpec, ParameterValue } from '@/lib/types/protocol';
 import type { ProtocolSpec } from '@/lib/api/specs';
@@ -108,19 +109,54 @@ function GlobalParametersSection({
               !searchLower ||
               taskConfig.name.toLowerCase().includes(searchLower) ||
               taskConfig.type.toLowerCase().includes(searchLower);
-            const filteredParams = Object.entries(taskSpec.input_parameters).filter(([paramName, paramSpec]) => {
-              if (!searchLower || taskNameMatches) return true;
-              const spec = paramSpec as ParameterSpec;
-              return (
-                paramName.toLowerCase().includes(searchLower) ||
-                (spec.desc && spec.desc.toLowerCase().includes(searchLower)) ||
-                spec.type.toLowerCase().includes(searchLower)
-              );
-            });
 
-            if (searchLower && !taskNameMatches && filteredParams.length === 0) return null;
+            const matchesLeaf = (paramName: string, spec: ParameterSpec) =>
+              !searchLower ||
+              taskNameMatches ||
+              paramName.toLowerCase().includes(searchLower) ||
+              (spec.desc && spec.desc.toLowerCase().includes(searchLower)) ||
+              spec.type.toLowerCase().includes(searchLower);
+
+            type VisibleItem =
+              | { kind: 'param'; name: string; spec: ParameterSpec }
+              | { kind: 'group'; name: string; params: Array<{ name: string; spec: ParameterSpec }> };
+
+            const visible: VisibleItem[] = [];
+            for (const item of iterateInputParameters(taskSpec.input_parameters)) {
+              if (item.kind === 'param') {
+                if (matchesLeaf(item.name, item.spec)) {
+                  visible.push({ kind: 'param', name: item.name, spec: item.spec });
+                }
+                continue;
+              }
+              const groupNameMatches = !searchLower || item.name.toLowerCase().includes(searchLower);
+              const keptLeaves: Array<{ name: string; spec: ParameterSpec }> = [];
+              for (const [leafName, leafSpec] of Object.entries(item.params)) {
+                if (groupNameMatches || matchesLeaf(leafName, leafSpec)) {
+                  keptLeaves.push({ name: leafName, spec: leafSpec });
+                }
+              }
+              if (keptLeaves.length > 0) {
+                visible.push({ kind: 'group', name: item.name, params: keptLeaves });
+              }
+            }
+
+            if (searchLower && !taskNameMatches && visible.length === 0) return null;
 
             const isExpanded = searchLower ? true : expandedTasks.has(taskConfig.name);
+
+            const renderLeaf = (paramName: string, paramSpec: ParameterSpec) => (
+              <ProtocolRunParameterField
+                key={paramName}
+                paramName={paramName}
+                paramSpec={paramSpec}
+                value={taskParameters[taskConfig.name]?.[paramName]}
+                specDefault={taskConfig.parameters?.[paramName]}
+                taskSpecDefault={paramSpec.value}
+                onChange={(value) => updateTaskParameter(taskConfig.name, paramName, value)}
+                onClear={() => clearTaskParameter(taskConfig.name, paramName)}
+              />
+            );
 
             return (
               <div
@@ -149,18 +185,21 @@ function GlobalParametersSection({
                 </button>
 
                 {isExpanded && (
-                  <div className="px-3 pt-3 pb-3 space-y-2.5 border-t border-gray-200 dark:border-slate-700">
-                    {filteredParams.map(([paramName, paramSpec]) => (
-                      <ProtocolRunParameterField
-                        key={paramName}
-                        paramName={paramName}
-                        paramSpec={paramSpec as ParameterSpec}
-                        value={taskParameters[taskConfig.name]?.[paramName]}
-                        specDefault={taskConfig.parameters?.[paramName]}
-                        onChange={(value) => updateTaskParameter(taskConfig.name, paramName, value)}
-                        onClear={() => clearTaskParameter(taskConfig.name, paramName)}
-                      />
-                    ))}
+                  <div className="px-3 pt-3 pb-3 space-y-4 border-t border-gray-200 dark:border-slate-700">
+                    {visible.map((item) => {
+                      if (item.kind === 'param') return renderLeaf(item.name, item.spec);
+                      return (
+                        <div key={`group-${item.name}`} className="space-y-2 pt-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wide text-black dark:text-white whitespace-nowrap">
+                              {item.name}
+                            </span>
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                          </div>
+                          <div className="space-y-4">{item.params.map(({ name, spec }) => renderLeaf(name, spec))}</div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -393,7 +432,10 @@ export function SubmitCampaignDialog({
     setError(null);
 
     try {
-      const global_parameters = extractParameterValues(taskParameters);
+      const taskTypeMap = selectedProtocolSpec
+        ? Object.fromEntries(selectedProtocolSpec.tasks.map((t) => [t.name, t.type]))
+        : undefined;
+      const global_parameters = extractParameterValues(taskParameters, taskTypeMap, taskSpecs);
       let protocol_run_parameters: Array<Record<string, Record<string, unknown>>> | null;
       try {
         protocol_run_parameters = data.protocol_run_parameters?.trim()

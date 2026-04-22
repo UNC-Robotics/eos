@@ -1,11 +1,15 @@
-from typing import Any, Annotated
+from collections.abc import Iterator
+from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 from typing import Self
 
 from eos.configuration.entities.task_parameters import (
+    TaskParameter,
     TaskParameterFactory,
+    TaskParameterGroup,
     TaskParameterType,
+    ValidName,
 )
 
 
@@ -44,9 +48,6 @@ class OutputParameter(BaseModel):
         return self
 
 
-ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_.]*$")]
-
-
 class DeviceRequirementDef(BaseModel):
     type: str
 
@@ -68,6 +69,8 @@ class TaskSpecDef(BaseModel):
     output_resources: dict[ValidName, ResourceRequirement] = Field(default_factory=dict)
     output_parameters: dict[ValidName, OutputParameter] = Field(default_factory=dict)
 
+    _flat_index: dict[str, TaskParameter] = PrivateAttr(default_factory=dict)
+
     @model_validator(mode="after")
     def _set_default_output_resources(self) -> Self:
         """Set output resources to input resources if not specified"""
@@ -77,11 +80,48 @@ class TaskSpecDef(BaseModel):
 
     @field_validator("input_parameters")
     def _validate_parameters(cls, input_parameters: dict) -> dict:
-        """Validate that all input parameters can be created"""
-        for param_name, param_config in input_parameters.items():
-            try:
-                param_type = TaskParameterType(param_config["type"])
-                input_parameters[param_name] = TaskParameterFactory.create(param_type, **param_config)
-            except (ValueError, KeyError) as e:
-                raise ValueError(f"Invalid parameter configuration: {e!s}") from e
+        """Leaf if entry has a `type:` key, else group of leaves. Leaf names must be globally unique."""
+        seen: set[str] = set()
+
+        def claim(name: str) -> None:
+            if name in seen:
+                raise ValueError(f"Duplicate input parameter name '{name}' across groups and/or top level.")
+            seen.add(name)
+
+        for name, config in input_parameters.items():
+            if not isinstance(config, dict):
+                raise ValueError(f"Invalid parameter configuration for '{name}': expected a mapping.")
+
+            if "type" in config:
+                try:
+                    param_type = TaskParameterType(config["type"])
+                    input_parameters[name] = TaskParameterFactory.create(param_type, **config)
+                except (ValueError, KeyError) as e:
+                    raise ValueError(f"Invalid parameter configuration: {e!s}") from e
+                claim(name)
+            else:
+                group = TaskParameterGroup(params=config)
+                input_parameters[name] = group
+                for leaf_name in group.params:
+                    claim(leaf_name)
+
         return input_parameters
+
+    @model_validator(mode="after")
+    def _build_flat_index(self) -> Self:
+        flat: dict[str, TaskParameter] = {}
+        for name, entry in self.input_parameters.items():
+            if isinstance(entry, TaskParameterGroup):
+                flat.update(entry.params)
+            else:
+                flat[name] = entry
+        self._flat_index = flat
+        return self
+
+    def iter_parameters(self) -> Iterator[tuple[str, TaskParameter]]:
+        """Yield (leaf_name, spec) pairs across top-level leaves and every group, in declaration order."""
+        return iter(self._flat_index.items())
+
+    def get_parameter(self, name: str) -> TaskParameter | None:
+        """Return the leaf spec for `name` regardless of whether it is top-level or grouped."""
+        return self._flat_index.get(name)

@@ -118,15 +118,15 @@ export function ResourceAssignment({
       {selectedMode === 'reference' && enableReferenceMode && <ReferenceMode value={value} onChange={onChange} />}
 
       {onHoldChange && selectedMode !== 'static' && (
-        <label className="flex items-center gap-2 pt-1.5 border-t border-gray-100 dark:border-slate-700 cursor-pointer">
+        <label className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-slate-700 cursor-pointer">
           <input
             type="checkbox"
             checked={hold ?? false}
             onChange={(e) => onHoldChange(e.target.checked)}
-            className="h-3.5 w-3.5 rounded border-gray-300 dark:border-slate-500"
+            className="h-4 w-4 rounded border-gray-300 dark:border-slate-500"
           />
           <span
-            className="text-xs text-gray-600 dark:text-gray-400"
+            className="text-sm text-gray-700 dark:text-gray-300"
             title="Prevent this resource from being released until successor tasks complete"
           >
             Hold for successors

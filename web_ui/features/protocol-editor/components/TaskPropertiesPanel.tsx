@@ -4,13 +4,15 @@ import { memo } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
-import type { TaskNode, TaskSpec, DeviceAssignment, ResourceAssignment } from '@/lib/types/protocol';
+import type { DeviceAssignment, ParameterSpec, ResourceAssignment, TaskNode, TaskSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { ColorPicker } from './ColorPicker';
+import { DescriptionTooltip } from '@/components/ui/DescriptionTooltip';
 import { DeviceAssignment as DeviceAssignmentComponent } from './DeviceAssignment';
 import { ResourceAssignment as ResourceAssignmentComponent } from './ResourceAssignment';
 import { BooleanParameterField } from '@/features/tasks/components/parameter-fields/BooleanParameterField';
+import { iterateInputParameters } from '@/lib/utils/paramGroups';
 
 interface TaskPropertiesPanelProps {
   isOpen: boolean;
@@ -25,23 +27,37 @@ interface TaskPropertiesPanelProps {
 
 interface InputFieldProps {
   name: string;
-  type: string;
+  spec: ParameterSpec;
   value: string;
   placeholder: string;
   onChange: (value: string) => void;
+  onBlur?: () => void;
 }
 
-const InputField = memo(({ name, type, value, placeholder, onChange }: InputFieldProps) => {
+const InputField = memo(({ name, spec, value, placeholder, onChange, onBlur }: InputFieldProps) => {
+  const constraints =
+    [
+      spec.unit && `unit: ${spec.unit}`,
+      typeof spec.min === 'number' && `min: ${spec.min}`,
+      typeof spec.max === 'number' && `max: ${spec.max}`,
+    ]
+      .filter(Boolean)
+      .join(', ') || undefined;
+
   return (
-    <div className="border border-gray-200 dark:border-slate-700 rounded-md p-3 bg-white dark:bg-slate-800">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+    <div>
+      <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
         {name}
-        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({type})</span>
+        <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-600 text-[10px] font-medium text-gray-700 dark:text-gray-200">
+          {spec.type}
+        </span>
+        {(spec.desc || constraints) && <DescriptionTooltip description={spec.desc} constraints={constraints} />}
       </label>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
       />
@@ -60,9 +76,11 @@ interface OutputFieldProps {
 const OutputField = memo(({ name, type, desc }: OutputFieldProps) => {
   return (
     <div className="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 p-3 rounded-md">
-      <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">
         {name}
-        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">({type})</span>
+        <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-600 text-[10px] font-medium text-gray-700 dark:text-gray-200">
+          {type}
+        </span>
       </div>
       {desc && <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{desc}</div>}
     </div>
@@ -180,50 +198,20 @@ export function TaskPropertiesPanel({
     }
   };
 
-  const handleParameterChange = (paramName: string, value: string, paramType: string) => {
-    // Convert value based on parameter type, but don't add .0 suffix during typing
-    // The .0 suffix for floats is added at YAML serialization time by ensureFloatNotationInYaml
-    const normalizedType = paramType.toLowerCase();
-    let convertedValue: unknown;
-
-    if (normalizedType === 'int' || normalizedType === 'integer') {
-      // For integers, parse to number if valid
-      if (value === '' || value === '-') {
-        convertedValue = value;
-      } else {
-        const intValue = parseInt(value, 10);
-        convertedValue = isNaN(intValue) ? value : intValue;
-      }
-    } else if (normalizedType === 'float' || normalizedType === 'double') {
-      // For floats, parse to number if valid, but keep string representation during typing
-      // to allow partial input like "5." or "-"
-      if (value === '' || value === '-' || value === '.' || value.endsWith('.')) {
-        convertedValue = value;
-      } else {
-        const floatValue = parseFloat(value);
-        convertedValue = isNaN(floatValue) ? value : floatValue;
-      }
-    } else if (normalizedType === 'bool' || normalizedType === 'boolean') {
-      const lower = value.toLowerCase().trim();
-      convertedValue = lower === 'true' || lower === '1';
-    } else if (normalizedType === 'list' || normalizedType === 'dict' || normalizedType === 'dictionary') {
-      // Parse JSON for list/dict types so they serialize as native YAML structures
-      try {
-        const parsed = JSON.parse(value);
-        convertedValue = parsed;
-      } catch {
-        convertedValue = value; // Keep as string while user is still typing
-      }
-    } else {
-      convertedValue = value;
-    }
-
+  const handleParameterChange = (paramName: string, value: string, _paramType: string) => {
+    // Raw text stored as-is; coercion happens once at YAML serialization so partial input ("5.0", "5.", "-") survives.
     onUpdate(taskNode.name, {
       parameters: {
         ...taskNode.parameters,
-        [paramName]: convertedValue,
+        [paramName]: value,
       },
     });
+  };
+
+  const handleParameterClear = (paramName: string) => {
+    if (!taskNode.parameters || !(paramName in taskNode.parameters)) return;
+    const { [paramName]: _removed, ...rest } = taskNode.parameters;
+    onUpdate(taskNode.name, { parameters: rest });
   };
 
   const handleDeviceChange = (deviceName: string, value: DeviceAssignment) => {
@@ -426,19 +414,16 @@ export function TaskPropertiesPanel({
             {taskSpec.input_parameters &&
               Object.keys(taskSpec.input_parameters).length > 0 &&
               (() => {
-                const entries = Object.entries(taskSpec.input_parameters);
-                const required = entries.filter(([, spec]) => spec.value === undefined);
-                const optional = entries.filter(([, spec]) => spec.value !== undefined);
-                const renderParam = ([name, spec]: [
-                  string,
-                  typeof taskSpec.input_parameters extends Record<string, infer V> ? V : never,
-                ]) =>
-                  spec.type === 'bool' ? (
+                const structure = iterateInputParameters(taskSpec.input_parameters);
+                const renderParam = (name: string, spec: ParameterSpec) => {
+                  // User override falls back to task.yml default; serializer strips equal-to-default values
+                  const effectiveValue = taskNode.parameters?.[name] ?? spec.value;
+                  return spec.type === 'bool' ? (
                     <BooleanParameterField
                       key={name}
                       name={name}
                       spec={spec}
-                      value={taskNode.parameters?.[name]}
+                      value={effectiveValue}
                       onChange={(value) =>
                         onUpdate(taskNode.name, {
                           parameters: {
@@ -452,27 +437,59 @@ export function TaskPropertiesPanel({
                     <InputField
                       key={name}
                       name={name}
-                      type={spec.type}
+                      spec={spec}
                       value={(() => {
-                        const v = taskNode.parameters?.[name];
-                        if (v == null) return '';
-                        if (typeof v === 'object') return JSON.stringify(v);
-                        return String(v);
+                        if (effectiveValue == null) return '';
+                        if (typeof effectiveValue === 'object') return JSON.stringify(effectiveValue);
+                        return String(effectiveValue);
                       })()}
                       placeholder={spec.desc ?? ''}
                       onChange={(value) => handleParameterChange(name, value, spec.type)}
+                      onBlur={() => {
+                        const v = taskNode.parameters?.[name];
+                        const isEmpty = v === undefined || v === null || v === '';
+                        if (isEmpty) handleParameterClear(name);
+                      }}
                     />
                   );
+                };
+
+                // Required/optional split applies only to top-level leaves. Group children keep author order.
+                const topLevel = structure.filter((item) => item.kind === 'param') as Array<{
+                  kind: 'param';
+                  name: string;
+                  spec: ParameterSpec;
+                }>;
+                const groups = structure.filter((item) => item.kind === 'group') as Array<{
+                  kind: 'group';
+                  name: string;
+                  params: Record<string, ParameterSpec>;
+                }>;
+                const topRequired = topLevel.filter(({ spec }) => spec.value === undefined);
+                const topOptional = topLevel.filter(({ spec }) => spec.value !== undefined);
 
                 return (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Input Parameters</h3>
-                    <div className="space-y-2.5">
-                      {required.map(renderParam)}
-                      {optional.length > 0 && required.length > 0 && (
+                    <div className="space-y-4">
+                      {topRequired.map(({ name, spec }) => renderParam(name, spec))}
+                      {topOptional.length > 0 && topRequired.length > 0 && (
                         <div className="text-xs text-gray-400 dark:text-gray-500 pt-1">Optional</div>
                       )}
-                      {optional.map(renderParam)}
+                      {topOptional.map(({ name, spec }) => renderParam(name, spec))}
+                      {groups.map((group) => (
+                        <div key={`group-${group.name}`} className="space-y-2 pt-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wide text-black dark:text-white whitespace-nowrap">
+                              {group.name}
+                            </span>
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-slate-700" />
+                          </div>
+                          <div className="space-y-4">
+                            {Object.entries(group.params).map(([name, spec]) => renderParam(name, spec))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );

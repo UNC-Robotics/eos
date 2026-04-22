@@ -109,9 +109,18 @@ export function Combobox({
             className
           )}
         >
-          <span className={cn('truncate', !displayLabel && 'text-gray-400 dark:text-gray-500')}>
-            {displayLabel || placeholder}
-          </span>
+          {selectedOption?.group ? (
+            <span className="flex flex-col min-w-0 leading-tight items-start">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate max-w-full">
+                {selectedOption.group}
+              </span>
+              <span className="truncate max-w-full">{selectedOption.label}</span>
+            </span>
+          ) : (
+            <span className={cn('truncate', !displayLabel && 'text-gray-400 dark:text-gray-500')}>
+              {displayLabel || placeholder}
+            </span>
+          )}
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
       </Popover.Trigger>
