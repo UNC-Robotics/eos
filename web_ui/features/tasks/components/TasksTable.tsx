@@ -7,7 +7,6 @@ import { DataTable, DataTableColumnDef } from '@/components/data-table/DataTable
 import { Button } from '@/components/ui/Button';
 import { RefreshControl } from '@/components/ui/RefreshControl';
 import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
-import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import type { Task } from '@/lib/types/api';
 import type { PaginatedResult } from '@/lib/db/queries';
 import { cancelTask, getTasks } from '@/features/tasks/api/tasks';
@@ -20,7 +19,8 @@ import { TaskOutputFiles } from '@/features/files/components/TaskOutputFiles';
 import type { TaskSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
-import { DetailField } from '@/features/protocol-runs/components/shared';
+import { ConditionalJsonSection, DetailField, TimelineSection } from '@/features/protocol-runs/components/shared';
+import { SECTION_DIVIDER } from '@/features/protocol-runs/styles';
 
 const TASK_COLUMN_ID_MAP: Record<string, string> = {
   protocol_run_name: 'protocolRunName',
@@ -200,7 +200,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
 
   return (
     <div className="flex gap-4">
-      <div className={`space-y-4 ${detailPanelOpen ? 'flex-1' : 'w-full'}`}>
+      <div className={`space-y-4 ${detailPanelOpen ? 'flex-1 min-w-0' : 'w-full'}`}>
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Tasks</h1>
@@ -247,22 +247,15 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
       </div>
 
       {detailPanelOpen && selectedTask && (
-        <div className="w-96 min-w-0 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden self-start">
-
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6 min-w-0">
+        <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
+          <div className="flex items-start justify-between mb-6 gap-2">
             <div className="min-w-0">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
-                {selectedTask.name}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Task Details
-              </p>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">{selectedTask.name}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Task Details</p>
             </div>
-
             <button
               onClick={() => setDetailPanelOpen(false)}
-              className="rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400 flex-shrink-0"
+              className="flex-shrink-0 rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
@@ -270,104 +263,41 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
           </div>
 
           <div className="space-y-6">
-
-            {/* Basic Info */}
             <div className="space-y-3">
-
               <DetailField label="Type" value={selectedTask.type} />
-
               <DetailField
                 label="Status"
-                value={
-                  <Badge variant={getStatusBadgeVariant(selectedTask.status)}>
-                    {selectedTask.status}
-                  </Badge>
-                }
+                value={<Badge variant={getStatusBadgeVariant(selectedTask.status)}>{selectedTask.status}</Badge>}
               />
-
               {selectedTask.status === 'FAILED' && selectedTask.error_message && (
                 <ErrorBox error={selectedTask.error_message} />
               )}
-
               {selectedTask.protocol_run_name && (
-                <DetailField
-                  label="Protocol Run"
-                  value={
-                    <span className="break-all">
-                      {selectedTask.protocol_run_name}
-                    </span>
-                  }
-                />
+                <DetailField label="Protocol Run" value={selectedTask.protocol_run_name} />
               )}
-
               <DetailField label="Priority" value={selectedTask.priority} />
+              <DetailField label="Allocation Timeout" value={`${selectedTask.allocation_timeout}s`} />
+            </div>
 
-              <DetailField
-                label="Allocation Timeout"
-                value={`${selectedTask.allocation_timeout}s`}
+            <div className={SECTION_DIVIDER}>
+              <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">Timeline</div>
+              <TimelineSection
+                entries={[
+                  { label: 'Created', timestamp: selectedTask.created_at ?? null },
+                  { label: 'Started', timestamp: selectedTask.start_time ?? null },
+                  { label: 'Ended', timestamp: selectedTask.end_time ?? null },
+                ]}
               />
             </div>
 
-            {/* Timeline */}
-            <div className="border-t border-gray-200 dark:border-slate-700 pt-4 space-y-2">
-
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                Timeline
-              </div>
-
-              <DetailField
-                label="Created"
-                value={new Date(selectedTask.created_at).toLocaleString()}
-              />
-
-              {selectedTask.start_time && (
-                <DetailField
-                  label="Started"
-                  value={new Date(selectedTask.start_time).toLocaleString()}
-                />
-              )}
-
-              {selectedTask.end_time && (
-                <DetailField
-                  label="Ended"
-                  value={new Date(selectedTask.end_time).toLocaleString()}
-                />
-              )}
-            </div>
-
-            {/* JSON sections */}
-            {selectedTask.devices && Object.keys(selectedTask.devices).length > 0 && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <JsonDisplay data={selectedTask.devices} label="Devices" />
-              </div>
-            )}
-
-            {selectedTask.input_parameters && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <JsonDisplay data={selectedTask.input_parameters} label="Input Parameters" />
-              </div>
-            )}
-
-            {selectedTask.input_resources && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <JsonDisplay data={selectedTask.input_resources} label="Input Resources" />
-              </div>
-            )}
-
-            {selectedTask.output_parameters && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <JsonDisplay data={selectedTask.output_parameters} label="Output Parameters" />
-              </div>
-            )}
-
-            {selectedTask.output_resources && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <JsonDisplay data={selectedTask.output_resources} label="Output Resources" />
-              </div>
-            )}
+            <ConditionalJsonSection data={selectedTask.devices} label="Devices" />
+            <ConditionalJsonSection data={selectedTask.input_parameters} label="Input Parameters" />
+            <ConditionalJsonSection data={selectedTask.input_resources} label="Input Resources" />
+            <ConditionalJsonSection data={selectedTask.output_parameters} label="Output Parameters" />
+            <ConditionalJsonSection data={selectedTask.output_resources} label="Output Resources" />
 
             {selectedTask.output_file_names && selectedTask.output_file_names.length > 0 && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
+              <div className={SECTION_DIVIDER}>
                 <TaskOutputFiles
                   fileNames={selectedTask.output_file_names}
                   protocolRunName={selectedTask.protocol_run_name ?? null}
@@ -376,12 +306,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
               </div>
             )}
 
-            {selectedTask.meta && Object.keys(selectedTask.meta).length > 0 && (
-              <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-                <JsonDisplay data={selectedTask.meta} label="Metadata" />
-              </div>
-            )}
-
+            <ConditionalJsonSection data={selectedTask.meta} label="Metadata" />
           </div>
         </div>
       )}

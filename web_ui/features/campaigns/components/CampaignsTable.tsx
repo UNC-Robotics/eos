@@ -8,7 +8,6 @@ import { DataTable, DataTableColumnDef } from '@/components/data-table/DataTable
 import { Button } from '@/components/ui/Button';
 import { RefreshControl } from '@/components/ui/RefreshControl';
 import { Badge, getStatusBadgeVariant } from '@/components/ui/Badge';
-import { JsonDisplay } from '@/components/ui/JsonDisplay';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import type { Campaign } from '@/lib/types/api';
 import type { PaginatedResult } from '@/lib/db/queries';
@@ -20,25 +19,10 @@ import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitCampaignDialog } from './SubmitCampaignDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
-import { DetailField } from '@/features/protocol-runs/components/shared';
+import { ConditionalJsonSection, DetailField, TimelineSection } from '@/features/protocol-runs/components/shared';
+import { SECTION_DIVIDER } from '@/features/protocol-runs/styles';
 
-// Detail panel style constants
-const STYLES = {
-  label: 'text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide',
-  value: 'mt-1 text-sm text-gray-900 dark:text-gray-100',
-  textMuted: 'text-gray-500 dark:text-gray-400',
-  textNormal: 'text-gray-900 dark:text-gray-100',
-  section: 'border-t border-gray-200 dark:border-slate-700 pt-4',
-  sectionTitle: 'text-sm font-medium text-gray-900 dark:text-white',
-} as const;
-
-// Helper to check if data should be displayed
-const hasData = (data: unknown): boolean => {
-  if (!data) return false;
-  if (Array.isArray(data)) return data.length > 0;
-  if (typeof data === 'object') return Object.keys(data).length > 0;
-  return true;
-};
+const SECTION_TITLE = 'text-sm font-medium text-gray-900 dark:text-white';
 
 const CAMPAIGN_COLUMN_ID_MAP: Record<string, string> = {
   protocol: 'protocol',
@@ -243,7 +227,7 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
 
   return (
     <div className="flex gap-4">
-      <div className={`space-y-4 ${detailPanelOpen ? 'flex-1' : 'w-full'}`}>
+      <div className={`space-y-4 ${detailPanelOpen ? 'flex-1 min-w-0' : 'w-full'}`}>
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Campaigns</h1>
@@ -289,23 +273,18 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
         />
       </div>
 
-            {detailPanelOpen && selectedCampaign && (
+      {detailPanelOpen && selectedCampaign && (
         <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
-
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6">
+          <div className="flex items-start justify-between mb-6 gap-2">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
                 {selectedCampaign.name}
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Campaign Details
-              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Campaign Details</p>
             </div>
-
             <button
               onClick={() => setDetailPanelOpen(false)}
-              className="rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
+              className="flex-shrink-0 rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
@@ -313,57 +292,39 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
           </div>
 
           <div className="space-y-6">
-
-            {/* Basic Info */}
             <div className="space-y-3">
               <DetailField label="Protocol" value={selectedCampaign.protocol} />
-
               <DetailField
                 label="Status"
                 value={
-                  <Badge variant={getStatusBadgeVariant(selectedCampaign.status)}>
-                    {selectedCampaign.status}
-                  </Badge>
+                  <Badge variant={getStatusBadgeVariant(selectedCampaign.status)}>{selectedCampaign.status}</Badge>
                 }
               />
-
               {selectedCampaign.status === 'FAILED' && selectedCampaign.error_message && (
                 <ErrorBox error={selectedCampaign.error_message} />
               )}
-
               <DetailField label="Owner" value={selectedCampaign.owner} />
-
               <DetailField label="Priority" value={selectedCampaign.priority} />
             </div>
 
-            {/* Progress */}
-            <div className={STYLES.section}>
-              <div className={`${STYLES.sectionTitle} mb-3`}>Progress</div>
-
+            <div className={SECTION_DIVIDER}>
+              <div className={`${SECTION_TITLE} mb-3`}>Progress</div>
               <div className="space-y-2">
+                <DetailField inline label="Completed" value={selectedCampaign.protocol_runs_completed} />
                 <DetailField
-                  label="Completed"
-                  value={selectedCampaign.protocol_runs_completed}
-                />
-
-                <DetailField
+                  inline
                   label="Max Protocol Runs"
                   value={selectedCampaign.max_protocol_runs === 0 ? '∞' : selectedCampaign.max_protocol_runs}
                 />
-
-                <DetailField
-                  label="Max Concurrent"
-                  value={selectedCampaign.max_concurrent_protocol_runs}
-                />
+                <DetailField inline label="Max Concurrent" value={selectedCampaign.max_concurrent_protocol_runs} />
               </div>
             </div>
 
-            {/* Optimization */}
-            <div className={STYLES.section}>
-              <div className={`${STYLES.sectionTitle} mb-3`}>Optimization</div>
-
+            <div className={SECTION_DIVIDER}>
+              <div className={`${SECTION_TITLE} mb-3`}>Optimization</div>
               <div className="space-y-2">
                 <DetailField
+                  inline
                   label="Enabled"
                   value={
                     <Badge variant={selectedCampaign.optimize ? 'info' : 'default'}>
@@ -371,70 +332,31 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
                     </Badge>
                   }
                 />
-
                 {selectedCampaign.optimize && (
                   <DetailField
+                    inline
                     label="Optimizer IP"
-                    value={
-                      <span className="font-mono text-xs break-all">
-                        {selectedCampaign.optimizer_ip}
-                      </span>
-                    }
+                    value={<span className="font-mono text-xs break-all">{selectedCampaign.optimizer_ip}</span>}
                   />
                 )}
               </div>
             </div>
 
-            {/* Timestamps */}
-            <div className={STYLES.section}>
-              <div className={STYLES.sectionTitle}>Timeline</div>
-
-              <div className="space-y-2">
-                <DetailField
-                  label="Created"
-                  value={new Date(selectedCampaign.created_at).toLocaleString()}
-                />
-
-                {selectedCampaign.start_time && (
-                  <DetailField
-                    label="Started"
-                    value={new Date(selectedCampaign.start_time).toLocaleString()}
-                  />
-                )}
-
-                {selectedCampaign.end_time && (
-                  <DetailField
-                    label="Ended"
-                    value={new Date(selectedCampaign.end_time).toLocaleString()}
-                  />
-                )}
-              </div>
+            <div className={SECTION_DIVIDER}>
+              <div className={`${SECTION_TITLE} mb-2`}>Timeline</div>
+              <TimelineSection
+                entries={[
+                  { label: 'Created', timestamp: selectedCampaign.created_at ?? null },
+                  { label: 'Started', timestamp: selectedCampaign.start_time ?? null },
+                  { label: 'Ended', timestamp: selectedCampaign.end_time ?? null },
+                ]}
+              />
             </div>
 
-            {/* JSON sections unchanged */}
-            {hasData(selectedCampaign.global_parameters) && (
-              <div className={STYLES.section}>
-                <JsonDisplay data={selectedCampaign.global_parameters} label="Global Parameters" />
-              </div>
-            )}
-
-            {hasData(selectedCampaign.protocol_run_parameters) && (
-              <div className={STYLES.section}>
-                <JsonDisplay data={selectedCampaign.protocol_run_parameters} label="Protocol Run Parameters" />
-              </div>
-            )}
-
-            {hasData(selectedCampaign.pareto_solutions) && (
-              <div className={STYLES.section}>
-                <JsonDisplay data={selectedCampaign.pareto_solutions} label="Pareto Solutions" />
-              </div>
-            )}
-
-            {hasData(selectedCampaign.meta) && (
-              <div className={STYLES.section}>
-                <JsonDisplay data={selectedCampaign.meta} label="Metadata" />
-              </div>
-            )}
+            <ConditionalJsonSection data={selectedCampaign.global_parameters} label="Global Parameters" />
+            <ConditionalJsonSection data={selectedCampaign.protocol_run_parameters} label="Protocol Run Parameters" />
+            <ConditionalJsonSection data={selectedCampaign.pareto_solutions} label="Pareto Solutions" />
+            <ConditionalJsonSection data={selectedCampaign.meta} label="Metadata" />
           </div>
         </div>
       )}
