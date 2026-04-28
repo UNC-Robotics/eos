@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eraser, ChevronDown, ChevronRight, Upload, Info, Loader2 } from 'lucide-react';
+import { Eraser, ChevronDown, ChevronRight, Upload, Download, Info, Loader2 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { BaseSubmitDialog } from '@/components/dialogs/BaseSubmitDialog';
 import { Input } from '@/components/ui/Input';
@@ -29,7 +29,7 @@ import {
 import { iterateInputParameters } from '@/lib/utils/paramGroups';
 import type { Campaign, CampaignDefinition, OptimizerDefaults } from '@/lib/types/api';
 import type { TaskSpec, ParameterSpec, ParameterValue } from '@/lib/types/protocol';
-import type { ProtocolSpec } from '@/lib/api/specs';
+import type { ProtocolSpec, ProtocolTaskConfig } from '@/lib/api/specs';
 
 const campaignFormSchema = z.object({
   name: z.string().min(1, 'Campaign name is required'),
@@ -208,6 +208,45 @@ function GlobalParametersSection({
         </>
       )}
     </div>
+  );
+}
+
+function DownloadCsvTemplateButton({ protocolSpec }: { protocolSpec: ProtocolSpec | null }) {
+  const downloadCsvTemplate = () => {
+    if (protocolSpec === null) return
+    const headers = (protocolSpec.tasks ?? []).flatMap((task: ProtocolTaskConfig) =>
+      Object.entries(task.parameters ?? {})
+        .filter(([, value]) => value === "eos_dynamic")
+        .map(([parameterName]) => `${task.name}.${parameterName}`)
+    );
+
+    const uniqueHeaders = [...new Set(headers)];
+    const csvContent = uniqueHeaders.join(",") + "\n";
+
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = protocolSpec?.type + "_template.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  if (!protocolSpec || protocolSpec.tasks.length === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => downloadCsvTemplate()}
+      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+    >
+      <Download className="w-3.5 h-3.5" />
+      Download CSV Template
+    </button>
   );
 }
 
@@ -655,6 +694,7 @@ export function SubmitCampaignDialog({
               </Tooltip.Portal>
             </Tooltip.Root>
             <div className="flex-1" />
+            <DownloadCsvTemplateButton protocolSpec={selectedProtocolSpec} />
             <button
               type="button"
               onClick={() => paramFileInputRef.current?.click()}
