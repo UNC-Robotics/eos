@@ -20,6 +20,7 @@ import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitCampaignDialog } from './SubmitCampaignDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
+import { DetailField } from '@/features/protocol-runs/components/shared';
 
 // Detail panel style constants
 const STYLES = {
@@ -288,15 +289,20 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
         />
       </div>
 
-      {detailPanelOpen && selectedCampaign && (
-        <div className="w-full max-w-[350px] border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
+            {detailPanelOpen && selectedCampaign && (
+        <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
+
+          {/* Header */}
           <div className="flex items-start justify-between mb-6">
-            <div className="max-w-full">
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
                 {selectedCampaign.name}
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Campaign Details</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Campaign Details
+              </p>
             </div>
+
             <button
               onClick={() => setDetailPanelOpen(false)}
               className="rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
@@ -307,122 +313,123 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
           </div>
 
           <div className="space-y-6">
+
             {/* Basic Info */}
             <div className="space-y-3">
-              <div>
-                <div className={STYLES.label}>Protocol</div>
-                <div className={STYLES.value}>{selectedCampaign.protocol}</div>
-              </div>
+              <DetailField label="Protocol" value={selectedCampaign.protocol} />
 
-              <div>
-                <div className={STYLES.label}>Status</div>
-                <div className="mt-1">
-                  <Badge variant={getStatusBadgeVariant(selectedCampaign.status)}>{selectedCampaign.status}</Badge>
-                </div>
-              </div>
+              <DetailField
+                label="Status"
+                value={
+                  <Badge variant={getStatusBadgeVariant(selectedCampaign.status)}>
+                    {selectedCampaign.status}
+                  </Badge>
+                }
+              />
 
               {selectedCampaign.status === 'FAILED' && selectedCampaign.error_message && (
                 <ErrorBox error={selectedCampaign.error_message} />
               )}
 
-              <div>
-                <div className={STYLES.label}>Owner</div>
-                <div className={STYLES.value}>{selectedCampaign.owner}</div>
-              </div>
+              <DetailField label="Owner" value={selectedCampaign.owner} />
 
-              <div>
-                <div className={STYLES.label}>Priority</div>
-                <div className={STYLES.value}>{selectedCampaign.priority}</div>
-              </div>
+              <DetailField label="Priority" value={selectedCampaign.priority} />
             </div>
 
             {/* Progress */}
             <div className={STYLES.section}>
               <div className={`${STYLES.sectionTitle} mb-3`}>Progress</div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className={STYLES.textMuted}>Completed:</span>
-                  <span className={`${STYLES.textNormal} font-medium`}>{selectedCampaign.protocol_runs_completed}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={STYLES.textMuted}>Max Protocol Runs:</span>
-                  <span className={`${STYLES.textNormal} font-medium`}>
-                    {selectedCampaign.max_protocol_runs === 0 ? '∞' : selectedCampaign.max_protocol_runs}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={STYLES.textMuted}>Max Concurrent:</span>
-                  <span className={`${STYLES.textNormal} font-medium`}>
-                    {selectedCampaign.max_concurrent_protocol_runs}
-                  </span>
-                </div>
+
+              <div className="space-y-2">
+                <DetailField
+                  label="Completed"
+                  value={selectedCampaign.protocol_runs_completed}
+                />
+
+                <DetailField
+                  label="Max Protocol Runs"
+                  value={selectedCampaign.max_protocol_runs === 0 ? '∞' : selectedCampaign.max_protocol_runs}
+                />
+
+                <DetailField
+                  label="Max Concurrent"
+                  value={selectedCampaign.max_concurrent_protocol_runs}
+                />
               </div>
             </div>
 
             {/* Optimization */}
             <div className={STYLES.section}>
               <div className={`${STYLES.sectionTitle} mb-3`}>Optimization</div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className={STYLES.textMuted}>Enabled:</span>
-                  <Badge variant={selectedCampaign.optimize ? 'info' : 'default'}>
-                    {selectedCampaign.optimize ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
+
+              <div className="space-y-2">
+                <DetailField
+                  label="Enabled"
+                  value={
+                    <Badge variant={selectedCampaign.optimize ? 'info' : 'default'}>
+                      {selectedCampaign.optimize ? 'Yes' : 'No'}
+                    </Badge>
+                  }
+                />
+
                 {selectedCampaign.optimize && (
-                  <div className="flex justify-between">
-                    <span className={STYLES.textMuted}>Optimizer IP:</span>
-                    <span className={`${STYLES.textNormal} font-mono text-xs`}>{selectedCampaign.optimizer_ip}</span>
-                  </div>
+                  <DetailField
+                    label="Optimizer IP"
+                    value={
+                      <span className="font-mono text-xs break-all">
+                        {selectedCampaign.optimizer_ip}
+                      </span>
+                    }
+                  />
                 )}
               </div>
             </div>
 
             {/* Timestamps */}
-            <div className={`${STYLES.section} space-y-2`}>
+            <div className={STYLES.section}>
               <div className={STYLES.sectionTitle}>Timeline</div>
-              <div className="space-y-1 text-xs">
-                <div>
-                  <span className={STYLES.textMuted}>Created:</span>{' '}
-                  <span className={STYLES.textNormal}>{new Date(selectedCampaign.created_at).toLocaleString()}</span>
-                </div>
+
+              <div className="space-y-2">
+                <DetailField
+                  label="Created"
+                  value={new Date(selectedCampaign.created_at).toLocaleString()}
+                />
+
                 {selectedCampaign.start_time && (
-                  <div>
-                    <span className={STYLES.textMuted}>Started:</span>{' '}
-                    <span className={STYLES.textNormal}>{new Date(selectedCampaign.start_time).toLocaleString()}</span>
-                  </div>
+                  <DetailField
+                    label="Started"
+                    value={new Date(selectedCampaign.start_time).toLocaleString()}
+                  />
                 )}
+
                 {selectedCampaign.end_time && (
-                  <div>
-                    <span className={STYLES.textMuted}>Ended:</span>{' '}
-                    <span className={STYLES.textNormal}>{new Date(selectedCampaign.end_time).toLocaleString()}</span>
-                  </div>
+                  <DetailField
+                    label="Ended"
+                    value={new Date(selectedCampaign.end_time).toLocaleString()}
+                  />
                 )}
               </div>
             </div>
 
-            {/* Global Parameters */}
+            {/* JSON sections unchanged */}
             {hasData(selectedCampaign.global_parameters) && (
               <div className={STYLES.section}>
                 <JsonDisplay data={selectedCampaign.global_parameters} label="Global Parameters" />
               </div>
             )}
 
-            {/* Protocol Run Parameters */}
             {hasData(selectedCampaign.protocol_run_parameters) && (
               <div className={STYLES.section}>
                 <JsonDisplay data={selectedCampaign.protocol_run_parameters} label="Protocol Run Parameters" />
               </div>
             )}
 
-            {/* Pareto Solutions */}
             {hasData(selectedCampaign.pareto_solutions) && (
               <div className={STYLES.section}>
                 <JsonDisplay data={selectedCampaign.pareto_solutions} label="Pareto Solutions" />
               </div>
             )}
 
-            {/* Metadata */}
             {hasData(selectedCampaign.meta) && (
               <div className={STYLES.section}>
                 <JsonDisplay data={selectedCampaign.meta} label="Metadata" />
