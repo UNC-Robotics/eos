@@ -289,10 +289,12 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
       </div>
 
       {detailPanelOpen && selectedCampaign && (
-        <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
+        <div className="w-full max-w-[350px] border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
           <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedCampaign.name}</h2>
+            <div className="max-w-full">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
+                {selectedCampaign.name}
+              </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">Campaign Details</p>
             </div>
             <button
