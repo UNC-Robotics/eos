@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.25.0
+
+- Fixed SiLA2 and Ray protobuf incompatibility by forcig SiLA2 to use upb protobuf
+- Fixed overly long column fields in ui data tables from breaking formatting (@dirkzon)
+- Added CSV template download for protocol run parameters (@dirkzon)
+
 ## 0.24.0
 
 - Added task parameter groups. Task parameters can now be grouped in YAML under parents up to 1 level deep, and groups are rendered in UI

@@ -8,6 +8,11 @@ from importlib import util as importlib_util
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
+# Apply the sila2/upb compat shim before any user plugin module is loaded, so
+# `from sila2.client import SilaClient` at device.py top-level works alongside
+# Ray's upb protobuf. No-op when sila2 isn't installed.
+from eos.integrations.sila import _upb_compat  # noqa: F401
+
 from eos.configuration.constants import (
     CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME,
     CAMPAIGN_OPTIMIZER_FILE_NAME,
