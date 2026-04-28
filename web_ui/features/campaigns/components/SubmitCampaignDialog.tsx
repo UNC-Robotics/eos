@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Eraser, ChevronDown, ChevronRight, Upload, Info, Loader2 } from 'lucide-react';
+import { Eraser, ChevronDown, ChevronRight, Upload, Download, Info, Loader2 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { BaseSubmitDialog } from '@/components/dialogs/BaseSubmitDialog';
 import { Input } from '@/components/ui/Input';
@@ -495,6 +495,29 @@ export function SubmitCampaignDialog({
     }
   };
 
+  const dynamicParamHeaders = React.useMemo(() => {
+    if (!selectedProtocolSpec) return [];
+    return selectedProtocolSpec.tasks.flatMap((task) =>
+      Object.entries(task.parameters ?? {})
+        .filter(([, value]) => value === 'eos_dynamic')
+        .map(([paramName]) => `${task.name}.${paramName}`)
+    );
+  }, [selectedProtocolSpec]);
+
+  const downloadCsvTemplate = () => {
+    if (!selectedProtocolSpec) return;
+    const csvContent = dynamicParamHeaders.join(',') + '\n';
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedProtocolSpec.type}_template.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Tooltip.Provider delayDuration={300}>
       <BaseSubmitDialog
@@ -655,6 +678,16 @@ export function SubmitCampaignDialog({
               </Tooltip.Portal>
             </Tooltip.Root>
             <div className="flex-1" />
+            {dynamicParamHeaders.length > 0 && (
+              <button
+                type="button"
+                onClick={downloadCsvTemplate}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Download CSV Template
+              </button>
+            )}
             <button
               type="button"
               onClick={() => paramFileInputRef.current?.click()}
