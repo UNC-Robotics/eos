@@ -20,6 +20,7 @@ import { TaskOutputFiles } from '@/features/files/components/TaskOutputFiles';
 import type { TaskSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
+import { DetailField } from '@/features/protocol-runs/components/shared';
 
 const TASK_COLUMN_ID_MAP: Record<string, string> = {
   protocol_run_name: 'protocolRunName',
@@ -246,15 +247,22 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
       </div>
 
       {detailPanelOpen && selectedTask && (
-        <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedTask.name}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Task Details</p>
+        <div className="w-96 min-w-0 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden self-start">
+
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6 min-w-0">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
+                {selectedTask.name}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Task Details
+              </p>
             </div>
+
             <button
               onClick={() => setDetailPanelOpen(false)}
-              className="rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
+              className="rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400 flex-shrink-0"
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
@@ -262,115 +270,102 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
           </div>
 
           <div className="space-y-6">
+
             {/* Basic Info */}
             <div className="space-y-3">
-              <div>
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Type</div>
-                <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedTask.type}</div>
-              </div>
 
-              <div>
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Status
-                </div>
-                <div className="mt-1">
-                  <Badge variant={getStatusBadgeVariant(selectedTask.status)}>{selectedTask.status}</Badge>
-                </div>
-              </div>
+              <DetailField label="Type" value={selectedTask.type} />
+
+              <DetailField
+                label="Status"
+                value={
+                  <Badge variant={getStatusBadgeVariant(selectedTask.status)}>
+                    {selectedTask.status}
+                  </Badge>
+                }
+              />
 
               {selectedTask.status === 'FAILED' && selectedTask.error_message && (
                 <ErrorBox error={selectedTask.error_message} />
               )}
 
               {selectedTask.protocol_run_name && (
-                <div>
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Protocol Run
-                  </div>
-                  <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedTask.protocol_run_name}</div>
-                </div>
+                <DetailField
+                  label="Protocol Run"
+                  value={
+                    <span className="break-all">
+                      {selectedTask.protocol_run_name}
+                    </span>
+                  }
+                />
               )}
 
-              <div>
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Priority
-                </div>
-                <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedTask.priority}</div>
-              </div>
+              <DetailField label="Priority" value={selectedTask.priority} />
 
-              <div>
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Allocation Timeout
-                </div>
-                <div className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedTask.allocation_timeout}s</div>
-              </div>
+              <DetailField
+                label="Allocation Timeout"
+                value={`${selectedTask.allocation_timeout}s`}
+              />
             </div>
 
-            {/* Timestamps */}
+            {/* Timeline */}
             <div className="border-t border-gray-200 dark:border-slate-700 pt-4 space-y-2">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">Timeline</div>
-              <div className="space-y-1 text-xs">
-                <div>
-                  <span className="text-gray-500 dark:text-gray-400">Created:</span>{' '}
-                  <span className="text-gray-900 dark:text-gray-100">
-                    {new Date(selectedTask.created_at).toLocaleString()}
-                  </span>
-                </div>
-                {selectedTask.start_time && (
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">Started:</span>{' '}
-                    <span className="text-gray-900 dark:text-gray-100">
-                      {new Date(selectedTask.start_time).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                {selectedTask.end_time && (
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400">Ended:</span>{' '}
-                    <span className="text-gray-900 dark:text-gray-100">
-                      {new Date(selectedTask.end_time).toLocaleString()}
-                    </span>
-                  </div>
-                )}
+
+              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                Timeline
               </div>
+
+              <DetailField
+                label="Created"
+                value={new Date(selectedTask.created_at).toLocaleString()}
+              />
+
+              {selectedTask.start_time && (
+                <DetailField
+                  label="Started"
+                  value={new Date(selectedTask.start_time).toLocaleString()}
+                />
+              )}
+
+              {selectedTask.end_time && (
+                <DetailField
+                  label="Ended"
+                  value={new Date(selectedTask.end_time).toLocaleString()}
+                />
+              )}
             </div>
 
-            {/* Devices */}
+            {/* JSON sections */}
             {selectedTask.devices && Object.keys(selectedTask.devices).length > 0 && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <JsonDisplay data={selectedTask.devices} label="Devices" />
               </div>
             )}
 
-            {/* Input Parameters */}
             {selectedTask.input_parameters && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <JsonDisplay data={selectedTask.input_parameters} label="Input Parameters" />
               </div>
             )}
 
-            {/* Input Resources */}
             {selectedTask.input_resources && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <JsonDisplay data={selectedTask.input_resources} label="Input Resources" />
               </div>
             )}
 
-            {/* Output Parameters */}
             {selectedTask.output_parameters && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <JsonDisplay data={selectedTask.output_parameters} label="Output Parameters" />
               </div>
             )}
 
-            {/* Output Resources */}
             {selectedTask.output_resources && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <JsonDisplay data={selectedTask.output_resources} label="Output Resources" />
               </div>
             )}
 
-            {/* Output Files */}
             {selectedTask.output_file_names && selectedTask.output_file_names.length > 0 && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <TaskOutputFiles
@@ -381,12 +376,12 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
               </div>
             )}
 
-            {/* Metadata */}
             {selectedTask.meta && Object.keys(selectedTask.meta).length > 0 && (
               <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
                 <JsonDisplay data={selectedTask.meta} label="Metadata" />
               </div>
             )}
+
           </div>
         </div>
       )}
