@@ -230,7 +230,7 @@ export function ProtocolRunsTable({ initialData, protocolSpecs, taskSpecs, labSp
 
   return (
     <div className="flex gap-4">
-      <div className={`space-y-4 ${detailPanelOpen ? 'flex-1' : 'w-full'}`}>
+      <div className={`space-y-4 ${detailPanelOpen ? 'flex-1 min-w-0' : 'w-full'}`}>
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Protocol Runs</h1>
@@ -279,14 +279,16 @@ export function ProtocolRunsTable({ initialData, protocolSpecs, taskSpecs, labSp
 
       {detailPanelOpen && selectedProtocolRun && (
         <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedProtocolRun.name}</h2>
+          <div className="flex items-start justify-between mb-6 gap-2">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
+                {selectedProtocolRun.name}
+              </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">Protocol Run Details</p>
             </div>
             <button
               onClick={() => setDetailPanelOpen(false)}
-              className="rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
+              className="flex-shrink-0 rounded-sm opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 text-gray-900 dark:text-gray-400"
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>

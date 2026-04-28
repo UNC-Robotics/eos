@@ -17,9 +17,13 @@ import {
 import { ChevronDown, Search, Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { cn } from '@/lib/utils';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ColumnFilter } from './ColumnFilters';
 import type { Table, Column } from '@tanstack/react-table';
+
+const TRUNCATED_CELL_CLASS = 'max-w-[200px] truncate';
+const NON_TRUNCATED_COLUMN_IDS = new Set(['select', 'actions']);
 
 // Helper to get a human-readable column name from the header definition
 function getColumnDisplayName<TData>(column: Column<TData, unknown>): string {
@@ -36,6 +40,7 @@ export type DataTableColumnDef<TData, TValue = unknown> = ColumnDef<TData, TValu
   enableColumnFilter?: boolean;
   filterType?: 'text' | 'select' | 'multiselect';
   filterOptions?: string[];
+  truncate?: boolean;
 };
 
 // Component for the select all checkbox header
@@ -447,11 +452,22 @@ export function DataTable<TData, TValue>({
                     }
                   }}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-sm dark:text-gray-300">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const colDef = cell.column.columnDef as DataTableColumnDef<TData, TValue>;
+                    const shouldTruncate = colDef.truncate !== false && !NON_TRUNCATED_COLUMN_IDS.has(cell.column.id);
+                    const rawValue = shouldTruncate ? cell.getValue() : undefined;
+                    const titleText =
+                      typeof rawValue === 'string' || typeof rawValue === 'number' ? String(rawValue) : undefined;
+                    return (
+                      <td
+                        key={cell.id}
+                        title={titleText}
+                        className={cn('px-4 py-3 text-sm dark:text-gray-300', shouldTruncate && TRUNCATED_CELL_CLASS)}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             ) : (
