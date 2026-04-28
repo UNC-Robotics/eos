@@ -278,11 +278,16 @@ export function ProtocolRunsTable({ initialData, protocolSpecs, taskSpecs, labSp
       </div>
 
       {detailPanelOpen && selectedProtocolRun && (
-        <div className="w-96 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto self-start">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{selectedProtocolRun.name}</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Protocol Run Details</p>
+        <div className="w-96 min-w-0 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden self-start">
+
+          <div className="flex items-start justify-between mb-6 min-w-0">
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white break-words">
+                {selectedProtocolRun.name}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Protocol Run Details
+              </p>
             </div>
             <button
               onClick={() => setDetailPanelOpen(false)}
