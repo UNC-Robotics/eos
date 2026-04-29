@@ -99,3 +99,108 @@ class TestBaseDevice:
         with pytest.raises(EosDeviceInitializationError):
             await mock_device.initialize({})
         assert mock_device.status == DeviceStatus.IDLE
+
+
+class _MixinForTest:
+    """Stand-in for an integration mixin (e.g. SilaDeviceMixin); not a BaseDevice subclass."""
+
+    def mixin_public_method(self, value: int = 0) -> int:
+        return value
+
+    def _mixin_private(self) -> None:
+        pass
+
+
+class _DeviceBaseForTest(BaseDevice):
+    """Intermediate device base class. Its public methods should still be exposed."""
+
+    async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+        pass
+
+    async def _cleanup(self) -> None:
+        pass
+
+    async def _report(self) -> dict[str, Any]:
+        return {}
+
+    def base_public_method(self) -> str:
+        return "base"
+
+
+class _UserDevice(_DeviceBaseForTest, _MixinForTest):
+    """Concrete user device combining a BaseDevice subclass with a non-BaseDevice mixin."""
+
+    def user_public_method(self, name: str, count: int = 1) -> bool:
+        """User-defined method docstring."""
+        return True
+
+    async def user_async_method(self) -> None:
+        pass
+
+    def _user_private(self) -> None:
+        pass
+
+
+class TestGetAvailableFunctions:
+    @pytest.fixture
+    def device(self):
+        return _UserDevice("test", "lab", "user")
+
+    def test_includes_user_methods(self, device):
+        functions = device.get_available_functions()
+        assert "user_public_method" in functions
+        assert "user_async_method" in functions
+
+    def test_includes_intermediate_base_methods(self, device):
+        functions = device.get_available_functions()
+        assert "base_public_method" in functions
+
+    def test_excludes_private_methods(self, device):
+        functions = device.get_available_functions()
+        for name in ["_user_private", "_mixin_private", "_initialize", "_cleanup", "_report"]:
+            assert name not in functions
+
+    def test_excludes_basedevice_methods(self, device):
+        functions = device.get_available_functions()
+        for name in [
+            "initialize",
+            "cleanup",
+            "report",
+            "enable",
+            "disable",
+            "get_status",
+            "get_name",
+            "get_lab_name",
+            "get_device_type",
+            "get_init_parameters",
+            "get_available_functions",
+        ]:
+            assert name not in functions
+
+    def test_excludes_non_basedevice_mixin_methods(self, device):
+        # The whole point: a mixin that isn't a BaseDevice subclass is hidden,
+        # without BaseDevice having to know about it.
+        assert "mixin_public_method" not in device.get_available_functions()
+
+    def test_metadata_shape(self, device):
+        meta = device.get_available_functions()["user_public_method"]
+        assert meta["name"] == "user_public_method"
+        assert meta["return_type"] == "bool"
+        assert meta["is_async"] is False
+        assert meta["docstring"] == "User-defined method docstring."
+
+        params = {p["name"]: p for p in meta["parameters"]}
+        assert "self" not in params
+        assert params["name"]["type"] == "str"
+        assert params["name"]["required"] is True
+        assert params["count"]["type"] == "int"
+        assert params["count"]["required"] is False
+        assert params["count"]["default"] == "1"
+
+    def test_async_method_flagged(self, device):
+        assert device.get_available_functions()["user_async_method"]["is_async"] is True
+
+    def test_result_is_cached_per_class(self, device):
+        a = device.get_available_functions()
+        b = _UserDevice("other", "lab", "user").get_available_functions()
+        assert a is b
