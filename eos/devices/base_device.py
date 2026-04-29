@@ -9,6 +9,7 @@ from eos.devices.exceptions import (
     EosDeviceInitializationError,
     EosDeviceCleanupError,
 )
+from eos.integrations.sila.sila_device_mixin import SilaDeviceMixin
 
 
 def register_async_exit_callback(async_fn, *args, **kwargs) -> None:
@@ -161,6 +162,16 @@ class BaseDevice(ABC):
         """
         functions = {}
 
+        sila_defined = {
+            name
+            for name, val in SilaDeviceMixin.__dict__.items()
+            if (
+                inspect.isfunction(val)
+                or isinstance(val, (staticmethod, classmethod))
+            )
+            and not name.startswith("_")
+        }
+
         # Get all members of the class
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             # Skip private methods (starting with _) and inherited base methods
@@ -181,6 +192,9 @@ class BaseDevice(ABC):
                 "get_init_parameters",
                 "get_available_functions",
             ]:
+                continue
+
+            if name in sila_defined:
                 continue
 
             try:
