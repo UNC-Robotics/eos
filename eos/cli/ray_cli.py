@@ -7,6 +7,7 @@ ray_app = typer.Typer(help="Manage EOS Ray cluster commands", no_args_is_help=Tr
 
 @ray_app.command()
 def head(
+    dashboard: bool = typer.Option(False, "--dashboard", help="Enable the Ray dashboard"),
     additional_params: list[str] = typer.Argument(None, help="Additional parameters to pass to 'ray start'"),
 ) -> None:
     """
@@ -14,6 +15,8 @@ def head(
     """
 
     cmd = ["ray", "start", "--head", "--resources", '{"eos": 1000}', "--disable-usage-stats"]
+    if not dashboard:
+        cmd.append("--include-dashboard=false")
 
     # Append any additional parameters provided by the user
     if additional_params:
