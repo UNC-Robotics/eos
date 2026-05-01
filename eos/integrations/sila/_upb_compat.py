@@ -51,7 +51,7 @@ if _sila2 is not None:
 
     _original_run_protoc = _utils.run_protoc
 
-    def _run_protoc_stable(proto_file):
+    def _run_protoc_stable(proto_file: str) -> tuple:
         for _an, _am in _aliases.items():
             sys.modules[_an] = _am
         try:

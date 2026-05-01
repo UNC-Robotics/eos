@@ -122,6 +122,9 @@ export function extractHoldsFromRawTasks(tasks: Record<string, unknown>[]): Reco
           if ('ref' in obj) {
             if (obj.hold === true) resourceHolds[slot] = true;
             resources[slot] = obj.ref;
+          } else if ('name' in obj && !('allocation_type' in obj)) {
+            if (obj.hold === true) resourceHolds[slot] = true;
+            resources[slot] = obj.name;
           } else if (obj.hold === true) {
             resourceHolds[slot] = true;
             const { hold: _, ...rest } = obj;

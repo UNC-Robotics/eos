@@ -27,12 +27,13 @@ import {
   filterNonDefaultParameters,
 } from '@/lib/utils/protocolHelpers';
 import { iterateInputParameters } from '@/lib/utils/paramGroups';
+import { IDENTIFIER_PATTERN, IDENTIFIER_ERROR_MESSAGE } from '@/lib/utils/identifier';
 import type { Campaign, CampaignDefinition, OptimizerDefaults } from '@/lib/types/api';
 import type { TaskSpec, ParameterSpec, ParameterValue } from '@/lib/types/protocol';
 import type { ProtocolSpec } from '@/lib/api/specs';
 
 const campaignFormSchema = z.object({
-  name: z.string().min(1, 'Campaign name is required'),
+  name: z.string().min(1, 'Campaign name is required').regex(IDENTIFIER_PATTERN, IDENTIFIER_ERROR_MESSAGE),
   protocol: z.string().min(1, 'Protocol type is required'),
   owner: z.string().min(1, 'Owner is required'),
   priority: z.number().min(0),

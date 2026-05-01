@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.26.0
+
+- Changed EOS identifiers to allow spaces in task names, protocol run names, etc
+- Disable Ray dashboard from running with `eos ray head` by default
+- Fixed SiLA function names from appearing in the device inspector (@dirkzon)
+- Fixed several UI bugs
+
 ## 0.25.0
 
 - Fixed SiLA2 and Ray protobuf incompatibility by forcig SiLA2 to use upb protobuf

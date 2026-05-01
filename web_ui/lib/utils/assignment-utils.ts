@@ -226,6 +226,7 @@ export const serializeDeviceAssignment = (assignment: DeviceAssignment, hold?: b
 
 type SerializedResourceAssignment =
   | string
+  | { name: string; hold: boolean }
   | { ref: string; hold: boolean }
   | { allocation_type: 'dynamic'; resource_type: string; hold?: boolean };
 
@@ -240,6 +241,5 @@ export const serializeResourceAssignment = (
     const base = { allocation_type: 'dynamic' as const, resource_type: assignment.resource_type };
     return hold ? { ...base, hold: true } : base;
   }
-  // Static resource (plain string) — backend has no hold support for static resources
-  return assignment;
+  return hold && typeof assignment === 'string' && assignment !== '' ? { name: assignment, hold: true } : assignment;
 };

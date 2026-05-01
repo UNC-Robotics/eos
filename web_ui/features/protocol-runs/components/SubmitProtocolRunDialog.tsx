@@ -22,12 +22,13 @@ import {
   filterNonDefaultParameters,
 } from '@/lib/utils/protocolHelpers';
 import { iterateInputParameters } from '@/lib/utils/paramGroups';
+import { IDENTIFIER_PATTERN, IDENTIFIER_ERROR_MESSAGE } from '@/lib/utils/identifier';
 import type { ProtocolRunDefinition, ProtocolRun } from '@/lib/types/api';
 import type { TaskSpec, ParameterSpec, ParameterValue } from '@/lib/types/protocol';
 import type { ProtocolSpec, LabSpec } from '@/lib/api/specs';
 
 const protocolRunFormSchema = z.object({
-  name: z.string().min(1, 'ProtocolRun name is required'),
+  name: z.string().min(1, 'ProtocolRun name is required').regex(IDENTIFIER_PATTERN, IDENTIFIER_ERROR_MESSAGE),
   type: z.string().min(1, 'ProtocolRun type is required'),
   owner: z.string().min(1, 'Owner is required'),
   priority: z.number().min(0),

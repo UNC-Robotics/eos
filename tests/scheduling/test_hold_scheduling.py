@@ -117,8 +117,8 @@ class TestSchedulerHold(_HoldTestBase):
 
         run1_tasks = [t for e, t in completed_order if e == "run1"]
         run2_tasks = [t for e, t in completed_order if e == "run2"]
-        assert set(run1_tasks) == {"setup", "process", "cleanup"}
-        assert set(run2_tasks) == {"setup", "process", "cleanup"}
+        assert set(run1_tasks) == {"setup phase", "process", "final cleanup"}
+        assert set(run2_tasks) == {"setup phase", "process", "final cleanup"}
 
         # The hold chain on D2 means one protocol run must complete before the other starts
         run1_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run1"]
@@ -141,8 +141,8 @@ class TestSchedulerHold(_HoldTestBase):
 
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
-            if "setup" in all_tasks.get("run1", {}):
-                await self._complete_task(db, task_manager, "setup", "run1")
+            if "setup phase" in all_tasks.get("run1", {}):
+                await self._complete_task(db, task_manager, "setup phase", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -167,8 +167,8 @@ class TestSchedulerHold(_HoldTestBase):
 
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
-            if "setup" in all_tasks.get("run1", {}):
-                await self._complete_task(db, task_manager, "setup", "run1")
+            if "setup phase" in all_tasks.get("run1", {}):
+                await self._complete_task(db, task_manager, "setup phase", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -191,13 +191,13 @@ class TestSchedulerHold(_HoldTestBase):
         await scheduler.register_protocol_run("run1", HOLD_PROTOCOL, graph)
 
         # Manually set hold on the cleanup task (terminal node)
-        cleanup_task = graph.get_task("cleanup")
+        cleanup_task = graph.get_task("final cleanup")
         cleanup_task.device_holds["held_device"] = True
 
         # Run all tasks to completion
         completed_order = await self._spin_and_complete_all(db, scheduler, task_manager)
 
-        assert {t for _, t in completed_order} == {"setup", "process", "cleanup"}
+        assert {t for _, t in completed_order} == {"setup phase", "process", "final cleanup"}
 
         # D2 should NOT be held after cleanup (no successors)
         d2_owner = scheduler._device_index.get(("abstract_lab", "D2"))
@@ -224,8 +224,8 @@ class TestSchedulerDynamicHold(_HoldTestBase):
 
         run1_tasks = [t for e, t in completed_order if e == "run1"]
         run2_tasks = [t for e, t in completed_order if e == "run2"]
-        assert set(run1_tasks) == {"setup", "process", "cleanup"}
-        assert set(run2_tasks) == {"setup", "process", "cleanup"}
+        assert set(run1_tasks) == {"setup phase", "process", "final cleanup"}
+        assert set(run2_tasks) == {"setup phase", "process", "final cleanup"}
 
         run1_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run1"]
         run2_indices = [i for i, (e, _) in enumerate(completed_order) if e == "run2"]
@@ -247,8 +247,8 @@ class TestSchedulerDynamicHold(_HoldTestBase):
 
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
-            if "setup" in all_tasks.get("run1", {}):
-                await self._complete_task(db, task_manager, "setup", "run1")
+            if "setup phase" in all_tasks.get("run1", {}):
+                await self._complete_task(db, task_manager, "setup phase", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)

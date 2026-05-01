@@ -16,7 +16,7 @@ from typing import Self
 from eos.configuration.utils import is_dynamic_parameter
 
 
-ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_.]*$")]
+ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_]+(?: [a-zA-Z0-9_]+)*$")]
 
 
 class TaskParameterType(StrEnum):

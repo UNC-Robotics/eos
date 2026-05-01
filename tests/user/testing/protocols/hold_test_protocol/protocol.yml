@@ -5,7 +5,7 @@ labs:
   - abstract_lab
 
 tasks:
-  - name: setup
+  - name: setup phase
     type: Noop
     devices:
       shared_device:
@@ -18,13 +18,13 @@ tasks:
 
   - name: process
     type: Noop
-    dependencies: [setup]
+    dependencies: [setup phase]
     devices:
       held_device:
-        ref: setup.held_device
+        ref: setup phase.held_device
         hold: true
 
-  - name: cleanup
+  - name: final cleanup
     type: Noop
     dependencies: [process]
     devices:
@@ -32,4 +32,4 @@ tasks:
         lab_name: abstract_lab
         name: D1
       held_device:
-        ref: setup.held_device
+        ref: setup phase.held_device

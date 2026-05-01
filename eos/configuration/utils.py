@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_]+(?: [a-zA-Z0-9_]+)*$")
 
 
 def _is_dot_reference(value: Any) -> bool:

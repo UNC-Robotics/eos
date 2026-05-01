@@ -77,8 +77,8 @@ export function ResourceAssignment({
 
   return (
     <div className="border border-gray-200 dark:border-slate-600 rounded-md px-3 py-2 space-y-1.5 bg-white dark:bg-slate-800">
-      <div className="flex items-center justify-between gap-2">
-        <label className="shrink-0 text-sm font-medium text-gray-700 dark:text-white whitespace-nowrap">
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <label className="shrink min-w-0 text-sm font-medium text-gray-700 dark:text-white truncate">
           {resourceName} <span className="text-xs text-gray-400 dark:text-gray-500">({resourceSpec.type})</span>
           {resourceSpec.desc && <DescriptionTooltip description={resourceSpec.desc} />}
         </label>
@@ -86,7 +86,7 @@ export function ResourceAssignment({
         {enableReferenceMode ? (
           <AssignmentModeSelector mode={selectedMode} onChange={handleModeChange} color="green" />
         ) : (
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 shrink-0">
             {(['static', 'dynamic'] as const).map((mode) => (
               <button
                 key={mode}
@@ -117,7 +117,7 @@ export function ResourceAssignment({
       {selectedMode === 'dynamic' && <DynamicMode resourceSpec={resourceSpec} />}
       {selectedMode === 'reference' && enableReferenceMode && <ReferenceMode value={value} onChange={onChange} />}
 
-      {onHoldChange && selectedMode !== 'static' && (
+      {onHoldChange && (
         <label className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-slate-700 cursor-pointer">
           <input
             type="checkbox"
@@ -164,9 +164,6 @@ function StaticMode({
         placeholder="Select or type resource name..."
         emptyText={`No ${resourceSpec.type} resources in selected labs`}
       />
-      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-        Select from available resources or type a custom resource name
-      </p>
     </div>
   );
 }
@@ -191,7 +188,7 @@ function ReferenceMode({ value, onChange }: Pick<ResourceAssignmentProps, 'value
         value={typeof value === 'string' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder="task_name.resource_output_name"
-        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
       />
     </div>
   );

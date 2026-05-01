@@ -110,18 +110,34 @@ class TestTaskSpecDefWithGroups:
                 input_parameters={"g": {"inner_group": {"x": _leaf_int()}}},
             )
 
-    def test_group_name_pattern_enforced(self):
+    def test_group_name_allows_internal_spaces(self):
+        spec = TaskSpecDef(
+            type="t",
+            input_parameters={"liquid pumps": {"x": _leaf_int(value=1)}},
+        )
+        assert "liquid pumps" in spec.input_parameters
+
+    def test_child_name_allows_internal_spaces(self):
+        spec = TaskSpecDef(
+            type="t",
+            input_parameters={"g": {"flow rate": _leaf_int(value=1)}},
+        )
+        assert "flow rate" in [name for name, _ in spec.iter_parameters()]
+
+    @pytest.mark.parametrize("bad_name", [" leading", "trailing ", "double  space", "has.dot", ""])
+    def test_group_name_pattern_rejects_invalid(self, bad_name):
         with pytest.raises(ValidationError):
             TaskSpecDef(
                 type="t",
-                input_parameters={"has spaces": {"x": _leaf_int(value=1)}},
+                input_parameters={bad_name: {"x": _leaf_int(value=1)}},
             )
 
-    def test_child_name_pattern_enforced(self):
+    @pytest.mark.parametrize("bad_name", [" leading", "trailing ", "double  space", "has.dot", ""])
+    def test_child_name_pattern_rejects_invalid(self, bad_name):
         with pytest.raises(ValidationError):
             TaskSpecDef(
                 type="t",
-                input_parameters={"g": {"has spaces": _leaf_int(value=1)}},
+                input_parameters={"g": {bad_name: _leaf_int(value=1)}},
             )
 
     def test_ungrouped_only_still_works(self):

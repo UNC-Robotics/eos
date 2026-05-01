@@ -41,6 +41,13 @@ class DynamicDeviceAssignmentDef(BaseModel):
         return self
 
 
+class StaticResourceAssignmentDef(BaseModel):
+    """Specific resource assignment by name, with optional hold."""
+
+    name: str
+    hold: bool = False
+
+
 class ResourceReferenceDef(BaseModel):
     """Reference to another task's resource, with optional hold."""
 
@@ -73,7 +80,9 @@ class TaskDef(BaseModel):
     devices: dict[str, str | DeviceAssignmentDef | DeviceReferenceDef | DynamicDeviceAssignmentDef] = Field(
         default_factory=dict
     )
-    resources: dict[str, str | ResourceReferenceDef | DynamicResourceAssignmentDef] = Field(default_factory=dict)
+    resources: dict[str, str | StaticResourceAssignmentDef | ResourceReferenceDef | DynamicResourceAssignmentDef] = (
+        Field(default_factory=dict)
+    )
 
     parameters: dict[str, Any] = Field(default_factory=dict)
 
@@ -107,6 +116,10 @@ class TaskDef(BaseModel):
                 if res.hold:
                     self.resource_holds[slot] = True
                 self.resources[slot] = res.ref
+            elif isinstance(res, StaticResourceAssignmentDef):
+                if res.hold:
+                    self.resource_holds[slot] = True
+                self.resources[slot] = res.name
             elif isinstance(res, DynamicResourceAssignmentDef):
                 if res.hold:
                     self.resource_holds[slot] = True

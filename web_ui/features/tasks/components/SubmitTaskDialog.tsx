@@ -21,12 +21,13 @@ import { serializeDeviceAssignment, serializeResourceAssignment } from '@/lib/ut
 import { buildDefaultParameters, coerceForSpec } from '@/lib/utils/protocolHelpers';
 import { flattenInputParameters, iterateInputParameters } from '@/lib/utils/paramGroups';
 import { validateParameter } from '@/lib/validation/parameter-validation';
+import { IDENTIFIER_PATTERN, IDENTIFIER_ERROR_MESSAGE } from '@/lib/utils/identifier';
 import type { TaskDefinition, Task } from '@/lib/types/api';
 import type { TaskSpec, DeviceAssignment, ResourceAssignment, ParameterSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 
 const taskFormSchema = z.object({
-  name: z.string().min(1, 'Task name is required'),
+  name: z.string().min(1, 'Task name is required').regex(IDENTIFIER_PATTERN, IDENTIFIER_ERROR_MESSAGE),
   type: z.string().min(1, 'Task type is required'),
   priority: z.number().min(0),
   allocation_timeout: z.number().min(0),

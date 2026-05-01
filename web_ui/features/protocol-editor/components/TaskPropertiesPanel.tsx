@@ -13,6 +13,7 @@ import { DeviceAssignment as DeviceAssignmentComponent } from './DeviceAssignmen
 import { ResourceAssignment as ResourceAssignmentComponent } from './ResourceAssignment';
 import { BooleanParameterField } from '@/features/tasks/components/parameter-fields/BooleanParameterField';
 import { iterateInputParameters } from '@/lib/utils/paramGroups';
+import { IDENTIFIER_ERROR_MESSAGE, isValidIdentifier } from '@/lib/utils/identifier';
 
 interface TaskPropertiesPanelProps {
   isOpen: boolean;
@@ -170,30 +171,28 @@ export function TaskPropertiesPanel({
     );
   }
 
+  const nameError = localName === '' || isValidIdentifier(localName) ? null : IDENTIFIER_ERROR_MESSAGE;
+
   const handleNameChange = (newName: string) => {
     setLocalName(newName);
 
-    // Clear existing timer
     if (debounceTimerRef.current) {
       window.clearTimeout(debounceTimerRef.current);
     }
 
-    // Set new timer to update after 500ms of no typing
     debounceTimerRef.current = window.setTimeout(() => {
-      if (newName !== taskNode.name && newName.trim() !== '') {
+      if (newName !== taskNode.name && isValidIdentifier(newName)) {
         onUpdate(taskNode.name, { name: newName });
       }
     }, 500);
   };
 
   const handleNameBlur = () => {
-    // Clear debounce timer
     if (debounceTimerRef.current) {
       window.clearTimeout(debounceTimerRef.current);
     }
 
-    // Update immediately on blur
-    if (localName !== taskNode.name && localName.trim() !== '') {
+    if (localName !== taskNode.name && isValidIdentifier(localName)) {
       onUpdate(taskNode.name, { name: localName });
     }
   };
@@ -280,8 +279,14 @@ export function TaskPropertiesPanel({
                   value={localName}
                   onChange={(e) => handleNameChange(e.target.value)}
                   onBlur={handleNameBlur}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                  aria-invalid={nameError ? true : undefined}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 ${
+                    nameError
+                      ? 'border-red-400 dark:border-red-600 focus:ring-red-500'
+                      : 'border-gray-300 dark:border-slate-600 focus:ring-blue-500 dark:focus:ring-yellow-500'
+                  }`}
                 />
+                {nameError && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{nameError}</p>}
               </div>
 
               <div>
