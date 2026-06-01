@@ -212,3 +212,19 @@ body {
   background: transparent;
   border-radius: 9999px;
 }
+
+/* Brief yellow flash for a field that was just navigated to (TaskPropertiesPanel). */
+@keyframes field-highlight {
+  0% {
+    background-color: rgba(250, 204, 21, 0.6);
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.8);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0);
+  }
+}
+.field-highlight {
+  border-radius: 0.375rem;
+  animation: field-highlight 2s ease-out;
+}

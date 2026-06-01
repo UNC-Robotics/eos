@@ -1,0 +1,110 @@
+type: run_if
+desc: Exercise run_if skip propagation and fan-in convergence (no separate conditional nodes).
+
+labs:
+  - multiplication_lab
+
+# Layout (prep.product == N):
+#   prep
+#    -> high_prep      (run_if: prep.product > 10)  -> inner_big   (run_if: high_prep.product > 100)
+#                                                   -> inner_small (otherwise; auto-skips if high_prep skipped)
+#    -> low_prep       (run_if: prep.product < 0)   -> chain_small
+#    -> default_task   (run_if otherwise)
+#    -> converge       (fan-in across the three branches)
+
+tasks:
+  - name: prep
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    parameters:
+      number: eos_dynamic
+      factor: 1
+
+  # ---- high branch ----
+  - name: high_prep
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [prep]
+    run_if: prep.product > 10
+    parameters:
+      number: prep.product
+      factor: 1
+
+  - name: inner_big
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [high_prep]
+    run_if: high_prep.product > 100
+    parameters:
+      number: 10
+      factor: 10
+
+  - name: inner_small
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [high_prep]
+    run_if: high_prep.product <= 100
+    parameters:
+      number: 1
+      factor: 1
+
+  # ---- low branch ----
+  - name: low_prep
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [prep]
+    run_if: prep.product < 0
+    parameters:
+      number: prep.product
+      factor: -1
+
+  - name: chain_small
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [low_prep]
+    parameters:
+      number: 2
+      factor: 2
+
+  # ---- default branch ----
+  - name: default_task
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [prep]
+    run_if: prep.product >= 0 and prep.product <= 10
+    parameters:
+      number: 3
+      factor: 3
+
+  # ---- convergence via fan-in ----
+  - name: converge
+    type: Multiplication
+    devices:
+      multiplier:
+        lab_name: multiplication_lab
+        name: multiplier
+    dependencies: [high_prep, low_prep, default_task]
+    parameters:
+      number: [high_prep.product, low_prep.product, default_task.product]
+      factor: 1

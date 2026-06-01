@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 
 from eos.configuration.protocol_graph import ProtocolGraph
+from eos.configuration.run_if import EosRunIfError, ParsedExpr, evaluate as evaluate_run_if, parse as parse_run_if
 from eos.configuration import validation as validation_utils
 from eos.protocols.entities.protocol_run import ProtocolRunStatus, ProtocolRun, ProtocolRunSubmission
 from eos.protocols.exceptions import (
@@ -14,11 +15,12 @@ from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.tasks.entities.task import TaskSubmission
+from eos.tasks.entities.task import Task, TaskStatus, TaskSubmission
 from eos.tasks.exceptions import EosTaskExecutionError, EosTaskCancellationError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_input_resolver import TaskInputResolver
 from eos.tasks.task_manager import TaskManager
+from eos.tasks.task_reference_utils import resolve_parameter
 
 
 class ProtocolExecutor:
@@ -51,6 +53,8 @@ class ProtocolExecutor:
         self._current_task_submissions: dict[str, TaskSubmission] = {}
         self._task_output_futures: dict[str, asyncio.Task] = {}
         self._protocol_run_status = None
+
+        self._run_if_parsed: dict[str, ParsedExpr] = self._parse_run_if_expressions()
 
     async def start_protocol_run(self, db: AsyncDbSession) -> None:
         """Start the protocol run and register the executor with the scheduler."""
@@ -145,11 +149,14 @@ class ProtocolExecutor:
             if self._protocol_run_status != ProtocolRunStatus.RUNNING:
                 return self._protocol_run_status == ProtocolRunStatus.CANCELLED
 
+            await self._process_completed_tasks(db)
+            await self._propagate_skips(db)
+
+            # Completion check must follow skip propagation so the scheduler's cycle cache is fresh.
             if await self._scheduler.is_protocol_run_completed(db, self._protocol_run_name):
                 await self._complete_protocol_run(db)
                 return True
 
-            await self._process_completed_tasks(db)
             await self._execute_tasks(db)
 
             return False
@@ -223,6 +230,59 @@ class ProtocolExecutor:
             finally:
                 del self._task_output_futures[task_name]
                 del self._current_task_submissions[task_name]
+
+    def _parse_run_if_expressions(self) -> dict[str, ParsedExpr]:
+        return {
+            name: parse_run_if(task.run_if)
+            for name in self._protocol_graph.get_tasks()
+            if (task := self._protocol_graph.get_task(name)).run_if
+        }
+
+    async def _propagate_skips(self, db: AsyncDbSession) -> None:
+        """Mark SKIPPED (all-deps-skipped, or run_if false) in topo order; ancestors are seen first."""
+        if not self._run_if_parsed:  # No conditional tasks => no skips are possible.
+            return
+
+        tasks = await self._task_manager.get_tasks(db, protocol_run_name=self._protocol_run_name)
+        tasks_by_name = {t.name: t for t in tasks}
+        completed = {t.name for t in tasks if t.status == TaskStatus.COMPLETED}
+        skipped = {t.name for t in tasks if t.status == TaskStatus.SKIPPED}
+        in_db = set(tasks_by_name)
+
+        for task_name in self._protocol_graph.get_topologically_sorted_tasks():
+            if task_name in in_db or not self._should_skip(task_name, tasks_by_name, completed, skipped):
+                continue
+            await self._task_manager.create_skipped_task(
+                db, self._protocol_run_name, task_name, self._protocol_graph.get_task(task_name).type
+            )
+            skipped.add(task_name)
+            in_db.add(task_name)
+
+    def _should_skip(
+        self, task_name: str, tasks_by_name: dict[str, Task], completed: set[str], skipped: set[str]
+    ) -> bool:
+        deps = self._protocol_graph.get_task_dependencies(task_name)
+        if deps and all(d in skipped for d in deps):
+            return True
+
+        parsed = self._run_if_parsed.get(task_name)
+        if parsed is None:
+            return False
+
+        ref_tasks = {ref.split(".", 1)[0] for ref in parsed.references}
+        if ref_tasks & skipped:
+            return True
+        if not ref_tasks.issubset(completed):
+            return False
+
+        # Referenced tasks are all COMPLETED, so their rows (with outputs) are in tasks_by_name already.
+        values = {ref: resolve_parameter(tasks_by_name, *ref.split(".", 1)) for ref in parsed.references}
+        try:
+            return not evaluate_run_if(parsed, values)
+        except EosRunIfError as e:
+            raise EosProtocolRunTaskExecutionError(
+                f"Task '{task_name}' run_if evaluation failed in run '{self._protocol_run_name}': {e}"
+            ) from e
 
     async def _execute_tasks(self, db: AsyncDbSession) -> None:
         """Request and execute new tasks from the scheduler."""

@@ -108,7 +108,7 @@ class BaseScheduler(AbstractScheduler, ABC):
         if protocol_run_name not in self._registered_protocol_runs:
             raise Exception(f"Cannot check completion of unregistered protocol run {protocol_run_name}.")
         all_tasks = self._all_tasks_cache[protocol_run_name]
-        completed_tasks = await self._protocol_run_manager.get_completed_tasks(db, protocol_run_name)
+        completed_tasks = await self._protocol_run_manager.get_completed_and_skipped_tasks(db, protocol_run_name)
         self._completed_tasks_cache[protocol_run_name] = completed_tasks
         return all_tasks.issubset(completed_tasks)
 
@@ -130,7 +130,7 @@ class BaseScheduler(AbstractScheduler, ABC):
 
         completed = self._current_completed_tasks
         if completed is None:
-            completed = await self._protocol_run_manager.get_completed_tasks(db, protocol_run_name)
+            completed = await self._protocol_run_manager.get_completed_and_skipped_tasks(db, protocol_run_name)
 
         graph = protocol_graph.get_graph()
         has_pending_successors = any(

@@ -47,7 +47,7 @@ class GreedyScheduler(BaseScheduler):
 
         completed_tasks = self._completed_tasks_cache.pop(protocol_run_name, None)
         if completed_tasks is None:
-            completed_tasks = await self._protocol_run_manager.get_completed_tasks(db, protocol_run_name)
+            completed_tasks = await self._protocol_run_manager.get_completed_and_skipped_tasks(db, protocol_run_name)
         pending_tasks = [t for t in _all_tasks if t not in completed_tasks]
 
         async with self._lock:

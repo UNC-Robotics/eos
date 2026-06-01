@@ -30,3 +30,13 @@ def is_resource_reference(resource_name: str) -> bool:
 def is_device_reference(device_value: Any) -> bool:
     """Check if device value is a reference to another task's device."""
     return _is_dot_reference(device_value)
+
+
+_MIN_FANIN_ALTERNATES = 2
+
+
+def is_fanin_parameter(value: Any) -> bool:
+    """Check if value is a fan-in list of task.output references (picks whichever ancestor ran)."""
+    if not isinstance(value, list) or len(value) < _MIN_FANIN_ALTERNATES:
+        return False
+    return all(is_parameter_reference(elem) for elem in value)

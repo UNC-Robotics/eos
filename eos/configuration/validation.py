@@ -18,9 +18,11 @@ from eos.configuration.exceptions import (
 )
 from eos.configuration.protocol_graph import TaskReferenceOrderingValidator
 from eos.configuration.registries import DeviceSpecRegistry, TaskSpecRegistry
+from eos.configuration.run_if import EosRunIfError, parse as parse_run_if, typecheck as typecheck_run_if
 from eos.configuration.utils import (
     is_device_reference,
     is_dynamic_parameter,
+    is_fanin_parameter,
     is_parameter_reference,
     is_resource_reference,
 )
@@ -210,13 +212,16 @@ class ProtocolValidator:
         self._labs = labs
         self._resource_registry = ProtocolResourceRegistry(protocol, labs)
         self._task_validator = TaskValidator(protocol, labs, self._resource_registry)
+        self._ordering_validator = TaskReferenceOrderingValidator(protocol)
+        self._run_if_validator = RunIfValidator(protocol, self._ordering_validator)
 
     def validate(self) -> None:
         """Run all protocol validation checks."""
         self._validate_labs()
         self._validate_resources()
         self._task_validator.validate_all_tasks()
-        TaskReferenceOrderingValidator(self._protocol).validate()
+        self._ordering_validator.validate()
+        self._run_if_validator.validate()
 
     def _validate_labs(self) -> None:
         """Ensure all required labs exist."""
@@ -297,8 +302,8 @@ class TaskValidator:
             )
 
     def _validate_parameter(self, task_name: str, parameter_name: str, parameter: Any, task_spec: TaskSpecDef) -> None:
-        """Validate a parameter, skipping references and dynamic parameters."""
-        if is_parameter_reference(parameter) or is_dynamic_parameter(parameter):
+        """Validate a parameter, skipping references, fan-ins, and dynamic parameters."""
+        if is_parameter_reference(parameter) or is_fanin_parameter(parameter) or is_dynamic_parameter(parameter):
             return
         self._validate_parameter_spec(task_name, parameter_name, parameter, task_spec)
 
@@ -340,15 +345,17 @@ class TaskValidator:
             )
 
     def _validate_parameter_references(self, task: TaskDef) -> None:
-        """Validate all parameter references in a task."""
+        """Validate all parameter references (single + fan-in) in a task."""
         for parameter_name, parameter in task.parameters.items():
             if is_parameter_reference(parameter):
-                self._validate_parameter_reference(parameter_name, task)
+                self._validate_parameter_reference(parameter_name, str(parameter), task)
+            elif is_fanin_parameter(parameter):
+                for alternate in parameter:
+                    self._validate_parameter_reference(parameter_name, alternate, task)
 
-    def _validate_parameter_reference(self, parameter_name: str, task: TaskDef) -> None:
+    def _validate_parameter_reference(self, parameter_name: str, reference: str, task: TaskDef) -> None:
         """Validate a parameter reference exists and has matching type."""
-        parameter = task.parameters[parameter_name]
-        referenced_task_name, referenced_parameter = str(parameter).split(".")
+        referenced_task_name, referenced_parameter = reference.split(".")
 
         referenced_task = self._find_task_by_name(referenced_task_name)
         if not referenced_task:
@@ -586,3 +593,59 @@ class TaskValidator:
     def _find_task_by_name(self, task_name: str) -> TaskDef | None:
         """Find a task by name in the protocol."""
         return next((task for task in self._protocol.tasks if task.name == task_name), None)
+
+
+class RunIfValidator:
+    """Parses each task's `run_if`, checks every ref points to an ancestor output, type-checks."""
+
+    def __init__(self, protocol: ProtocolDef, ordering_validator: TaskReferenceOrderingValidator | None = None):
+        self._protocol = protocol
+        self._task_specs = TaskSpecRegistry()
+        self._tasks_by_name = {t.name: t for t in protocol.tasks}
+        self._ordering_validator = ordering_validator or TaskReferenceOrderingValidator(protocol)
+
+    def validate(self) -> None:
+        for task in self._protocol.tasks:
+            if task.run_if:  # truthiness matches the executor; empty string means "always run"
+                self._validate_task(task)
+        raise_batched_errors(root_exception_type=EosTaskValidationError)
+
+    def _validate_task(self, task: TaskDef) -> None:
+        try:
+            parsed = parse_run_if(task.run_if)
+        except EosRunIfError as e:
+            batch_error(f"Task '{task.name}' run_if invalid: {e}", EosTaskValidationError)
+            return
+
+        ancestors = self._ordering_validator.ancestors_of(task.name)
+        ref_types: dict[str, TaskParameterType] = {}
+        for ref in parsed.references:
+            ref_task_name, ref_output = ref.split(".", 1)
+            ref_task = self._tasks_by_name.get(ref_task_name)
+            if ref_task is None:
+                batch_error(
+                    f"Task '{task.name}' run_if references unknown task '{ref_task_name}'.",
+                    EosTaskValidationError,
+                )
+                return
+            if ref_task_name not in ancestors:
+                batch_error(
+                    f"Task '{task.name}' run_if references '{ref}' but '{ref_task_name}' does not run before it. "
+                    f"Add '{ref_task_name}' to the dependencies of '{task.name}' (directly or transitively).",
+                    EosTaskValidationError,
+                )
+                return
+            spec = self._task_specs.get_spec_by_config(ref_task)
+            output_spec = spec and spec.output_parameters and spec.output_parameters.get(ref_output)
+            if not output_spec:
+                batch_error(
+                    f"Task '{task.name}' run_if references '{ref}' which is not an output of '{ref_task_name}'.",
+                    EosTaskValidationError,
+                )
+                return
+            ref_types[ref] = TaskParameterType(output_spec.type)
+
+        try:
+            typecheck_run_if(parsed, ref_types)
+        except EosRunIfError as e:
+            batch_error(f"Task '{task.name}' run_if invalid: {e}", EosTaskValidationError)

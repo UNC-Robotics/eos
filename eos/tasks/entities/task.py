@@ -16,6 +16,7 @@ class TaskStatus(Enum):
     CREATED = "CREATED"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
+    SKIPPED = "SKIPPED"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"
 

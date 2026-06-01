@@ -43,6 +43,29 @@ class TaskManager:
         )
         return bool(result.scalar_one_or_none())
 
+    async def create_skipped_task(
+        self, db: AsyncDbSession, protocol_run_name: str, task_name: str, task_type: str
+    ) -> None:
+        """Insert a placeholder task row with status SKIPPED."""
+        now = datetime.now(UTC)
+        db.add(
+            TaskModel(
+                protocol_run_name=protocol_run_name,
+                name=task_name,
+                type=task_type,
+                devices={},
+                input_parameters={},
+                input_resources={},
+                priority=0,
+                allocation_timeout=0,
+                meta={},
+                status=TaskStatus.SKIPPED,
+                end_time=now,
+                created_at=now,
+            )
+        )
+        await db.flush()
+
     async def create_task(self, db: AsyncDbSession, task_submission: TaskSubmission) -> None:
         """Create a new task instance for a specific task type that is associated with a protocol run."""
         if await self._check_task_exists(db, task_submission.protocol_run_name, task_submission.name):
@@ -218,7 +241,7 @@ class TaskManager:
             update_fields["start_time"] = now
             update_fields["end_time"] = None
             update_fields["error_message"] = None
-        elif new_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
+        elif new_status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.SKIPPED]:
             update_fields["end_time"] = now
 
         if error_message is not None:

@@ -608,7 +608,7 @@ class SimCpSatScheduler:
             protocol_runs=protocol_run_map,
             task_durations=self._task_durations,
             schedule=self._schedule,
-            completed_by_exp=completed_by_exp,
+            completed_or_skipped_by_run=completed_by_exp,
             running_by_exp=running_by_exp,
             current_time=current_time,
             protocol_run_priorities={exp.name: exp.priority for exp in protocol_runs},

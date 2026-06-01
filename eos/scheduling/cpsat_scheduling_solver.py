@@ -58,7 +58,7 @@ class CpSatSchedulingSolver:
         protocol_runs: dict[str, tuple[str, ProtocolGraph]],
         task_durations: dict[str, dict[str, int]],
         schedule: dict[str, dict[str, int]],
-        completed_by_exp: dict[str, set[str]],
+        completed_or_skipped_by_run: dict[str, set[str]],
         running_by_exp: dict[str, set[str]],
         current_time: int,
         protocol_run_priorities: dict[str, int],
@@ -71,7 +71,7 @@ class CpSatSchedulingSolver:
         self._protocol_runs = protocol_runs
         self._task_durations = task_durations
         self._schedule = schedule
-        self._completed_by_exp = completed_by_exp
+        self._completed_or_skipped_by_run = completed_or_skipped_by_run
         self._running_by_exp = running_by_exp
         self._current_time = current_time
         self._protocol_run_priorities = protocol_run_priorities
@@ -332,7 +332,7 @@ class CpSatSchedulingSolver:
         for run_name, (_, protocol_graph) in self._protocol_runs.items():
             tasks = protocol_graph.get_topologically_sorted_tasks()
             for task_name in tasks:
-                if task_name in self._completed_by_exp.get(run_name, set()):
+                if task_name in self._completed_or_skipped_by_run.get(run_name, set()):
                     continue
 
                 task: TaskDef = protocol_graph.get_task(task_name)

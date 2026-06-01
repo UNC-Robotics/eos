@@ -128,7 +128,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
       },
       enableColumnFilter: true,
       filterType: 'multiselect',
-      filterOptions: ['CREATED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'],
+      filterOptions: ['CREATED', 'RUNNING', 'COMPLETED', 'SKIPPED', 'FAILED', 'CANCELLED'],
       filterFn: 'arrIncludesSome',
     },
     {

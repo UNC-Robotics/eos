@@ -1,23 +1,26 @@
 'use client';
 
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useEffect, useMemo, useCallback, useRef, useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { ParameterSpec, TaskNodeData } from '@/lib/types/protocol';
 import { PORT_COLORS, BADGE_CLASSES, PORT_SIZES, adjustColorBrightness } from '@/lib/constants/theme';
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { flattenInputParameters, iterateInputParameters } from '@/lib/utils/paramGroups';
+import { extractRunIfRefs, runIfHandleId } from '@/lib/utils/runIf';
 
 interface PortProps {
   id: string;
   name: string;
-  type: string;
+  type?: string;
   position: Position;
   handleType: 'source' | 'target';
   color: string;
-  bgColor: string;
+  bgColor?: string;
   isRight?: boolean;
   hasValue?: boolean;
   hasHold?: boolean;
+  isConnectable?: boolean;
+  onDoubleClick?: (e: React.MouseEvent) => void;
 }
 
 const COLORS = {
@@ -25,42 +28,69 @@ const COLORS = {
   device: PORT_COLORS.device,
   resource: PORT_COLORS.resource,
   parameter: PORT_COLORS.parameter,
+  runif: PORT_COLORS.runif,
   badge: BADGE_CLASSES,
 } as const;
 
-const Port = memo(({ id, name, type, position, handleType, color, bgColor, isRight, hasValue, hasHold }: PortProps) => {
-  const handleStyle = useMemo(
-    () => ({
-      position: 'absolute' as const,
-      [isRight ? 'right' : 'left']: '-20px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      width: `${PORT_SIZES.small}px`,
-      height: `${PORT_SIZES.small}px`,
-      background: hasValue ? color : 'white',
-      border: `2px solid ${color}`,
-      boxShadow: hasValue ? `0 0 4px ${color}` : 'none',
-    }),
-    [isRight, hasValue, color]
-  );
+const Port = memo(
+  ({
+    id,
+    name,
+    type,
+    position,
+    handleType,
+    color,
+    bgColor,
+    isRight,
+    hasValue,
+    hasHold,
+    isConnectable,
+    onDoubleClick,
+  }: PortProps) => {
+    const handleStyle = useMemo(
+      () => ({
+        position: 'absolute' as const,
+        [isRight ? 'right' : 'left']: '-20px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: `${PORT_SIZES.small}px`,
+        height: `${PORT_SIZES.small}px`,
+        background: hasValue ? color : 'white',
+        border: `2px solid ${color}`,
+        boxShadow: hasValue ? `0 0 4px ${color}` : 'none',
+      }),
+      [isRight, hasValue, color]
+    );
 
-  return (
-    <div className={`relative mb-1 flex items-center gap-1 ${isRight ? 'justify-end' : ''}`}>
-      <Handle type={handleType} position={position} id={id} style={handleStyle} />
-      {!isRight && <div className="text-sm text-gray-700 dark:text-gray-300">{name}</div>}
-      <span className={`text-xs px-1 py-0.5 ${bgColor} rounded`}>{type}</span>
-      {hasHold && (
-        <span
-          className="text-xs px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded font-medium"
-          title="Held for successor tasks"
-        >
-          H
-        </span>
-      )}
-      {isRight && <div className="text-sm text-gray-700 dark:text-gray-300 text-right">{name}</div>}
-    </div>
-  );
-});
+    return (
+      <div
+        className={`relative mb-1 flex items-center gap-1 ${isRight ? 'justify-end' : ''} ${
+          onDoubleClick ? 'cursor-pointer' : ''
+        }`}
+        onDoubleClick={onDoubleClick}
+      >
+        <Handle
+          type={handleType}
+          position={position}
+          id={id}
+          style={handleStyle}
+          isConnectable={isConnectable ?? true}
+        />
+        {!isRight && <div className="text-sm text-gray-700 dark:text-gray-300">{name}</div>}
+        {type && <span className={`text-xs px-1 py-0.5 ${bgColor ?? ''} rounded`}>{type}</span>}
+        {hasHold && (
+          <span
+            className="text-xs px-1 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded font-medium"
+            title="Held for successor tasks"
+          >
+            H
+          </span>
+        )}
+        {isRight && <div className="text-sm text-gray-700 dark:text-gray-300 text-right">{name}</div>}
+      </div>
+    );
+  }
+);
 
 Port.displayName = 'Port';
 
@@ -91,8 +121,8 @@ const isValueConfigured = (value: unknown, type: 'device' | 'resource' | 'parame
   return false;
 };
 
-const TaskNodeComponent = ({ data, selected }: NodeProps) => {
-  const { taskNode, taskSpec, isMissingSpec, onNodeClick, onNodeContextMenu } = data as TaskNodeData;
+const TaskNodeComponent = ({ data }: NodeProps) => {
+  const { taskNode, taskSpec, isMissingSpec, onNodeClick, onNodeContextMenu, onPortDoubleClick } = data as TaskNodeData;
   const taskErrors = useEditorStore((state) => state.taskValidationErrors[taskNode.name]);
   const hasErrors = taskErrors && taskErrors.length > 0;
 
@@ -106,6 +136,24 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
   );
   const flatInputParams = useMemo(() => flattenInputParameters(taskSpec.input_parameters), [taskSpec.input_parameters]);
   const outputParams = useMemo(() => Object.entries(taskSpec.output_parameters || {}), [taskSpec.output_parameters]);
+
+  const runIfRefs = useMemo(() => extractRunIfRefs(taskNode.run_if), [taskNode.run_if]);
+
+  // Measure the absolute footer so the node reserves matching bottom padding.
+  const runIfFooterRef = useRef<HTMLDivElement>(null);
+  const [runIfFooterHeight, setRunIfFooterHeight] = useState(0);
+  useEffect(() => {
+    const el = runIfFooterRef.current;
+    if (!el) {
+      setRunIfFooterHeight(0);
+      return;
+    }
+    const update = () => setRunIfFooterHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [taskNode.run_if, runIfRefs.length]);
 
   // Parameter port is "filled" if the user set a value or the task.yml default exists
   const effectiveInputParams = useMemo(() => {
@@ -174,13 +222,21 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
                 isRight={!isInput}
                 hasValue={hasValue}
                 hasHold={holdSource?.[name]}
+                onDoubleClick={
+                  isInput && onPortDoubleClick
+                    ? (e) => {
+                        e.stopPropagation();
+                        onPortDoubleClick(taskNode.name, portType, name);
+                      }
+                    : undefined
+                }
               />
             );
           })}
         </div>
       );
     },
-    [taskNode.name]
+    [taskNode.name, onPortDoubleClick]
   );
 
   const renderInputParamPort = useCallback(
@@ -197,10 +253,18 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
           color={COLORS.parameter}
           bgColor={COLORS.badge.parameter}
           hasValue={hasValue}
+          onDoubleClick={
+            onPortDoubleClick
+              ? (e) => {
+                  e.stopPropagation();
+                  onPortDoubleClick(taskNode.name, 'parameter', name);
+                }
+              : undefined
+          }
         />
       );
     },
-    [effectiveInputParams, taskNode.name]
+    [effectiveInputParams, taskNode.name, onPortDoubleClick]
   );
 
   const renderInputParamSection = useCallback(() => {
@@ -234,10 +298,9 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
           ? 'border-amber-500 dark:border-amber-500 border-dashed'
           : hasErrors
             ? 'border-red-500 dark:border-red-500'
-            : selected
-              ? 'border-blue-500 dark:border-yellow-500 shadow-xl'
-              : 'border-gray-300 dark:border-slate-600'
+            : 'border-gray-300 dark:border-slate-600'
       }`}
+      style={taskNode.run_if ? { paddingBottom: runIfFooterHeight } : undefined}
       onClick={() => onNodeClick(taskNode.name)}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -311,6 +374,44 @@ const TaskNodeComponent = ({ data, selected }: NodeProps) => {
           </div>
         </div>
       </div>
+
+      {/* run_if footer: absolute so its content does not widen the node */}
+      {taskNode.run_if && (
+        <div
+          ref={runIfFooterRef}
+          className={`absolute inset-x-0 bottom-0 flex items-stretch border-t border-indigo-100 dark:border-indigo-900/50 rounded-b-md ${COLORS.badge.runif}`}
+          title={`run_if: ${taskNode.run_if}`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="px-4 py-1.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-mono min-w-0">
+                <span className="shrink-0 font-bold uppercase tracking-wide opacity-80">run if</span>
+                <span className="truncate">{taskNode.run_if}</span>
+              </div>
+            </div>
+            {runIfRefs.length > 0 && (
+              <div className="px-4 pb-1.5 space-y-0.5">
+                {runIfRefs.map((ref) => (
+                  <Port
+                    key={`${ref.task}.${ref.output}`}
+                    id={runIfHandleId(taskNode.name, ref)}
+                    name={`${ref.task}.${ref.output}`}
+                    position={Position.Left}
+                    handleType="target"
+                    color={COLORS.runif}
+                    isConnectable={false}
+                    hasValue
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Conditional indicator: large "?" pinned to the bottom-right of the run_if section */}
+          <div className="flex shrink-0 items-end pb-1.5 pr-3">
+            <span className="text-2xl font-bold leading-none">?</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -93,6 +93,7 @@ export interface TaskNode {
   group?: string;
   device_holds?: Record<string, boolean>;
   resource_holds?: Record<string, boolean>;
+  run_if?: string | null;
 }
 
 export interface ProtocolDefinition {
@@ -108,4 +109,5 @@ export interface TaskNodeData extends Record<string, unknown> {
   isMissingSpec?: boolean;
   onNodeClick: (nodeName: string) => void;
   onNodeContextMenu: (event: React.MouseEvent, nodeName: string) => void;
+  onPortDoubleClick?: (nodeName: string, kind: 'parameter' | 'device' | 'resource', name: string) => void;
 }

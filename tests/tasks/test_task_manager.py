@@ -116,7 +116,7 @@ class TestTaskManager:
         await task_manager.start_task(db, PROTOCOL, "mixing")
         await task_manager.complete_task(db, PROTOCOL, "mixing")
         assert "mixing" not in await protocol_run_manager.get_running_tasks(db, PROTOCOL)
-        assert "mixing" in await protocol_run_manager.get_completed_tasks(db, PROTOCOL)
+        assert "mixing" in await protocol_run_manager.get_completed_and_skipped_tasks(db, PROTOCOL)
 
     @pytest.mark.asyncio
     async def test_complete_task_nonexistent_protocol_run(self, db, task_manager, protocol_run_manager):

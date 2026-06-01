@@ -11,8 +11,9 @@ interface SerializedProtocol {
 }
 
 function serializeTaskForYaml(task: TaskNode, specMap: Map<string, TaskSpec>): Record<string, unknown> {
-  const { position: _position, device_holds, resource_holds, devices, resources, ...rest } = task;
+  const { position: _position, device_holds, resource_holds, devices, resources, run_if, ...rest } = task;
   const result: Record<string, unknown> = { ...rest };
+  if (run_if) result.run_if = run_if;
 
   const spec = specMap.get(task.type);
 

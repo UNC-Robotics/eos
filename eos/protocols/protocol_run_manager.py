@@ -109,36 +109,37 @@ class ProtocolRunManager:
         )
         return {task_name for (task_name,) in result.all()}
 
-    async def get_completed_tasks(self, db: AsyncDbSession, protocol_run_name: str) -> set[str]:
-        """Get the set of completed task names for a protocol run."""
+    async def get_completed_and_skipped_tasks(self, db: AsyncDbSession, protocol_run_name: str) -> set[str]:
+        """Return tasks whose status is COMPLETED or SKIPPED (used by schedulers for readiness)."""
         result = await db.execute(
             select(TaskModel.name).where(
-                and_(TaskModel.protocol_run_name == protocol_run_name, TaskModel.status == TaskStatus.COMPLETED)
+                and_(
+                    TaskModel.protocol_run_name == protocol_run_name,
+                    TaskModel.status.in_([TaskStatus.COMPLETED, TaskStatus.SKIPPED]),
+                )
             )
         )
         return {task_name for (task_name,) in result.all()}
 
-    async def get_all_completed_tasks(self, db: AsyncDbSession, protocol_run_names: list[str]) -> dict[str, set[str]]:
-        """
-        Get completed tasks for all protocol runs in the provided list.
-        Returns a dictionary mapping protocol_run_name to a set of completed task names.
-        """
+    async def get_all_completed_and_skipped_tasks(
+        self, db: AsyncDbSession, protocol_run_names: list[str]
+    ) -> dict[str, set[str]]:
+        """Return tasks whose status is COMPLETED or SKIPPED per run."""
         result = await db.execute(
             select(TaskModel.protocol_run_name, TaskModel.name).where(
-                and_(TaskModel.protocol_run_name.in_(protocol_run_names), TaskModel.status == TaskStatus.COMPLETED)
+                and_(
+                    TaskModel.protocol_run_name.in_(protocol_run_names),
+                    TaskModel.status.in_([TaskStatus.COMPLETED, TaskStatus.SKIPPED]),
+                )
             )
         )
 
-        completed_mapping = {}
+        settled_mapping: dict[str, set[str]] = {}
         for run_name, task_name in result.all():
-            if run_name not in completed_mapping:
-                completed_mapping[run_name] = set()
-            completed_mapping[run_name].add(task_name)
-
-        # Ensure all protocol_run_names are present in the result
+            settled_mapping.setdefault(run_name, set()).add(task_name)
         for run_name in protocol_run_names:
-            completed_mapping.setdefault(run_name, set())
-        return completed_mapping
+            settled_mapping.setdefault(run_name, set())
+        return settled_mapping
 
     async def get_all_running_tasks(self, db: AsyncDbSession, protocol_run_names: list[str]) -> dict[str, set[str]]:
         """

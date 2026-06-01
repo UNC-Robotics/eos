@@ -74,7 +74,7 @@ class CpSatScheduler(BaseScheduler):
             self._schedule_is_stale = True
 
     async def _compute_schedule(self, db: AsyncDbSession) -> None:
-        completed_by_exp = await self._protocol_run_manager.get_all_completed_tasks(
+        completed_or_skipped_by_run = await self._protocol_run_manager.get_all_completed_and_skipped_tasks(
             db, list(self._registered_protocol_runs.keys())
         )
         running_by_run: dict[str, set[str]] = {}
@@ -97,7 +97,7 @@ class CpSatScheduler(BaseScheduler):
             protocol_runs=self._registered_protocol_runs,
             task_durations=self._task_durations,
             schedule=self._schedule,
-            completed_by_exp=completed_by_exp,
+            completed_or_skipped_by_run=completed_or_skipped_by_run,
             running_by_exp=running_by_run,
             current_time=self._current_time,
             protocol_run_priorities=protocol_run_priorities,
@@ -120,7 +120,7 @@ class CpSatScheduler(BaseScheduler):
         if protocol_run_name not in self._registered_protocol_runs:
             raise EosSchedulerRegistrationError(f"ProtocolRun {protocol_run_name} is not registered.")
 
-        all_completed_by_run = await self._protocol_run_manager.get_all_completed_tasks(
+        all_completed_by_run = await self._protocol_run_manager.get_all_completed_and_skipped_tasks(
             db, list(self._registered_protocol_runs.keys())
         )
         completed_tasks = all_completed_by_run.get(protocol_run_name, set())

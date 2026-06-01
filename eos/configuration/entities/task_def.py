@@ -88,6 +88,9 @@ class TaskDef(BaseModel):
 
     dependencies: list[str] = Field(default_factory=list)
 
+    # If false at runtime, the task is SKIPPED. None = always run.
+    run_if: str | None = None
+
     # Hold flags extracted during normalization (not serialized to YAML/JSON)
     device_holds: dict[str, bool] = Field(default_factory=dict, exclude=True)
     resource_holds: dict[str, bool] = Field(default_factory=dict, exclude=True)

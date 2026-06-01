@@ -1,25 +1,30 @@
 import copy
+from typing import Any
 
-from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
+from eos.configuration.entities.task_def import TaskDef
 from eos.configuration.registries import TaskSpecRegistry
 from eos.configuration.utils import (
     is_device_reference,
     is_dynamic_parameter,
+    is_fanin_parameter,
     is_parameter_reference,
     is_resource_reference,
 )
 from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.database.abstract_sql_db_interface import AsyncDbSession
-from eos.tasks.entities.task import Task
+from eos.tasks.entities.task import Task, TaskStatus
 from eos.tasks.exceptions import EosTaskInputResolutionError
 from eos.tasks.task_manager import TaskManager
+from eos.tasks.task_reference_utils import (
+    fetch_ref_tasks,
+    resolve_device,
+    resolve_parameter,
+    resolve_resource,
+)
 
 
 class TaskInputResolver:
-    """
-    Resolves parameters, input parameter references, and input resource references for a task that is
-    part of a protocol run.
-    """
+    """Resolve parameter, resource, and device references for a task in a protocol run."""
 
     def __init__(self, task_manager: TaskManager, protocol_run_manager: ProtocolRunManager):
         self._task_manager = task_manager
@@ -58,11 +63,9 @@ class TaskInputResolver:
         return config
 
     async def _fetch_ref_tasks(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> dict[str, Task]:
-        ref_names = self._collect_referenced_task_names(task)
-        if not ref_names:
-            return {}
-        task_lookup = await self._task_manager.get_tasks_by_protocol_runs(db, [protocol_run_name], list(ref_names))
-        return {task_name: t for (_, task_name), t in task_lookup.items()}
+        return await fetch_ref_tasks(
+            self._task_manager, db, protocol_run_name, self._collect_referenced_task_names(task)
+        )
 
     @staticmethod
     def _collect_referenced_task_names(task: TaskDef) -> set[str]:
@@ -70,6 +73,9 @@ class TaskInputResolver:
         for param_value in task.parameters.values():
             if is_parameter_reference(param_value):
                 ref_names.add(param_value.split(".")[0])
+            elif is_fanin_parameter(param_value):
+                for alt in param_value:
+                    ref_names.add(alt.split(".")[0])
         for resource_value in task.resources.values():
             if isinstance(resource_value, str) and is_resource_reference(resource_value):
                 ref_names.add(resource_value.split(".")[0])
@@ -104,54 +110,42 @@ class TaskInputResolver:
         return task
 
     @staticmethod
-    def _resolve_reference(ref_tasks: dict[str, Task], ref_task_name: str, ref_name: str, ref_type: str) -> str | None:
-        ref_task = ref_tasks.get(ref_task_name)
-        if ref_task is None:
-            return None
-
-        if ref_type == "parameter":
-            if ref_name in (ref_task.output_parameters or {}):
-                return ref_task.output_parameters[ref_name]
-            if ref_name in (ref_task.input_parameters or {}):
-                return ref_task.input_parameters[ref_name]
-        elif ref_type == "resource":
-            if ref_name in (ref_task.output_resources or {}):
-                return ref_task.output_resources[ref_name].name
-
-        return None
-
-    @staticmethod
-    def _resolve_device_reference(
-        ref_tasks: dict[str, Task], ref_task_name: str, ref_device_name: str
-    ) -> DeviceAssignmentDef | None:
-        ref_task = ref_tasks.get(ref_task_name)
-        if ref_task is None:
-            return None
-
-        if ref_device_name in (ref_task.devices or {}):
-            device_info = ref_task.devices[ref_device_name]
-            if isinstance(device_info, dict):
-                return DeviceAssignmentDef(lab_name=device_info["lab_name"], name=device_info["name"])
-            if isinstance(device_info, DeviceAssignmentDef):
-                return device_info
-
-        return None
-
-    @staticmethod
     def _apply_parameter_references(ref_tasks: dict[str, Task], task: TaskDef) -> None:
         for param_name, param_value in task.parameters.items():
-            if not is_parameter_reference(param_value):
-                continue
-
-            ref_task_name, ref_param_name = param_value.split(".")
-            resolved_value = TaskInputResolver._resolve_reference(ref_tasks, ref_task_name, ref_param_name, "parameter")
-
-            if resolved_value is not None:
+            if is_parameter_reference(param_value):
+                ref_task_name, ref_param_name = param_value.split(".")
+                resolved_value = resolve_parameter(ref_tasks, ref_task_name, ref_param_name)
+                if resolved_value is None:
+                    raise EosTaskInputResolutionError(
+                        f"Unresolved input parameter reference '{param_value}' in task '{task.name}'"
+                    )
                 task.parameters[param_name] = resolved_value
-            else:
-                raise EosTaskInputResolutionError(
-                    f"Unresolved input parameter reference '{param_value}' in task '{task.name}'"
+            elif is_fanin_parameter(param_value):
+                task.parameters[param_name] = TaskInputResolver._resolve_fanin(
+                    ref_tasks, param_value, task.name, param_name
                 )
+
+    @staticmethod
+    def _resolve_fanin(ref_tasks: dict[str, Task], alternates: list[str], task_name: str, param_name: str) -> Any:
+        # A branch is live if its source task COMPLETED; a legitimately None-valued output still counts.
+        live = []
+        for ref in alternates:
+            ref_task_name, ref_output = ref.split(".")
+            ref_task = ref_tasks.get(ref_task_name)
+            if ref_task is not None and ref_task.status == TaskStatus.COMPLETED:
+                live.append((ref, resolve_parameter(ref_tasks, ref_task_name, ref_output)))
+        if not live:
+            raise EosTaskInputResolutionError(
+                f"Fan-in parameter '{param_name}' in task '{task_name}' has no completed source "
+                f"(all alternates skipped or missing): {alternates}"
+            )
+        if len(live) > 1:
+            refs = [r for r, _ in live]
+            raise EosTaskInputResolutionError(
+                f"Fan-in parameter '{param_name}' in task '{task_name}' has multiple completed sources; "
+                f"branch run_if conditions must be mutually exclusive so exactly one runs: {refs}"
+            )
+        return live[0][1]
 
     @staticmethod
     def _apply_resource_references(ref_tasks: dict[str, Task], task: TaskDef) -> None:
@@ -162,9 +156,7 @@ class TaskInputResolver:
                 continue
 
             ref_task_name, ref_resource_name = resource_value.split(".")
-            resolved_value = TaskInputResolver._resolve_reference(
-                ref_tasks, ref_task_name, ref_resource_name, "resource"
-            )
+            resolved_value = resolve_resource(ref_tasks, ref_task_name, ref_resource_name)
 
             if resolved_value is not None:
                 task.resources[resource_name] = resolved_value
@@ -182,7 +174,7 @@ class TaskInputResolver:
                 continue
 
             ref_task_name, ref_device_name = device_value.split(".")
-            resolved_device = TaskInputResolver._resolve_device_reference(ref_tasks, ref_task_name, ref_device_name)
+            resolved_device = resolve_device(ref_tasks, ref_task_name, ref_device_name)
 
             if resolved_device is not None:
                 task.devices[device_name] = resolved_device

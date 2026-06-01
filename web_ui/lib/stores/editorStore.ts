@@ -4,6 +4,7 @@ import type { Package, EntityTree, EntityType } from '@/lib/types/filesystem';
 import type { TaskNode, TaskSpec, ProtocolDefinition } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { flattenInputParameters } from '@/lib/utils/paramGroups';
+import { rewriteRunIfExpression } from '@/lib/utils/runIf';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,6 +76,9 @@ interface EditorStore {
   clipboard: TaskNode[];
   viewport: { x: number; y: number; zoom: number };
 
+  /** Transient: panel scrolls + briefly highlights this field, then clears it. */
+  focusedField: { taskName: string; kind: 'parameter' | 'device' | 'resource'; name: string } | null;
+
   isPropertiesPanelOpen: boolean;
   isOptimizerPanelOpen: boolean;
 
@@ -122,6 +126,7 @@ interface EditorStore {
   deleteTask: (taskName: string) => void;
   setSelectedNodeName: (nodeName: string | null) => void;
   setIsPropertiesPanelOpen: (isOpen: boolean) => void;
+  setFocusedField: (field: EditorStore['focusedField']) => void;
   setIsOptimizerPanelOpen: (isOpen: boolean) => void;
   setTaskTemplates: (templates: TaskSpec[]) => void;
   mergeTaskTemplates: (templates: Record<string, TaskSpec>) => void;
@@ -299,7 +304,8 @@ const remapObjectFields = <T extends Record<string, unknown>>(
 const remapTaskReferences = (
   task: TaskNode,
   remapper: ReferenceRemapper,
-  dependencyRemapper?: (deps: string[]) => string[]
+  dependencyRemapper?: (deps: string[]) => string[],
+  runIfRewriter?: (expression: string | null) => string | null
 ): TaskNode => {
   const updated = { ...task };
   if (dependencyRemapper && task.dependencies) {
@@ -308,6 +314,7 @@ const remapTaskReferences = (
   if (task.devices) updated.devices = remapObjectFields(task.devices, remapper);
   if (task.resources) updated.resources = remapObjectFields(task.resources, remapper);
   if (task.parameters) updated.parameters = remapObjectFields(task.parameters, remapper);
+  if (runIfRewriter && task.run_if) updated.run_if = runIfRewriter(task.run_if);
   return updated;
 };
 
@@ -395,6 +402,7 @@ export const useEditorStore = create<EditorStore>()(
       selectedNodeName: null,
       clipboard: [],
       viewport: { x: 0, y: 0, zoom: 1 },
+      focusedField: null,
 
       isPropertiesPanelOpen: false,
       isOptimizerPanelOpen: false,
@@ -684,7 +692,12 @@ export const useEditorStore = create<EditorStore>()(
           const updatedTasks = state.tasks.map((task) => {
             if (task.name === taskName) return { ...task, ...updates };
             if (!isRenaming) return task;
-            return remapTaskReferences(task, remapper, (deps) => deps.map((dep) => (dep === taskName ? newName : dep)));
+            return remapTaskReferences(
+              task,
+              remapper,
+              (deps) => deps.map((dep) => (dep === taskName ? newName : dep)),
+              (expr) => rewriteRunIfExpression(expr, taskName, newName)
+            );
           });
 
           const newSelectedNodeName =
@@ -713,6 +726,8 @@ export const useEditorStore = create<EditorStore>()(
           isPropertiesPanelOpen: isOpen,
           selectedNodeName: isOpen ? get().selectedNodeName : null,
         }),
+
+      setFocusedField: (field) => set({ focusedField: field }),
 
       setIsOptimizerPanelOpen: (isOpen) => set({ isOptimizerPanelOpen: isOpen }),
 
@@ -883,9 +898,17 @@ export const useEditorStore = create<EditorStore>()(
           return value;
         };
 
+        const runIfRewriter = (expression: string | null): string | null => {
+          let out = expression;
+          for (const [oldN, newN] of oldToNewNames) out = rewriteRunIfExpression(out, oldN, newN);
+          return out;
+        };
         newTasks.forEach((task, index) => {
-          newTasks[index] = remapTaskReferences(task, remapper, (deps) =>
-            deps.filter((dep) => copiedNodeNames.has(dep)).map((dep) => oldToNewNames.get(dep) || dep)
+          newTasks[index] = remapTaskReferences(
+            task,
+            remapper,
+            (deps) => deps.filter((dep) => copiedNodeNames.has(dep)).map((dep) => oldToNewNames.get(dep) || dep),
+            runIfRewriter
           );
         });
 

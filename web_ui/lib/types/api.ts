@@ -8,7 +8,7 @@
 // Task Types
 // ============================================================================
 
-export type TaskStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+export type TaskStatus = 'CREATED' | 'RUNNING' | 'COMPLETED' | 'SKIPPED' | 'FAILED' | 'CANCELLED';
 
 export interface TaskDeviceConfig {
   lab: string;

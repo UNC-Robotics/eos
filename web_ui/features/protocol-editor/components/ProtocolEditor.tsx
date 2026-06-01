@@ -39,6 +39,7 @@ import { EDITOR_LAYOUT, getEdgeColors } from '@/lib/constants/theme';
 import { performAutoLayout } from '../utils/autolayout';
 import { resolveOverlaps } from '../utils/preventOverlaps';
 import { isAncestor } from '../utils/dependencyGraph';
+import { extractRunIfRefs, runIfHandleId } from '@/lib/utils/runIf';
 
 const nodeTypes: NodeTypes = { taskNode: TaskNode };
 const GRID_SIZE = EDITOR_LAYOUT.gridSize;
@@ -49,7 +50,8 @@ const createEdge = (
   target: string,
   sourceHandle: string,
   targetHandle: string,
-  style?: React.CSSProperties
+  style?: React.CSSProperties,
+  extra?: Partial<Edge>
 ): Edge => ({
   id: `${source}-${target}-${sourceHandle}-${targetHandle}`,
   source,
@@ -58,6 +60,7 @@ const createEdge = (
   targetHandle,
   type: 'default',
   ...(style && { style }),
+  ...extra,
 });
 
 const parseTaskRef = (value: unknown): [string, string] | null => {
@@ -162,6 +165,12 @@ export function ProtocolEditor() {
     });
   });
 
+  const onPortDoubleClickRef = useRef((nodeName: string, kind: 'parameter' | 'device' | 'resource', name: string) => {
+    const store = useEditorStore.getState();
+    store.setSelectedNodeName(nodeName);
+    store.setFocusedField({ taskName: nodeName, kind, name });
+  });
+
   // Memoize task lookup map for performance
   const taskMap = useMemo(() => new Map(tasks.map((t) => [t.name, t])), [tasks]);
   const templateMap = useMemo(() => new Map(taskTemplates.map((t) => [t.type, t])), [taskTemplates]);
@@ -185,6 +194,7 @@ export function ProtocolEditor() {
           isMissingSpec,
           onNodeClick: onNodeClickRef.current,
           onNodeContextMenu: onNodeContextMenuRef.current,
+          onPortDoubleClick: onPortDoubleClickRef.current,
         },
       };
     });
@@ -222,18 +232,23 @@ export function ProtocolEditor() {
       color: string
     ) => {
       Object.entries(assignments || {}).forEach(([name, value]) => {
-        const ref = parseTaskRef(value);
-        if (ref && taskMap.has(ref[0])) {
-          flowEdges.push(
-            createEdge(
-              ref[0],
-              task.name,
-              `${ref[0]}-output-${portType}-${ref[1]}`,
-              `${task.name}-input-${portType}-${name}`,
-              { stroke: color }
-            )
-          );
-        }
+        // One edge per source; fan-in (2+ alternates into one port) renders dense-dashed.
+        const isArray = Array.isArray(value);
+        const isFanin = isArray && value.length >= 2;
+        const refs = (isArray ? value : [value]).map(parseTaskRef);
+        refs.forEach((ref) => {
+          if (ref && taskMap.has(ref[0])) {
+            flowEdges.push(
+              createEdge(
+                ref[0],
+                task.name,
+                `${ref[0]}-output-${portType}-${ref[1]}`,
+                `${task.name}-input-${portType}-${name}`,
+                isFanin ? { stroke: color, strokeDasharray: '2 2' } : { stroke: color }
+              )
+            );
+          }
+        });
       });
     };
 
@@ -252,10 +267,29 @@ export function ProtocolEditor() {
       addReferenceEdges(task, task.devices, 'device', edgeColors.device);
       addReferenceEdges(task, task.resources, 'resource', edgeColors.resource);
       addReferenceEdges(task, task.parameters, 'parameter', edgeColors.parameter);
+
+      // run_if reference edges (read-only visualization).
+      // Skip when the source has no matching output_parameter handle (otherwise React Flow logs an error).
+      for (const ref of extractRunIfRefs(task.run_if)) {
+        const refTask = taskMap.get(ref.task);
+        if (!refTask) continue;
+        const refSpec = templateMap.get(refTask.type);
+        if (!refSpec?.output_parameters || !(ref.output in refSpec.output_parameters)) continue;
+        flowEdges.push(
+          createEdge(
+            ref.task,
+            task.name,
+            `${ref.task}-output-parameter-${ref.output}`,
+            runIfHandleId(task.name, ref),
+            { stroke: edgeColors.runif, strokeDasharray: '4 3', opacity: 0.5 },
+            { deletable: false } // read-only visualization; hoverable/selectable but not deletable
+          )
+        );
+      }
     });
 
     setEdges(flowEdges);
-  }, [tasks, taskMap, setEdges, edgeColors]);
+  }, [tasks, taskMap, templateMap, setEdges, edgeColors]);
 
   // Post-render overlap resolution: after AI updates, wait for React Flow to measure
   // nodes, then resolve any overlaps using actual dimensions
@@ -340,9 +374,19 @@ export function ProtocolEditor() {
         return;
       }
 
-      // Update task with reference
+      // For parameters, a second source onto an existing reference builds a fan-in list.
+      const newRef = `${connection.source}.${sourceParam}`;
+      const fieldValues = (targetTask[field] || {}) as Record<string, unknown>;
+      const existing = fieldValues[targetParam];
+      let nextValue: string | string[] = newRef;
+      if (field === 'parameters' && Array.isArray(existing)) {
+        const refs = existing as string[];
+        nextValue = refs.includes(newRef) ? refs : [...refs, newRef];
+      } else if (field === 'parameters' && typeof existing === 'string' && parseTaskRef(existing)) {
+        nextValue = existing === newRef ? existing : [existing, newRef];
+      }
       updateTask(connection.target!, {
-        [field]: { ...targetTask[field], [targetParam]: `${connection.source}.${sourceParam}` },
+        [field]: { ...fieldValues, [targetParam]: nextValue },
       });
 
       // Add edge with appropriate color
@@ -357,6 +401,9 @@ export function ProtocolEditor() {
 
       const sourceHandle = connection.sourceHandle || '';
       const targetHandle = connection.targetHandle || '';
+
+      // run_if ports are visualization-only; reject any user-initiated connection to them.
+      if (targetHandle.includes('-input-runif-')) return;
 
       // Main dependency connection
       if (isMainDependencyConnection(sourceHandle, targetHandle)) {
@@ -436,10 +483,13 @@ export function ProtocolEditor() {
         return;
       }
 
+      // run_if edges are read-only visualization; don't offer edge actions (e.g. delete) on them.
+      const isRunIfEdge = isEdge && ((item as Edge).targetHandle || '').includes('-input-runif-');
+
       setContextMenu({
         position: { x: event.clientX, y: event.clientY },
         nodeId: item && !isEdge ? item.id : null,
-        edgeId: isEdge ? (item as Edge).id : null,
+        edgeId: isEdge && !isRunIfEdge ? (item as Edge).id : null,
       });
     },
     [selectedNodes]
@@ -485,8 +535,17 @@ export function ProtocolEditor() {
 
     if (!targetParam) return;
 
-    const updated = { ...(targetTask[field] || {}) } as Record<string, string | number>;
-    delete updated[targetParam];
+    const updated = { ...(targetTask[field] || {}) } as Record<string, unknown>;
+    const existing = updated[targetParam];
+    if (field === 'parameters' && Array.isArray(existing)) {
+      // Drop only the deleted source from the fan-in; collapse to a plain reference at one left.
+      const sourceParam = (edge.sourceHandle || '').split('-output-parameter-')[1];
+      const remaining = (existing as string[]).filter((r) => r !== `${edge.source}.${sourceParam}`);
+      if (remaining.length === 0) delete updated[targetParam];
+      else updated[targetParam] = remaining.length === 1 ? remaining[0] : remaining;
+    } else {
+      delete updated[targetParam];
+    }
     updateTask(edge.target, { [field]: updated });
   }, [contextMenu, edges, taskMap, updateTask]);
 

@@ -267,6 +267,68 @@ The ``analyze_color`` task shows another device reference:
 Here, ``color_station`` references the same station from the ``mix_colors`` task,
 ensuring the analysis happens at the same station where the color was mixed.
 
+Conditionals (run_if)
+~~~~~~~~~~~~~~~~~~~~~~~
+Add a ``run_if`` field to a task to make it conditional.
+The task runs only if the expression evaluates to ``True``, otherwise it is skipped.
+
+.. code-block:: yaml
+
+    - name: reanalyze
+      type: Analyze Color
+      run_if: score_color.loss > 0.2
+      dependencies: [score_color]
+
+Expressions reference earlier task outputs as ``task_name.output_name``.
+Referenced tasks must be ancestors of the conditional task.
+
+Supported syntax:
+
+* Comparisons: ``==``, ``!=``, ``<``, ``<=``, ``>``, ``>=``
+* Boolean operators: ``and``, ``or``, ``not``
+* Literals: ints, floats, quoted strings, ``True`` / ``False``
+
+.. code-block:: yaml
+
+    run_if: prep.product >= 0 and prep.product <= 100
+    run_if: not calibration.passed
+    run_if: mode.setting == 'high' or sample.count >= 3
+
+Expressions must return a boolean and are validated at load time.
+Negative numbers are allowed; binary arithmetic, function calls, indexing, and chained attribute access are not.
+
+Skips propagate: a task is skipped if all of its dependencies were skipped, or (for a conditional task) if any task its
+``run_if`` references was skipped.
+A task with at least one non-skipped dependency still runs, enabling fan-in convergence across conditional branches.
+
+**Branching and fan-in**: give branches complementary conditions so exactly one runs, then converge on a task depending
+on both. To read the output of whichever branch ran, set a parameter to a **fan-in list** of references:
+
+.. code-block:: yaml
+
+    - name: measure
+      type: Measure
+      dependencies: []
+
+    - name: heat
+      type: Heat
+      run_if: measure.temperature < 50
+      dependencies: [measure]
+
+    - name: cool
+      type: Cool
+      run_if: measure.temperature >= 50
+      dependencies: [measure]
+
+    - name: report
+      type: Report
+      dependencies: [heat, cool]
+      parameters:
+        reading: [heat.result, cool.result]  # fan-in: value of whichever branch ran
+
+Each fan-in reference must point to an ancestor, and exactly one branch must run, so make the branch conditions mutually
+exclusive.
+
 Optimizer File (optimizer.py)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.

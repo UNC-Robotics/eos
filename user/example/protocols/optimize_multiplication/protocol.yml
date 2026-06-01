@@ -22,6 +22,8 @@ tasks:
     parameters:
       number: mult_1.product
       factor: eos_dynamic
+    color: '#3b82f6'
+    run_if: mult_1.in_number > 5 and mult_1.product > 500
     devices:
       multiplier:
         lab_name: multiplication_lab

@@ -26,6 +26,11 @@ const STATUS_COLORS: Record<TaskStatus, { border: string; bg: string; text: stri
     bg: 'bg-green-50 dark:bg-green-900',
     text: 'text-green-700 dark:text-green-300',
   },
+  SKIPPED: {
+    border: 'border-slate-400 dark:border-slate-500',
+    bg: 'bg-slate-100 dark:bg-slate-800',
+    text: 'text-slate-500 dark:text-slate-400',
+  },
   FAILED: {
     border: 'border-red-500 dark:border-red-400',
     bg: 'bg-red-50 dark:bg-red-900',

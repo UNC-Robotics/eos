@@ -113,6 +113,16 @@ function TaskValidationAlert({ taskName }: { taskName: string }) {
   );
 }
 
+// A fan-in is 2+ comma-separated `task.output` references; returns the parsed list or null.
+const TASK_REF_RE = /^[A-Za-z0-9_ -]+\.[A-Za-z0-9_ -]+$/;
+function parseFaninText(text: string): string[] | null {
+  const tokens = text
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return tokens.length >= 2 && tokens.every((t) => TASK_REF_RE.test(t)) ? tokens : null;
+}
+
 export function TaskPropertiesPanel({
   isOpen,
   taskNode,
@@ -126,6 +136,10 @@ export function TaskPropertiesPanel({
   const [localName, setLocalName] = useState('');
   const [showColorPicker, setShowColorPicker] = useState(false);
   const debounceTimerRef = useRef<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const focusedField = useEditorStore((state) => state.focusedField);
+  const setFocusedField = useEditorStore((state) => state.setFocusedField);
 
   // Sync local name with taskNode name when taskNode changes
   useEffect(() => {
@@ -142,6 +156,24 @@ export function TaskPropertiesPanel({
       }
     };
   }, []);
+
+  // Scroll to + briefly highlight the field targeted by focusedField (e.g. via port double-click).
+  useEffect(() => {
+    if (!focusedField || !taskNode || focusedField.taskName !== taskNode.name) return;
+    const root = contentRef.current;
+    if (!root) return;
+    const el = root.querySelector<HTMLElement>(
+      `[data-field-kind="${focusedField.kind}"][data-field-name="${CSS.escape(focusedField.name)}"]`
+    );
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('field-highlight');
+    const timer = window.setTimeout(() => {
+      el.classList.remove('field-highlight');
+      setFocusedField(null);
+    }, 2100);
+    return () => window.clearTimeout(timer);
+  }, [focusedField, taskNode, setFocusedField]);
 
   if (!isOpen || !taskNode || !taskSpec) return null;
 
@@ -266,7 +298,7 @@ export function TaskPropertiesPanel({
 
       <ScrollArea.Root className="flex-1 min-h-0 min-w-0">
         <ScrollArea.Viewport className="w-full h-full" style={{ overflowX: 'hidden' }}>
-          <div className="p-4 space-y-4 min-w-0">
+          <div ref={contentRef} className="p-4 space-y-4 min-w-0">
             {/* Validation Errors */}
             <TaskValidationAlert taskName={taskNode.name} />
 
@@ -306,6 +338,21 @@ export function TaskPropertiesPanel({
                   onChange={(e) => onUpdate(taskNode.name, { desc: e.target.value })}
                   rows={2}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              {/* Run If */}
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Run If (optional)
+                  <DescriptionTooltip description="Task runs only if this expression evaluates true." />
+                </label>
+                <textarea
+                  rows={2}
+                  value={taskNode.run_if || ''}
+                  onChange={(e) => onUpdate(taskNode.name, { run_if: e.target.value || null })}
+                  placeholder="e.g. prep.product > 10"
+                  className="w-full resize-y px-2.5 py-1.5 text-sm font-mono break-words border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-yellow-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 />
               </div>
 
@@ -378,17 +425,18 @@ export function TaskPropertiesPanel({
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Input Devices</h3>
                 <div className="space-y-3">
                   {Object.entries(taskSpec.input_devices).map(([name, spec]) => (
-                    <DeviceAssignmentComponent
-                      key={name}
-                      deviceName={name}
-                      deviceSpec={spec}
-                      value={taskNode.devices?.[name]}
-                      onChange={(value) => handleDeviceChange(name, value)}
-                      hold={taskNode.device_holds?.[name]}
-                      onHoldChange={(hold) => handleDeviceHoldChange(name, hold)}
-                      labSpecs={labSpecs}
-                      selectedLabs={selectedLabs}
-                    />
+                    <div key={name} data-field-kind="device" data-field-name={name}>
+                      <DeviceAssignmentComponent
+                        deviceName={name}
+                        deviceSpec={spec}
+                        value={taskNode.devices?.[name]}
+                        onChange={(value) => handleDeviceChange(name, value)}
+                        hold={taskNode.device_holds?.[name]}
+                        onHoldChange={(hold) => handleDeviceHoldChange(name, hold)}
+                        labSpecs={labSpecs}
+                        selectedLabs={selectedLabs}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -400,17 +448,18 @@ export function TaskPropertiesPanel({
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Input Resources</h3>
                 <div className="space-y-3">
                   {Object.entries(taskSpec.input_resources).map(([name, spec]) => (
-                    <ResourceAssignmentComponent
-                      key={name}
-                      resourceName={name}
-                      resourceSpec={spec}
-                      value={taskNode.resources?.[name]}
-                      onChange={(value) => handleResourceChange(name, value)}
-                      hold={taskNode.resource_holds?.[name]}
-                      onHoldChange={(hold) => handleResourceHoldChange(name, hold)}
-                      labSpecs={labSpecs}
-                      selectedLabs={selectedLabs}
-                    />
+                    <div key={name} data-field-kind="resource" data-field-name={name}>
+                      <ResourceAssignmentComponent
+                        resourceName={name}
+                        resourceSpec={spec}
+                        value={taskNode.resources?.[name]}
+                        onChange={(value) => handleResourceChange(name, value)}
+                        hold={taskNode.resource_holds?.[name]}
+                        onHoldChange={(hold) => handleResourceHoldChange(name, hold)}
+                        labSpecs={labSpecs}
+                        selectedLabs={selectedLabs}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -424,39 +473,51 @@ export function TaskPropertiesPanel({
                 const renderParam = (name: string, spec: ParameterSpec) => {
                   // User override falls back to task.yml default; serializer strips equal-to-default values
                   const effectiveValue = taskNode.parameters?.[name] ?? spec.value;
-                  return spec.type === 'bool' ? (
-                    <BooleanParameterField
-                      key={name}
-                      name={name}
-                      spec={spec}
-                      value={effectiveValue}
-                      onChange={(value) =>
-                        onUpdate(taskNode.name, {
-                          parameters: {
-                            ...taskNode.parameters,
-                            [name]: value as boolean,
-                          },
-                        })
-                      }
-                    />
-                  ) : (
-                    <InputField
-                      key={name}
-                      name={name}
-                      spec={spec}
-                      value={(() => {
-                        if (effectiveValue == null) return '';
-                        if (typeof effectiveValue === 'object') return JSON.stringify(effectiveValue);
-                        return String(effectiveValue);
-                      })()}
-                      placeholder={spec.desc ?? ''}
-                      onChange={(value) => handleParameterChange(name, value, spec.type)}
-                      onBlur={() => {
-                        const v = taskNode.parameters?.[name];
-                        const isEmpty = v === undefined || v === null || v === '';
-                        if (isEmpty) handleParameterClear(name);
-                      }}
-                    />
+                  const field =
+                    spec.type === 'bool' ? (
+                      <BooleanParameterField
+                        name={name}
+                        spec={spec}
+                        value={effectiveValue}
+                        onChange={(value) =>
+                          onUpdate(taskNode.name, {
+                            parameters: {
+                              ...taskNode.parameters,
+                              [name]: value as boolean,
+                            },
+                          })
+                        }
+                      />
+                    ) : (
+                      <InputField
+                        name={name}
+                        spec={spec}
+                        value={(() => {
+                          if (effectiveValue == null) return '';
+                          if (Array.isArray(effectiveValue)) return effectiveValue.join(', ');
+                          if (typeof effectiveValue === 'object') return JSON.stringify(effectiveValue);
+                          return String(effectiveValue);
+                        })()}
+                        placeholder={spec.desc ?? ''}
+                        onChange={(value) => handleParameterChange(name, value, spec.type)}
+                        onBlur={() => {
+                          const v = taskNode.parameters?.[name];
+                          if (typeof v === 'string') {
+                            const fanin = parseFaninText(v); // 2+ comma-separated refs -> fan-in list
+                            if (fanin) {
+                              onUpdate(taskNode.name, { parameters: { ...taskNode.parameters, [name]: fanin } });
+                              return;
+                            }
+                          }
+                          const isEmpty = v === undefined || v === null || v === '';
+                          if (isEmpty) handleParameterClear(name);
+                        }}
+                      />
+                    );
+                  return (
+                    <div key={name} data-field-kind="parameter" data-field-name={name}>
+                      {field}
+                    </div>
                   );
                 };
 
@@ -539,10 +600,10 @@ export function TaskPropertiesPanel({
           </div>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar
-          className="flex select-none touch-none p-0.5 bg-gray-100 dark:bg-slate-800 transition-colors duration-150 ease-out hover:bg-gray-200 dark:hover:bg-slate-700"
+          className="flex select-none touch-none p-0.5 bg-gray-100 dark:bg-slate-800 transition-colors duration-150 ease-out hover:bg-gray-200 dark:hover:bg-slate-700 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:h-2.5"
           orientation="vertical"
         >
-          <ScrollArea.Thumb className="flex-1 bg-gray-400 dark:bg-slate-600 rounded-full relative before:content-[''] before:absolute before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:w-full before:h-full before:min-w-[44px] before:min-h-[44px]" />
+          <ScrollArea.Thumb className="flex-1 bg-gray-400 dark:bg-slate-600 rounded-full relative before:content-[''] before:absolute before:top-1/2 before:left-1/2 before:-translate-x-1/2 before:-translate-y-1/2 before:w-full before:h-full before:min-h-[44px]" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </div>

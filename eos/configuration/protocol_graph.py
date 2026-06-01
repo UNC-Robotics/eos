@@ -8,7 +8,12 @@ from eos.configuration.entities.task_def import TaskDef
 from eos.configuration.entities.task_spec_def import TaskSpecDef
 from eos.configuration.exceptions import EosTaskGraphError, EosTaskValidationError
 from eos.configuration.registries import TaskSpecRegistry
-from eos.configuration.utils import is_device_reference, is_parameter_reference, is_resource_reference
+from eos.configuration.utils import (
+    is_device_reference,
+    is_fanin_parameter,
+    is_parameter_reference,
+    is_resource_reference,
+)
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 
 
@@ -147,11 +152,17 @@ class TaskReferenceOrderingValidator:
             self._validate_task_references(task)
         raise_batched_errors(root_exception_type=EosTaskValidationError)
 
+    def ancestors_of(self, task_name: str) -> set[str]:
+        return self._ancestors.get(task_name, set())
+
     def _validate_task_references(self, task: TaskDef) -> None:
         for parameter_name, parameter_value in task.parameters.items():
             if is_parameter_reference(parameter_value):
                 ref_task_name = str(parameter_value).split(".")[0]
                 self._check_ordering(task.name, ref_task_name, "parameter", parameter_name)
+            elif is_fanin_parameter(parameter_value):
+                for alternate in parameter_value:
+                    self._check_ordering(task.name, alternate.split(".")[0], "parameter", parameter_name)
 
         for resource_name, resource_value in task.resources.items():
             if isinstance(resource_value, str) and is_resource_reference(resource_value):

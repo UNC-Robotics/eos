@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.0
+
+- Added task conditional execution via "run if", allowing tasks to execute only if an expression is true
+- Added automatic task reference renaming in the visual protocol editor when renaming tasks
+- Added the ability to double-click task input and output ports in the visual protocol editor, which will highlight the relevant fields in the task properties panel
+- Updated tooltips to also appear when clicking them rather than only hovering
+
 ## 0.27.0
 
 - Improved Beacon's AI agent system prompt
