@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -427,10 +427,9 @@
   <section id="optimizers">
 <h1>Optimizers<a class="headerlink" href="#optimizers" title="Link to this heading">#</a></h1>
 <p>Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to protocol run campaigns by optimizing task parameters to achieve objectives over time.
-Optimizers in EOS are <em>sequential</em>, meaning they iteratively optimize parameters by drawing insights from previous protocol runs.
-One of the most common sequential optimization methods is <strong>Bayesian optimization</strong>, and is especially useful for
-optimizing expensive-to-evaluate black box functions.</p>
+In EOS, optimizers give intelligence to campaigns by optimizing task parameters to achieve objectives over time.
+EOS optimizers are <em>sequential</em>, meaning they iteratively optimize parameters by drawing on previous protocol runs.
+<strong>Bayesian optimization</strong> is one of the most common sequential methods, especially useful for expensive-to-evaluate black-box functions.</p>
 <figure class="align-center">
 <img alt="Optimization and protocol run loop" src="../_images/optimize-protocol-loop.png" />
 </figure>
@@ -441,9 +440,8 @@ It offers several different surrogate models, including Gaussian Processes (GPs)
 along with various acquisition functions.</p>
 <section id="distributed-execution">
 <h2>Distributed Execution<a class="headerlink" href="#distributed-execution" title="Link to this heading">#</a></h2>
-<p>EOS optimizers are created in a dedicated Ray actor process.
-This actor process can be created in any computer with an active Ray worker.
-This can enable running the optimizer on a more capable computer than the one running the EOS orchestrator.</p>
+<p>EOS optimizers run in a dedicated Ray actor process, which can be placed on any machine with an active Ray worker.
+This allows the optimizer to run on a more capable machine than the one hosting the EOS orchestrator.</p>
 </section>
 <section id="optimizer-implementation">
 <h2>Optimizer Implementation<a class="headerlink" href="#optimizer-implementation" title="Link to this heading">#</a></h2>
@@ -485,34 +483,28 @@ Below is an example:</p>
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>Each <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file must contain the function <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.
-This function must return:</p>
+<p>Each <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> must contain <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>, which returns:</p>
 <ol class="arabic simple">
-<li><p>The constructor arguments to make an optimizer class instance</p></li>
-<li><p>The class type of the optimizer</p></li>
+<li><p>The constructor arguments for an optimizer class instance</p></li>
+<li><p>The optimizer class type</p></li>
 </ol>
-<p>In this example, we use EOS’ built-in Bayesian optimizer.</p>
-<p>For most use cases, we recommend the <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a>, which combines Bayesian optimization with
-AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
-constraints) but adds an AI agent that reasons about protocol run history to suggest smarter parameter sets.</p>
-<p>It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
-the class type from <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.</p>
+<p>This example uses EOS’ built-in Bayesian optimizer.</p>
+<p>For most use cases, the <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a> is recommended. It combines Bayesian optimization with AI-driven reasoning for faster convergence, using the same domain definition (inputs, outputs, constraints) but adding an AI agent that reasons about protocol run history to suggest smarter parameter sets.</p>
+<p>Custom optimizers can also be defined in this file; just return their constructor arguments and class type from <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>All optimizers must inherit from the class <code class="docutils literal notranslate"><span class="pre">AbstractSequentialOptimizer</span></code> under the <code class="docutils literal notranslate"><span class="pre">eos.optimization</span></code> module.</p>
 </div>
 <section id="input-and-output-parameter-naming">
 <h3>Input and Output Parameter Naming<a class="headerlink" href="#input-and-output-parameter-naming" title="Link to this heading">#</a></h3>
-<p>The names of input and output parameters must reference task parameters.
-The EOS reference format must be used:</p>
+<p>Input and output parameter names must reference task parameters using the EOS reference format:</p>
 <p><strong>TASK.PARAMETER_NAME</strong></p>
-<p>This is necessary for EOS to be able to associate the optimizer with the protocol tasks and to forward parameter values
-where needed.</p>
+<p>This lets EOS associate the optimizer with protocol tasks and forward parameter values correctly.</p>
 </section>
 </section>
 <section id="example-custom-optimizer">
 <h2>Example Custom Optimizer<a class="headerlink" href="#example-custom-optimizer" title="Link to this heading">#</a></h2>
-<p>Below is an example of a custom optimizer implementation that randomly samples parameters for the same color mixing problem:</p>
+<p>Below is a custom optimizer that randomly samples parameters for the same color mixing problem:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
@@ -686,7 +678,7 @@ where needed.</p>
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

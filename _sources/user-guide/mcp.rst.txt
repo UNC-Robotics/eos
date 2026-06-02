@@ -1,14 +1,14 @@
 MCP Server
 ==========
-EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI.
-This allows AI assistants like Claude to interact with EOS directly, querying protocols, submitting campaigns, inspecting devices, and more.
+EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI,
+allowing AI assistants like Claude to interact with EOS directly: querying protocols, submitting campaigns, inspecting devices, and more.
 
-Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
+Once connected, the AI assistant automatically discovers all available tools and you can ask it things like
 "check the status of my campaign", "submit 10 multiplication protocols", or "what functions does the pipette support?"
 
 .. warning::
 
-    The MCP endpoint currently has no authentication.
+    The MCP endpoint has no authentication.
     Only expose it in trusted environments (local network or behind a reverse proxy with auth).
 
 
@@ -43,8 +43,8 @@ Add to your ``claude_desktop_config.json``:
 Other MCP Clients
 ~~~~~~~~~~~~~~~~~
 
-Point any MCP-compatible client to ``http://localhost:3000/api/mcp`` with the **Streamable HTTP** transport.
-Replace ``localhost:3000`` with your web UI host and port if different.
+Point any MCP-compatible client to ``http://localhost:3000/api/mcp`` with the **Streamable HTTP** transport,
+replacing ``localhost:3000`` with your web UI host and port if needed.
 
 
 Capabilities
@@ -64,7 +64,7 @@ The MCP server exposes 50 tools across the following categories:
 Examples
 --------
 
-These examples show natural language prompts you might give an AI assistant connected to EOS via MCP.
+Natural language prompts you might give an AI assistant connected to EOS via MCP:
 
 .. code-block:: text
 

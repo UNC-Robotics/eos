@@ -1,7 +1,7 @@
 SiLA 2 Integration
 ==================
 
-EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_, enabling easier integration with
+EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_ to ease integration with
 SiLA-compliant instruments.
 
 Overview
@@ -129,7 +129,7 @@ For devices with multiple servers, specify the server name:
 Long-Lived Connections
 ~~~~~~~~~~~~~~~~~~~~~~
 
-For connections that need to persist beyond a single context, use ``create_client()``:
+For connections that must persist beyond a single context, use ``create_client()``:
 
 .. code-block:: python
 
@@ -150,7 +150,7 @@ For connections that need to persist beyond a single context, use ``create_clien
 Calling Servers from Device Code
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can also call SiLA servers from within an EOS device:
+SiLA servers can also be called from within an EOS device:
 
 .. code-block:: python
 

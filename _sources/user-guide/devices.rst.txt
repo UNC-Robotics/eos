@@ -1,28 +1,18 @@
 Devices
 =======
-In EOS, a device is an abstraction for a physical or virtual apparatus.
-A device is used by one or more tasks to run some processes.
-Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
-This process is usually implemented as a server and tasks call various functions from it.
-For example, there could be a device called "magnetic mixer", which communicates with a physical magnetic mixer via
-serial and provides functions such as ``start``, ``stop``, ``set_time`` and ``set_speed``.
+In EOS, a device is an abstraction for a physical or virtual apparatus used by one or more tasks.
+Each device is managed by a dedicated process created when a laboratory definition is loaded.
+This process is usually implemented as a server that tasks call functions on.
+For example, a "magnetic mixer" device communicates with a physical mixer via serial and exposes functions such as ``start``, ``stop``, ``set_time``, and ``set_speed``.
 
 .. figure:: ../_static/img/tasks-devices.png
    :alt: EOS Tasks and Devices
    :align: center
 
-In the figure above, we illustrate an example of devices and a task that uses these devices.
-The task in this example is Gas Chromatography (GC) sampling, which is implemented with a GC and a mobile manipulation
-robot for automating the sample injection with a syringe.
-Both the GC and the robot are physical devices, and each has a device implementation in EOS, which runs as a persistent
-process.
-Then, the GC Sampling task uses both of the EOS devices to automate the sample injection process.
+The figure shows a GC Sampling task that uses two devices: a GC and a mobile manipulation robot for automating sample injection with a syringe.
+Both are physical devices with EOS implementations running as persistent processes.
 
-Most often, an EOS device will represent a physical device in the lab.
-But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
-throughout one or more protocols.
-This could be an AI module that records inputs given to it.
-Remember that a device in EOS is a persistent process.
+Most often an EOS device represents a physical lab instrument, but it can also represent anything that needs persistent state across protocols, such as an AI module that records inputs. A device is always a persistent process.
 
 Device Implementation
 ---------------------
@@ -36,7 +26,7 @@ YAML File (device.yml)
 * The same implementation can be used for multiple devices of the same type
 * Initialization parameters can be overridden in laboratory definition
 
-Below is an example device YAML file for a magnetic mixer:
+Example device YAML for a magnetic mixer:
 
 :bdg-primary:`device.yml`
 
@@ -53,7 +43,7 @@ Python File (device.py)
 * Implements device functionality
 * All devices implementations must inherit from ``BaseDevice``
 
-Below is a example implementation of a magnetic mixer device:
+Example magnetic mixer implementation:
 
 :bdg-primary:`device.py`
 
@@ -85,9 +75,7 @@ Below is a example implementation of a magnetic mixer device:
 
             return container
 
-Let's walk through this example code:
-
-There are functions required in every device implementation:
+Every device implementation must define the following functions:
 
 #. **_initialize**
 
@@ -103,9 +91,7 @@ There are functions required in every device implementation:
 
    * Should return any data needed to determine the state of the device (e.g., status and feedback)
 
-The magnetic mixer device also has the function ``mix`` for implementing the mixing operation.
-This function will be called by a task to mix the contents of a container.
-The ``mix`` function:
+The ``mix`` function is called by a task to mix a container's contents. It:
 
-* Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer
-* Updates container metadata with mixing details
+* Sends a command to the lower-level driver with mixing time and speed
+* Updates container metadata with the mixing details

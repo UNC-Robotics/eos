@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,22 +426,17 @@
                   
   <section id="protocols">
 <h1>Protocols<a class="headerlink" href="#protocols" title="Link to this heading">#</a></h1>
-<p>Protocols are a set of tasks that are executed in a specific order.
-Protocols are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of a protocol can pass parameters, devices, and resources to each other using EOS’ reference system.
-Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
-denoting them as dynamic parameters.
-Protocols with dynamic parameters can be used to run campaigns of protocol runs, where an optimizer generates the values
-for the dynamic parameters across repeated protocol runs to optimize some objectives.</p>
+<p>Protocols are a set of tasks executed in a specific order, represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies.
+Tasks in a protocol can pass parameters, devices, and resources to each other using EOS’ reference system.
+Parameters may be fully defined or left undefined as dynamic parameters.
+Protocols with dynamic parameters can run campaigns where an optimizer generates dynamic parameter values across repeated runs to optimize some objectives.</p>
 <figure class="align-center">
 <img alt="Example protocol graph" src="../_images/protocol-graph.png" />
 </figure>
 <p>Above is an example of a possible protocol that could be implemented with EOS.
 There is a series of tasks, each requiring one or more devices.
-In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
-form of parameters, devices, and resources passed between tasks.
-For example, the task “Mix Solutions” may take as input parameters the volumes of the solutions to mix, and these values
-may be output from the “Dispense Solutions” task.
+In addition to task precedence dependencies, there can also be dependencies in the form of parameters, devices, and resources passed between tasks.
+For example, the task “Mix Solutions” may take as input the volumes of solutions to mix, output from the “Dispense Solutions” task.
 Tasks can reference input/output parameters, devices, and resources from other tasks.</p>
 <section id="protocol-implementation">
 <h2>Protocol Implementation<a class="headerlink" href="#protocol-implementation" title="Link to this heading">#</a></h2>
@@ -579,9 +574,8 @@ and a <code class="docutils literal notranslate"><span class="pre">cleaning_stat
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 </pre></div>
 </div>
-<p>Every protocol has a type.
-The type is used to identify the class of protocol.
-When a protocol is running then there are instances of the protocol (protocol runs) with different IDs.
+<p>Every protocol has a type used to identify the class of protocol.
+When a protocol is running, there are instances (protocol runs) with different IDs.
 Each protocol also requires one or more labs.</p>
 <p>Now let’s look at the first task in the protocol:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container</span>
@@ -645,11 +639,10 @@ These names are used by the task implementation to access the device.</p>
 </pre></div>
 </div>
 <p>This task demonstrates <strong>device and resource references</strong>:</p>
-<p><strong>Device Reference</strong>: <code class="docutils literal notranslate"><span class="pre">color_station:</span> <span class="pre">retrieve_container.color_station</span></code> tells EOS that this task must use the same color_station device
-that was allocated to the <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code> task. This ensures that the beaker stays at the same station where it was placed.</p>
-<p><strong>Resource Reference</strong>: <code class="docutils literal notranslate"><span class="pre">beaker:</span> <span class="pre">retrieve_container.beaker</span></code> passes the beaker resource from the previous task to this one.</p>
-<p><strong>Dynamic Parameters</strong>: The mixing parameters are set to <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>, which is a special keyword in EOS for defining dynamic parameters.
-These must be specified either by the user or an optimizer before a protocol run can be executed.</p>
+<p><strong>Device Reference</strong>: <code class="docutils literal notranslate"><span class="pre">color_station:</span> <span class="pre">retrieve_container.color_station</span></code> tells EOS to use the same color_station allocated to <code class="docutils literal notranslate"><span class="pre">retrieve_container</span></code>, ensuring the beaker stays at the same station.</p>
+<p><strong>Resource Reference</strong>: <code class="docutils literal notranslate"><span class="pre">beaker:</span> <span class="pre">retrieve_container.beaker</span></code> passes the beaker resource from the previous task.</p>
+<p><strong>Dynamic Parameters</strong>: The mixing parameters are set to <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>, a special keyword for defining dynamic parameters.
+These must be specified by the user or an optimizer before a protocol run can execute.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">analyze_color</span></code> task shows another device reference:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
 <span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
@@ -845,7 +838,7 @@ exclusive.</p>
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

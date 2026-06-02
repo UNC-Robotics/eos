@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -425,12 +425,9 @@
                   
   <section id="color-mixing">
 <h1>Color Mixing<a class="headerlink" href="#color-mixing" title="Link to this heading">#</a></h1>
-<p>This example demonstrates how EOS can be used to implement a virtual color mixing protocol.
-In this protocol, we mix CMYK ingredient colors to produce a target color.
-By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
-secondary objective of minimizing the amount of color ingredients used.
-To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
-Color mixing is simulated using real-time fluid simulation running in a web browser.</p>
+<p>This example demonstrates a virtual color mixing protocol in EOS.
+CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
+The example uses no physical devices; color mixing is simulated via real-time fluid simulation in a web browser.</p>
 <p>The example is implemented in an EOS package called <strong>color_lab</strong>, and can be found <a class="reference external" href="https://github.com/UNC-Robotics/eos-examples">here</a>.</p>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
@@ -558,17 +555,8 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-R
         <span class="k">return</span> <span class="n">container</span><span class="p">,</span> <span class="n">rgb</span>
 </pre></div>
 </div>
-<p>You will notice that the color station combines both mixing and analysis into a single device.
-This ensures that a single allocation connects to a single fluid simulation window, so the
-color that is mixed is the same one that gets analyzed.</p>
-<p>The device implementation communicates with another process over a socket.
-This is a common pattern when integrating devices in the laboratory, as device drivers are usually provided by a 3rd
-party, such as the device manufacturer.
-So often the device implementation simply uses the existing driver.
-In some cases, the device implementation may include a full driver implementation.</p>
-<p>The device implementation initializes a client that connects to the device driver over a socket.
-The device implements a <code class="docutils literal notranslate"><span class="pre">mix</span></code> function for dispensing and mixing colors, and an <code class="docutils literal notranslate"><span class="pre">analyze</span></code> function
-that returns the average RGB value of the fluid color from the fluid simulation.</p>
+<p>The color station combines mixing and analysis into a single device, ensuring a single allocation connects to one fluid simulation window so the mixed color is the same one analyzed.</p>
+<p>The implementation communicates with another process over a socket, a common pattern when device drivers are supplied by a third party. It initializes a client that connects to the driver and exposes a <code class="docutils literal notranslate"><span class="pre">mix</span></code> function for dispensing colors and an <code class="docutils literal notranslate"><span class="pre">analyze</span></code> function that returns the average RGB value from the fluid simulation.</p>
 <p>The device YAML file for the color station device is:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_station</span>
@@ -617,9 +605,7 @@ how much color ingredients were used.</p></li>
         <span class="k">return</span> <span class="n">output_parameters</span><span class="p">,</span> <span class="n">resources</span><span class="p">,</span> <span class="kc">None</span>
 </pre></div>
 </div>
-<p>The task implementation is straightforward. We first get a reference to the color station device.
-Then, we call the <code class="docutils literal notranslate"><span class="pre">analyze</span></code> function from the color station device we saw earlier. Finally, we construct
-and return the dict of output parameters and the resources.</p>
+<p>The task gets a reference to the color station, calls <code class="docutils literal notranslate"><span class="pre">analyze</span></code>, then returns the output parameters and resources.</p>
 <p>The task YAML file is the following:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
@@ -651,10 +637,7 @@ and return the dict of output parameters and the resources.</p>
 </section>
 <section id="laboratory">
 <h2>Laboratory<a class="headerlink" href="#laboratory" title="Link to this heading">#</a></h2>
-<p>The laboratory YAML definition is shown below.</p>
-<p>We define the devices we discussed earlier.
-Note that we define three color stations so the laboratory can support up to three simultaneous color mixing protocols.</p>
-<p>We also define the resource types and the actual resources (beakers) with their initial locations.</p>
+<p>The laboratory YAML definition is shown below. Three color stations are defined to support up to three simultaneous protocol runs. Resource types and beakers with their initial locations are also declared.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A laboratory for color analysis and mixing</span>
@@ -895,7 +878,7 @@ Provide it via <code class="docutils literal notranslate"><span class="pre">glob
 <span class="w">    </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.color_station</span>
 </pre></div>
 </div>
-<p>In the first snippet, the mix_colors task uses the exact color_station allocated during retrieve_container. In the second, analyze_color uses the same color_station, ensuring that the mixed color is analyzed on the same simulation window.</p>
+<p>The mix_colors task reuses the color_station allocated by retrieve_container; analyze_color then reuses the same station, ensuring the mixed color is analyzed on the same simulation window.</p>
 <p><strong>Resource references</strong>: pass the same physical resource instance (e.g., a beaker) downstream.</p>
 <p>Example:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
@@ -907,7 +890,7 @@ Provide it via <code class="docutils literal notranslate"><span class="pre">glob
 <span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.beaker</span>
 </pre></div>
 </div>
-<p>The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then reused by analyze_color on the same station.</p>
+<p>The beaker dynamically chosen by retrieve_container is passed through mix_colors and into analyze_color.</p>
 <p><strong>Parameter references</strong>: feed outputs from one task as inputs to another by referencing output parameters.</p>
 <p>Example:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color</span>
@@ -999,7 +982,7 @@ Provide it via <code class="docutils literal notranslate"><span class="pre">glob
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

@@ -54,7 +54,7 @@ Notes
 
 Declaring resources in task specifications
 ------------------------------------------
-Tasks declare the resource types they require in ``task.yml``. EOS validates that protocols provide matching resource instances (by name) or a dynamic request for a resource of the required type.
+Tasks declare required resource types in ``task.yml``. EOS validates that protocols supply matching resource instances (by name) or a dynamic request for the required type.
 
 :bdg-primary:`task.yml`
 
@@ -77,7 +77,7 @@ Tasks declare the resource types they require in ``task.yml``. EOS validates tha
 
 Assigning resources in protocols
 ----------------------------------
-In a protocol’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
+In protocol tasks, assign specific resource names or request resources dynamically by type. The scheduler (Greedy or CP-SAT) resolves dynamic requests to a concrete, non-conflicting instance.
 
 :bdg-primary:`protocol.yml`
 
@@ -123,7 +123,7 @@ In a protocol’s tasks, assign either specific resource names or request resour
 
 Protocol‑level resource metadata (optional)
 --------------------------------------------
-You may attach protocol‑specific metadata to resources used in that protocol via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
+You may attach protocol-specific metadata to resources via the top-level ``resources`` block. This annotates existing resource instances; it does not define new ones.
 
 :bdg-primary:`protocol.yml`
 

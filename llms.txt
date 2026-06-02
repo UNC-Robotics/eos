@@ -33,10 +33,6 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
 * MCP server for connecting AI assistants
 * SiLA 2 instrument protocol integration
 
-.. figure:: _static/img/eos-features.png
-   :alt: Major features of EOS
-   :align: center
-
 .. toctree::
    :caption: User Guide
    :maxdepth: 2
@@ -111,9 +107,9 @@ Both strategies share the same result history.
 
 Why Hybrid?
 ~~~~~~~~~~~
-* Bayesian optimizers treat the objective as a black box — AI can apply domain reasoning to make informed jumps.
-* AI models can hallucinate — the Bayesian component provides a mathematically grounded baseline.
-* The probabilistic mixing lets each strategy compensate for the other's weaknesses.
+* Bayesian optimizers treat the objective as a black box; AI can apply domain reasoning to make informed jumps.
+* AI models can hallucinate; the Bayesian component provides a mathematically grounded baseline.
+* Probabilistic mixing lets each strategy compensate for the other's weaknesses.
 
 Setting Up
 ----------
@@ -200,7 +196,7 @@ AI Model
 
 .. tip::
     The ``claude-agent-sdk`` provider is recommended. It uses Claude Code's agentic harness with
-    Claude's frontier reasoning capabilities. Authenticates via a Claude subscription
+    Claude's frontier reasoning capabilities, and authenticates via a Claude subscription
     (``~/.claude`` credentials) or an ``ANTHROPIC_API_KEY``.
 
 AI Context
@@ -280,14 +276,11 @@ Insights are included in the next AI prompt and persisted across campaign resume
 
 Campaigns
 =========
-A campaign in EOS is a protocol that is executed multiple times in sequence.
-The parameters of the protocol runs usually differ.
-A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
-Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.
+A campaign in EOS is a protocol executed multiple times in sequence, usually with varying parameters, toward goals such as optimizing objectives by searching for optimal parameters.
+Campaigns are the highest-level execution unit in EOS and can be used to implement autonomous (self-driving) labs.
 
-The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
-EOS has built-in support for running campaigns of a protocol.
-In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.
+The DMTA loop is a common paradigm in autonomous experimentation, and EOS campaigns can implement it.
+EOS has built-in support for running campaigns of a protocol, including a built-in Bayesian optimizer for parameter optimization.
 
 .. figure:: ../_static/img/dmta-loop.png
    :alt: The DMTA Loop
@@ -295,12 +288,12 @@ In addition, EOS has a built-in Bayesian optimizer that can be used to optimize 
 
 Optimization Setup (Analyze and Design Phases)
 ----------------------------------------------
-Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of protocols over time.
-This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
-It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.
+Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing protocol parameters over time.
+EOS natively supports this through a built-in Bayesian optimizer that integrates with the campaign execution module.
+Custom algorithms such as reinforcement learning can also be incorporated.
 
-Let's look at the color mixing protocol to see how a campaign with optimization can be set up.
-There are ten dynamic parameters, all defined on the "mix_colors" task:
+The color mixing protocol shows how a campaign with optimization can be set up.
+It has ten dynamic parameters, all defined on the "mix_colors" task:
 
 .. code-block:: yaml
 
@@ -344,10 +337,9 @@ Looking at the task specification of the ``score_color`` task, we also see that 
         unit: n/a
         desc: Total loss of the color compared to the expected color
 
-Taking all these together, we see that this protocol involves selecting CMYK color component volumes, as well as a
-mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
+This protocol involves selecting CMYK color component volumes, a mixing time, and a mixing speed to minimize the loss of a synthesized color compared to an expected color.
 
-This setup is also summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
+This setup is summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
 
 :bdg-primary:`optimizer.py`
 
@@ -387,43 +379,32 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``protoco
 
         return constructor_args, BayesianSequentialOptimizer
 
-The ``eos_create_campaign_optimizer`` function is used to create the optimizer for the campaign.
-We can see that the inputs are composed of all the dynamic parameters in the protocol and the output is the "loss"
-output parameter from the "score_color" task.
-The objective of the optimizer (and the campaign) is to minimize this loss.
+The ``eos_create_campaign_optimizer`` function creates the campaign optimizer.
+The inputs are all the dynamic parameters in the protocol, the output is the "loss" parameter from the "score_color" task, and the objective is to minimize this loss.
 
 More about optimizers can be found in the Optimizers section.
 
 Automation Setup (Make and Test Phases)
 ---------------------------------------
-Execution of the automation is managed by EOS.
-The tasks and devices must be implemented by the user.
-Careful setup of the protocol is required to ensure that a campaign can be executed autonomously.
+EOS manages automation execution. Tasks and devices must be implemented by the user, and the protocol must be carefully set up to run autonomously.
 
 Some guidelines:
 
-* Each protocol run should be standalone and should not depend on previous protocol runs.
-* Each protocol run should leave the laboratory in a state that allows the next protocol run to be executed.
-* Dependencies between tasks should be minimized.
-  A task should have a dependency on another task only if it is necessary.
-* Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
-  For example, if a robot transfer task takes a container from device A to device B, then the robot arm and both devices
-  A and B should be required devices for the task.
-* Branches and loops are not supported.
-  If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
-  several steps in the protocol.
+* Each protocol run should be standalone and not depend on previous runs.
+* Each protocol run should leave the lab in a state ready for the next run.
+* Minimize dependencies between tasks. A task should depend on another only when necessary.
+* Tasks should declare any device they interact with, even if they do not operate it directly.
+  For example, if a robot transfer task moves a container from device A to device B, the robot arm and both devices should be required.
+* Branches and loops are not supported. If needed, encapsulate them inside larger tasks that span multiple protocol steps.
 
 # File: user-guide/color_mixing.rst
 ================================================================================
 
 Color Mixing
 ============
-This example demonstrates how EOS can be used to implement a virtual color mixing protocol.
-In this protocol, we mix CMYK ingredient colors to produce a target color.
-By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
-secondary objective of minimizing the amount of color ingredients used.
-To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
-Color mixing is simulated using real-time fluid simulation running in a web browser.
+This example demonstrates a virtual color mixing protocol in EOS.
+CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
+The example uses no physical devices; color mixing is simulated via real-time fluid simulation in a web browser.
 
 The example is implemented in an EOS package called **color_lab**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
 
@@ -558,19 +539,9 @@ This is the Python code for the color station device:
             rgb = self.client.send_command("analyze", {})
             return container, rgb
 
-You will notice that the color station combines both mixing and analysis into a single device.
-This ensures that a single allocation connects to a single fluid simulation window, so the
-color that is mixed is the same one that gets analyzed.
+The color station combines mixing and analysis into a single device, ensuring a single allocation connects to one fluid simulation window so the mixed color is the same one analyzed.
 
-The device implementation communicates with another process over a socket.
-This is a common pattern when integrating devices in the laboratory, as device drivers are usually provided by a 3rd
-party, such as the device manufacturer.
-So often the device implementation simply uses the existing driver.
-In some cases, the device implementation may include a full driver implementation.
-
-The device implementation initializes a client that connects to the device driver over a socket.
-The device implements a ``mix`` function for dispensing and mixing colors, and an ``analyze`` function
-that returns the average RGB value of the fluid color from the fluid simulation.
+The implementation communicates with another process over a socket, a common pattern when device drivers are supplied by a third party. It initializes a client that connects to the driver and exposes a ``mix`` function for dispensing colors and an ``analyze`` function that returns the average RGB value from the fluid simulation.
 
 The device YAML file for the color station device is:
 
@@ -625,9 +596,7 @@ This is the Python code for the "Analyze color" task:
 
             return output_parameters, resources, None
 
-The task implementation is straightforward. We first get a reference to the color station device.
-Then, we call the ``analyze`` function from the color station device we saw earlier. Finally, we construct
-and return the dict of output parameters and the resources.
+The task gets a reference to the color station, calls ``analyze``, then returns the output parameters and resources.
 
 The task YAML file is the following:
 
@@ -662,12 +631,7 @@ The task YAML file is the following:
 
 Laboratory
 ----------
-The laboratory YAML definition is shown below.
-
-We define the devices we discussed earlier.
-Note that we define three color stations so the laboratory can support up to three simultaneous color mixing protocols.
-
-We also define the resource types and the actual resources (beakers) with their initial locations.
+The laboratory YAML definition is shown below. Three color stations are defined to support up to three simultaneous protocol runs. Resource types and beakers with their initial locations are also declared.
 
 :bdg-primary:`lab.yml`
 
@@ -917,7 +881,7 @@ Example:
       devices:
         color_station: mix_colors.color_station
 
-In the first snippet, the mix_colors task uses the exact color_station allocated during retrieve_container. In the second, analyze_color uses the same color_station, ensuring that the mixed color is analyzed on the same simulation window.
+The mix_colors task reuses the color_station allocated by retrieve_container; analyze_color then reuses the same station, ensuring the mixed color is analyzed on the same simulation window.
 
 **Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
 
@@ -933,7 +897,7 @@ Example:
       resources:
         beaker: mix_colors.beaker
 
-The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then reused by analyze_color on the same station.
+The beaker dynamically chosen by retrieve_container is passed through mix_colors and into analyze_color.
 
 **Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
 
@@ -957,29 +921,19 @@ The score_color task consumes the RGB outputs from analyze_color and the total c
 
 Devices
 =======
-In EOS, a device is an abstraction for a physical or virtual apparatus.
-A device is used by one or more tasks to run some processes.
-Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
-This process is usually implemented as a server and tasks call various functions from it.
-For example, there could be a device called "magnetic mixer", which communicates with a physical magnetic mixer via
-serial and provides functions such as ``start``, ``stop``, ``set_time`` and ``set_speed``.
+In EOS, a device is an abstraction for a physical or virtual apparatus used by one or more tasks.
+Each device is managed by a dedicated process created when a laboratory definition is loaded.
+This process is usually implemented as a server that tasks call functions on.
+For example, a "magnetic mixer" device communicates with a physical mixer via serial and exposes functions such as ``start``, ``stop``, ``set_time``, and ``set_speed``.
 
 .. figure:: ../_static/img/tasks-devices.png
    :alt: EOS Tasks and Devices
    :align: center
 
-In the figure above, we illustrate an example of devices and a task that uses these devices.
-The task in this example is Gas Chromatography (GC) sampling, which is implemented with a GC and a mobile manipulation
-robot for automating the sample injection with a syringe.
-Both the GC and the robot are physical devices, and each has a device implementation in EOS, which runs as a persistent
-process.
-Then, the GC Sampling task uses both of the EOS devices to automate the sample injection process.
+The figure shows a GC Sampling task that uses two devices: a GC and a mobile manipulation robot for automating sample injection with a syringe.
+Both are physical devices with EOS implementations running as persistent processes.
 
-Most often, an EOS device will represent a physical device in the lab.
-But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
-throughout one or more protocols.
-This could be an AI module that records inputs given to it.
-Remember that a device in EOS is a persistent process.
+Most often an EOS device represents a physical lab instrument, but it can also represent anything that needs persistent state across protocols, such as an AI module that records inputs. A device is always a persistent process.
 
 Device Implementation
 ---------------------
@@ -993,7 +947,7 @@ YAML File (device.yml)
 * The same implementation can be used for multiple devices of the same type
 * Initialization parameters can be overridden in laboratory definition
 
-Below is an example device YAML file for a magnetic mixer:
+Example device YAML for a magnetic mixer:
 
 :bdg-primary:`device.yml`
 
@@ -1010,7 +964,7 @@ Python File (device.py)
 * Implements device functionality
 * All devices implementations must inherit from ``BaseDevice``
 
-Below is a example implementation of a magnetic mixer device:
+Example magnetic mixer implementation:
 
 :bdg-primary:`device.py`
 
@@ -1042,9 +996,7 @@ Below is a example implementation of a magnetic mixer device:
 
             return container
 
-Let's walk through this example code:
-
-There are functions required in every device implementation:
+Every device implementation must define the following functions:
 
 #. **_initialize**
 
@@ -1060,12 +1012,10 @@ There are functions required in every device implementation:
 
    * Should return any data needed to determine the state of the device (e.g., status and feedback)
 
-The magnetic mixer device also has the function ``mix`` for implementing the mixing operation.
-This function will be called by a task to mix the contents of a container.
-The ``mix`` function:
+The ``mix`` function is called by a task to mix a container's contents. It:
 
-* Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer
-* Updates container metadata with mixing details
+* Sends a command to the lower-level driver with mixing time and speed
+* Updates container metadata with the mixing details
 
 # File: user-guide/infrastructure_setup.rst
 ================================================================================
@@ -1073,8 +1023,7 @@ The ``mix`` function:
 Infrastructure Setup
 ====================
 
-EOS requires setting up a network infrastructure to securely access laboratory devices and computers, which are defined
-in a :doc:`laboratory YAML file <laboratories>`.
+EOS requires a network infrastructure to securely access laboratory devices and computers defined in a :doc:`laboratory YAML file <laboratories>`.
 
 Key Requirements
 ----------------
@@ -1094,7 +1043,7 @@ Key Requirements
 Installation
 ============
 
-EOS should be installed on a central laboratory computer that is easily accessible.
+EOS should be installed on an easily accessible central laboratory computer.
 
 .. note::
     EOS requires bi-directional network access to any computers used for automation.
@@ -1108,7 +1057,7 @@ Docker Compose file to set up these services.
 1. Install uv
 ^^^^^^^^^^^^^
 
-uv manages dependencies for EOS.
+uv manages EOS dependencies.
 
 .. tab-set::
 
@@ -1168,8 +1117,7 @@ uv manages dependencies for EOS.
 
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example
-package. You can modify this in the configuration file.
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example package. This can be changed in the configuration file.
 
 6. Launch the Web UI
 ^^^^^^^^^^^^^^^^^^^^
@@ -1211,18 +1159,14 @@ code and dependencies are preserved. Run ``eos update --help`` for available fla
 Jinja2 Templating
 =================
 The YAML files used to define labs, devices, protocols, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
-templating.
-This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
-macros, and more.
-Jinja2 templates are evaluated with Python, so some expressions are the same as in Python.
+templating, enabling variables, loops, conditionals, macros, and more.
+Jinja2 templates are evaluated with Python, so some expressions follow Python syntax.
 
 .. note::
     Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
 
-Jinja is useful for defining templates.
-For example, a protocol template can be defined with placeholders and variables
-that when specified lead to different variations of the protocol.
-This is particularly useful for altering the task sequence of a protocol while loading it.
+Jinja is useful for defining protocol templates with placeholders and variables that produce different
+protocol variations when set, including altering the task sequence.
 
 .. note::
     Protocol templating is useful if EOS dynamic parameters and references do not suffice.
@@ -1232,7 +1176,7 @@ Below are some useful Jinja2 features:
 Variables
 ---------
 Jinja2 allows setting and reading variables in the YAML file.
-In the example below, the variable ``max_volume`` is set to 300 and used to define the capacity of two beakers:
+Below, ``max_volume`` is set to 300 and used to define the capacity of two beakers:
 
 :bdg-primary:`lab.yml`
 
@@ -1254,7 +1198,7 @@ In the example below, the variable ``max_volume`` is set to 300 and used to defi
 Arithmetic
 ----------
 You can perform arithmetic within Jinja2 expressions.
-In the example below, the volumes of cyan, magenta, and yellow colorants are calculated based on a total color volume:
+Below, the volumes of cyan, magenta, and yellow colorants are calculated from a total color volume:
 
 :bdg-primary:`task.yml`
 
@@ -1270,7 +1214,7 @@ In the example below, the volumes of cyan, magenta, and yellow colorants are cal
 Conditionals
 ------------
 You can use if statements to include or exclude content based on conditions.
-In the example below, the task "mix_colors" is only included if the variable ``mix_colors`` is set to ``True``:
+Below, the task "mix_colors" is included only if the variable ``mix_colors`` is ``True``:
 
 :bdg-primary:`protocol.yml`
 
@@ -1286,8 +1230,8 @@ In the example below, the task "mix_colors" is only included if the variable ``m
 
 Loops
 -----
-Jinja2 allows you to use loops to generate repetitive content.
-In the example below, a loop is used to generate container IDs with a common prefix and a letter (e.g., `c_a`, `c_b`, `c_c`, etc.):
+Jinja2 supports loops to generate repetitive content.
+Below, a loop generates container IDs with a common prefix and a letter (e.g., `c_a`, `c_b`, `c_c`):
 
 :bdg-primary:`lab.yml`
 
@@ -1306,9 +1250,8 @@ In the example below, a loop is used to generate container IDs with a common pre
 
 Macros
 ------
-Jinja2 macros allow you to define reusable blocks of content.
-In the example below, the ``create_containers`` macro is used to easily create containers with a prefix and a number
-(e.g., `c_0`, `c_1`, `c_2`, etc.):
+Jinja2 macros define reusable blocks of content.
+Below, the ``create_resources`` macro creates resources with a prefix and a number (e.g., `c_0`, `c_1`, `c_2`):
 
 :bdg-primary:`lab.yml`
 
@@ -1333,8 +1276,7 @@ In the example below, the ``create_containers`` macro is used to easily create c
 
 Laboratories
 ============
-Laboratories are the space in which devices and resources exist and where tasks, protocols, and campaigns
-of protocols take place.
+Laboratories are where devices and resources exist and where tasks, protocols, and campaigns take place.
 
 A laboratory in EOS is a collection of:
 
@@ -1486,11 +1428,11 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 Computers (Optional)
 """"""""""""""""""""
 Computers control devices and host EOS devices.
-Each computer that is required to interface with one or more devices must be defined in this section.
+Each computer that must interface with one or more devices must be defined in this section.
 The IP address of each computer must be specified.
 
-There is always a computer in each lab called **eos_computer** that has the IP "127.0.0.1".
-This computer is the computer that runs the EOS orchestrator, and can be thought of as the "central" computer.
+There is always a computer in each lab called **eos_computer** with the IP "127.0.0.1".
+This is the computer running the EOS orchestrator and can be thought of as the "central" computer.
 No other computer named "eos_computer" is allowed, and no other computer can have the IP "127.0.0.1".
 The "computers" section need not be defined unless additional computers are required (e.g., if not all devices are
 connected to eos_computer).
@@ -1514,7 +1456,7 @@ connected to eos_computer).
 
 Devices (Required)
 """"""""""""""""""
-Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
+Devices are equipment or apparatuses in the laboratory required to perform tasks.
 Each device must have a unique name inside the lab and must be defined in the ``devices`` section of the laboratory YAML file.
 
 .. code-block:: yaml
@@ -1562,7 +1504,7 @@ These parameters are defined in the device specification and can be overridden h
 
 Resources (Optional)
 """"""""""""""""""""
-Resources represent anything that tasks should exclusively allocate, such as containers (vessels for holding samples),
+Resources represent anything tasks should exclusively allocate, such as containers (vessels for holding samples),
 lab locations that can only be occupied by one container, reagents, or other consumables.
 
 Resources are defined using two sections in the laboratory YAML file:
@@ -1606,22 +1548,22 @@ Resources are defined using two sections in the laboratory YAML file:
 
 * Each resource has a unique name (e.g., ``precursor_vial_1``)
 * **type**: The resource type (must match a defined ``resource_type``)
-* **meta** (optional): Instance-specific metadata, which overrides or extends the resource type's meta (e.g., current location)
+* **meta** (optional): Instance-specific metadata that overrides or extends the resource type's meta (e.g., current location)
 
 # File: user-guide/mcp.rst
 ================================================================================
 
 MCP Server
 ==========
-EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI.
-This allows AI assistants like Claude to interact with EOS directly, querying protocols, submitting campaigns, inspecting devices, and more.
+EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI,
+allowing AI assistants like Claude to interact with EOS directly: querying protocols, submitting campaigns, inspecting devices, and more.
 
-Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
+Once connected, the AI assistant automatically discovers all available tools and you can ask it things like
 "check the status of my campaign", "submit 10 multiplication protocols", or "what functions does the pipette support?"
 
 .. warning::
 
-    The MCP endpoint currently has no authentication.
+    The MCP endpoint has no authentication.
     Only expose it in trusted environments (local network or behind a reverse proxy with auth).
 
 
@@ -1656,8 +1598,8 @@ Add to your ``claude_desktop_config.json``:
 Other MCP Clients
 ~~~~~~~~~~~~~~~~~
 
-Point any MCP-compatible client to ``http://localhost:3000/api/mcp`` with the **Streamable HTTP** transport.
-Replace ``localhost:3000`` with your web UI host and port if different.
+Point any MCP-compatible client to ``http://localhost:3000/api/mcp`` with the **Streamable HTTP** transport,
+replacing ``localhost:3000`` with your web UI host and port if needed.
 
 
 Capabilities
@@ -1677,7 +1619,7 @@ The MCP server exposes 50 tools across the following categories:
 Examples
 --------
 
-These examples show natural language prompts you might give an AI assistant connected to EOS via MCP.
+Natural language prompts you might give an AI assistant connected to EOS via MCP:
 
 .. code-block:: text
 
@@ -1697,8 +1639,7 @@ These examples show natural language prompts you might give an AI assistant conn
 Multi-Computer Lab Setup
 ========================
 
-EOS can orchestrate protocols across multiple computers, using Ray for distributed communication.
-One main computer runs the EOS orchestrator as the head node, while additional computers join as worker nodes.
+EOS can orchestrate protocols across multiple computers using Ray for distributed communication. One computer runs the EOS orchestrator as the head node; additional computers join as worker nodes.
 
 Main EOS Computer
 -----------------
@@ -1751,10 +1692,9 @@ Worker Computers
 Optimizers
 ==========
 Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to protocol run campaigns by optimizing task parameters to achieve objectives over time.
-Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous protocol runs.
-One of the most common sequential optimization methods is **Bayesian optimization**, and is especially useful for
-optimizing expensive-to-evaluate black box functions.
+In EOS, optimizers give intelligence to campaigns by optimizing task parameters to achieve objectives over time.
+EOS optimizers are *sequential*, meaning they iteratively optimize parameters by drawing on previous protocol runs.
+**Bayesian optimization** is one of the most common sequential methods, especially useful for expensive-to-evaluate black-box functions.
 
 .. figure:: ../_static/img/optimize-protocol-loop.png
    :alt: Optimization and protocol run loop
@@ -1768,9 +1708,8 @@ along with various acquisition functions.
 
 Distributed Execution
 ---------------------
-EOS optimizers are created in a dedicated Ray actor process.
-This actor process can be created in any computer with an active Ray worker.
-This can enable running the optimizer on a more capable computer than the one running the EOS orchestrator.
+EOS optimizers run in a dedicated Ray actor process, which can be placed on any machine with an active Ray worker.
+This allows the optimizer to run on a more capable machine than the one hosting the EOS orchestrator.
 
 Optimizer Implementation
 ------------------------
@@ -1815,37 +1754,31 @@ Below is an example:
 
         return constructor_args, BayesianSequentialOptimizer
 
-Each ``optimizer.py`` file must contain the function ``eos_create_campaign_optimizer``.
-This function must return:
+Each ``optimizer.py`` must contain ``eos_create_campaign_optimizer``, which returns:
 
-#. The constructor arguments to make an optimizer class instance
-#. The class type of the optimizer
+#. The constructor arguments for an optimizer class instance
+#. The optimizer class type
 
-In this example, we use EOS' built-in Bayesian optimizer.
+This example uses EOS' built-in Bayesian optimizer.
 
-For most use cases, we recommend the :doc:`beacon_optimizer`, which combines Bayesian optimization with
-AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
-constraints) but adds an AI agent that reasons about protocol run history to suggest smarter parameter sets.
+For most use cases, the :doc:`beacon_optimizer` is recommended. It combines Bayesian optimization with AI-driven reasoning for faster convergence, using the same domain definition (inputs, outputs, constraints) but adding an AI agent that reasons about protocol run history to suggest smarter parameter sets.
 
-It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
-the class type from ``eos_create_campaign_optimizer``.
+Custom optimizers can also be defined in this file; just return their constructor arguments and class type from ``eos_create_campaign_optimizer``.
 
 .. note::
     All optimizers must inherit from the class ``AbstractSequentialOptimizer`` under the ``eos.optimization`` module.
 
 Input and Output Parameter Naming
 """""""""""""""""""""""""""""""""
-The names of input and output parameters must reference task parameters.
-The EOS reference format must be used:
+Input and output parameter names must reference task parameters using the EOS reference format:
 
 **TASK.PARAMETER_NAME**
 
-This is necessary for EOS to be able to associate the optimizer with the protocol tasks and to forward parameter values
-where needed.
+This lets EOS associate the optimizer with protocol tasks and forward parameter values correctly.
 
 Example Custom Optimizer
 ------------------------
-Below is an example of a custom optimizer implementation that randomly samples parameters for the same color mixing problem:
+Below is a custom optimizer that randomly samples parameters for the same color mixing problem:
 
 :bdg-primary:`optimizer.py`
 
@@ -1942,12 +1875,9 @@ Below is an example of a custom optimizer implementation that randomly samples p
 
 Packages
 ========
-Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
-Each package is essentially a folder.
-These packages can contain laboratory, device, task, and protocol definitions, code, and data, allowing reuse and
-sharing.
-For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
-another package may only contain protocols that run on a specific lab.
+Code and resources in EOS are organized into packages, discovered and loaded at runtime.
+Each package is a folder that can contain laboratory, device, task, and protocol definitions, code, and data, enabling reuse and sharing.
+For example, a package can contain task and device implementations for a specific manufacturer's equipment, while another may contain only protocols for a specific lab.
 
 .. figure:: ../_static/img/package.png
    :alt: EOS package
@@ -1972,7 +1902,7 @@ Create a Package
 
    eos pkg create my_package
 
-This command is a shortcut to create a new package with all subdirectories.
+This command creates a new package with all subdirectories.
 Feel free to delete subdirectories you don't expect to use.
 
 Add Entities to a Package
@@ -2009,8 +1939,8 @@ Use ``--`` if you need to pass a flag that EOS itself interprets (for example, `
    eos pkg install my_package --index-url https://my.registry/simple
    eos pkg install my_package -- --help        # show uv's help instead of eos's
 
-Dependencies are installed into the active environment and are therefore shared across every
-EOS package — EOS must be able to import user packages from the same interpreter.
+Dependencies are installed into the active environment and are shared across every
+EOS package, since EOS must import user packages from the same interpreter.
 
 Configuring the User Directory
 ------------------------------
@@ -2025,13 +1955,10 @@ All ``eos pkg`` commands resolve the user directory in the following order:
 
 Protocols
 =========
-Protocols are a set of tasks that are executed in a specific order.
-Protocols are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
-Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
-denoting them as dynamic parameters.
-Protocols with dynamic parameters can be used to run campaigns of protocol runs, where an optimizer generates the values
-for the dynamic parameters across repeated protocol runs to optimize some objectives.
+Protocols are a set of tasks executed in a specific order, represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies.
+Tasks in a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
+Parameters may be fully defined or left undefined as dynamic parameters.
+Protocols with dynamic parameters can run campaigns where an optimizer generates dynamic parameter values across repeated runs to optimize some objectives.
 
 .. figure:: ../_static/img/protocol-graph.png
    :alt: Example protocol graph
@@ -2039,10 +1966,8 @@ for the dynamic parameters across repeated protocol runs to optimize some object
 
 Above is an example of a possible protocol that could be implemented with EOS.
 There is a series of tasks, each requiring one or more devices.
-In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
-form of parameters, devices, and resources passed between tasks.
-For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
-may be output from the "Dispense Solutions" task.
+In addition to task precedence dependencies, there can also be dependencies in the form of parameters, devices, and resources passed between tasks.
+For example, the task "Mix Solutions" may take as input the volumes of solutions to mix, output from the "Dispense Solutions" task.
 Tasks can reference input/output parameters, devices, and resources from other tasks.
 
 Protocol Implementation
@@ -2186,9 +2111,8 @@ Let's dissect this file:
     labs:
       - color_lab
 
-Every protocol has a type.
-The type is used to identify the class of protocol.
-When a protocol is running then there are instances of the protocol (protocol runs) with different IDs.
+Every protocol has a type used to identify the class of protocol.
+When a protocol is running, there are instances (protocol runs) with different IDs.
 Each protocol also requires one or more labs.
 
 Now let's look at the first task in the protocol:
@@ -2267,13 +2191,12 @@ Let's look at the next task:
 
 This task demonstrates **device and resource references**:
 
-**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS that this task must use the same color_station device
-that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same station where it was placed.
+**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS to use the same color_station allocated to ``retrieve_container``, ensuring the beaker stays at the same station.
 
-**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
+**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task.
 
-**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
-These must be specified either by the user or an optimizer before a protocol run can be executed.
+**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, a special keyword for defining dynamic parameters.
+These must be specified by the user or an optimizer before a protocol run can execute.
 
 The ``analyze_color`` task shows another device reference:
 
@@ -2542,7 +2465,7 @@ Notes
 
 Declaring resources in task specifications
 ------------------------------------------
-Tasks declare the resource types they require in ``task.yml``. EOS validates that protocols provide matching resource instances (by name) or a dynamic request for a resource of the required type.
+Tasks declare required resource types in ``task.yml``. EOS validates that protocols supply matching resource instances (by name) or a dynamic request for the required type.
 
 :bdg-primary:`task.yml`
 
@@ -2565,7 +2488,7 @@ Tasks declare the resource types they require in ``task.yml``. EOS validates tha
 
 Assigning resources in protocols
 ----------------------------------
-In a protocol’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.
+In protocol tasks, assign specific resource names or request resources dynamically by type. The scheduler (Greedy or CP-SAT) resolves dynamic requests to a concrete, non-conflicting instance.
 
 :bdg-primary:`protocol.yml`
 
@@ -2611,7 +2534,7 @@ In a protocol’s tasks, assign either specific resource names or request resour
 
 Protocol‑level resource metadata (optional)
 --------------------------------------------
-You may attach protocol‑specific metadata to resources used in that protocol via the top‑level ``resources`` block. This does not define new resources; it annotates existing resource instances.
+You may attach protocol-specific metadata to resources via the top-level ``resources`` block. This annotates existing resource instances; it does not define new ones.
 
 :bdg-primary:`protocol.yml`
 
@@ -2652,8 +2575,7 @@ Choose a device instead when the object exposes actions and status via a process
 
 REST API
 ========
-EOS has a REST API to control the orchestrator.
-Example functions include:
+EOS exposes a REST API to control the orchestrator. Example capabilities:
 
 * Submit tasks, protocols, and campaigns, as well as cancel them
 * Load, unload, and reload protocols and laboratories
@@ -2668,7 +2590,7 @@ Example functions include:
 
 Submitting Protocol Runs
 ------------------------
-Submit a protocol run for execution. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
+Submit a protocol run. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
 
 **Endpoint:** ``POST /api/protocols``
 
@@ -2703,7 +2625,7 @@ Submit a protocol run for execution. All dynamic parameters (``eos_dynamic``) mu
 
 Submitting Campaigns
 --------------------
-Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameter selection.
+Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameters.
 
 **Endpoint:** ``POST /api/campaigns``
 
@@ -2756,7 +2678,7 @@ Submit a campaign to run a protocol multiple times, optionally with optimizer-dr
 
 Submitting On-Demand Tasks
 --------------------------
-Submit a single task for execution outside of a protocol run.
+Submit a single task for execution outside a protocol run.
 
 **Endpoint:** ``POST /api/tasks``
 
@@ -2816,7 +2738,7 @@ Get the status of protocols and campaigns:
 
 Device RPC
 ----------
-EOS provides an RPC endpoint to call device functions directly through the REST API.
+EOS provides an RPC endpoint to call device functions directly via the REST API.
 
 **Endpoint:** ``POST /api/rpc/{lab_id}/{device_id}/{function_name}``
 
@@ -2831,7 +2753,7 @@ EOS provides an RPC endpoint to call device functions directly through the REST 
 * ``function_name``: The name of the device function to call
 * Request body: JSON object containing function parameters
 
-The endpoint will dynamically call the specified function on the device actor with the provided parameters and return the result.
+The endpoint calls the specified function on the device actor with the provided parameters and returns the result.
 
 .. warning::
 
@@ -2839,24 +2761,23 @@ The endpoint will dynamically call the specified function on the device actor wi
 
 Documentation
 -------------
-The REST API is documented using `OpenAPI <https://swagger.io/specification/>`_ and can be accessed at:
+The REST API is documented with `OpenAPI <https://swagger.io/specification/>`_ and accessible at:
 
 .. code-block:: bash
 
     http://localhost:8070/docs
 
-or whatever host and port you have configured for the REST API server.
+or the host and port configured for the REST API server.
 # File: user-guide/scheduling.rst
 ================================================================================
 
 Scheduling
 ==========
-EOS schedules protocols, meaning it determines *when* and *on which resources* tasks run.
-Two scheduling policies are provided:
+EOS determines *when* and *on which resources* tasks run. Two scheduling policies are provided:
 
 - **Greedy**: starts tasks as soon as requirements are met (dependencies, devices/resources).
 - **CP-SAT**: computes a global schedule that respects requirements and minimizes overall completion time,
-  using each task’s expected duration.
+  using each task's expected duration.
 
 Choosing a scheduler
 --------------------
@@ -3163,7 +3084,7 @@ Comparison table
 SiLA 2 Integration
 ==================
 
-EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_, enabling easier integration with
+EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_ to ease integration with
 SiLA-compliant instruments.
 
 Overview
@@ -3291,7 +3212,7 @@ For devices with multiple servers, specify the server name:
 Long-Lived Connections
 ~~~~~~~~~~~~~~~~~~~~~~
 
-For connections that need to persist beyond a single context, use ``create_client()``:
+For connections that must persist beyond a single context, use ``create_client()``:
 
 .. code-block:: python
 
@@ -3312,7 +3233,7 @@ For connections that need to persist beyond a single context, use ``create_clien
 Calling Servers from Device Code
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can also call SiLA servers from within an EOS device:
+SiLA servers can also be called from within an EOS device:
 
 .. code-block:: python
 
@@ -3401,13 +3322,14 @@ Tasks
 =====
 A task in EOS encapsulates an operation and can be thought of as a function.
 Tasks are the elementary building block in EOS.
-A task is ephemeral, meaning it is created, executed, and terminated.
-A task takes some inputs and returns some outputs, and may use one or more devices.
+A task is ephemeral: created, executed, and terminated.
+A task takes inputs and returns outputs, and may use one or more devices.
 
-There are two kinds of inputs:
+There are three kinds of inputs:
 
 #. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are passed to the task.
 #. **Resources**: Laboratory resources such as containers (vessels that may contain samples), reagents, or other consumables.
+#. **Files**: Raw data or reports produced by an earlier task, passed in as input for further processing.
 
 There are three kinds of outputs:
 
@@ -3415,14 +3337,13 @@ There are three kinds of outputs:
 #. **Resources**: Laboratory resources such as containers, reagents, or consumables.
 #. **Files**: Raw data or reports generated by the task, such as output files from analysis.
 
-.. figure:: ../_static/img/task-inputs-outputs.png
+.. figure:: ../_static/img/task-inputs-outputs.svg
    :alt: EOS Task Inputs and Outputs
    :align: center
 
 Parameters
 ----------
-Parameters are values that are input to a task or output from a task.
-Every parameter has a specific data type.
+Parameters are values input to or output from a task, each with a specific data type.
 EOS supports the following parameter types:
 
 * **int**: An int number.
@@ -3441,36 +3362,38 @@ EOS supports the following parameter types:
   Equivalent to Python's ``dict``.
 
 Tasks can have multiple parameters of different types.
-EOS will ensure that the parameters passed to a task are of the correct type and have values that meet their constraints.
+EOS validates that parameters are the correct type and meet their constraints.
 
 Resources
 ---------
-Resources in EOS represent anything that tasks should exclusively allocate (other than devices).
-This can include sample containers (like beakers or vials), locations in the lab that can only be occupied by one container,
-reagents, or any other laboratory asset that requires exclusive access.
+Resources represent anything tasks must exclusively allocate (other than devices): sample containers (beakers, vials), lab locations that can only be occupied by one container, reagents, or any other asset requiring exclusive access.
 
-Resources are referenced by a unique **resource name**.
-Every resource in EOS must have a name, and these are specified in the laboratory definition under the ``resources`` section.
-Resources are treated as *global* objects and can move across labs.
-However, every resource must have a "home" lab from which it originates.
+Resources are referenced by a unique **resource name**, specified in the laboratory definition under the ``resources`` section.
+Resources are *global* objects that can move across labs, but each must have a "home" lab from which it originates.
 
-To pass a resource to a task or return a resource from a task, its name is used (or a reference to another task's resource).
-Every task may accept specific types of resources, such as ``beaker``, ``vial``, or custom types.
-Multiple different resources can be passed to a task.
-Users define resource types in the laboratory definition using ``resource_types``, which act as templates.
-Individual resource instances are then created under ``resources`` with a specified type.
-EOS will ensure that only resource types that are compatible with the task are passed to it.
+To pass or return a resource, its name is used (or a reference to another task's resource).
+Each task accepts specific resource types such as ``beaker``, ``vial``, or custom types, and multiple resources can be passed to a single task.
+Resource types are defined in the laboratory definition under ``resource_types`` and act as templates; individual instances are created under ``resources`` with a specified type.
+EOS ensures only compatible resource types are passed to a task.
 
 Files
 -----
-Files may be generated by a task and EOS will store them in S3-compatible object storage.
-Output files can be used to record raw data for future reference, and can be downloaded by the user.
+Files are raw data or reports, such as analysis output, that a task produces.
+EOS stores output files so they can be downloaded by the user.
+An output file can also be passed as an input to a later task for further processing.
 
-.. note::
-    Files cannot currently be passed as inputs to tasks via the EOS runtime and its object storage.
-    This is planned to be supported in the future.
-    It is still possible to pass them using an external S3-compatible object storage, but this has to be implemented and
-    managed manually.
+In a protocol, an input file is supplied by pointing it at an output file of an earlier task, written as
+``task_name.filename.ext``:
+
+.. code-block:: yaml
+
+      - name: report
+        type: Report Generation
+        dependencies: [ analyze ]
+        files:
+          raw_data: analyze.chromatogram.csv
+
+Here the ``report`` task receives the ``chromatogram.csv`` file produced by the ``analyze`` task.
 
 Task Implementation
 -------------------
@@ -3480,12 +3403,11 @@ Task Implementation
 
 YAML File (task.yml)
 ~~~~~~~~~~~~~~~~~~~~
-* Specifies the task type, description, devices, and input/output parameters and resources
-* Acts as the interface contract (spec) for the task
-* This contract is used to validate tasks, and EOS enforces the contract statically and dynamically during execution
-* Useful as documentation for the task
+* Specifies the task type, description, devices, and input/output parameters, resources, and files
+* Acts as the interface contract for the task, enforced statically and dynamically by EOS
+* Serves as documentation for the task
 
-Below is an example task YAML file for a GC analysis task for GCs made by SRI Instruments:
+Below is an example task YAML file for a GC analysis task using SRI Instruments GCs:
 
 :bdg-primary:`task.yml`
 
@@ -3516,17 +3438,14 @@ Below is an example task YAML file for a GC analysis task for GCs made by SRI In
 The task specification makes clear that:
 
 * The task is of type "SRI GC Analysis"
-* The task requires a device named ``gc`` of type ``sri_gas_chromatograph``.
-  EOS will enforce this requirement and the device will be accessible in the task implementation via ``devices["gc"]``.
-* The task takes an input int parameter ``analysis_time`` in seconds.
-  It has a default value of 480, making this an optional parameter.
+* The task requires a device named ``gc`` of type ``sri_gas_chromatograph``, accessible in the implementation via ``devices["gc"]``.
+* The task takes an int parameter ``analysis_time`` in seconds, with a default of 480 (optional).
 * The task outputs two dictionaries: ``known_substances`` and ``unknown_substances``.
 
 Parameter Specification
 """""""""""""""""""""""
-Parameters are defined in the ``input_parameters`` and ``output_parameters`` sections of the task YAML file.
-
-Below are examples and descriptions for each parameter type:
+Parameters are defined in the ``input_parameters`` and ``output_parameters`` sections of ``task.yml``.
+Examples for each type:
 
 Integer
 """""""
@@ -3540,7 +3459,7 @@ Integer
       min: 8000
       max: 192000
 
-Integers must have a unit (can be n/a) and can also have a minimum and maximum value.
+Integers must have a unit (can be n/a) and optionally a minimum and maximum value.
 
 Float
 """""
@@ -3554,7 +3473,7 @@ Float
       min: 0.0
       max: 5.0
 
-Decimals must have a unit (can be n/a) and can also have a minimum and maximum value.
+Floats must have a unit (can be n/a) and optionally a minimum and maximum value.
 
 String
 """"""
@@ -3573,8 +3492,6 @@ Boolean
       type: bool
       desc: Whether to perform auto-calibration before analysis
       value: true
-
-Booleans are true/false values.
 
 Choice
 """"""
@@ -3606,8 +3523,7 @@ List
       min: [0.5, 0.5, 0.5, 0.5]
       max: [2.0, 2.0, 2.0, 2.0]
 
-List parameters are a sequence of values of a specific type.
-They can have a specific length and minimum and maximum per-element values.
+List parameters are a typed sequence with an optional fixed length and per-element min/max values.
 
 Dictionary
 """"""""""
@@ -3627,14 +3543,12 @@ Dictionary
           CaCl2: 1.0
         temperature: 25
 
-Dictionaries are key-value pairs. The values can be any type.
+Dictionaries are key-value pairs; values can be any type.
 
 Parameter Groups
 """"""""""""""""
-Related parameters can optionally be nested under a named group for
-presentation purposes. A top-level entry under ``input_parameters`` is a
-group when it has **no** ``type:`` field; its direct children are leaf
-parameter specs.
+Related parameters can optionally be nested under a named group for presentation purposes.
+A top-level entry under ``input_parameters`` is a group when it has **no** ``type:`` field; its direct children are leaf parameter specs.
 
 .. code-block:: yaml
 
@@ -3655,14 +3569,10 @@ parameter specs.
 
 Notes:
 
-* Grouping is purely a display concept for the visual protocol editor and the
-  submission forms. Runtime payloads, ``protocol.yml`` overrides, and task
-  records remain flat — a submitted parameter dict is ``{diameter: 300.0}``,
-  never ``{wafer_parameters: {diameter: 300.0}}``.
-* Leaf names must be unique across top-level leaves and every group (you
-  cannot have two leaves named ``x`` in different groups).
+* Grouping is purely a display concept for the visual protocol editor and submission forms. Runtime payloads, ``protocol.yml`` overrides, and task records remain flat: a submitted parameter dict is ``{diameter: 300.0}``, never ``{wafer_parameters: {diameter: 300.0}}``.
+* Leaf names must be unique across all top-level leaves and groups (no two leaves named ``x`` in different groups).
 * Only one level of nesting is allowed; groups cannot contain groups.
-* Groups are optional — flat ``input_parameters`` continue to work unchanged.
+* Groups are optional; flat ``input_parameters`` continue to work unchanged.
 
 Python File (task.py)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -3691,20 +3601,13 @@ Python File (task.py)
 
             return None, resources, None
 
-Let's walk through this example code:
+``_execute`` is the only required method in a task implementation and accepts up to four arguments:
 
-``_execute`` is the only required function in a task implementation.
-It is called by EOS to execute a task.
-The function takes three arguments:
-
-#. ``devices``: A dictionary of devices assigned to the task.
-   Devices are accessed by name (e.g., ``devices["mixer"]``).
-   The devices are represented as wrappers to Ray actor references, and the task implementation can call functions from
-   the device implementation.
-#. ``parameters``: A dictionary of the input parameters.
-    Keys are the parameter names and values are the parameter values.
-#. ``resources``: A dictionary of the input resources.
-    Keys are the resource names and values are ``Resource`` objects.
+#. ``devices``: Devices assigned to the task, accessed by name (e.g., ``devices["mixer"]``).
+   Devices are Ray actor reference wrappers; the implementation can call any function from the device implementation.
+#. ``parameters``: Input parameters keyed by name.
+#. ``resources``: Input resources keyed by name, as ``Resource`` objects.
+#. ``files``: Input files keyed by name, each providing access to the file's contents.
 
 # File: user-guide/web_ui.rst
 ================================================================================
@@ -3712,9 +3615,9 @@ The function takes three arguments:
 Web UI
 ======
 EOS includes a rich web UI for visually designing protocols, monitoring execution, controlling devices,
-browsing results, and more. It connects to the EOS orchestrator and provides real-time updates.
+and browsing results. It connects to the EOS orchestrator and provides real-time updates.
 
-Access it at ``http://localhost:3000`` (default host and port).
+Access it at ``http://localhost:3000`` (default).
 
 .. figure:: /_static/img/eos-ui.png
    :align: center
@@ -3724,7 +3627,7 @@ Access it at ``http://localhost:3000`` (default host and port).
 
 Editor
 ------
-The editor is the central workspace for designing and building EOS packages.
+The editor is the central workspace for designing and building EOS packages:
 
 * Visual protocol designer with interactive task graphs showing dependencies and data flow
 * Build protocols by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
@@ -3736,7 +3639,7 @@ The editor is the central workspace for designing and building EOS packages.
 
 Tasks
 -----
-The tasks view manages individual task submissions.
+The tasks view manages individual task submissions:
 
 * Submit tasks using specific devices and input parameters
 * Clone previous tasks for easy re-submission
@@ -3744,7 +3647,7 @@ The tasks view manages individual task submissions.
 
 Protocol Runs
 -------------
-The protocol runs view tracks individual protocol run execution.
+The protocol runs view tracks protocol run execution:
 
 * Submit protocol runs with specific task parameters
 * Visual task flow graph with real-time status updates (pending, running, completed, failed)
@@ -3753,7 +3656,7 @@ The protocol runs view tracks individual protocol run execution.
 
 Campaigns
 ---------
-The campaigns view manages repeated protocol run execution and optimization.
+The campaigns view manages repeated protocol run execution and optimization:
 
 * Submit campaigns with parameters as JSON/CSV, or via optimizer sampling
 * Configure optimizer settings when optimization is enabled
@@ -3763,7 +3666,7 @@ The campaigns view manages repeated protocol run execution and optimization.
 
 Device Inspector
 ----------------
-The device inspector provides direct device interaction, especially useful for debugging and testing.
+The device inspector provides direct device interaction, useful for debugging and testing:
 
 * Live device state monitoring
 * Discover available RPC functions and their signatures
@@ -3773,14 +3676,14 @@ The device inspector provides direct device interaction, especially useful for d
 
 Files
 -----
-The file browser provides access to EOS object storage (S3-compatible).
+The file browser provides access to EOS object storage (S3-compatible):
 
 * Upload, download, delete, and search files
 
 
 Management
 ----------
-The management view handles system configuration.
+The management view handles system configuration:
 
 * **Packages** -- Installed packages and their status
 * **Labs** -- Load, unload, and reload laboratory configurations
@@ -3791,5 +3694,5 @@ The management view handles system configuration.
 
 Logs
 ----
-A log panel accessible from the sidebar streams orchestrator logs in real time.
+A sidebar log panel streams orchestrator logs in real time.
 

@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,13 +426,13 @@
                   
   <section id="mcp-server">
 <h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading">#</a></h1>
-<p>EOS exposes a <a class="reference external" href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server through its web UI.
-This allows AI assistants like Claude to interact with EOS directly, querying protocols, submitting campaigns, inspecting devices, and more.</p>
-<p>Once connected, the AI assistant automatically discovers all available tools. You can ask it to do things like
+<p>EOS exposes a <a class="reference external" href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server through its web UI,
+allowing AI assistants like Claude to interact with EOS directly: querying protocols, submitting campaigns, inspecting devices, and more.</p>
+<p>Once connected, the AI assistant automatically discovers all available tools and you can ask it things like
 “check the status of my campaign”, “submit 10 multiplication protocols”, or “what functions does the pipette support?”</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>The MCP endpoint currently has no authentication.
+<p>The MCP endpoint has no authentication.
 Only expose it in trusted environments (local network or behind a reverse proxy with auth).</p>
 </div>
 <section id="connecting">
@@ -460,8 +460,8 @@ Only expose it in trusted environments (local network or behind a reverse proxy 
 </section>
 <section id="other-mcp-clients">
 <h3>Other MCP Clients<a class="headerlink" href="#other-mcp-clients" title="Link to this heading">#</a></h3>
-<p>Point any MCP-compatible client to <code class="docutils literal notranslate"><span class="pre">http://localhost:3000/api/mcp</span></code> with the <strong>Streamable HTTP</strong> transport.
-Replace <code class="docutils literal notranslate"><span class="pre">localhost:3000</span></code> with your web UI host and port if different.</p>
+<p>Point any MCP-compatible client to <code class="docutils literal notranslate"><span class="pre">http://localhost:3000/api/mcp</span></code> with the <strong>Streamable HTTP</strong> transport,
+replacing <code class="docutils literal notranslate"><span class="pre">localhost:3000</span></code> with your web UI host and port if needed.</p>
 </section>
 </section>
 <section id="capabilities">
@@ -479,7 +479,7 @@ Replace <code class="docutils literal notranslate"><span class="pre">localhost:3
 </section>
 <section id="examples">
 <h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h2>
-<p>These examples show natural language prompts you might give an AI assistant connected to EOS via MCP.</p>
+<p>Natural language prompts you might give an AI assistant connected to EOS via MCP:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Show me the status of the catalyst_screening campaign and list all completed protocols&quot;
 
 &quot;Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis&quot;
@@ -577,7 +577,7 @@ Replace <code class="docutils literal notranslate"><span class="pre">localhost:3
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

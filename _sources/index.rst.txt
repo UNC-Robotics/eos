@@ -28,10 +28,6 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
 * MCP server for connecting AI assistants
 * SiLA 2 instrument protocol integration
 
-.. figure:: _static/img/eos-features.png
-   :alt: Major features of EOS
-   :align: center
-
 .. toctree::
    :caption: User Guide
    :maxdepth: 2

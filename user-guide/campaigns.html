@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,23 +426,20 @@
                   
   <section id="campaigns">
 <h1>Campaigns<a class="headerlink" href="#campaigns" title="Link to this heading">#</a></h1>
-<p>A campaign in EOS is a protocol that is executed multiple times in sequence.
-The parameters of the protocol runs usually differ.
-A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
-Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.</p>
-<p>The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
-EOS has built-in support for running campaigns of a protocol.
-In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.</p>
+<p>A campaign in EOS is a protocol executed multiple times in sequence, usually with varying parameters, toward goals such as optimizing objectives by searching for optimal parameters.
+Campaigns are the highest-level execution unit in EOS and can be used to implement autonomous (self-driving) labs.</p>
+<p>The DMTA loop is a common paradigm in autonomous experimentation, and EOS campaigns can implement it.
+EOS has built-in support for running campaigns of a protocol, including a built-in Bayesian optimizer for parameter optimization.</p>
 <figure class="align-center">
 <img alt="The DMTA Loop" src="../_images/dmta-loop.png" />
 </figure>
 <section id="optimization-setup-analyze-and-design-phases">
 <h2>Optimization Setup (Analyze and Design Phases)<a class="headerlink" href="#optimization-setup-analyze-and-design-phases" title="Link to this heading">#</a></h2>
-<p>Both the “analyze” and “design” phases of the DMTA loop can be automated by optimizing the parameters of protocols over time.
-This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
-It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.</p>
-<p>Let’s look at the color mixing protocol to see how a campaign with optimization can be set up.
-There are ten dynamic parameters, all defined on the “mix_colors” task:</p>
+<p>Both the “analyze” and “design” phases of the DMTA loop can be automated by optimizing protocol parameters over time.
+EOS natively supports this through a built-in Bayesian optimizer that integrates with the campaign execution module.
+Custom algorithms such as reinforcement learning can also be incorporated.</p>
+<p>The color mixing protocol shows how a campaign with optimization can be set up.
+It has ten dynamic parameters, all defined on the “mix_colors” task:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">cyan_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
 <span class="nt">cyan_strength</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
 <span class="nt">magenta_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
@@ -481,9 +478,8 @@ There are ten dynamic parameters, all defined on the “mix_colors” task:</p>
 <span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Total loss of the color compared to the expected color</span>
 </pre></div>
 </div>
-<p>Taking all these together, we see that this protocol involves selecting CMYK color component volumes, as well as a
-mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.</p>
-<p>This setup is also summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>.</p>
+<p>This protocol involves selecting CMYK color component volumes, a mixing time, and a mixing speed to minimize the loss of a synthesized color compared to an expected color.</p>
+<p>This setup is summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qUCB</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
@@ -520,29 +516,21 @@ mixing time and mixing speed and trying to minimize the loss of a synthesized co
     <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>The <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code> function is used to create the optimizer for the campaign.
-We can see that the inputs are composed of all the dynamic parameters in the protocol and the output is the “loss”
-output parameter from the “score_color” task.
-The objective of the optimizer (and the campaign) is to minimize this loss.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code> function creates the campaign optimizer.
+The inputs are all the dynamic parameters in the protocol, the output is the “loss” parameter from the “score_color” task, and the objective is to minimize this loss.</p>
 <p>More about optimizers can be found in the Optimizers section.</p>
 </section>
 <section id="automation-setup-make-and-test-phases">
 <h2>Automation Setup (Make and Test Phases)<a class="headerlink" href="#automation-setup-make-and-test-phases" title="Link to this heading">#</a></h2>
-<p>Execution of the automation is managed by EOS.
-The tasks and devices must be implemented by the user.
-Careful setup of the protocol is required to ensure that a campaign can be executed autonomously.</p>
+<p>EOS manages automation execution. Tasks and devices must be implemented by the user, and the protocol must be carefully set up to run autonomously.</p>
 <p>Some guidelines:</p>
 <ul class="simple">
-<li><p>Each protocol run should be standalone and should not depend on previous protocol runs.</p></li>
-<li><p>Each protocol run should leave the laboratory in a state that allows the next protocol run to be executed.</p></li>
-<li><p>Dependencies between tasks should be minimized.
-A task should have a dependency on another task only if it is necessary.</p></li>
-<li><p>Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
-For example, if a robot transfer task takes a container from device A to device B, then the robot arm and both devices
-A and B should be required devices for the task.</p></li>
-<li><p>Branches and loops are not supported.
-If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
-several steps in the protocol.</p></li>
+<li><p>Each protocol run should be standalone and not depend on previous runs.</p></li>
+<li><p>Each protocol run should leave the lab in a state ready for the next run.</p></li>
+<li><p>Minimize dependencies between tasks. A task should depend on another only when necessary.</p></li>
+<li><p>Tasks should declare any device they interact with, even if they do not operate it directly.
+For example, if a robot transfer task moves a container from device A to device B, the robot arm and both devices should be required.</p></li>
+<li><p>Branches and loops are not supported. If needed, encapsulate them inside larger tasks that span multiple protocol steps.</p></li>
 </ul>
 </section>
 </section>
@@ -624,7 +612,7 @@ several steps in the protocol.</p></li>
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

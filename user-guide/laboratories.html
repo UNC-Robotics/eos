@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,8 +426,7 @@
                   
   <section id="laboratories">
 <h1>Laboratories<a class="headerlink" href="#laboratories" title="Link to this heading">#</a></h1>
-<p>Laboratories are the space in which devices and resources exist and where tasks, protocols, and campaigns
-of protocols take place.</p>
+<p>Laboratories are where devices and resources exist and where tasks, protocols, and campaigns take place.</p>
 <p>A laboratory in EOS is a collection of:</p>
 <ul class="simple">
 <li><p>Computers (e.g., devices capable of controlling equipment)</p></li>
@@ -575,10 +574,10 @@ of protocols take place.</p>
 <section id="computers-optional">
 <h3>Computers (Optional)<a class="headerlink" href="#computers-optional" title="Link to this heading">#</a></h3>
 <p>Computers control devices and host EOS devices.
-Each computer that is required to interface with one or more devices must be defined in this section.
+Each computer that must interface with one or more devices must be defined in this section.
 The IP address of each computer must be specified.</p>
-<p>There is always a computer in each lab called <strong>eos_computer</strong> that has the IP “127.0.0.1”.
-This computer is the computer that runs the EOS orchestrator, and can be thought of as the “central” computer.
+<p>There is always a computer in each lab called <strong>eos_computer</strong> with the IP “127.0.0.1”.
+This is the computer running the EOS orchestrator and can be thought of as the “central” computer.
 No other computer named “eos_computer” is allowed, and no other computer can have the IP “127.0.0.1”.
 The “computers” section need not be defined unless additional computers are required (e.g., if not all devices are
 connected to eos_computer).</p>
@@ -600,7 +599,7 @@ connected to eos_computer).</p>
 </section>
 <section id="devices-required">
 <h3>Devices (Required)<a class="headerlink" href="#devices-required" title="Link to this heading">#</a></h3>
-<p>Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
+<p>Devices are equipment or apparatuses in the laboratory required to perform tasks.
 Each device must have a unique name inside the lab and must be defined in the <code class="docutils literal notranslate"><span class="pre">devices</span></code> section of the laboratory YAML file.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">devices</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
@@ -643,7 +642,7 @@ These parameters are defined in the device specification and can be overridden h
 </section>
 <section id="resources-optional">
 <h3>Resources (Optional)<a class="headerlink" href="#resources-optional" title="Link to this heading">#</a></h3>
-<p>Resources represent anything that tasks should exclusively allocate, such as containers (vessels for holding samples),
+<p>Resources represent anything tasks should exclusively allocate, such as containers (vessels for holding samples),
 lab locations that can only be occupied by one container, reagents, or other consumables.</p>
 <p>Resources are defined using two sections in the laboratory YAML file:</p>
 <ol class="arabic simple">
@@ -685,7 +684,7 @@ lab locations that can only be occupied by one container, reagents, or other con
 <ul class="simple">
 <li><p>Each resource has a unique name (e.g., <code class="docutils literal notranslate"><span class="pre">precursor_vial_1</span></code>)</p></li>
 <li><p><strong>type</strong>: The resource type (must match a defined <code class="docutils literal notranslate"><span class="pre">resource_type</span></code>)</p></li>
-<li><p><strong>meta</strong> (optional): Instance-specific metadata, which overrides or extends the resource type’s meta (e.g., current location)</p></li>
+<li><p><strong>meta</strong> (optional): Instance-specific metadata that overrides or extends the resource type’s meta (e.g., current location)</p></li>
 </ul>
 </section>
 </section>
@@ -772,7 +771,7 @@ lab locations that can only be occupied by one container, reagents, or other con
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

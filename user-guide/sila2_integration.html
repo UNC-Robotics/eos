@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,7 +426,7 @@
                   
   <section id="sila-2-integration">
 <h1>SiLA 2 Integration<a class="headerlink" href="#sila-2-integration" title="Link to this heading">#</a></h1>
-<p>EOS provides built-in support for <a class="reference external" href="https://sila-standard.com/">SiLA 2</a>, enabling easier integration with
+<p>EOS provides built-in support for <a class="reference external" href="https://sila-standard.com/">SiLA 2</a> to ease integration with
 SiLA-compliant instruments.</p>
 <section id="overview">
 <h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
@@ -536,7 +536,7 @@ SiLA-compliant instruments.</p>
 </div>
 <section id="long-lived-connections">
 <h3>Long-Lived Connections<a class="headerlink" href="#long-lived-connections" title="Link to this heading">#</a></h3>
-<p>For connections that need to persist beyond a single context, use <code class="docutils literal notranslate"><span class="pre">create_client()</span></code>:</p>
+<p>For connections that must persist beyond a single context, use <code class="docutils literal notranslate"><span class="pre">create_client()</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create client without automatic closing</span>
 <span class="n">client</span> <span class="o">=</span> <span class="k">await</span> <span class="n">SilaClientContext</span><span class="o">.</span><span class="n">create_client</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">YourSilaClient</span><span class="p">)</span>
 
@@ -554,7 +554,7 @@ SiLA-compliant instruments.</p>
 </section>
 <section id="calling-servers-from-device-code">
 <h3>Calling Servers from Device Code<a class="headerlink" href="#calling-servers-from-device-code" title="Link to this heading">#</a></h3>
-<p>You can also call SiLA servers from within an EOS device:</p>
+<p>SiLA servers can also be called from within an EOS device:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.integrations.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">SilaDeviceMixin</span><span class="p">,</span> <span class="n">SilaClientContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">your_package.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span> <span class="k">as</span> <span class="n">YourSilaClient</span>
@@ -730,7 +730,7 @@ SiLA-compliant instruments.</p>
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

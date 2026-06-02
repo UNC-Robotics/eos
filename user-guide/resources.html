@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -481,7 +481,7 @@
 </section>
 <section id="declaring-resources-in-task-specifications">
 <h2>Declaring resources in task specifications<a class="headerlink" href="#declaring-resources-in-task-specifications" title="Link to this heading">#</a></h2>
-<p>Tasks declare the resource types they require in <code class="docutils literal notranslate"><span class="pre">task.yml</span></code>. EOS validates that protocols provide matching resource instances (by name) or a dynamic request for a resource of the required type.</p>
+<p>Tasks declare required resource types in <code class="docutils literal notranslate"><span class="pre">task.yml</span></code>. EOS validates that protocols supply matching resource instances (by name) or a dynamic request for the required type.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix contents in a beaker</span>
@@ -502,7 +502,7 @@
 </section>
 <section id="assigning-resources-in-protocols">
 <h2>Assigning resources in protocols<a class="headerlink" href="#assigning-resources-in-protocols" title="Link to this heading">#</a></h2>
-<p>In a protocol’s tasks, assign either specific resource names or request resources dynamically by type. The scheduler (Greedy or CP‑SAT) resolves dynamic requests to a concrete, non‑conflicting resource.</p>
+<p>In protocol tasks, assign specific resource names or request resources dynamically by type. The scheduler (Greedy or CP-SAT) resolves dynamic requests to a concrete, non-conflicting instance.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic_resource_protocol</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Demonstrate resource assignment</span>
@@ -547,7 +547,7 @@
 </section>
 <section id="protocollevel-resource-metadata-optional">
 <h2>Protocol‑level resource metadata (optional)<a class="headerlink" href="#protocollevel-resource-metadata-optional" title="Link to this heading">#</a></h2>
-<p>You may attach protocol‑specific metadata to resources used in that protocol via the top‑level <code class="docutils literal notranslate"><span class="pre">resources</span></code> block. This does not define new resources; it annotates existing resource instances.</p>
+<p>You may attach protocol-specific metadata to resources via the top-level <code class="docutils literal notranslate"><span class="pre">resources</span></code> block. This annotates existing resource instances; it does not define new ones.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">water_purification</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Evaporate sample in a beaker</span>
@@ -670,7 +670,7 @@
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,26 +426,16 @@
                   
   <section id="devices">
 <h1>Devices<a class="headerlink" href="#devices" title="Link to this heading">#</a></h1>
-<p>In EOS, a device is an abstraction for a physical or virtual apparatus.
-A device is used by one or more tasks to run some processes.
-Each device in EOS is managed by a dedicated process which is created when a laboratory definition is loaded.
-This process is usually implemented as a server and tasks call various functions from it.
-For example, there could be a device called “magnetic mixer”, which communicates with a physical magnetic mixer via
-serial and provides functions such as <code class="docutils literal notranslate"><span class="pre">start</span></code>, <code class="docutils literal notranslate"><span class="pre">stop</span></code>, <code class="docutils literal notranslate"><span class="pre">set_time</span></code> and <code class="docutils literal notranslate"><span class="pre">set_speed</span></code>.</p>
+<p>In EOS, a device is an abstraction for a physical or virtual apparatus used by one or more tasks.
+Each device is managed by a dedicated process created when a laboratory definition is loaded.
+This process is usually implemented as a server that tasks call functions on.
+For example, a “magnetic mixer” device communicates with a physical mixer via serial and exposes functions such as <code class="docutils literal notranslate"><span class="pre">start</span></code>, <code class="docutils literal notranslate"><span class="pre">stop</span></code>, <code class="docutils literal notranslate"><span class="pre">set_time</span></code>, and <code class="docutils literal notranslate"><span class="pre">set_speed</span></code>.</p>
 <figure class="align-center">
 <img alt="EOS Tasks and Devices" src="../_images/tasks-devices.png" />
 </figure>
-<p>In the figure above, we illustrate an example of devices and a task that uses these devices.
-The task in this example is Gas Chromatography (GC) sampling, which is implemented with a GC and a mobile manipulation
-robot for automating the sample injection with a syringe.
-Both the GC and the robot are physical devices, and each has a device implementation in EOS, which runs as a persistent
-process.
-Then, the GC Sampling task uses both of the EOS devices to automate the sample injection process.</p>
-<p>Most often, an EOS device will represent a physical device in the lab.
-But this need not always be the case. A device in EOS can be used to represent anything that needs persistent state
-throughout one or more protocols.
-This could be an AI module that records inputs given to it.
-Remember that a device in EOS is a persistent process.</p>
+<p>The figure shows a GC Sampling task that uses two devices: a GC and a mobile manipulation robot for automating sample injection with a syringe.
+Both are physical devices with EOS implementations running as persistent processes.</p>
+<p>Most often an EOS device represents a physical lab instrument, but it can also represent anything that needs persistent state across protocols, such as an AI module that records inputs. A device is always a persistent process.</p>
 <section id="device-implementation">
 <h2>Device Implementation<a class="headerlink" href="#device-implementation" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -460,7 +450,7 @@ Remember that a device in EOS is a persistent process.</p>
 <li><p>The same implementation can be used for multiple devices of the same type</p></li>
 <li><p>Initialization parameters can be overridden in laboratory definition</p></li>
 </ul>
-<p>Below is an example device YAML file for a magnetic mixer:</p>
+<p>Example device YAML for a magnetic mixer:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">magnetic_mixer</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic mixer for mixing the contents of a container</span>
@@ -476,7 +466,7 @@ Remember that a device in EOS is a persistent process.</p>
 <li><p>Implements device functionality</p></li>
 <li><p>All devices implementations must inherit from <code class="docutils literal notranslate"><span class="pre">BaseDevice</span></code></p></li>
 </ul>
-<p>Below is a example implementation of a magnetic mixer device:</p>
+<p>Example magnetic mixer implementation:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.py</span></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
@@ -505,8 +495,7 @@ Remember that a device in EOS is a persistent process.</p>
         <span class="k">return</span> <span class="n">container</span>
 </pre></div>
 </div>
-<p>Let’s walk through this example code:</p>
-<p>There are functions required in every device implementation:</p>
+<p>Every device implementation must define the following functions:</p>
 <ol class="arabic simple">
 <li><p><strong>_initialize</strong></p>
 <ul class="simple">
@@ -526,12 +515,10 @@ Remember that a device in EOS is a persistent process.</p>
 </ul>
 </li>
 </ol>
-<p>The magnetic mixer device also has the function <code class="docutils literal notranslate"><span class="pre">mix</span></code> for implementing the mixing operation.
-This function will be called by a task to mix the contents of a container.
-The <code class="docutils literal notranslate"><span class="pre">mix</span></code> function:</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">mix</span></code> function is called by a task to mix a container’s contents. It:</p>
 <ul class="simple">
-<li><p>Sends a command to lower-level driver with a specified mixing time and speed to operate the magnetic mixer</p></li>
-<li><p>Updates container metadata with mixing details</p></li>
+<li><p>Sends a command to the lower-level driver with mixing time and speed</p></li>
+<li><p>Updates container metadata with the mixing details</p></li>
 </ul>
 </section>
 </section>
@@ -617,7 +604,7 @@ The <code class="docutils literal notranslate"><span class="pre">mix</span></cod
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

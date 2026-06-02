@@ -17,9 +17,9 @@ Both strategies share the same result history.
 
 Why Hybrid?
 ~~~~~~~~~~~
-* Bayesian optimizers treat the objective as a black box — AI can apply domain reasoning to make informed jumps.
-* AI models can hallucinate — the Bayesian component provides a mathematically grounded baseline.
-* The probabilistic mixing lets each strategy compensate for the other's weaknesses.
+* Bayesian optimizers treat the objective as a black box; AI can apply domain reasoning to make informed jumps.
+* AI models can hallucinate; the Bayesian component provides a mathematically grounded baseline.
+* Probabilistic mixing lets each strategy compensate for the other's weaknesses.
 
 Setting Up
 ----------
@@ -106,7 +106,7 @@ AI Model
 
 .. tip::
     The ``claude-agent-sdk`` provider is recommended. It uses Claude Code's agentic harness with
-    Claude's frontier reasoning capabilities. Authenticates via a Claude subscription
+    Claude's frontier reasoning capabilities, and authenticates via a Claude subscription
     (``~/.claude`` credentials) or an ``ANTHROPIC_API_KEY``.
 
 AI Context

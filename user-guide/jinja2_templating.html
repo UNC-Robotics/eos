@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -427,18 +427,14 @@
   <section id="jinja2-templating">
 <h1>Jinja2 Templating<a class="headerlink" href="#jinja2-templating" title="Link to this heading">#</a></h1>
 <p>The YAML files used to define labs, devices, protocols, and tasks support <a class="reference external" href="https://jinja.palletsprojects.com/en/3.1.x/">Jinja2</a>
-templating.
-This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
-macros, and more.
-Jinja2 templates are evaluated with Python, so some expressions are the same as in Python.</p>
+templating, enabling variables, loops, conditionals, macros, and more.
+Jinja2 templates are evaluated with Python, so some expressions follow Python syntax.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Jinja2 templates are evaluated during loading of the YAML file, not during runtime.</p>
 </div>
-<p>Jinja is useful for defining templates.
-For example, a protocol template can be defined with placeholders and variables
-that when specified lead to different variations of the protocol.
-This is particularly useful for altering the task sequence of a protocol while loading it.</p>
+<p>Jinja is useful for defining protocol templates with placeholders and variables that produce different
+protocol variations when set, including altering the task sequence.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Protocol templating is useful if EOS dynamic parameters and references do not suffice.</p>
@@ -447,7 +443,7 @@ This is particularly useful for altering the task sequence of a protocol while l
 <section id="variables">
 <h2>Variables<a class="headerlink" href="#variables" title="Link to this heading">#</a></h2>
 <p>Jinja2 allows setting and reading variables in the YAML file.
-In the example below, the variable <code class="docutils literal notranslate"><span class="pre">max_volume</span></code> is set to 300 and used to define the capacity of two beakers:</p>
+Below, <code class="docutils literal notranslate"><span class="pre">max_volume</span></code> is set to 300 and used to define the capacity of two beakers:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">max_volume</span> <span class="o">=</span> <span class="m">300</span> <span class="cp">%}</span>
 <span class="nn">...</span>
@@ -467,7 +463,7 @@ In the example below, the variable <code class="docutils literal notranslate"><s
 <section id="arithmetic">
 <h2>Arithmetic<a class="headerlink" href="#arithmetic" title="Link to this heading">#</a></h2>
 <p>You can perform arithmetic within Jinja2 expressions.
-In the example below, the volumes of cyan, magenta, and yellow colorants are calculated based on a total color volume:</p>
+Below, the volumes of cyan, magenta, and yellow colorants are calculated from a total color volume:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">set</span> <span class="nv">total_color_volume</span> <span class="o">=</span> <span class="m">100</span> <span class="cp">%}</span>
 <span class="nn">...</span>
@@ -481,7 +477,7 @@ In the example below, the volumes of cyan, magenta, and yellow colorants are cal
 <section id="conditionals">
 <h2>Conditionals<a class="headerlink" href="#conditionals" title="Link to this heading">#</a></h2>
 <p>You can use if statements to include or exclude content based on conditions.
-In the example below, the task “mix_colors” is only included if the variable <code class="docutils literal notranslate"><span class="pre">mix_colors</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>:</p>
+Below, the task “mix_colors” is included only if the variable <code class="docutils literal notranslate"><span class="pre">mix_colors</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="cp">{%</span> <span class="k">if</span> <span class="nv">mix_colors</span> <span class="cp">%}</span>
@@ -495,8 +491,8 @@ In the example below, the task “mix_colors” is only included if the variable
 </section>
 <section id="loops">
 <h2>Loops<a class="headerlink" href="#loops" title="Link to this heading">#</a></h2>
-<p>Jinja2 allows you to use loops to generate repetitive content.
-In the example below, a loop is used to generate container IDs with a common prefix and a letter (e.g., <cite>c_a</cite>, <cite>c_b</cite>, <cite>c_c</cite>, etc.):</p>
+<p>Jinja2 supports loops to generate repetitive content.
+Below, a loop generates container IDs with a common prefix and a letter (e.g., <cite>c_a</cite>, <cite>c_b</cite>, <cite>c_c</cite>):</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="nt">resource_types</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">beaker</span><span class="p">:</span>
@@ -513,9 +509,8 @@ In the example below, a loop is used to generate container IDs with a common pre
 </section>
 <section id="macros">
 <h2>Macros<a class="headerlink" href="#macros" title="Link to this heading">#</a></h2>
-<p>Jinja2 macros allow you to define reusable blocks of content.
-In the example below, the <code class="docutils literal notranslate"><span class="pre">create_containers</span></code> macro is used to easily create containers with a prefix and a number
-(e.g., <cite>c_0</cite>, <cite>c_1</cite>, <cite>c_2</cite>, etc.):</p>
+<p>Jinja2 macros define reusable blocks of content.
+Below, the <code class="docutils literal notranslate"><span class="pre">create_resources</span></code> macro creates resources with a prefix and a number (e.g., <cite>c_0</cite>, <cite>c_1</cite>, <cite>c_2</cite>):</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
 <div class="highlight-yaml+jinja notranslate"><div class="highlight"><pre><span></span><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">create_resources</span><span class="o">(</span><span class="nv">res_type</span><span class="o">,</span> <span class="nv">capacity</span><span class="o">,</span> <span class="nv">id_prefix</span><span class="o">,</span> <span class="nv">count</span><span class="o">)</span> -<span class="cp">%}</span>
 <span class="nt">resource_types</span><span class="p">:</span>
@@ -615,7 +610,7 @@ In the example below, the <code class="docutils literal notranslate"><span class
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

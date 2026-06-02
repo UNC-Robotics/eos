@@ -33,7 +33,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=0d43f618" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=67355e08" />
   
   <!-- So that users can add custom icons -->
   <script defer src="../_static/scripts/fontawesome.js?digest=0790524f97105ba85085"></script>
@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=7cb79e26"></script>
+    <script src="../_static/documentation_options.js?v=18784e62"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -426,7 +426,7 @@
                   
   <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>EOS should be installed on a central laboratory computer that is easily accessible.</p>
+<p>EOS should be installed on an easily accessible central laboratory computer.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>EOS requires bi-directional network access to any computers used for automation.</p>
@@ -437,7 +437,7 @@ See <a class="reference internal" href="infrastructure_setup.html"><span class="
 Docker Compose file to set up these services.</p>
 <section id="install-uv">
 <h2>1. Install uv<a class="headerlink" href="#install-uv" title="Link to this heading">#</a></h2>
-<p>uv manages dependencies for EOS.</p>
+<p>uv manages EOS dependencies.</p>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
@@ -494,8 +494,7 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>start
 </pre></div>
 </div>
-<p>By default, EOS loads the “multiplication_lab” laboratory and “optimize_multiplication” protocol from an example
-package. You can modify this in the configuration file.</p>
+<p>By default, EOS loads the “multiplication_lab” laboratory and “optimize_multiplication” protocol from an example package. This can be changed in the configuration file.</p>
 </section>
 <section id="launch-the-web-ui">
 <h2>6. Launch the Web UI<a class="headerlink" href="#launch-the-web-ui" title="Link to this heading">#</a></h2>
@@ -608,7 +607,7 @@ code and dependencies are preserved. Run <code class="docutils literal notransla
 
   <p class="copyright">
     
-      © Copyright 2026, UNC Robotics.
+      © Copyright 2026, EOS Developers.
       <br/>
     
   </p>

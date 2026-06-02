@@ -1,8 +1,7 @@
 Multi-Computer Lab Setup
 ========================
 
-EOS can orchestrate protocols across multiple computers, using Ray for distributed communication.
-One main computer runs the EOS orchestrator as the head node, while additional computers join as worker nodes.
+EOS can orchestrate protocols across multiple computers using Ray for distributed communication. One computer runs the EOS orchestrator as the head node; additional computers join as worker nodes.
 
 Main EOS Computer
 -----------------
