@@ -141,6 +141,7 @@ export interface TaskRow {
   devices: Record<string, unknown>;
   inputParameters: Record<string, unknown> | null;
   inputResources: Record<string, unknown> | null;
+  inputFiles: Record<string, string> | null;
   outputParameters: Record<string, unknown> | null;
   outputResources: Record<string, unknown> | null;
   outputFileNames: string[] | null;
@@ -205,6 +206,7 @@ function mapTaskRow(row: typeof tasks.$inferSelect): TaskRow {
     devices: (row.devices as Record<string, unknown>) || {},
     inputParameters: row.inputParameters as Record<string, unknown> | null,
     inputResources: row.inputResources as Record<string, unknown> | null,
+    inputFiles: row.inputFiles as Record<string, string> | null,
     outputParameters: row.outputParameters as Record<string, unknown> | null,
     outputResources: row.outputResources as Record<string, unknown> | null,
     outputFileNames: row.outputFileNames as string[] | null,

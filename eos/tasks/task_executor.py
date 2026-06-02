@@ -7,12 +7,15 @@ from ray import ObjectRef
 
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.entities.task_def import TaskDef
+from eos.configuration.eos_config import FileDbConfig
 from eos.devices.device_actor_utils import DeviceActorReference, create_device_actor_dict
 from eos.devices.device_manager import DeviceManager
 from eos.resources.entities.resource import Resource
 from eos.resources.resource_manager import ResourceManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
+from eos.database.file_db_interface import FileDbInterface, get_worker_file_db
+from eos.tasks.input_file_handle import InputFileHandle
 from eos.orchestration.work_signal import WorkSignal
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
@@ -59,6 +62,7 @@ class TaskExecutor:
         scheduler: AbstractScheduler,
         db_interface: AbstractSqlDbInterface,
         work_signal: WorkSignal,
+        file_db_config: FileDbConfig,
     ):
         self._task_manager = task_manager
         self._device_manager = device_manager
@@ -67,6 +71,7 @@ class TaskExecutor:
         self._scheduler = scheduler
         self._db_interface = db_interface
         self._work_signal = work_signal
+        self._file_db_config = file_db_config
 
         self._task_plugin_registry = configuration_manager.tasks
         self._task_validator = TaskValidator(configuration_manager)
@@ -167,17 +172,12 @@ class TaskExecutor:
         result = await context.task_ref
 
         if result is None:
-            output_parameters, output_resources, output_files = {}, {}, {}
+            output_parameters, output_resources, output_file_names = {}, {}, []
         else:
-            output_parameters, output_resources, output_files = result
+            output_parameters, output_resources, output_file_names = result
 
         for resource in output_resources.values():
             await self._resource_manager.update_resource(db, resource)
-
-        for file_name, file_data in output_files.items():
-            await self._task_manager.add_task_output_file(
-                context.protocol_run_name, context.task_name, file_name, file_data
-            )
 
         await self._task_manager.add_task_output(
             db,
@@ -185,7 +185,7 @@ class TaskExecutor:
             context.task_name,
             output_parameters,
             output_resources,
-            list(output_files.keys()),
+            output_file_names,
         )
 
         await self._task_manager.complete_task(db, context.protocol_run_name, context.task_name)
@@ -195,7 +195,7 @@ class TaskExecutor:
         else:
             log.info(f"Completed on-demand task '{context.task_name}'.")
 
-        self._task_futures[context.task_key].set_result((output_parameters, output_resources, output_files))
+        self._task_futures[context.task_key].set_result((output_parameters, output_resources, output_file_names))
 
         await self._scheduler.release_task(db, context.task_name, context.protocol_run_name)
 
@@ -267,6 +267,8 @@ class TaskExecutor:
         device_actor_references = self._get_device_actor_references(task_submission)
         task_class_type = self._task_plugin_registry.get_plugin_class_type(task_submission.type)
         input_parameters = self._task_input_parameter_caster.cast_input_parameters(task_submission)
+        input_files = task_submission.input_files or {}
+        file_db_config = self._file_db_config
 
         @ray.remote(num_cpus=0)
         def _ray_execute_task(
@@ -275,10 +277,17 @@ class TaskExecutor:
             _devices_actor_references: dict[str, DeviceActorReference],
             _parameters: dict[str, Any],
             _resources: dict[str, Resource],
+            _input_files: dict[str, str],
         ) -> tuple:
             task = task_class_type(_protocol_run_name, _task_name)
             devices = create_device_actor_dict(_devices_actor_references)
-            return asyncio.run(task.execute(devices, _parameters, _resources))
+
+            # Lazy: opens the SeaweedFS connection only on first input read or output upload.
+            def file_db_provider() -> FileDbInterface:
+                return get_worker_file_db(file_db_config)
+
+            files = {name: InputFileHandle(file_db_provider, key) for name, key in _input_files.items()}
+            return asyncio.run(task.execute(devices, _parameters, _resources, files, file_db_provider))
 
         await self._task_manager.start_task(db, protocol_run_name, task_name)
         log_msg = (
@@ -294,6 +303,7 @@ class TaskExecutor:
             device_actor_references,
             input_parameters,
             task_submission.input_resources,
+            input_files,
         )
 
     async def process_new_tasks(self) -> None:

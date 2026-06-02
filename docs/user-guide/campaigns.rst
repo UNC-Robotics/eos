@@ -1,13 +1,10 @@
 Campaigns
 =========
-A campaign in EOS is a protocol that is executed multiple times in sequence.
-The parameters of the protocol runs usually differ.
-A campaign has some goals, such as to optimize some objectives by searching for optimal parameters.
-Campaigns are the highest-level execution unit in EOS, and can be used to implement autonomous (self-driving) labs.
+A campaign in EOS is a protocol executed multiple times in sequence, usually with varying parameters, toward goals such as optimizing objectives by searching for optimal parameters.
+Campaigns are the highest-level execution unit in EOS and can be used to implement autonomous (self-driving) labs.
 
-The DMTA loop is a common paradigm in autonomous experimentation and EOS campaigns can be used to implement it.
-EOS has built-in support for running campaigns of a protocol.
-In addition, EOS has a built-in Bayesian optimizer that can be used to optimize parameters.
+The DMTA loop is a common paradigm in autonomous experimentation, and EOS campaigns can implement it.
+EOS has built-in support for running campaigns of a protocol, including a built-in Bayesian optimizer for parameter optimization.
 
 .. figure:: ../_static/img/dmta-loop.png
    :alt: The DMTA Loop
@@ -15,12 +12,12 @@ In addition, EOS has a built-in Bayesian optimizer that can be used to optimize 
 
 Optimization Setup (Analyze and Design Phases)
 ----------------------------------------------
-Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing the parameters of protocols over time.
-This is natively supported by EOS through a built-in Bayesian optimizer that integrates with the campaign execution module.
-It is also possible to customize the optimization to incorporate custom algorithms such as reinforcement learning.
+Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing protocol parameters over time.
+EOS natively supports this through a built-in Bayesian optimizer that integrates with the campaign execution module.
+Custom algorithms such as reinforcement learning can also be incorporated.
 
-Let's look at the color mixing protocol to see how a campaign with optimization can be set up.
-There are ten dynamic parameters, all defined on the "mix_colors" task:
+The color mixing protocol shows how a campaign with optimization can be set up.
+It has ten dynamic parameters, all defined on the "mix_colors" task:
 
 .. code-block:: yaml
 
@@ -64,10 +61,9 @@ Looking at the task specification of the ``score_color`` task, we also see that 
         unit: n/a
         desc: Total loss of the color compared to the expected color
 
-Taking all these together, we see that this protocol involves selecting CMYK color component volumes, as well as a
-mixing time and mixing speed and trying to minimize the loss of a synthesized color compared to an expected color.
+This protocol involves selecting CMYK color component volumes, a mixing time, and a mixing speed to minimize the loss of a synthesized color compared to an expected color.
 
-This setup is also summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
+This setup is summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
 
 :bdg-primary:`optimizer.py`
 
@@ -107,28 +103,20 @@ This setup is also summarized in the ``optimizer.py`` file adjacent to ``protoco
 
         return constructor_args, BayesianSequentialOptimizer
 
-The ``eos_create_campaign_optimizer`` function is used to create the optimizer for the campaign.
-We can see that the inputs are composed of all the dynamic parameters in the protocol and the output is the "loss"
-output parameter from the "score_color" task.
-The objective of the optimizer (and the campaign) is to minimize this loss.
+The ``eos_create_campaign_optimizer`` function creates the campaign optimizer.
+The inputs are all the dynamic parameters in the protocol, the output is the "loss" parameter from the "score_color" task, and the objective is to minimize this loss.
 
 More about optimizers can be found in the Optimizers section.
 
 Automation Setup (Make and Test Phases)
 ---------------------------------------
-Execution of the automation is managed by EOS.
-The tasks and devices must be implemented by the user.
-Careful setup of the protocol is required to ensure that a campaign can be executed autonomously.
+EOS manages automation execution. Tasks and devices must be implemented by the user, and the protocol must be carefully set up to run autonomously.
 
 Some guidelines:
 
-* Each protocol run should be standalone and should not depend on previous protocol runs.
-* Each protocol run should leave the laboratory in a state that allows the next protocol run to be executed.
-* Dependencies between tasks should be minimized.
-  A task should have a dependency on another task only if it is necessary.
-* Tasks should depend on any devices that they may be interacting with, even if they are not operating them.
-  For example, if a robot transfer task takes a container from device A to device B, then the robot arm and both devices
-  A and B should be required devices for the task.
-* Branches and loops are not supported.
-  If these are needed, they should be encapsulated inside large tasks that may use many devices and may represent
-  several steps in the protocol.
+* Each protocol run should be standalone and not depend on previous runs.
+* Each protocol run should leave the lab in a state ready for the next run.
+* Minimize dependencies between tasks. A task should depend on another only when necessary.
+* Tasks should declare any device they interact with, even if they do not operate it directly.
+  For example, if a robot transfer task moves a container from device A to device B, the robot arm and both devices should be required.
+* Branches and loops are not supported. If needed, encapsulate them inside larger tasks that span multiple protocol steps.

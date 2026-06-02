@@ -9,6 +9,7 @@ from eos.configuration.utils import (
     is_fanin_parameter,
     is_parameter_reference,
     is_resource_reference,
+    split_file_reference,
 )
 from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.database.abstract_sql_db_interface import AsyncDbSession
@@ -18,6 +19,7 @@ from eos.tasks.task_manager import TaskManager
 from eos.tasks.task_reference_utils import (
     fetch_ref_tasks,
     resolve_device,
+    resolve_file,
     resolve_parameter,
     resolve_resource,
 )
@@ -39,6 +41,7 @@ class TaskInputResolver:
         self._apply_parameter_references(ref_tasks, config)
         self._apply_resource_references(ref_tasks, config)
         self._apply_device_references(ref_tasks, config)
+        self._apply_file_references(ref_tasks, config)
 
         return config
 
@@ -82,6 +85,8 @@ class TaskInputResolver:
         for device_value in task.devices.values():
             if isinstance(device_value, str) and is_device_reference(device_value):
                 ref_names.add(device_value.split(".")[0])
+        for file_value in task.files.values():
+            ref_names.add(split_file_reference(file_value)[0])
         return ref_names
 
     async def _resolve_parameters(self, db: AsyncDbSession, protocol_run_name: str, task: TaskDef) -> TaskDef:
@@ -182,3 +187,25 @@ class TaskInputResolver:
                 raise EosTaskInputResolutionError(
                     f"Unresolved input device reference '{device_value}' in task '{task.name}'"
                 )
+
+    @staticmethod
+    def _apply_file_references(ref_tasks: dict[str, Task], task: TaskDef) -> None:
+        for input_name, file_value in task.files.items():
+            ref_task_name, ref_file_name = split_file_reference(file_value)
+            resolved_key = resolve_file(ref_tasks, ref_task_name, ref_file_name)
+
+            if resolved_key is not None:
+                task.files[input_name] = resolved_key
+                continue
+
+            ref_task = ref_tasks.get(ref_task_name)
+            if ref_task is None:
+                detail = f"referenced task '{ref_task_name}' has no result in this protocol run"
+            else:
+                detail = (
+                    f"task '{ref_task_name}' (status {ref_task.status.value}) did not produce output file "
+                    f"'{ref_file_name}'; it may have been skipped or failed"
+                )
+            raise EosTaskInputResolutionError(
+                f"Unresolved input file reference '{file_value}' in task '{task.name}': {detail}"
+            )

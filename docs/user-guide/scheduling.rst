@@ -1,11 +1,10 @@
 Scheduling
 ==========
-EOS schedules protocols, meaning it determines *when* and *on which resources* tasks run.
-Two scheduling policies are provided:
+EOS determines *when* and *on which resources* tasks run. Two scheduling policies are provided:
 
 - **Greedy**: starts tasks as soon as requirements are met (dependencies, devices/resources).
 - **CP-SAT**: computes a global schedule that respects requirements and minimizes overall completion time,
-  using each task’s expected duration.
+  using each task's expected duration.
 
 Choosing a scheduler
 --------------------

@@ -4,6 +4,7 @@ from typing import Any, TYPE_CHECKING
 
 from eos.configuration.entities.task_def import DeviceAssignmentDef
 from eos.database.abstract_sql_db_interface import AsyncDbSession
+from eos.tasks.base_task import build_task_output_file_path
 from eos.tasks.entities.task import Task
 
 if TYPE_CHECKING:
@@ -43,6 +44,14 @@ def resolve_resource(ref_tasks: dict[str, Task], task_name: str, output_name: st
     if output_name in (ref_task.output_resources or {}):
         return ref_task.output_resources[output_name].name
     return None
+
+
+def resolve_file(ref_tasks: dict[str, Task], task_name: str, file_name: str) -> str | None:
+    """Return the SeaweedFS key for a referenced task's output file, or None if it was not produced."""
+    ref_task = ref_tasks.get(task_name)
+    if ref_task is None or file_name not in (ref_task.output_file_names or []):
+        return None
+    return build_task_output_file_path(ref_task.protocol_run_name, task_name, file_name)
 
 
 def resolve_device(ref_tasks: dict[str, Task], task_name: str, device_name: str) -> DeviceAssignmentDef | None:

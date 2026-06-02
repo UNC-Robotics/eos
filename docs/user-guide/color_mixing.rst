@@ -1,11 +1,8 @@
 Color Mixing
 ============
-This example demonstrates how EOS can be used to implement a virtual color mixing protocol.
-In this protocol, we mix CMYK ingredient colors to produce a target color.
-By employing Bayesian optimization, the goal is to find task input parameters to synthesize a target color with a
-secondary objective of minimizing the amount of color ingredients used.
-To make it easy to try out, this example uses no physical devices, but instead uses virtual ones.
-Color mixing is simulated using real-time fluid simulation running in a web browser.
+This example demonstrates a virtual color mixing protocol in EOS.
+CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
+The example uses no physical devices; color mixing is simulated via real-time fluid simulation in a web browser.
 
 The example is implemented in an EOS package called **color_lab**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
 
@@ -140,19 +137,9 @@ This is the Python code for the color station device:
             rgb = self.client.send_command("analyze", {})
             return container, rgb
 
-You will notice that the color station combines both mixing and analysis into a single device.
-This ensures that a single allocation connects to a single fluid simulation window, so the
-color that is mixed is the same one that gets analyzed.
+The color station combines mixing and analysis into a single device, ensuring a single allocation connects to one fluid simulation window so the mixed color is the same one analyzed.
 
-The device implementation communicates with another process over a socket.
-This is a common pattern when integrating devices in the laboratory, as device drivers are usually provided by a 3rd
-party, such as the device manufacturer.
-So often the device implementation simply uses the existing driver.
-In some cases, the device implementation may include a full driver implementation.
-
-The device implementation initializes a client that connects to the device driver over a socket.
-The device implements a ``mix`` function for dispensing and mixing colors, and an ``analyze`` function
-that returns the average RGB value of the fluid color from the fluid simulation.
+The implementation communicates with another process over a socket, a common pattern when device drivers are supplied by a third party. It initializes a client that connects to the driver and exposes a ``mix`` function for dispensing colors and an ``analyze`` function that returns the average RGB value from the fluid simulation.
 
 The device YAML file for the color station device is:
 
@@ -207,9 +194,7 @@ This is the Python code for the "Analyze color" task:
 
             return output_parameters, resources, None
 
-The task implementation is straightforward. We first get a reference to the color station device.
-Then, we call the ``analyze`` function from the color station device we saw earlier. Finally, we construct
-and return the dict of output parameters and the resources.
+The task gets a reference to the color station, calls ``analyze``, then returns the output parameters and resources.
 
 The task YAML file is the following:
 
@@ -244,12 +229,7 @@ The task YAML file is the following:
 
 Laboratory
 ----------
-The laboratory YAML definition is shown below.
-
-We define the devices we discussed earlier.
-Note that we define three color stations so the laboratory can support up to three simultaneous color mixing protocols.
-
-We also define the resource types and the actual resources (beakers) with their initial locations.
+The laboratory YAML definition is shown below. Three color stations are defined to support up to three simultaneous protocol runs. Resource types and beakers with their initial locations are also declared.
 
 :bdg-primary:`lab.yml`
 
@@ -499,7 +479,7 @@ Example:
       devices:
         color_station: mix_colors.color_station
 
-In the first snippet, the mix_colors task uses the exact color_station allocated during retrieve_container. In the second, analyze_color uses the same color_station, ensuring that the mixed color is analyzed on the same simulation window.
+The mix_colors task reuses the color_station allocated by retrieve_container; analyze_color then reuses the same station, ensuring the mixed color is analyzed on the same simulation window.
 
 **Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
 
@@ -515,7 +495,7 @@ Example:
       resources:
         beaker: mix_colors.beaker
 
-The beaker chosen (dynamically) in retrieve_container is reused by mix_colors, then reused by analyze_color on the same station.
+The beaker dynamically chosen by retrieve_container is passed through mix_colors and into analyze_color.
 
 **Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
 

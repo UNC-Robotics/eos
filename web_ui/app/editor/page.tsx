@@ -1,8 +1,8 @@
 import { EditorClient } from '@/features/editor/components/EditorClient';
 import { getTaskSpecs, getLabSpecs } from '@/lib/api/specs';
+import { transformTaskSpec } from '@/lib/api/taskSpecTransform';
 import { scanPackages } from '@/lib/filesystem/operations';
 import type { EntityType } from '@/lib/types/filesystem';
-import type { ParameterSpec } from '@/lib/types/protocol';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,39 +27,8 @@ export default async function EditorPage({ searchParams }: EditorPageProps) {
   // Fetch packages and specs in parallel
   const [packages, taskSpecs, labSpecs] = await Promise.all([scanPackages(), getTaskSpecs(), getLabSpecs()]);
 
-  // Transform task specs for protocol editor (keep existing logic)
-  const taskSpecsArray = Object.entries(taskSpecs).map(([type, spec]) => {
-    const deviceTypes = spec.devices ? Array.from(new Set(Object.values(spec.devices).map((d) => d.type))) : [];
-
-    const transformedDevices = spec.devices
-      ? Object.fromEntries(Object.entries(spec.devices).map(([key, device]) => [key, { type: device.type, desc: '' }]))
-      : undefined;
-
-    const transformedInputResources = spec.input_resources
-      ? Object.fromEntries(
-          Object.entries(spec.input_resources).map(([key, resource]) => [key, { type: resource.type, desc: '' }])
-        )
-      : {};
-
-    const transformedOutputResources = spec.output_resources
-      ? Object.fromEntries(
-          Object.entries(spec.output_resources).map(([key, resource]) => [key, { type: resource.type, desc: '' }])
-        )
-      : {};
-
-    return {
-      type,
-      desc: spec.desc || '',
-      device_types: deviceTypes,
-      packageName: spec.packageName,
-      input_devices: transformedDevices,
-      output_devices: {},
-      input_resources: transformedInputResources,
-      output_resources: transformedOutputResources,
-      input_parameters: (spec.input_parameters as Record<string, ParameterSpec>) || {},
-      output_parameters: (spec.output_parameters as Record<string, ParameterSpec>) || {},
-    };
-  });
+  // Transform task specs for protocol editor (shared with /api/specs)
+  const taskSpecsArray = Object.entries(taskSpecs).map(([type, spec]) => transformTaskSpec(type, spec));
 
   // Prepare initial selection from URL params
   const initialSelection =

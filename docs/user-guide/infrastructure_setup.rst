@@ -1,8 +1,7 @@
 Infrastructure Setup
 ====================
 
-EOS requires setting up a network infrastructure to securely access laboratory devices and computers, which are defined
-in a :doc:`laboratory YAML file <laboratories>`.
+EOS requires a network infrastructure to securely access laboratory devices and computers defined in a :doc:`laboratory YAML file <laboratories>`.
 
 Key Requirements
 ----------------

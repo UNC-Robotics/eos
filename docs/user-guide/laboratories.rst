@@ -1,7 +1,6 @@
 Laboratories
 ============
-Laboratories are the space in which devices and resources exist and where tasks, protocols, and campaigns
-of protocols take place.
+Laboratories are where devices and resources exist and where tasks, protocols, and campaigns take place.
 
 A laboratory in EOS is a collection of:
 
@@ -153,11 +152,11 @@ Below is an example laboratory YAML file for a solar cell fabrication lab:
 Computers (Optional)
 """"""""""""""""""""
 Computers control devices and host EOS devices.
-Each computer that is required to interface with one or more devices must be defined in this section.
+Each computer that must interface with one or more devices must be defined in this section.
 The IP address of each computer must be specified.
 
-There is always a computer in each lab called **eos_computer** that has the IP "127.0.0.1".
-This computer is the computer that runs the EOS orchestrator, and can be thought of as the "central" computer.
+There is always a computer in each lab called **eos_computer** with the IP "127.0.0.1".
+This is the computer running the EOS orchestrator and can be thought of as the "central" computer.
 No other computer named "eos_computer" is allowed, and no other computer can have the IP "127.0.0.1".
 The "computers" section need not be defined unless additional computers are required (e.g., if not all devices are
 connected to eos_computer).
@@ -181,7 +180,7 @@ connected to eos_computer).
 
 Devices (Required)
 """"""""""""""""""
-Devices are equipment or apparatuses in the laboratory that are required to perform tasks.
+Devices are equipment or apparatuses in the laboratory required to perform tasks.
 Each device must have a unique name inside the lab and must be defined in the ``devices`` section of the laboratory YAML file.
 
 .. code-block:: yaml
@@ -229,7 +228,7 @@ These parameters are defined in the device specification and can be overridden h
 
 Resources (Optional)
 """"""""""""""""""""
-Resources represent anything that tasks should exclusively allocate, such as containers (vessels for holding samples),
+Resources represent anything tasks should exclusively allocate, such as containers (vessels for holding samples),
 lab locations that can only be occupied by one container, reagents, or other consumables.
 
 Resources are defined using two sections in the laboratory YAML file:
@@ -273,4 +272,4 @@ Resources are defined using two sections in the laboratory YAML file:
 
 * Each resource has a unique name (e.g., ``precursor_vial_1``)
 * **type**: The resource type (must match a defined ``resource_type``)
-* **meta** (optional): Instance-specific metadata, which overrides or extends the resource type's meta (e.g., current location)
+* **meta** (optional): Instance-specific metadata that overrides or extends the resource type's meta (e.g., current location)

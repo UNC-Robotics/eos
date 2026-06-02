@@ -438,6 +438,7 @@ function SubmissionPanel({
             placeholder="Select a model..."
             searchPlaceholder="Search or type custom model (e.g. ollama:qwen3.5)..."
             allowCustomValue
+            customValueHint="Custom model"
             className="text-xs h-10"
           />
         </div>

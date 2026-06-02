@@ -22,6 +22,7 @@ export interface TaskDefinition {
   devices?: Record<string, TaskDeviceConfig>;
   input_parameters?: Record<string, unknown> | null;
   input_resources?: Record<string, unknown> | null;
+  input_files?: Record<string, string> | null;
   priority?: number;
   allocation_timeout?: number;
   meta?: Record<string, unknown>;

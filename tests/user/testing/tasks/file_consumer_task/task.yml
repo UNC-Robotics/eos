@@ -1,0 +1,12 @@
+type: File Consumer
+desc: Reads an input file and reports its length.
+
+input_files:
+  input:
+    desc: The file to read.
+
+output_parameters:
+  length:
+    type: int
+    unit: n/a
+    desc: Number of bytes read from the input file.

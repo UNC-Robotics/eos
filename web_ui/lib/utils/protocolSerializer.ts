@@ -60,6 +60,11 @@ function serializeTaskForYaml(task: TaskNode, specMap: Map<string, TaskSpec>): R
     result.resources = serializedResources;
   }
 
+  // files (Record<string, 'task.file.ext'>) pass through from rest; drop the empty case.
+  if (result.files && Object.keys(result.files as Record<string, unknown>).length === 0) {
+    delete result.files;
+  }
+
   return result;
 }
 

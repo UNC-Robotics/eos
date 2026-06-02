@@ -12,11 +12,13 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { Combobox, type ComboboxOption } from '@/components/ui/Combobox';
 import { ParameterSearchInput } from '@/components/ui/ParameterSearchInput';
+import { DescriptionTooltip } from '@/components/ui/DescriptionTooltip';
 import { submitTask } from '@/features/tasks/api/tasks';
 import { getTaskPlugins } from '@/features/management/api/taskPlugins';
 import { TaskDeviceAssignment } from './TaskDeviceAssignment';
 import { TaskResourceAssignment } from './TaskResourceAssignment';
 import { TaskParameterFields } from './TaskParameterFields';
+import { FilePicker } from '@/features/files/components/FilePicker';
 import { serializeDeviceAssignment, serializeResourceAssignment } from '@/lib/utils/assignment-utils';
 import { buildDefaultParameters, coerceForSpec } from '@/lib/utils/protocolHelpers';
 import { flattenInputParameters, iterateInputParameters } from '@/lib/utils/paramGroups';
@@ -64,6 +66,7 @@ export function SubmitTaskDialog({
   const [devices, setDevices] = React.useState<Record<string, DeviceAssignment>>({});
   const [inputParameters, setInputParameters] = React.useState<Record<string, unknown>>({});
   const [inputResources, setInputResources] = React.useState<Record<string, ResourceAssignment>>({});
+  const [inputFiles, setInputFiles] = React.useState<Record<string, string>>({});
   const [inputSearch, setInputSearch] = React.useState('');
 
   // Track if we've already populated from initialTask to prevent re-population
@@ -141,6 +144,13 @@ export function SubmitTaskDialog({
       } else {
         setInputResources({});
       }
+
+      // Populate files
+      if (initialTask.input_files && Object.keys(initialTask.input_files).length > 0) {
+        setInputFiles(initialTask.input_files as Record<string, string>);
+      } else {
+        setInputFiles({});
+      }
     }
   }, [initialTask, taskSpecs, generateCloneName, setValue]);
 
@@ -155,10 +165,11 @@ export function SubmitTaskDialog({
       const hasExistingDevices = Object.keys(devices).length > 0;
       const hasExistingParams = Object.keys(inputParameters).length > 0;
       const hasExistingResources = Object.keys(inputResources).length > 0;
+      const hasExistingFiles = Object.keys(inputFiles).length > 0;
 
-      if (!hasExistingDevices && !hasExistingParams && !hasExistingResources) {
-        // Initialize with empty static assignments
-        if (spec.input_devices) {
+      if (!hasExistingDevices && !hasExistingParams && !hasExistingResources && !hasExistingFiles) {
+        // Initialize each section only when it has entries (avoids empty-object churn).
+        if (spec.input_devices && Object.keys(spec.input_devices).length > 0) {
           const initialDevices: Record<string, DeviceAssignment> = {};
           Object.keys(spec.input_devices).forEach((deviceName) => {
             initialDevices[deviceName] = { lab_name: '', name: '' };
@@ -173,18 +184,28 @@ export function SubmitTaskDialog({
           }
         }
 
-        if (spec.input_resources) {
+        if (spec.input_resources && Object.keys(spec.input_resources).length > 0) {
           const initialResources: Record<string, ResourceAssignment> = {};
           Object.keys(spec.input_resources).forEach((resourceName) => {
             initialResources[resourceName] = '';
           });
           setInputResources(initialResources);
         }
+
+        if (spec.input_files && Object.keys(spec.input_files).length > 0) {
+          const initialFiles: Record<string, string> = {};
+          Object.keys(spec.input_files).forEach((fileName) => {
+            initialFiles[fileName] = '';
+          });
+          setInputFiles(initialFiles);
+        }
       }
     } else {
       setSelectedTaskSpec(null);
     }
-  }, [taskType, taskSpecs, devices, inputParameters, inputResources]);
+    // Input states excluded from deps so init setters can't retrigger this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskType, taskSpecs]);
 
   const handleClear = () => {
     reset({
@@ -197,6 +218,7 @@ export function SubmitTaskDialog({
     setDevices({});
     setInputParameters({});
     setInputResources({});
+    setInputFiles({});
     setSelectedTaskSpec(null);
     setError(null);
     populatedFromTaskRef.current = null; // Reset so we can clone again if needed
@@ -210,6 +232,7 @@ export function SubmitTaskDialog({
       const submittedDevices: Record<string, unknown> = {};
       let input_parameters: Record<string, unknown> | null = null;
       let input_resources: Record<string, unknown> | null = null;
+      let input_files: Record<string, string> | null = null;
 
       // Handle devices - serialize only devices defined in current task spec
       if (selectedTaskSpec?.input_devices) {
@@ -260,6 +283,18 @@ export function SubmitTaskDialog({
         input_resources = Object.keys(serializedResources).length > 0 ? serializedResources : null;
       }
 
+      // Handle input files - keep only the keys the user selected for slots in the current spec
+      if (selectedTaskSpec?.input_files) {
+        const files: Record<string, string> = {};
+        Object.keys(selectedTaskSpec.input_files).forEach((name) => {
+          const value = inputFiles[name];
+          if (typeof value === 'string' && value.trim() !== '') {
+            files[name] = value.trim();
+          }
+        });
+        input_files = Object.keys(files).length > 0 ? files : null;
+      }
+
       // Parse metadata (always JSON)
       const meta = data.meta ? JSON.parse(data.meta) : {};
 
@@ -272,6 +307,7 @@ export function SubmitTaskDialog({
         devices: submittedDevices as unknown as TaskDefinition['devices'],
         input_parameters,
         input_resources,
+        input_files,
         meta,
       };
 
@@ -295,7 +331,8 @@ export function SubmitTaskDialog({
     selectedTaskSpec &&
     ((selectedTaskSpec.input_devices && Object.keys(selectedTaskSpec.input_devices).length > 0) ||
       (selectedTaskSpec.input_parameters && Object.keys(selectedTaskSpec.input_parameters).length > 0) ||
-      (selectedTaskSpec.input_resources && Object.keys(selectedTaskSpec.input_resources).length > 0));
+      (selectedTaskSpec.input_resources && Object.keys(selectedTaskSpec.input_resources).length > 0) ||
+      (selectedTaskSpec.input_files && Object.keys(selectedTaskSpec.input_files).length > 0));
 
   const matchesSearch = (name: string, spec: { type?: string; desc?: string }) =>
     !searchLower ||
@@ -449,6 +486,35 @@ export function SubmitTaskDialog({
                     labSpecs={labSpecs}
                     selectedLabs={allLabNames}
                   />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* Input Files Section */}
+      {selectedTaskSpec?.input_files &&
+        Object.keys(selectedTaskSpec.input_files).length > 0 &&
+        (() => {
+          const filtered = Object.entries(selectedTaskSpec.input_files).filter(([name, spec]) =>
+            matchesSearch(name, spec)
+          );
+          if (filtered.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <Label>Input Files</Label>
+              <div className="space-y-2.5">
+                {filtered.map(([name, spec]) => (
+                  <div key={name} className="space-y-1">
+                    <Label className="flex items-center gap-1.5">
+                      {name}
+                      {spec.desc && <DescriptionTooltip description={spec.desc} />}
+                    </Label>
+                    <FilePicker
+                      value={inputFiles[name]}
+                      onChange={(value) => setInputFiles({ ...inputFiles, [name]: value })}
+                    />
+                  </div>
                 ))}
               </div>
             </div>

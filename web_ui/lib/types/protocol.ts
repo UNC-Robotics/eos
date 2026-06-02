@@ -36,6 +36,10 @@ export interface ResourceSpec {
   desc: string;
 }
 
+export interface FileSpec {
+  desc: string;
+}
+
 export interface TaskSpec {
   type: string;
   desc: string;
@@ -47,6 +51,8 @@ export interface TaskSpec {
   output_resources?: Record<string, ResourceSpec>;
   input_parameters?: Record<string, InputParameterEntry>;
   output_parameters?: Record<string, ParameterSpec>;
+  input_files?: Record<string, FileSpec>;
+  output_files?: Record<string, FileSpec>;
 }
 
 // Device Assignment Types
@@ -86,6 +92,7 @@ export interface TaskNode {
   devices?: Record<string, DeviceAssignment>;
   resources?: Record<string, ResourceAssignment>;
   parameters?: Record<string, unknown>;
+  files?: Record<string, string>;
   dependencies?: string[];
   color?: string;
   desc?: string;
@@ -109,5 +116,5 @@ export interface TaskNodeData extends Record<string, unknown> {
   isMissingSpec?: boolean;
   onNodeClick: (nodeName: string) => void;
   onNodeContextMenu: (event: React.MouseEvent, nodeName: string) => void;
-  onPortDoubleClick?: (nodeName: string, kind: 'parameter' | 'device' | 'resource', name: string) => void;
+  onPortDoubleClick?: (nodeName: string, kind: 'parameter' | 'device' | 'resource' | 'file', name: string) => void;
 }

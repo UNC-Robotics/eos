@@ -562,6 +562,39 @@ export function TaskPropertiesPanel({
                 );
               })()}
 
+            {/* Input Files */}
+            {taskSpec.input_files && Object.keys(taskSpec.input_files).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Input Files</h3>
+                <div className="space-y-3">
+                  {Object.entries(taskSpec.input_files).map(([name, spec]) => (
+                    <div key={name} data-field-kind="file" data-field-name={name}>
+                      <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {name}
+                        <span className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-600 text-[10px] font-medium text-gray-700 dark:text-gray-200">
+                          file
+                        </span>
+                        {spec.desc && <DescriptionTooltip description={spec.desc} />}
+                      </label>
+                      <input
+                        type="text"
+                        value={typeof taskNode.files?.[name] === 'string' ? taskNode.files[name] : ''}
+                        placeholder="task.filename.ext"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const files = { ...(taskNode.files || {}) };
+                          if (value.trim() === '') delete files[name];
+                          else files[name] = value;
+                          onUpdate(taskNode.name, { files });
+                        }}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Output Devices */}
             {taskSpec.output_devices && Object.keys(taskSpec.output_devices).length > 0 && (
               <div>
@@ -593,6 +626,18 @@ export function TaskPropertiesPanel({
                 <div className="space-y-2">
                   {Object.entries(taskSpec.output_parameters).map(([name, spec]) => (
                     <OutputField key={name} name={name} type={spec.type} desc={spec.desc} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Output Files */}
+            {taskSpec.output_files && Object.keys(taskSpec.output_files).length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Output Files</h3>
+                <div className="space-y-2">
+                  {Object.entries(taskSpec.output_files).map(([name, spec]) => (
+                    <OutputField key={name} name={name} type="file" desc={spec.desc} />
                   ))}
                 </div>
               </div>

@@ -1,4 +1,5 @@
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
+from eos.tasks.base_task import build_task_output_file_path
 from eos.tasks.entities.task import TaskStatus, TaskSubmission
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from tests.fixtures import *
@@ -124,7 +125,7 @@ class TestTaskManager:
             await task_manager.complete_task(db, PROTOCOL, "nonexistent_task")
 
     @pytest.mark.asyncio
-    async def test_add_task_output(self, db, task_manager, protocol_run_manager):
+    async def test_add_task_output(self, db, task_manager, file_db_interface, protocol_run_manager):
         await task_manager.create_task(
             db, TaskSubmission(name="mixing", type="Magnetic Mixing", protocol_run_name=PROTOCOL)
         )
@@ -133,7 +134,7 @@ class TestTaskManager:
         task_output_file_names = ["file"]
 
         await task_manager.add_task_output(db, PROTOCOL, "mixing", task_output_parameters, None, task_output_file_names)
-        await task_manager.add_task_output_file(PROTOCOL, "mixing", "file", b"file_data")
+        await file_db_interface.store_file(build_task_output_file_path(PROTOCOL, "mixing", "file"), b"file_data")
 
         task = await task_manager.get_task(db, PROTOCOL, "mixing")
         assert task.output_parameters == {"x": 5}

@@ -30,11 +30,11 @@ function formatTimestamp(epoch: number): string {
 
 function LogLine({ entry }: { entry: LogEntry }) {
   return (
-    <div className="flex gap-2 px-2 py-0.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-[11px] leading-4">
+    <div className="flex items-start gap-2 px-2 py-0.5 hover:bg-gray-50 dark:hover:bg-slate-800/50 text-[11px] leading-4">
       <span className="text-gray-400 dark:text-gray-500 shrink-0">{formatTimestamp(entry.t)}</span>
       <span className={`font-medium shrink-0 w-14 ${LEVEL_COLORS[entry.l] || 'text-gray-500'}`}>{entry.l}</span>
       <span className="text-gray-400 dark:text-gray-600 shrink-0">{entry.s}</span>
-      <span className="text-gray-800 dark:text-gray-200 break-all">{entry.m}</span>
+      <span className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-all min-w-0 flex-1">{entry.m}</span>
     </div>
   );
 }
@@ -83,10 +83,10 @@ export function LogViewer({ enabled = true, isResizing = false, className = '' }
         <select
           value={level}
           onChange={(e) => setLevel(e.target.value)}
-          className="text-[11px] bg-transparent border border-gray-200 dark:border-slate-600 rounded px-1.5 py-0.5 text-gray-700 dark:text-gray-300"
+          className="text-[11px] bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-yellow-500"
         >
           {LEVEL_OPTIONS.map((l) => (
-            <option key={l} value={l}>
+            <option key={l} value={l} className="bg-white text-gray-900 dark:bg-slate-800 dark:text-gray-100">
               {l}
             </option>
           ))}
@@ -113,11 +113,12 @@ export function LogViewer({ enabled = true, isResizing = false, className = '' }
                 <div
                   key={virtualRow.key}
                   data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
-                    right: 0,
+                    width: '100%',
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >

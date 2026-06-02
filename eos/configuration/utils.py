@@ -32,6 +32,12 @@ def is_device_reference(device_value: Any) -> bool:
     return _is_dot_reference(device_value)
 
 
+def split_file_reference(value: str) -> tuple[str, str]:
+    """Split a 'task.filename.ext' file reference into (task_name, filename) on the first dot."""
+    task_name, _, file_name = value.partition(".")
+    return task_name, file_name
+
+
 _MIN_FANIN_ALTERNATES = 2
 
 

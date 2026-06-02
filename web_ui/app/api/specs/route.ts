@@ -3,44 +3,8 @@ import { db } from '@/lib/db/client';
 import { definitions } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import type { TaskSpec as DbTaskSpec, LabSpec } from '@/lib/api/specs';
-import type { TaskSpec, ParameterSpec } from '@/lib/types/protocol';
-
-/**
- * Transform a DB-layer TaskSpec into the editor-layer TaskSpec.
- * Must match the transformation in app/editor/page.tsx.
- */
-function transformTaskSpec(type: string, spec: DbTaskSpec & { packageName: string }): TaskSpec {
-  const deviceTypes = spec.devices ? Array.from(new Set(Object.values(spec.devices).map((d) => d.type))) : [];
-
-  const inputDevices = spec.devices
-    ? Object.fromEntries(Object.entries(spec.devices).map(([key, device]) => [key, { type: device.type, desc: '' }]))
-    : undefined;
-
-  const inputResources = spec.input_resources
-    ? Object.fromEntries(
-        Object.entries(spec.input_resources).map(([key, resource]) => [key, { type: resource.type, desc: '' }])
-      )
-    : {};
-
-  const outputResources = spec.output_resources
-    ? Object.fromEntries(
-        Object.entries(spec.output_resources).map(([key, resource]) => [key, { type: resource.type, desc: '' }])
-      )
-    : {};
-
-  return {
-    type,
-    desc: spec.desc || '',
-    device_types: deviceTypes,
-    packageName: spec.packageName,
-    input_devices: inputDevices,
-    output_devices: {},
-    input_resources: inputResources,
-    output_resources: outputResources,
-    input_parameters: (spec.input_parameters as Record<string, ParameterSpec>) || {},
-    output_parameters: (spec.output_parameters as Record<string, ParameterSpec>) || {},
-  };
-}
+import type { TaskSpec } from '@/lib/types/protocol';
+import { transformTaskSpec } from '@/lib/api/taskSpecTransform';
 
 /**
  * GET /api/specs?tasks=TypeA,TypeB&labs=lab1,lab2

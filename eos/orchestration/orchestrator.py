@@ -8,7 +8,7 @@ from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.eos_config import DatabaseType, EosConfig
+from eos.configuration.eos_config import DatabaseType, EosConfig, FileDbConfig
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
@@ -99,6 +99,7 @@ class Orchestrator(metaclass=Singleton):
 
         file_db_interface = FileDbInterface(self._file_db_config)
         di.register(FileDbInterface, file_db_interface)
+        di.register(FileDbConfig, self._file_db_config)
 
         # Ray cluster ############################################
         self._initialize_ray()

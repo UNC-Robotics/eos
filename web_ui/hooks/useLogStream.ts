@@ -36,6 +36,10 @@ export function useLogStream(options: UseLogStreamOptions = {}) {
       return;
     }
 
+    // Start fresh on (re)subscribe so a level change re-filters the visible log
+    // instead of leaving stale entries from the previous level.
+    setEntries([]);
+
     const params = new URLSearchParams();
     if (level) params.set('level', level);
 

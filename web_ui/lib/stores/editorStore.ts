@@ -77,7 +77,7 @@ interface EditorStore {
   viewport: { x: number; y: number; zoom: number };
 
   /** Transient: panel scrolls + briefly highlights this field, then clears it. */
-  focusedField: { taskName: string; kind: 'parameter' | 'device' | 'resource'; name: string } | null;
+  focusedField: { taskName: string; kind: 'parameter' | 'device' | 'resource' | 'file'; name: string } | null;
 
   isPropertiesPanelOpen: boolean;
   isOptimizerPanelOpen: boolean;

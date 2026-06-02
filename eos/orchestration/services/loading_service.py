@@ -220,13 +220,20 @@ class LoadingService:
             self._configuration_manager.unload_protocols(to_reload)
             await self._configuration_manager.def_sync.mark_protocols_loaded(db, to_reload, False)
             self._configuration_manager.load_protocols(to_reload)
-            await self._configuration_manager.def_sync.mark_protocols_loaded(db, to_reload, True)
+            # Sync the refreshed spec data first; it resets is_loaded, so mark loaded last
             await self._configuration_manager.def_sync.sync_protocol_defs(db, names=to_reload)
+            await self._configuration_manager.def_sync.mark_protocols_loaded(db, to_reload, True)
             return to_reload
 
     async def list_protocols(self) -> dict[str, bool]:
         """Return a dictionary of protocol types and a boolean indicating whether they are loaded."""
         return self._configuration_manager.get_loaded_protocols()
+
+    async def _resync_loaded_state(self, db: AsyncDbSession) -> None:
+        """Re-mark the live in-memory labs/protocols as loaded after a defs sync reset their flags."""
+        cm = self._configuration_manager
+        await cm.def_sync.mark_labs_loaded(db, set(cm.labs.keys()), True)
+        await cm.def_sync.mark_protocols_loaded(db, set(cm.protocols.keys()), True)
 
     async def refresh_packages(self, db: AsyncDbSession) -> int:
         """
@@ -260,6 +267,9 @@ class LoadingService:
             # Clean up specifications for deleted entities
             await self._configuration_manager.def_sync.cleanup_deleted_defs(db)
 
+            # The sync above reset is_loaded for all labs/protocols; restore the live loaded state
+            await self._resync_loaded_state(db)
+
             log.info("Package refresh completed successfully")
 
             return package_count
@@ -285,6 +295,7 @@ class LoadingService:
             self._configuration_manager.device_specs.update_specs(device_specs, device_dirs)
             self._configuration_manager._initialize_task_plugins()
             await self._configuration_manager.def_sync.sync_all_defs(db)
+            await self._resync_loaded_state(db)
 
             log.info(f"Loaded packages: {', '.join(package_names)}")
 
@@ -305,6 +316,7 @@ class LoadingService:
             self._configuration_manager.device_specs.update_specs(device_specs, device_dirs)
             await self._configuration_manager.def_sync.sync_all_defs(db)
             await self._configuration_manager.def_sync.cleanup_deleted_defs(db)
+            await self._resync_loaded_state(db)
 
             log.info(f"Unloaded packages: {', '.join(package_names)}")
 

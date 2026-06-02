@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.29.0
+
+- Implemented support for file inputs in tasks
+- Tasks now directly download their file inputs from the S3-compatible storage, reducing I/O time
+- Tasks now directly upload their file outputs to the S3-compatible storage, reducing I/O time
+- Improved log formatting in the log viewer of the web UI
+- Fixed log level filtering in the log viewer of the web UI
+- Fixed some bugs
+- Updated docs
+
 ## 0.28.0
 
 - Added task conditional execution via "run if", allowing tasks to execute only if an expression is true

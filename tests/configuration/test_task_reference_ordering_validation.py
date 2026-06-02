@@ -17,6 +17,7 @@ def _task(
     parameters: dict | None = None,
     resources: dict | None = None,
     devices: dict | None = None,
+    files: dict | None = None,
 ) -> TaskDef:
     return TaskDef(
         name=name,
@@ -25,6 +26,7 @@ def _task(
         parameters=parameters or {},
         resources=resources or {},
         devices=devices or {},
+        files=files or {},
     )
 
 
@@ -104,6 +106,31 @@ class TestTaskReferenceOrderingValidator:
             ]
         )
         with pytest.raises(EosTaskValidationError, match="device 'arm'"):
+            TaskReferenceOrderingValidator(protocol).validate()
+
+    def test_file_reference_ancestor_passes(self):
+        protocol = _protocol(
+            [
+                _task("a"),
+                _task("b", dependencies=["a"], files={"input": "a.out.txt"}),
+            ]
+        )
+        TaskReferenceOrderingValidator(protocol).validate()
+
+    def test_file_reference_concurrent_fails(self):
+        protocol = _protocol(
+            [
+                _task("root"),
+                _task("a", dependencies=["root"]),
+                _task("b", dependencies=["root"], files={"input": "a.out.txt"}),
+            ]
+        )
+        with pytest.raises(EosTaskValidationError, match="file 'input'"):
+            TaskReferenceOrderingValidator(protocol).validate()
+
+    def test_file_self_reference_fails(self):
+        protocol = _protocol([_task("a", files={"input": "a.out.txt"})])
+        with pytest.raises(EosTaskValidationError, match="references itself"):
             TaskReferenceOrderingValidator(protocol).validate()
 
     def test_batched_errors_report_all_violations(self):

@@ -1,10 +1,9 @@
 Optimizers
 ==========
 Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to protocol run campaigns by optimizing task parameters to achieve objectives over time.
-Optimizers in EOS are *sequential*, meaning they iteratively optimize parameters by drawing insights from previous protocol runs.
-One of the most common sequential optimization methods is **Bayesian optimization**, and is especially useful for
-optimizing expensive-to-evaluate black box functions.
+In EOS, optimizers give intelligence to campaigns by optimizing task parameters to achieve objectives over time.
+EOS optimizers are *sequential*, meaning they iteratively optimize parameters by drawing on previous protocol runs.
+**Bayesian optimization** is one of the most common sequential methods, especially useful for expensive-to-evaluate black-box functions.
 
 .. figure:: ../_static/img/optimize-protocol-loop.png
    :alt: Optimization and protocol run loop
@@ -18,9 +17,8 @@ along with various acquisition functions.
 
 Distributed Execution
 ---------------------
-EOS optimizers are created in a dedicated Ray actor process.
-This actor process can be created in any computer with an active Ray worker.
-This can enable running the optimizer on a more capable computer than the one running the EOS orchestrator.
+EOS optimizers run in a dedicated Ray actor process, which can be placed on any machine with an active Ray worker.
+This allows the optimizer to run on a more capable machine than the one hosting the EOS orchestrator.
 
 Optimizer Implementation
 ------------------------
@@ -65,37 +63,31 @@ Below is an example:
 
         return constructor_args, BayesianSequentialOptimizer
 
-Each ``optimizer.py`` file must contain the function ``eos_create_campaign_optimizer``.
-This function must return:
+Each ``optimizer.py`` must contain ``eos_create_campaign_optimizer``, which returns:
 
-#. The constructor arguments to make an optimizer class instance
-#. The class type of the optimizer
+#. The constructor arguments for an optimizer class instance
+#. The optimizer class type
 
-In this example, we use EOS' built-in Bayesian optimizer.
+This example uses EOS' built-in Bayesian optimizer.
 
-For most use cases, we recommend the :doc:`beacon_optimizer`, which combines Bayesian optimization with
-AI-driven reasoning for faster convergence. Beacon uses the same domain definition (inputs, outputs,
-constraints) but adds an AI agent that reasons about protocol run history to suggest smarter parameter sets.
+For most use cases, the :doc:`beacon_optimizer` is recommended. It combines Bayesian optimization with AI-driven reasoning for faster convergence, using the same domain definition (inputs, outputs, constraints) but adding an AI agent that reasons about protocol run history to suggest smarter parameter sets.
 
-It is also possible to define custom optimizers in this file, and simply return the constructor arguments and
-the class type from ``eos_create_campaign_optimizer``.
+Custom optimizers can also be defined in this file; just return their constructor arguments and class type from ``eos_create_campaign_optimizer``.
 
 .. note::
     All optimizers must inherit from the class ``AbstractSequentialOptimizer`` under the ``eos.optimization`` module.
 
 Input and Output Parameter Naming
 """""""""""""""""""""""""""""""""
-The names of input and output parameters must reference task parameters.
-The EOS reference format must be used:
+Input and output parameter names must reference task parameters using the EOS reference format:
 
 **TASK.PARAMETER_NAME**
 
-This is necessary for EOS to be able to associate the optimizer with the protocol tasks and to forward parameter values
-where needed.
+This lets EOS associate the optimizer with protocol tasks and forward parameter values correctly.
 
 Example Custom Optimizer
 ------------------------
-Below is an example of a custom optimizer implementation that randomly samples parameters for the same color mixing problem:
+Below is a custom optimizer that randomly samples parameters for the same color mixing problem:
 
 :bdg-primary:`optimizer.py`
 

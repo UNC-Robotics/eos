@@ -8,6 +8,7 @@ from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.database.file_db_interface import FileDbInterface
+from eos.tasks.base_task import build_task_output_file_path
 from eos.tasks.entities.task import Task, TaskStatus, TaskSubmission, TaskModel
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from eos.utils.di.di_container import inject
@@ -56,6 +57,7 @@ class TaskManager:
                 devices={},
                 input_parameters={},
                 input_resources={},
+                input_files={},
                 priority=0,
                 allocation_timeout=0,
                 meta={},
@@ -83,6 +85,7 @@ class TaskManager:
             devices={k: v.model_dump() for k, v in task.devices.items()},
             input_parameters=task.input_parameters,
             input_resources={k: v.model_dump() for k, v in (task.input_resources or {}).items()},
+            input_files=task.input_files,
             priority=task.priority,
             allocation_timeout=task.allocation_timeout,
             meta=task.meta,
@@ -194,14 +197,7 @@ class TaskManager:
 
     def _get_task_output_file_path(self, protocol_run_name: str | None, task_name: str, file_name: str) -> str:
         """Generate consistent file paths for task outputs."""
-        return f"{protocol_run_name if protocol_run_name is not None else 'on_demand'}/{task_name}/{file_name}"
-
-    async def add_task_output_file(
-        self, protocol_run_name: str | None, task_name: str, file_name: str, file_data: bytes
-    ) -> None:
-        """Add a file output from a task to the file database."""
-        path = self._get_task_output_file_path(protocol_run_name, task_name, file_name)
-        await self._file_db_interface.store_file(path, file_data)
+        return build_task_output_file_path(protocol_run_name, task_name, file_name)
 
     async def get_task_output_file(self, protocol_run_name: str, task_name: str, file_name: str) -> bytes:
         """Get a file output from a task from the file database."""

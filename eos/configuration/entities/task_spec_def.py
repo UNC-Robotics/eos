@@ -9,6 +9,7 @@ from eos.configuration.entities.task_parameters import (
     TaskParameterFactory,
     TaskParameterGroup,
     TaskParameterType,
+    ValidFileName,
     ValidName,
 )
 
@@ -21,6 +22,18 @@ class ResourceRequirement(BaseModel):
         if not v.strip():
             raise ValueError("Resource 'type' field must be specified.")
         return v
+
+
+class FileRequirement(BaseModel):
+    """Declares an input file a task consumes."""
+
+    desc: str | None = None
+
+
+class OutputFile(BaseModel):
+    """Declares an output file a task produces, so other tasks can reference it."""
+
+    desc: str | None = None
 
 
 class OutputParameter(BaseModel):
@@ -65,9 +78,11 @@ class TaskSpecDef(BaseModel):
 
     input_resources: dict[ValidName, ResourceRequirement] = Field(default_factory=dict)
     input_parameters: dict[ValidName, Any] = Field(default_factory=dict)
+    input_files: dict[ValidName, FileRequirement] = Field(default_factory=dict)
 
     output_resources: dict[ValidName, ResourceRequirement] = Field(default_factory=dict)
     output_parameters: dict[ValidName, OutputParameter] = Field(default_factory=dict)
+    output_files: dict[ValidFileName, OutputFile] = Field(default_factory=dict)
 
     _flat_index: dict[str, TaskParameter] = PrivateAttr(default_factory=dict)
 

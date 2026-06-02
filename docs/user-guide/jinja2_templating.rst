@@ -1,18 +1,14 @@
 Jinja2 Templating
 =================
 The YAML files used to define labs, devices, protocols, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
-templating.
-This allows easier authoring of complex YAML files by enabling the use of variables, loops, conditionals,
-macros, and more.
-Jinja2 templates are evaluated with Python, so some expressions are the same as in Python.
+templating, enabling variables, loops, conditionals, macros, and more.
+Jinja2 templates are evaluated with Python, so some expressions follow Python syntax.
 
 .. note::
     Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
 
-Jinja is useful for defining templates.
-For example, a protocol template can be defined with placeholders and variables
-that when specified lead to different variations of the protocol.
-This is particularly useful for altering the task sequence of a protocol while loading it.
+Jinja is useful for defining protocol templates with placeholders and variables that produce different
+protocol variations when set, including altering the task sequence.
 
 .. note::
     Protocol templating is useful if EOS dynamic parameters and references do not suffice.
@@ -22,7 +18,7 @@ Below are some useful Jinja2 features:
 Variables
 ---------
 Jinja2 allows setting and reading variables in the YAML file.
-In the example below, the variable ``max_volume`` is set to 300 and used to define the capacity of two beakers:
+Below, ``max_volume`` is set to 300 and used to define the capacity of two beakers:
 
 :bdg-primary:`lab.yml`
 
@@ -44,7 +40,7 @@ In the example below, the variable ``max_volume`` is set to 300 and used to defi
 Arithmetic
 ----------
 You can perform arithmetic within Jinja2 expressions.
-In the example below, the volumes of cyan, magenta, and yellow colorants are calculated based on a total color volume:
+Below, the volumes of cyan, magenta, and yellow colorants are calculated from a total color volume:
 
 :bdg-primary:`task.yml`
 
@@ -60,7 +56,7 @@ In the example below, the volumes of cyan, magenta, and yellow colorants are cal
 Conditionals
 ------------
 You can use if statements to include or exclude content based on conditions.
-In the example below, the task "mix_colors" is only included if the variable ``mix_colors`` is set to ``True``:
+Below, the task "mix_colors" is included only if the variable ``mix_colors`` is ``True``:
 
 :bdg-primary:`protocol.yml`
 
@@ -76,8 +72,8 @@ In the example below, the task "mix_colors" is only included if the variable ``m
 
 Loops
 -----
-Jinja2 allows you to use loops to generate repetitive content.
-In the example below, a loop is used to generate container IDs with a common prefix and a letter (e.g., `c_a`, `c_b`, `c_c`, etc.):
+Jinja2 supports loops to generate repetitive content.
+Below, a loop generates container IDs with a common prefix and a letter (e.g., `c_a`, `c_b`, `c_c`):
 
 :bdg-primary:`lab.yml`
 
@@ -96,9 +92,8 @@ In the example below, a loop is used to generate container IDs with a common pre
 
 Macros
 ------
-Jinja2 macros allow you to define reusable blocks of content.
-In the example below, the ``create_containers`` macro is used to easily create containers with a prefix and a number
-(e.g., `c_0`, `c_1`, `c_2`, etc.):
+Jinja2 macros define reusable blocks of content.
+Below, the ``create_resources`` macro creates resources with a prefix and a number (e.g., `c_0`, `c_1`, `c_2`):
 
 :bdg-primary:`lab.yml`
 

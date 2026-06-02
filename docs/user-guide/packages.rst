@@ -1,11 +1,8 @@
 Packages
 ========
-Code and resources in EOS are organized into packages, which are discovered and loaded at runtime.
-Each package is essentially a folder.
-These packages can contain laboratory, device, task, and protocol definitions, code, and data, allowing reuse and
-sharing.
-For example, a package can contain task and device implementations for equipment from a specific manufacturer, while
-another package may only contain protocols that run on a specific lab.
+Code and resources in EOS are organized into packages, discovered and loaded at runtime.
+Each package is a folder that can contain laboratory, device, task, and protocol definitions, code, and data, enabling reuse and sharing.
+For example, a package can contain task and device implementations for a specific manufacturer's equipment, while another may contain only protocols for a specific lab.
 
 .. figure:: ../_static/img/package.png
    :alt: EOS package
@@ -30,7 +27,7 @@ Create a Package
 
    eos pkg create my_package
 
-This command is a shortcut to create a new package with all subdirectories.
+This command creates a new package with all subdirectories.
 Feel free to delete subdirectories you don't expect to use.
 
 Add Entities to a Package
@@ -67,8 +64,8 @@ Use ``--`` if you need to pass a flag that EOS itself interprets (for example, `
    eos pkg install my_package --index-url https://my.registry/simple
    eos pkg install my_package -- --help        # show uv's help instead of eos's
 
-Dependencies are installed into the active environment and are therefore shared across every
-EOS package — EOS must be able to import user packages from the same interpreter.
+Dependencies are installed into the active environment and are shared across every
+EOS package, since EOS must import user packages from the same interpreter.
 
 Configuring the User Directory
 ------------------------------

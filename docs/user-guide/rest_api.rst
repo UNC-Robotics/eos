@@ -1,7 +1,6 @@
 REST API
 ========
-EOS has a REST API to control the orchestrator.
-Example functions include:
+EOS exposes a REST API to control the orchestrator. Example capabilities:
 
 * Submit tasks, protocols, and campaigns, as well as cancel them
 * Load, unload, and reload protocols and laboratories
@@ -16,7 +15,7 @@ Example functions include:
 
 Submitting Protocol Runs
 ------------------------
-Submit a protocol run for execution. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
+Submit a protocol run. All dynamic parameters (``eos_dynamic``) must be provided via ``parameters``.
 
 **Endpoint:** ``POST /api/protocols``
 
@@ -51,7 +50,7 @@ Submit a protocol run for execution. All dynamic parameters (``eos_dynamic``) mu
 
 Submitting Campaigns
 --------------------
-Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameter selection.
+Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameters.
 
 **Endpoint:** ``POST /api/campaigns``
 
@@ -104,7 +103,7 @@ Submit a campaign to run a protocol multiple times, optionally with optimizer-dr
 
 Submitting On-Demand Tasks
 --------------------------
-Submit a single task for execution outside of a protocol run.
+Submit a single task for execution outside a protocol run.
 
 **Endpoint:** ``POST /api/tasks``
 
@@ -164,7 +163,7 @@ Get the status of protocols and campaigns:
 
 Device RPC
 ----------
-EOS provides an RPC endpoint to call device functions directly through the REST API.
+EOS provides an RPC endpoint to call device functions directly via the REST API.
 
 **Endpoint:** ``POST /api/rpc/{lab_id}/{device_id}/{function_name}``
 
@@ -179,7 +178,7 @@ EOS provides an RPC endpoint to call device functions directly through the REST 
 * ``function_name``: The name of the device function to call
 * Request body: JSON object containing function parameters
 
-The endpoint will dynamically call the specified function on the device actor with the provided parameters and return the result.
+The endpoint calls the specified function on the device actor with the provided parameters and returns the result.
 
 .. warning::
 
@@ -187,10 +186,10 @@ The endpoint will dynamically call the specified function on the device actor wi
 
 Documentation
 -------------
-The REST API is documented using `OpenAPI <https://swagger.io/specification/>`_ and can be accessed at:
+The REST API is documented with `OpenAPI <https://swagger.io/specification/>`_ and accessible at:
 
 .. code-block:: bash
 
     http://localhost:8070/docs
 
-or whatever host and port you have configured for the REST API server.
+or the host and port configured for the REST API server.

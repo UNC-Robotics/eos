@@ -25,6 +25,7 @@ from eos.configuration.utils import (
     is_fanin_parameter,
     is_parameter_reference,
     is_resource_reference,
+    split_file_reference,
 )
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 from eos.utils.di.di_container import inject
@@ -264,11 +265,12 @@ class TaskValidator:
             self._validate_task(task)
 
     def _validate_task(self, task: TaskDef) -> None:
-        """Validate a single task's parameters, resources, and devices."""
+        """Validate a single task's parameters, resources, devices, and files."""
         task_spec = self._task_specs.get_spec_by_config(task)
         self._validate_task_parameters(task, task_spec)
         self._validate_task_resources(task, task_spec)
         self._validate_task_devices(task, task_spec)
+        self._validate_task_files(task, task_spec)
 
     def _validate_task_parameters(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         """Validate task parameters including references."""
@@ -509,6 +511,57 @@ class TaskValidator:
                 f"Type mismatch for referenced resource '{referenced_resource}' in task '{task.name}'. "
                 f"The required resource type is '{required_resource_spec.type}' which does not match the referenced "
                 f"resource type '{referenced_resource_spec.type}'."
+            )
+
+    def _validate_task_files(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
+        """Validate task input files: required slots are provided and references point to real output files."""
+        required_files = task_spec.input_files or {}
+
+        if not task.files and required_files:
+            raise EosTaskValidationError(f"Task '{task.name}' requires input files but none were provided.")
+
+        if not task.files:
+            return
+
+        for input_name in task.files:
+            if input_name not in required_files:
+                batch_error(
+                    f"input file '{input_name}' is not a valid input file for task '{task.name}'.",
+                    EosTaskValidationError,
+                )
+        for input_name in required_files:
+            if input_name not in task.files:
+                batch_error(
+                    f"Required input file '{input_name}' not provided for task '{task.name}'.",
+                    EosTaskValidationError,
+                )
+        raise_batched_errors(root_exception_type=EosTaskValidationError)
+
+        for input_name, file_value in task.files.items():
+            self._validate_file_reference(input_name, file_value, task)
+
+    def _validate_file_reference(self, input_name: str, file_value: str, task: TaskDef) -> None:
+        """Validate a file reference points to an existing task that declares the referenced output file."""
+        referenced_task_name, referenced_file = split_file_reference(file_value)
+
+        if not referenced_task_name or not referenced_file:
+            raise EosTaskValidationError(
+                f"input file '{input_name}' in task '{task.name}' has malformed reference '{file_value}'. "
+                f"Expected format 'task_name.filename.ext'."
+            )
+
+        referenced_task = self._find_task_by_name(referenced_task_name)
+        if not referenced_task:
+            raise EosTaskValidationError(
+                f"input file '{input_name}' in task '{task.name}' references task '{referenced_task_name}' "
+                f"which does not exist."
+            )
+
+        referenced_task_spec = self._task_specs.get_spec_by_config(referenced_task)
+        if referenced_file not in referenced_task_spec.output_files:
+            raise EosTaskValidationError(
+                f"input file '{input_name}' in task '{task.name}' references file '{referenced_file}' "
+                f"which is not an output file of task '{referenced_task_name}'."
             )
 
     def _validate_task_devices(self, task: TaskDef, task_spec: TaskSpecDef) -> None:

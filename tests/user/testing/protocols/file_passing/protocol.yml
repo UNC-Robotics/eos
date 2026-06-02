@@ -1,0 +1,17 @@
+type: file_passing
+desc: Passes an output file from one task as the input file of another.
+
+labs:
+  - small_lab
+
+tasks:
+  - name: gen
+    type: File Generation
+    parameters:
+      content_length: 10
+
+  - name: consume
+    type: File Consumer
+    dependencies: [ gen ]
+    files:
+      input: gen.file.txt

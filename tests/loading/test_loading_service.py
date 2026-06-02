@@ -79,6 +79,15 @@ async def _get_lab_loaded(db, lab_name: str) -> bool:
     return result.scalar() is True
 
 
+async def _get_protocol_loaded(db, protocol_type: str) -> bool:
+    result = await db.execute(
+        select(DefinitionModel.is_loaded).where(
+            DefinitionModel.type == "protocol", DefinitionModel.name == protocol_type
+        )
+    )
+    return result.scalar() is True
+
+
 async def _get_device_count(db, lab_name: str) -> int:
     result = await db.execute(select(DeviceModel).where(DeviceModel.lab_name == lab_name))
     return len(result.scalars().all())
@@ -211,6 +220,25 @@ class TestReloadLabs:
         assert LAB_NAME not in cm.labs
         assert _get_actor_names_for_lab(dm, LAB_NAME) == set()
         assert await _get_lab_loaded(db, LAB_NAME) is False
+
+
+class TestRefreshPreservesLoadedState:
+    @pytest.mark.asyncio
+    async def test_refresh_keeps_labs_and_protocols_loaded(self, loading_env, db):
+        """A package refresh re-syncs all defs (resetting is_loaded); it must not desync the DB flag."""
+        service, _dm, cm = loading_env
+
+        await service.load_labs(db, {LAB_NAME})
+        await service.load_protocols(db, {"water_purification"})
+        assert await _get_lab_loaded(db, LAB_NAME) is True
+        assert await _get_protocol_loaded(db, "water_purification") is True
+
+        await service.refresh_packages(db)
+
+        assert LAB_NAME in cm.labs
+        assert "water_purification" in cm.protocols
+        assert await _get_lab_loaded(db, LAB_NAME) is True
+        assert await _get_protocol_loaded(db, "water_purification") is True
 
 
 class TestReloadDevices:

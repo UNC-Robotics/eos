@@ -6,10 +6,11 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import datetime
 import importlib.metadata
 
 project = "eos"
-copyright = "2026, UNC Robotics"
+copyright = f"{datetime.datetime.now().year}, EOS Developers"
 author = "Angelos Angelopoulos"
 release = importlib.metadata.version("eos")
 

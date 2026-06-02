@@ -26,6 +26,7 @@ export async function getTasks(options: TableQueryOptions = {}): Promise<Paginat
         devices: (task.devices as Task['devices']) || {},
         input_parameters: task.inputParameters,
         input_resources: task.inputResources,
+        input_files: task.inputFiles,
         output_parameters: task.outputParameters,
         output_resources: task.outputResources,
         output_file_names: task.outputFileNames,

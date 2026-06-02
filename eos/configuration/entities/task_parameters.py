@@ -18,6 +18,9 @@ from eos.configuration.utils import is_dynamic_parameter
 
 ValidName = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_-]+(?: [a-zA-Z0-9_-]+)*$")]
 
+# Filenames may contain dots (extensions) but never path separators.
+ValidFileName = Annotated[str, Field(pattern=r"^[^/]+$")]
+
 
 class TaskParameterType(StrEnum):
     """Enumeration of supported parameter types."""

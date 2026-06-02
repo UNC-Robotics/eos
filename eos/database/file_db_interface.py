@@ -15,7 +15,7 @@ class FileDbInterface:
     Provides access to an S3-compatible object storage for storing and retrieving files.
     """
 
-    def __init__(self, file_db_config: FileDbConfig):
+    def __init__(self, file_db_config: FileDbConfig, ensure_bucket: bool = True):
         self._client = boto3.client(
             "s3",
             endpoint_url=file_db_config.endpoint_url,
@@ -30,26 +30,27 @@ class FileDbInterface:
         )
         self._bucket_name = file_db_config.bucket
 
-        try:
-            self._client.head_bucket(Bucket=self._bucket_name)
-        except (EndpointConnectionError, ConnectTimeoutError) as e:
-            raise EosFileDbError(
-                f"Cannot connect to file storage at '{file_db_config.endpoint_url}'. "
-                f"Ensure the S3-compatible storage (e.g. SeaweedFS) is running and reachable: {e}"
-            ) from e
-        except ClientError as e:
-            error_code = e.response.get("Error", {}).get("Code", "")
-            if error_code in {"404", "NoSuchBucket"}:
-                create_kwargs: dict = {"Bucket": self._bucket_name}
-                if file_db_config.endpoint_url or file_db_config.region_name == "us-east-1":
-                    pass
+        if ensure_bucket:
+            try:
+                self._client.head_bucket(Bucket=self._bucket_name)
+            except (EndpointConnectionError, ConnectTimeoutError) as e:
+                raise EosFileDbError(
+                    f"Cannot connect to file storage at '{file_db_config.endpoint_url}'. "
+                    f"Ensure the S3-compatible storage (e.g. SeaweedFS) is running and reachable: {e}"
+                ) from e
+            except ClientError as e:
+                error_code = e.response.get("Error", {}).get("Code", "")
+                if error_code in {"404", "NoSuchBucket"}:
+                    create_kwargs: dict = {"Bucket": self._bucket_name}
+                    if file_db_config.endpoint_url or file_db_config.region_name == "us-east-1":
+                        pass
+                    else:
+                        create_kwargs["CreateBucketConfiguration"] = {
+                            "LocationConstraint": file_db_config.region_name,
+                        }
+                    self._client.create_bucket(**create_kwargs)
                 else:
-                    create_kwargs["CreateBucketConfiguration"] = {
-                        "LocationConstraint": file_db_config.region_name,
-                    }
-                self._client.create_bucket(**create_kwargs)
-            else:
-                raise EosFileDbError(f"Error accessing file storage bucket '{self._bucket_name}': {e}") from e
+                    raise EosFileDbError(f"Error accessing file storage bucket '{self._bucket_name}': {e}") from e
 
         log.debug("File database interface initialized.")
 
@@ -112,3 +113,23 @@ class FileDbInterface:
             return files
 
         return await asyncio.to_thread(_list)
+
+
+# Per-process cache so Ray workers reuse one boto3 client across task runs instead of reconnecting.
+_worker_file_db_cache: dict[tuple, FileDbInterface] = {}
+
+
+def get_worker_file_db(file_db_config: FileDbConfig) -> FileDbInterface:
+    """Return a process-cached FileDbInterface for use inside Ray workers. Skips the bucket check."""
+    key = (
+        file_db_config.endpoint_url,
+        file_db_config.access_key_id,
+        file_db_config.secret_access_key,
+        file_db_config.bucket,
+        file_db_config.region_name,
+    )
+    instance = _worker_file_db_cache.get(key)
+    if instance is None:
+        instance = FileDbInterface(file_db_config, ensure_bucket=False)
+        _worker_file_db_cache[key] = instance
+    return instance

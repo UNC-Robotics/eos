@@ -31,6 +31,7 @@ class TaskSubmission(BaseModel):
     devices: dict[str, DeviceAssignmentDef] = Field(default_factory=dict)
     input_parameters: dict[str, Any] | None = None
     input_resources: dict[str, Resource] | None = None
+    input_files: dict[str, str] | None = None  # input name -> resolved SeaweedFS key
 
     priority: int = Field(0, ge=0)
     allocation_timeout: int = Field(600, ge=0)  # sec
@@ -68,6 +69,7 @@ class TaskSubmission(BaseModel):
             devices=specific_devices,
             input_parameters=config.parameters,
             input_resources=input_resources,
+            input_files=config.files or None,
         )
 
     def to_def(self) -> TaskDef:
@@ -82,6 +84,7 @@ class TaskSubmission(BaseModel):
             devices=self.devices,
             resources=resources,
             parameters=self.input_parameters or {},
+            files=self.input_files or {},
             dependencies=[],
         )
 
@@ -131,6 +134,7 @@ class TaskModel(Base):
 
     input_parameters: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
     input_resources: Mapped[dict[str, dict] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
+    input_files: Mapped[dict[str, str] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
 
     output_parameters: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)
     output_resources: Mapped[dict[str, dict] | None] = mapped_column(MutableDict.as_mutable(JSON), nullable=True)

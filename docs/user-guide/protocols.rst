@@ -1,12 +1,9 @@
 Protocols
 =========
-Protocols are a set of tasks that are executed in a specific order.
-Protocols are represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies between tasks.
-Tasks part of a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
-Task parameters may be fully defined, with values provided for all task parameters or they may be left undefined by
-denoting them as dynamic parameters.
-Protocols with dynamic parameters can be used to run campaigns of protocol runs, where an optimizer generates the values
-for the dynamic parameters across repeated protocol runs to optimize some objectives.
+Protocols are a set of tasks executed in a specific order, represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies.
+Tasks in a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
+Parameters may be fully defined or left undefined as dynamic parameters.
+Protocols with dynamic parameters can run campaigns where an optimizer generates dynamic parameter values across repeated runs to optimize some objectives.
 
 .. figure:: ../_static/img/protocol-graph.png
    :alt: Example protocol graph
@@ -14,10 +11,8 @@ for the dynamic parameters across repeated protocol runs to optimize some object
 
 Above is an example of a possible protocol that could be implemented with EOS.
 There is a series of tasks, each requiring one or more devices.
-In addition to the task precedence dependencies with edges shown in the graph, there can also be dependencies in the
-form of parameters, devices, and resources passed between tasks.
-For example, the task "Mix Solutions" may take as input parameters the volumes of the solutions to mix, and these values
-may be output from the "Dispense Solutions" task.
+In addition to task precedence dependencies, there can also be dependencies in the form of parameters, devices, and resources passed between tasks.
+For example, the task "Mix Solutions" may take as input the volumes of solutions to mix, output from the "Dispense Solutions" task.
 Tasks can reference input/output parameters, devices, and resources from other tasks.
 
 Protocol Implementation
@@ -161,9 +156,8 @@ Let's dissect this file:
     labs:
       - color_lab
 
-Every protocol has a type.
-The type is used to identify the class of protocol.
-When a protocol is running then there are instances of the protocol (protocol runs) with different IDs.
+Every protocol has a type used to identify the class of protocol.
+When a protocol is running, there are instances (protocol runs) with different IDs.
 Each protocol also requires one or more labs.
 
 Now let's look at the first task in the protocol:
@@ -242,13 +236,12 @@ Let's look at the next task:
 
 This task demonstrates **device and resource references**:
 
-**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS that this task must use the same color_station device
-that was allocated to the ``retrieve_container`` task. This ensures that the beaker stays at the same station where it was placed.
+**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS to use the same color_station allocated to ``retrieve_container``, ensuring the beaker stays at the same station.
 
-**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task to this one.
+**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task.
 
-**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, which is a special keyword in EOS for defining dynamic parameters.
-These must be specified either by the user or an optimizer before a protocol run can be executed.
+**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, a special keyword for defining dynamic parameters.
+These must be specified by the user or an optimizer before a protocol run can execute.
 
 The ``analyze_color`` task shows another device reference:
 

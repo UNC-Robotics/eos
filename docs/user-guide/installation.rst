@@ -1,7 +1,7 @@
 Installation
 ============
 
-EOS should be installed on a central laboratory computer that is easily accessible.
+EOS should be installed on an easily accessible central laboratory computer.
 
 .. note::
     EOS requires bi-directional network access to any computers used for automation.
@@ -15,7 +15,7 @@ Docker Compose file to set up these services.
 1. Install uv
 ^^^^^^^^^^^^^
 
-uv manages dependencies for EOS.
+uv manages EOS dependencies.
 
 .. tab-set::
 
@@ -75,8 +75,7 @@ uv manages dependencies for EOS.
 
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example
-package. You can modify this in the configuration file.
+By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example package. This can be changed in the configuration file.
 
 6. Launch the Web UI
 ^^^^^^^^^^^^^^^^^^^^

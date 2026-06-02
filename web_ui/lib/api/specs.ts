@@ -20,6 +20,8 @@ export interface TaskSpec {
   input_resources?: Record<string, { type: string }>;
   output_parameters?: Record<string, unknown>;
   output_resources?: Record<string, { type: string }>;
+  input_files?: Record<string, { desc?: string }>;
+  output_files?: Record<string, { desc?: string }>;
 }
 
 export interface DeviceSpec {
@@ -53,6 +55,7 @@ export interface ProtocolTaskConfig {
   parameters?: Record<string, unknown>;
   devices?: Record<string, unknown>;
   resources?: Record<string, unknown>;
+  files?: Record<string, string>;
   dependencies?: string[];
 }
 

@@ -17,6 +17,7 @@ export const tasks = pgTable(
     devices: json('devices').notNull().default({}),
     inputParameters: json('input_parameters'),
     inputResources: json('input_resources'),
+    inputFiles: json('input_files'),
     outputParameters: json('output_parameters'),
     outputResources: json('output_resources'),
     outputFileNames: json('output_file_names'),

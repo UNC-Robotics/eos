@@ -1,3 +1,45 @@
+/* Match the EOS web UI: blue accent on white/gray (light), amber on slate (dark). */
+
+html[data-theme="light"] {
+  --pst-color-primary: #2563eb;
+  --pst-color-primary-highlight: #1d4ed8;
+  --pst-color-secondary: #1d4ed8;
+  --pst-color-secondary-highlight: #1e40af;
+
+  --pst-color-background: #ffffff;
+  --pst-color-on-background: #ffffff;
+  --pst-color-surface: #f9fafb;
+  --pst-color-text-base: #111827;
+  --pst-color-text-muted: #6b7280;
+  --pst-color-border: #e5e7eb;
+  --pst-color-inline-code: #1d4ed8;
+  --pst-color-target: #dbeafe;
+
+  --sd-color-primary: #2563eb;
+  --sd-color-primary-text: #ffffff;
+  --sd-color-primary-highlight: #1d4ed8;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #facc15;
+  --pst-color-primary-highlight: #fde047;
+  --pst-color-secondary: #fde047;
+  --pst-color-secondary-highlight: #fef08a;
+
+  --pst-color-background: #0f172a;
+  --pst-color-on-background: #1e293b;
+  --pst-color-surface: #1e293b;
+  --pst-color-text-base: #e2e8f0;
+  --pst-color-text-muted: #94a3b8;
+  --pst-color-border: #334155;
+  --pst-color-inline-code: #fbbf24;
+  --pst-color-target: #422006;
+
+  --sd-color-primary: #facc15;
+  --sd-color-primary-text: #0f172a;
+  --sd-color-primary-highlight: #fde047;
+}
+
 .bd-page-width {
   max-width: 100rem;  /* default is 88rem */
 }

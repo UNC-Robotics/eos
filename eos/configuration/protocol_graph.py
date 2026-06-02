@@ -13,6 +13,7 @@ from eos.configuration.utils import (
     is_fanin_parameter,
     is_parameter_reference,
     is_resource_reference,
+    split_file_reference,
 )
 from eos.logging.batch_error_logger import batch_error, raise_batched_errors
 
@@ -173,6 +174,10 @@ class TaskReferenceOrderingValidator:
             if isinstance(device_value, str) and is_device_reference(device_value):
                 ref_task_name = device_value.split(".")[0]
                 self._check_ordering(task.name, ref_task_name, "device", device_name)
+
+        for input_name, file_value in task.files.items():
+            ref_task_name = split_file_reference(file_value)[0]
+            self._check_ordering(task.name, ref_task_name, "file", input_name)
 
     def _check_ordering(self, task_name: str, ref_task_name: str, kind: str, slot_name: str) -> None:
         if ref_task_name == task_name:

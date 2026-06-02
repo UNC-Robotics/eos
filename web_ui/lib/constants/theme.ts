@@ -7,6 +7,7 @@ export const PORT_COLORS = {
   device: '#3b82f6', // blue-500
   resource: '#10b981', // emerald-500
   parameter: '#a855f7', // purple-500
+  file: '#f59e0b', // amber-500
   runif: '#6366f1', // indigo-500
   main: {
     bg: '#3b82f6',
@@ -20,6 +21,7 @@ export const EDGE_COLORS_DARK = {
   device: '#fef08a', // yellow-200
   resource: '#a7f3d0', // emerald-200
   parameter: '#e9d5ff', // purple-200
+  file: '#fde68a', // amber-200
   runif: '#c7d2fe', // indigo-200
 } as const;
 
@@ -29,6 +31,7 @@ export const EDGE_COLORS_LIGHT = {
   device: '#3b82f6', // blue-500
   resource: '#10b981', // emerald-500
   parameter: '#a855f7', // purple-500
+  file: '#f59e0b', // amber-500
   runif: '#6366f1', // indigo-500
 } as const;
 
@@ -37,6 +40,7 @@ export const BADGE_CLASSES = {
   device: 'bg-blue-50 dark:bg-yellow-900/30 text-blue-600 dark:text-yellow-400',
   resource: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400',
   parameter: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+  file: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
   runif: 'bg-indigo-50 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-100',
 } as const;
 
@@ -94,7 +98,7 @@ export function getEdgeColors(isDark: boolean) {
 /**
  * Get badge classes for a port type
  */
-export function getBadgeClass(type: 'device' | 'resource' | 'parameter' | 'runif'): string {
+export function getBadgeClass(type: 'device' | 'resource' | 'parameter' | 'file' | 'runif'): string {
   return BADGE_CLASSES[type];
 }
 

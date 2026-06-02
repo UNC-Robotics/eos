@@ -244,6 +244,7 @@ def task_executor(
     greedy_scheduler,
     db_interface,
     work_signal,
+    eos_config,
 ):
     return TaskExecutor(
         task_manager,
@@ -253,6 +254,7 @@ def task_executor(
         greedy_scheduler,
         db_interface,
         work_signal,
+        eos_config.file_db,
     )
 
 

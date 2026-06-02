@@ -86,6 +86,9 @@ class TaskDef(BaseModel):
 
     parameters: dict[str, Any] = Field(default_factory=dict)
 
+    # Each value is a 'task.filename.ext' reference to another task's output file.
+    files: dict[str, str] = Field(default_factory=dict)
+
     dependencies: list[str] = Field(default_factory=list)
 
     # If false at runtime, the task is SKIPPED. None = always run.

@@ -71,6 +71,15 @@ const parseTaskRef = (value: unknown): [string, string] | null => {
   return null;
 };
 
+// File references are 'task.filename.ext'; split on the FIRST dot so the filename keeps its extension.
+const parseFileRef = (value: unknown): [string, string] | null => {
+  if (typeof value === 'string') {
+    const i = value.indexOf('.');
+    if (i > 0 && i < value.length - 1) return [value.slice(0, i), value.slice(i + 1)];
+  }
+  return null;
+};
+
 const snapToGrid = (pos: { x: number; y: number }): { x: number; y: number } => ({
   x: Math.round(pos.x / GRID_SIZE) * GRID_SIZE,
   y: Math.round(pos.y / GRID_SIZE) * GRID_SIZE,
@@ -88,6 +97,9 @@ const isResourceConnection = (sourceHandle: string, targetHandle: string): boole
 
 const isParameterConnection = (sourceHandle: string, targetHandle: string): boolean =>
   sourceHandle.includes('-output-parameter-') && targetHandle.includes('-input-parameter-');
+
+const isFileConnection = (sourceHandle: string, targetHandle: string): boolean =>
+  sourceHandle.includes('-output-file-') && targetHandle.includes('-input-file-');
 
 export function ProtocolEditor() {
   const { resolvedTheme } = useTheme();
@@ -165,11 +177,13 @@ export function ProtocolEditor() {
     });
   });
 
-  const onPortDoubleClickRef = useRef((nodeName: string, kind: 'parameter' | 'device' | 'resource', name: string) => {
-    const store = useEditorStore.getState();
-    store.setSelectedNodeName(nodeName);
-    store.setFocusedField({ taskName: nodeName, kind, name });
-  });
+  const onPortDoubleClickRef = useRef(
+    (nodeName: string, kind: 'parameter' | 'device' | 'resource' | 'file', name: string) => {
+      const store = useEditorStore.getState();
+      store.setSelectedNodeName(nodeName);
+      store.setFocusedField({ taskName: nodeName, kind, name });
+    }
+  );
 
   // Memoize task lookup map for performance
   const taskMap = useMemo(() => new Map(tasks.map((t) => [t.name, t])), [tasks]);
@@ -268,6 +282,18 @@ export function ProtocolEditor() {
       addReferenceEdges(task, task.resources, 'resource', edgeColors.resource);
       addReferenceEdges(task, task.parameters, 'parameter', edgeColors.parameter);
 
+      // File edges (single ref; filename keeps its extension)
+      Object.entries(task.files || {}).forEach(([name, value]) => {
+        const ref = parseFileRef(value);
+        if (ref && taskMap.has(ref[0])) {
+          flowEdges.push(
+            createEdge(ref[0], task.name, `${ref[0]}-output-file-${ref[1]}`, `${task.name}-input-file-${name}`, {
+              stroke: edgeColors.file,
+            })
+          );
+        }
+      });
+
       // run_if reference edges (read-only visualization).
       // Skip when the source has no matching output_parameter handle (otherwise React Flow logs an error).
       for (const ref of extractRunIfRefs(task.run_if)) {
@@ -317,7 +343,7 @@ export function ProtocolEditor() {
       connection: Connection,
       sourceHandle: string,
       targetHandle: string,
-      field: 'devices' | 'resources' | 'parameters',
+      field: 'devices' | 'resources' | 'parameters' | 'files',
       portType: string,
       edgeColor: string
     ) => {
@@ -338,30 +364,31 @@ export function ProtocolEditor() {
         return;
       }
 
-      // Determine source and target types based on field
-      let sourceType: string | undefined;
-      let targetType: string | undefined;
+      // Determine source and target types based on field. Files have no type, so skip the type check.
+      if (field !== 'files') {
+        let sourceType: string | undefined;
+        let targetType: string | undefined;
 
-      if (field === 'devices') {
-        sourceType = sourceSpec.output_devices?.[sourceParam]?.type || sourceSpec.input_devices?.[sourceParam]?.type;
-        targetType = targetSpec.input_devices?.[targetParam]?.type;
-      } else if (field === 'resources') {
-        sourceType =
-          sourceSpec.output_resources?.[sourceParam]?.type || sourceSpec.input_resources?.[sourceParam]?.type;
-        targetType = targetSpec.input_resources?.[targetParam]?.type;
-      } else {
-        sourceType = sourceSpec.output_parameters?.[sourceParam]?.type;
-        targetType = flattenInputParameters(targetSpec.input_parameters)[targetParam]?.type;
-      }
+        if (field === 'devices') {
+          sourceType = sourceSpec.output_devices?.[sourceParam]?.type || sourceSpec.input_devices?.[sourceParam]?.type;
+          targetType = targetSpec.input_devices?.[targetParam]?.type;
+        } else if (field === 'resources') {
+          sourceType =
+            sourceSpec.output_resources?.[sourceParam]?.type || sourceSpec.input_resources?.[sourceParam]?.type;
+          targetType = targetSpec.input_resources?.[targetParam]?.type;
+        } else {
+          sourceType = sourceSpec.output_parameters?.[sourceParam]?.type;
+          targetType = flattenInputParameters(targetSpec.input_parameters)[targetParam]?.type;
+        }
 
-      // Validate types match
-      if (sourceType !== targetType) {
-        showToast(
-          'error',
-          'Connection Error',
-          `Cannot connect: Type mismatch! Source: ${sourceType}, Target: ${targetType}`
-        );
-        return;
+        if (sourceType !== targetType) {
+          showToast(
+            'error',
+            'Connection Error',
+            `Cannot connect: Type mismatch! Source: ${sourceType}, Target: ${targetType}`
+          );
+          return;
+        }
       }
 
       // Source must be a transitive dependency of target (also rejects self-refs).
@@ -439,10 +466,21 @@ export function ProtocolEditor() {
         return;
       }
 
+      if (isFileConnection(sourceHandle, targetHandle)) {
+        handlePortConnection(connection, sourceHandle, targetHandle, 'files', 'file', edgeColors.file);
+        return;
+      }
+
       // Mixed types - not allowed
       if (sourceHandle.includes('output-') && targetHandle.includes('input-')) {
         const getPortType = (handle: string) =>
-          handle.includes('-device-') ? 'device' : handle.includes('-resource-') ? 'resource' : 'parameter';
+          handle.includes('-device-')
+            ? 'device'
+            : handle.includes('-resource-')
+              ? 'resource'
+              : handle.includes('-file-')
+                ? 'file'
+                : 'parameter';
         const sourcePortType = getPortType(sourceHandle);
         const targetPortType = getPortType(targetHandle);
         showToast(
@@ -516,9 +554,9 @@ export function ProtocolEditor() {
       return;
     }
 
-    // Delete device, resource, or parameter
+    // Delete device, resource, parameter, or file
     let targetParam: string;
-    let field: 'devices' | 'resources' | 'parameters';
+    let field: 'devices' | 'resources' | 'parameters' | 'files';
 
     if (targetHandle.includes('-input-device-')) {
       targetParam = targetHandle.split('-input-device-')[1];
@@ -529,6 +567,9 @@ export function ProtocolEditor() {
     } else if (targetHandle.includes('-input-parameter-')) {
       targetParam = targetHandle.split('-input-parameter-')[1];
       field = 'parameters';
+    } else if (targetHandle.includes('-input-file-')) {
+      targetParam = targetHandle.split('-input-file-')[1];
+      field = 'files';
     } else {
       return;
     }

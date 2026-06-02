@@ -28,6 +28,7 @@ const COLORS = {
   device: PORT_COLORS.device,
   resource: PORT_COLORS.resource,
   parameter: PORT_COLORS.parameter,
+  file: PORT_COLORS.file,
   runif: PORT_COLORS.runif,
   badge: BADGE_CLASSES,
 } as const;
@@ -94,8 +95,8 @@ const Port = memo(
 
 Port.displayName = 'Port';
 
-// Helper to check if a device/resource/parameter value is configured
-const isValueConfigured = (value: unknown, type: 'device' | 'resource' | 'parameter'): boolean => {
+// Helper to check if a device/resource/parameter/file value is configured
+const isValueConfigured = (value: unknown, type: 'device' | 'resource' | 'parameter' | 'file'): boolean => {
   if (value === undefined || value === null || value === '') return false;
 
   if (type === 'parameter') {
@@ -136,6 +137,8 @@ const TaskNodeComponent = ({ data }: NodeProps) => {
   );
   const flatInputParams = useMemo(() => flattenInputParameters(taskSpec.input_parameters), [taskSpec.input_parameters]);
   const outputParams = useMemo(() => Object.entries(taskSpec.output_parameters || {}), [taskSpec.output_parameters]);
+  const inputFiles = useMemo(() => Object.entries(taskSpec.input_files || {}), [taskSpec.input_files]);
+  const outputFiles = useMemo(() => Object.entries(taskSpec.output_files || {}), [taskSpec.output_files]);
 
   const runIfRefs = useMemo(() => extractRunIfRefs(taskNode.run_if), [taskNode.run_if]);
 
@@ -192,8 +195,8 @@ const TaskNodeComponent = ({ data }: NodeProps) => {
   // Helper to render a port section
   const renderPortSection = useCallback(
     (
-      items: [string, { type: string }][],
-      portType: 'device' | 'resource' | 'parameter',
+      items: [string, { type?: string; desc?: string }][],
+      portType: 'device' | 'resource' | 'parameter' | 'file',
       direction: 'input' | 'output',
       valueSource?: Record<string, unknown>,
       holdSource?: Record<string, boolean>
@@ -214,7 +217,7 @@ const TaskNodeComponent = ({ data }: NodeProps) => {
                 key={name}
                 id={`${taskNode.name}-${direction}-${portType}-${name}`}
                 name={name}
-                type={spec.type}
+                type={portType === 'file' ? 'file' : spec.type}
                 position={isInput ? Position.Left : Position.Right}
                 handleType={isInput ? 'target' : 'source'}
                 color={portColor}
@@ -364,6 +367,7 @@ const TaskNodeComponent = ({ data }: NodeProps) => {
             {renderPortSection(inputDevices, 'device', 'input', taskNode.devices)}
             {renderPortSection(inputResources, 'resource', 'input', taskNode.resources)}
             {renderInputParamSection()}
+            {renderPortSection(inputFiles, 'file', 'input', taskNode.files)}
           </div>
 
           {/* Right Column - Outputs */}
@@ -371,6 +375,7 @@ const TaskNodeComponent = ({ data }: NodeProps) => {
             {renderPortSection(allOutputDevices, 'device', 'output', undefined, taskNode.device_holds)}
             {renderPortSection(allOutputResources, 'resource', 'output', undefined, taskNode.resource_holds)}
             {renderPortSection(outputParams, 'parameter', 'output')}
+            {renderPortSection(outputFiles, 'file', 'output')}
           </div>
         </div>
       </div>

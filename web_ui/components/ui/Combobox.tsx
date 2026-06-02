@@ -25,6 +25,10 @@ export interface ComboboxProps {
   disabled?: boolean;
   /** When true, allows typing a custom value that isn't in the options list. */
   allowCustomValue?: boolean;
+  /** Called as the user types in the search box. Use for async, server-side option fetching. */
+  onSearchChange?: (query: string) => void;
+  /** Description shown under the "Use: ..." custom-value entry. */
+  customValueHint?: string;
 }
 
 export function Combobox({
@@ -37,6 +41,8 @@ export function Combobox({
   className,
   disabled = false,
   allowCustomValue = false,
+  onSearchChange,
+  customValueHint,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -139,7 +145,10 @@ export function Combobox({
               type="text"
               placeholder={searchPlaceholder}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                onSearchChange?.(e.target.value);
+              }}
               onKeyDown={handleKeyDown}
               className="w-full text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-transparent text-gray-900 dark:text-gray-100"
             />
@@ -163,7 +172,9 @@ export function Combobox({
                 </span>
                 <div className="ml-6 flex flex-col items-start min-w-0 flex-1">
                   <span className="font-medium text-gray-900 dark:text-gray-100">Use: {searchQuery.trim()}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Custom model</span>
+                  {customValueHint && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{customValueHint}</span>
+                  )}
                 </div>
               </button>
             )}
