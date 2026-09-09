@@ -9,6 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_valid
 
 from eos.database.abstract_sql_db_interface import Base
 
+# Key under Campaign.meta and CampaignSample.meta holding optimizer state
+OPTIMIZER_META_KEY = "optimizer"
+
 
 class CampaignSubmission(BaseModel):
     """Campaign submitted to the system."""
@@ -16,7 +19,7 @@ class CampaignSubmission(BaseModel):
     name: str
     protocol: str
 
-    owner: str
+    owner: str = ""
     priority: int = Field(0, ge=0)
 
     max_protocol_runs: int = Field(0, ge=0)

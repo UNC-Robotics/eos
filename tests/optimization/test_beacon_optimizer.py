@@ -5,7 +5,10 @@ from bofire.data_models.enum import SamplingMethodEnum
 from bofire.data_models.features.continuous import ContinuousInput, ContinuousOutput
 from bofire.data_models.objectives.identity import MaximizeObjective, MinimizeObjective
 
+from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+from eos.optimization.beacon_ai_agent import _validate_model
 from eos.optimization.beacon_optimizer import BeaconOptimizer
+from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
 
 
 class TestBeaconOptimizer:
@@ -109,3 +112,117 @@ class TestBeaconOptimizer:
         # Request 1 more sample to fill the empty slot — this should NOT raise
         extra = await optimizer.sample(num_protocol_runs=1)
         assert len(extra) == 1
+
+
+class _FixedOptimizer(AbstractSequentialOptimizer):
+    """Minimal custom optimizer that always suggests the same point."""
+
+    def __init__(self, inputs, outputs, constraints, value: float = 1.5):
+        self._inputs = inputs
+        self._outputs = outputs
+        self._value = value
+        self._results: list[dict] = []
+
+    def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
+        return pd.DataFrame({f.key: [self._value] * num_protocol_runs for f in self._inputs})
+
+    def report(self, inputs_df: pd.DataFrame, outputs_df: pd.DataFrame) -> None:
+        self._results.extend(pd.concat([inputs_df, outputs_df], axis=1).to_dict(orient="records"))
+
+    def get_optimal_solutions(self) -> pd.DataFrame:
+        return pd.DataFrame(self._results)
+
+    def get_input_names(self) -> list[str]:
+        return [f.key for f in self._inputs]
+
+    def get_output_names(self) -> list[str]:
+        return [f.key for f in self._outputs]
+
+    def get_num_samples_reported(self) -> int:
+        return len(self._results)
+
+    def get_runtime_params(self) -> dict:
+        return {"value": self._value}
+
+    def set_runtime_params(self, params: dict) -> None:
+        if "value" in params:
+            self._value = float(params["value"])
+
+
+class _CustomBeacon(BeaconOptimizer):
+    """Beacon with the Bayesian half swapped for a custom optimizer."""
+
+    def __init__(self, value: float = 1.5, **kwargs):
+        self._value = value
+        super().__init__(**kwargs)
+
+    def _create_optimizer(self, inputs, outputs, constraints) -> AbstractSequentialOptimizer:
+        return _FixedOptimizer(inputs, outputs, constraints, value=self._value)
+
+    @classmethod
+    def eos_param_schema(cls) -> list[dict]:
+        return [{"key": "value", "type": "number", "default": 1.5, "min": 0.0, "runtime": True}]
+
+
+class TestCustomOptimizer:
+    def _make(self, **kwargs) -> _CustomBeacon:
+        return _CustomBeacon(
+            inputs=[ContinuousInput(key="x", bounds=(0, 7))],
+            outputs=[ContinuousOutput(key="y", objective=MaximizeObjective(w=1.0))],
+            constraints=[],
+            p_bayesian=1.0,
+            p_ai=0.0,
+            **kwargs,
+        )
+
+    async def test_sampling_routes_through_custom_optimizer(self):
+        """No acquisition_function is needed when the Bayesian half is replaced."""
+        optimizer = self._make(value=3.0)
+
+        parameters = await optimizer.sample(num_protocol_runs=2)
+        assert parameters["x"].tolist() == [3.0, 3.0]
+
+        results = pd.DataFrame({"y": [1.0, 1.0]})
+        await optimizer.report(parameters, results)
+
+        assert optimizer.get_num_samples_reported() == 2
+        assert len(optimizer.get_optimal_solutions()) == 2
+        assert optimizer.get_input_names() == ["x"]
+
+    def test_runtime_params_merge_and_forward(self):
+        optimizer = self._make()
+
+        assert optimizer.get_runtime_params()["value"] == 1.5
+        assert optimizer.get_runtime_params()["p_bayesian"] == 1.0
+
+        optimizer.set_runtime_params({"value": 4.0, "ai_history_size": 10})
+
+        assert optimizer.get_runtime_params()["value"] == 4.0
+        assert optimizer.get_runtime_params()["ai_history_size"] == 10
+
+    def test_default_acquisition_function_is_required(self):
+        with pytest.raises(ValueError, match="acquisition_function"):
+            BeaconOptimizer(
+                inputs=[ContinuousInput(key="x", bounds=(0, 7))],
+                outputs=[ContinuousOutput(key="y", objective=MaximizeObjective(w=1.0))],
+                constraints=[],
+                p_bayesian=1.0,
+                p_ai=0.0,
+            )
+
+    def test_param_schema_defaults_to_empty(self):
+        assert BayesianSequentialOptimizer.eos_param_schema() == []
+        assert _CustomBeacon.eos_param_schema()[0]["key"] == "value"
+
+
+class TestModelValidation:
+    @pytest.mark.parametrize("model", ["claude-agent-sdk:sonnet", "claude-agent-sdk:opus", "ollama:qwen3.5:9b"])
+    def test_supported_models_accepted(self, model: str):
+        _validate_model(model)
+
+    @pytest.mark.parametrize(
+        "model", ["anthropic:claude-sonnet-4-6", "openai:gpt-5.4", "google-gla:gemini-3.1-pro-preview", "sonnet"]
+    )
+    def test_unsupported_models_rejected(self, model: str):
+        with pytest.raises(ValueError, match="Unsupported Beacon AI model"):
+            _validate_model(model)

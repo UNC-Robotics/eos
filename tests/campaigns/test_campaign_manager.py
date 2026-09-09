@@ -1,4 +1,4 @@
-from eos.campaigns.entities.campaign import CampaignStatus, CampaignSubmission
+from eos.campaigns.entities.campaign import OPTIMIZER_META_KEY, CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignStateError
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
 from tests.fixtures import *
@@ -23,6 +23,20 @@ def create_campaign_submission(campaign_name: str, max_protocol_runs: int = 2) -
 
 @pytest.mark.parametrize("setup_lab_protocol", [("small_lab", PROTOCOL)], indirect=True)
 class TestCampaignManager:
+    async def test_resume_submission_preserves_persisted_optimizer_meta(self, db, campaign_manager):
+        submission = create_campaign_submission("resume_metadata")
+        await campaign_manager.create_campaign(db, submission)
+
+        optimizer_meta = {"journal": ["Saved journal"], "insights": ["Saved insight"]}
+        await campaign_manager.update_campaign_meta(db, submission.name, OPTIMIZER_META_KEY, optimizer_meta)
+
+        submission.meta = {OPTIMIZER_META_KEY: {"journal": []}, "optimizer_overrides": {"ai_history_size": 7}}
+        await campaign_manager.update_campaign_submission(db, submission)
+
+        persisted = await campaign_manager.get_campaign_meta(db, submission.name)
+        assert persisted[OPTIMIZER_META_KEY] == optimizer_meta
+        assert persisted["optimizer_overrides"] == {"ai_history_size": 7}
+
     @pytest.mark.asyncio
     async def test_create_campaign(self, db, campaign_manager):
         await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))

@@ -1,9 +1,12 @@
 import json
 from collections.abc import AsyncGenerator
+from typing import ClassVar
 
 from litestar import Controller, get
 from litestar.response.sse import ServerSentEvent, ServerSentEventMessage
 
+from eos.auth.authorization import require_role
+from eos.auth.entities.user_role import Role
 from eos.logging.log_buffer import log_buffer
 
 LEVEL_PRIORITY = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
@@ -11,6 +14,7 @@ LEVEL_PRIORITY = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
 
 class LogController(Controller):
     path = "/logs"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/stream")
     async def stream_logs(self, level: str = "INFO") -> ServerSentEvent:

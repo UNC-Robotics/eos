@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole } from '@/lib/auth/authz';
 
 export interface ActionResult {
   success: boolean;
@@ -19,6 +20,7 @@ export interface ActionResult {
  */
 export async function refreshPackages(): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost('/refresh/packages', {});
 
     // Revalidate every page whose server render reads spec data so the next

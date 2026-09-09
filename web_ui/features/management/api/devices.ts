@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorGet, orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole } from '@/lib/auth/authz';
 import { db } from '@/lib/db/client';
 import { devices } from '@/lib/db/schema';
 import type { Device, DeviceReport, ActionResult } from '@/lib/types/management';
@@ -49,6 +50,7 @@ export async function getDeviceReport(labName: string, deviceName: string): Prom
  */
 export async function reloadDevices(labName: string, deviceNames: string[]): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost(`/labs/${labName}/devices/reload`, {
       device_names: deviceNames,
     });

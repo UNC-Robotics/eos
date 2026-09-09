@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { Server, FlaskConical, ListChecks, Boxes, Package } from 'lucide-react';
+import { Server, FlaskConical, ListChecks, Boxes, Package, Users } from 'lucide-react';
 import { DevicesTab } from './DevicesTab';
 import { LabsTab } from './LabsTab';
 import { TaskPluginsTab } from './TaskPluginsTab';
 import { ProtocolTypesTab } from './ProtocolTypesTab';
 import { PackagesTab } from './PackagesTab';
+import { UsersTab } from './UsersTab';
+import type { ManagedUser } from '../api/users';
 import type { Device, Lab, TaskPluginInfo, ProtocolType, PackageInfo } from '@/lib/types/management';
 
 interface ManagementTabsProps {
@@ -16,9 +18,20 @@ interface ManagementTabsProps {
   labs: Lab[];
   taskPlugins: TaskPluginInfo[];
   protocolTypes: ProtocolType[];
+  users: ManagedUser[] | null;
+  // Loading labs and packages is superuser-only; lab admins see those tabs read-only.
+  superuser: boolean;
 }
 
-export function ManagementTabs({ packages, devices, labs, taskPlugins, protocolTypes }: ManagementTabsProps) {
+export function ManagementTabs({
+  packages,
+  devices,
+  labs,
+  taskPlugins,
+  protocolTypes,
+  users,
+  superuser,
+}: ManagementTabsProps) {
   const [activeTab, setActiveTab] = React.useState('packages');
 
   return (
@@ -78,14 +91,27 @@ export function ManagementTabs({ packages, devices, labs, taskPlugins, protocolT
             {protocolTypes.filter((e) => e.loaded).length}/{protocolTypes.length}
           </span>
         </Tabs.Trigger>
+
+        {users !== null && (
+          <Tabs.Trigger
+            value="users"
+            className="flex items-center gap-2 px-6 py-4 text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 border-b-2 border-transparent data-[state=active]:border-blue-600 dark:data-[state=active]:border-yellow-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-yellow-500 transition-colors"
+          >
+            <Users className="h-5 w-5" />
+            Users
+            <span className="ml-1 rounded-full bg-gray-100 dark:bg-slate-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+              {users.length}
+            </span>
+          </Tabs.Trigger>
+        )}
       </Tabs.List>
 
       <Tabs.Content value="packages" className="focus:outline-none">
-        <PackagesTab initialPackages={packages} />
+        <PackagesTab initialPackages={packages} canManage={superuser} />
       </Tabs.Content>
 
       <Tabs.Content value="labs" className="focus:outline-none">
-        <LabsTab initialLabs={labs} />
+        <LabsTab initialLabs={labs} canManage={superuser} />
       </Tabs.Content>
 
       <Tabs.Content value="devices" className="focus:outline-none">
@@ -99,6 +125,12 @@ export function ManagementTabs({ packages, devices, labs, taskPlugins, protocolT
       <Tabs.Content value="protocols" className="focus:outline-none">
         <ProtocolTypesTab initialProtocolTypes={protocolTypes} />
       </Tabs.Content>
+
+      {users !== null && (
+        <Tabs.Content value="users" className="focus:outline-none">
+          <UsersTab initialUsers={users} labNames={labs.map((lab) => lab.name)} />
+        </Tabs.Content>
+      )}
     </Tabs.Root>
   );
 }

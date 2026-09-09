@@ -20,6 +20,7 @@ import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitProtocolRunDialog } from './SubmitProtocolRunDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
+import { useUser } from '@/contexts/UserContext';
 
 const PROTOCOL_RUNS_POLLING_INTERVALS = [
   { label: 'Off', value: 0 },
@@ -44,6 +45,7 @@ interface ProtocolRunsTableProps {
 export function ProtocolRunsTable({ initialData, protocolSpecs, taskSpecs, labSpecs }: ProtocolRunsTableProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
+  const { canSubmit } = useUser();
   const [pollingInterval, setPollingInterval] = React.useState(5000);
   const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
   const [cancellingProtocolRun, setCancellingProtocolRun] = React.useState<string | null>(null);
@@ -201,7 +203,7 @@ export function ProtocolRunsTable({ initialData, protocolSpecs, taskSpecs, labSp
                     <DropdownMenu.Item
                       className={DROPDOWN_ITEM}
                       onClick={() => setProtocolRunToCancel(protocolRun.name)}
-                      disabled={cancellingProtocolRun === protocolRun.name || !isConnected}
+                      disabled={cancellingProtocolRun === protocolRun.name || !isConnected || !canSubmit}
                     >
                       <X className="h-4 w-4" />
                       <span>
@@ -238,7 +240,7 @@ export function ProtocolRunsTable({ initialData, protocolSpecs, taskSpecs, labSp
           </div>
           <Button
             variant="primary"
-            disabled={!isConnected}
+            disabled={!isConnected || !canSubmit}
             title={!isConnected ? 'Orchestrator offline' : undefined}
             onClick={() => {
               setProtocolRunToClone(null);

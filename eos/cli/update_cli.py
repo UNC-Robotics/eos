@@ -3,10 +3,10 @@ from typing import Annotated
 
 import typer
 
-from eos.cli.db_cli import load_config, setup_alembic
+from eos.cli._common import DEFAULT_CONFIG_PATH, load_config
+from eos.cli.db_cli import setup_alembic
 from eos.database.alembic_commands import alembic_upgrade
 
-DEFAULT_CONFIG_PATH = "./config.yml"
 REQUIRED_BRANCH = "master"
 
 

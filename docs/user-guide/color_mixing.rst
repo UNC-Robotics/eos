@@ -2,7 +2,7 @@ Color Mixing
 ============
 This example demonstrates a virtual color mixing protocol in EOS.
 CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
-The example uses no physical devices; color mixing is simulated via real-time fluid simulation in a web browser.
+Color mixing runs in a browser fluid simulation without physical devices.
 
 The example is implemented in an EOS package called **color_lab**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
 
@@ -15,11 +15,11 @@ Installation
     cd eos/user
     git clone https://github.com/UNC-Robotics/eos-examples eos_examples
 
-2. Install the package's dependencies in the EOS venv:
+2. Return to the EOS repository root and install the package dependencies in its environment:
 
 .. code-block:: bash
 
-   uv pip install -r user/eos_examples/color_lab/pyproject.toml
+   eos pkg install color_lab
 
 3. Load the package in EOS:
 
@@ -42,27 +42,7 @@ Sample Usage
 3. Start EOS.
 4. Submit tasks, protocols, or campaigns through the REST API.
 
-You can submit a request to run a campaign through the REST API with `curl` as follows:
-
-.. code-block:: bash
-
-    curl -X POST http://localhost:8070/api/campaigns \
-         -H "Content-Type: application/json" \
-         -d '{
-              "name": "color_mixing",
-              "protocol": "color_mixing",
-              "owner": "name",
-              "priority": 0,
-              "max_protocol_runs": 100,
-              "max_concurrent_protocol_runs": 3,
-              "optimize": true,
-              "optimizer_ip": "127.0.0.1",
-              "global_parameters": {
-                "score_color": {
-                    "target_color": [47, 181, 49]
-                }
-              }
-        }'
+Use the color campaign request in :doc:`rest_api`, setting ``score_color.target_color`` to the desired RGB value.
 
 .. note::
 
@@ -461,55 +441,6 @@ Provide it via ``global_parameters`` or ``protocol_run_parameters`` in the campa
 
 The optimizer used for this protocol is defined in ``optimizer.py`` adjacent to the protocol YAML and uses Bayesian optimization to minimize ``score_color.loss``.
 
-References Between Tasks
-------------------------
-EOS protocols commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing protocol demonstrates each kind of reference.
-
-**Device references**: reuse the same physical device across tasks by referencing a named device handle from a prior task.
-
-Example:
-
-.. code-block:: yaml
-
-    - name: mix_colors
-      devices:
-        color_station: retrieve_container.color_station
-
-    - name: analyze_color
-      devices:
-        color_station: mix_colors.color_station
-
-The mix_colors task reuses the color_station allocated by retrieve_container; analyze_color then reuses the same station, ensuring the mixed color is analyzed on the same simulation window.
-
-**Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
-
-Example:
-
-.. code-block:: yaml
-
-    - name: mix_colors
-      resources:
-        beaker: retrieve_container.beaker
-
-    - name: analyze_color
-      resources:
-        beaker: mix_colors.beaker
-
-The beaker dynamically chosen by retrieve_container is passed through mix_colors and into analyze_color.
-
-**Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
-
-Example:
-
-.. code-block:: yaml
-
-    - name: score_color
-      parameters:
-        red: analyze_color.red
-        green: analyze_color.green
-        blue: analyze_color.blue
-        total_color_volume: mix_colors.total_color_volume
-        max_total_color_volume: 300.0
-        target_color: eos_dynamic
-
-The score_color task consumes the RGB outputs from analyze_color and the total color volume from mix_colors.
+The protocol reuses its color station and beaker through :doc:`references`. The score task
+consumes the measured RGB values and total color volume. See :doc:`scheduling` for holding
+allocations between tasks in concurrent campaigns.

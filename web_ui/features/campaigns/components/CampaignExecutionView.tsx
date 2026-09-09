@@ -24,9 +24,9 @@ const ParetoFrontChart = dynamic(() => import('./ParetoFrontChart').then((m) => 
 import { ParetoSolutionsTable } from './ParetoSolutionsTable';
 import { getCampaignWithDetails, type CampaignSample } from '../api/campaignDetails';
 import { cancelCampaign } from '../api/campaigns';
-import { BeaconOptimizerPanel } from './BeaconOptimizerPanel';
+import { OptimizerPanel } from './OptimizerPanel';
 import { BeaconJournalPanel } from './BeaconJournalPanel';
-import { extractBeaconInfo } from '../utils/beaconMeta';
+import { extractOptimizerInfo } from '../utils/optimizerMeta';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 import type { Campaign, ProtocolRun } from '@/lib/types/api';
@@ -119,10 +119,10 @@ export function CampaignExecutionView({ campaign, initialSamples, initialProtoco
 
   // Build optimizer info from persisted campaign meta (avoids hitting the Ray actor)
   const resolvedOptimizerInfo = React.useMemo(() => {
-    return extractBeaconInfo(currentCampaign.meta);
+    return extractOptimizerInfo(currentCampaign.meta);
   }, [currentCampaign.meta]);
 
-  const isBeacon = resolvedOptimizerInfo?.optimizer_type === 'BeaconOptimizer';
+  const isBeacon = resolvedOptimizerInfo?.is_beacon ?? false;
 
   return (
     <div className="flex flex-col h-screen">
@@ -248,7 +248,7 @@ export function CampaignExecutionView({ campaign, initialSamples, initialProtoco
 
           {/* Beacon Optimizer Panel */}
           {currentCampaign.optimize && isBeacon && resolvedOptimizerInfo && (
-            <BeaconOptimizerPanel
+            <OptimizerPanel
               mode="runtime"
               campaignName={currentCampaign.name}
               optimizerInfo={resolvedOptimizerInfo}

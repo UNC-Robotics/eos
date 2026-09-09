@@ -57,45 +57,9 @@ If omitted, tasks default to **1 second**.
 
 Device and resource allocation
 ------------------------------
-Both schedulers support **specific** and **dynamic** devices and resources for tasks.
-
-**Devices**
-
-- *Specific device* - tasks request specific devices with a lab_name/name identifier.
-- *Dynamic device* - tasks request "any device of type X," optionally with constraints (allowed labs/devices).
-
-.. code-block:: yaml
-
-    # Specific device
-    devices:
-      color_analyzer:
-        lab_name: color_lab
-        name: color_analyzer
-
-    # Dynamic device (one device is selected)
-    devices:
-      color_analyzer:
-        allocation_type: dynamic
-        device_type: color_analyzer
-        allowed_labs: [color_lab]
-
-**Resources**
-
-- *Specific resource* - tasks request specific resources by name.
-- *Dynamic resource* - tasks request resources by **type** (one resource is selected).
-
-.. code-block:: yaml
-
-    # Specific resources
-    resources:
-      beaker: beaker_A
-      buffer: buffer_01
-
-    # Dynamic resource (one resource is selected)
-    resources:
-      tips:
-        allocation_type: dynamic
-        resource_type: p200_tips
+Both schedulers support specific and dynamic device or resource assignments.
+See :doc:`protocols` and :doc:`resources` for assignment syntax, and :doc:`references` for reusing
+an earlier task's allocation.
 
 **How schedulers choose**
 
@@ -198,7 +162,7 @@ Both schedulers fully support holds.
 
 Protocol run priorities
 -----------------------
-Each protocol run has an integer priority (default **0**; higher values = higher importance). Priority is set at
+Each protocol run has an integer priority (default **0**, with higher values taking priority). Priority is set at
 submission time via the REST API or a campaign definition, not in ``protocol.yml``.
 
 - **CP-SAT**: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
@@ -261,46 +225,3 @@ bottlenecks.
 
 **Output** includes a timeline of task START/DONE events, per-device and per-resource utilization percentages,
 parallelism metrics (max and average concurrent tasks), and scheduler overhead statistics.
-
-Comparison table
-----------------
-.. list-table::
-   :header-rows: 1
-   :widths: 28 36 36
-
-   * - Capability
-     - Greedy Scheduler
-     - CP-SAT Scheduler
-   * - Decision scope
-     - ✅ Per-task, on demand
-     - ✅ Global schedule across protocols
-   * - Optimization goal
-     - ✅ Start tasks ASAP
-     - ✅ Minimize protocol run durations
-   * - Device/resource holds
-     - ✅ Supported
-     - ✅ Supported
-   * - Task groups
-     - ❌ Not supported
-     - ✅ Supported
-   * - Task durations
-     - ❌ Not supported
-     - ✅ Supported and required
-   * - Dynamic device allocation
-     - ✅ First available from eligible pool
-     - ✅ Optimized choices to reduce conflicts
-   * - Dynamic resource allocation
-     - ✅ First available from eligible pool
-     - ✅ Optimized choices to reduce conflicts
-   * - Protocol run priorities
-     - ❌ Only for tie-breaks
-     - ✅ Shapes overall completion order
-   * - Multi-protocol-run optimization
-     - ❌ Per protocol run
-     - ✅ Joint scheduling of all protocol runs
-   * - Tuning / parameters
-     - ❌ None
-     - ✅ Solver knobs (time limit, workers, seed)
-   * - Computational complexity
-     - Low
-     - High

@@ -11,8 +11,10 @@ import { orchestratorPost } from '@/lib/api/orchestrator';
 import type { Campaign, CampaignDefinition, ActionResult } from '@/lib/types/api';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions } from '@/lib/types/table';
 import { getAllCampaigns, type PaginatedResult } from '@/lib/db/queries';
+import { requireRole } from '@/lib/auth/authz';
 
 export async function getCampaigns(options: TableQueryOptions = {}): Promise<PaginatedResult<Campaign>> {
+  await requireRole('VIEWER');
   try {
     const result = await getAllCampaigns({ limit: DEFAULT_PAGE_SIZE, offset: 0, ...options });
 

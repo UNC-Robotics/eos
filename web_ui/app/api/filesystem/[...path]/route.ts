@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import yaml from 'js-yaml';
+import { requireRoleResponse } from '@/lib/auth/authz';
 import type { EntityType, ValidationResult, WriteFilesRequest } from '@/lib/types/filesystem';
 import {
   scanPackages,
@@ -52,6 +53,8 @@ function validateYaml(content: string): ValidationResult {
 
 // Main route handler
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const denied = await requireRoleResponse('VIEWER');
+  if (denied) return denied;
   try {
     const resolvedParams = await params;
     const pathSegments = resolvedParams.path || [];
@@ -102,6 +105,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const denied = await requireRoleResponse('EDITOR');
+  if (denied) return denied;
   try {
     const resolvedParams = await params;
     const pathSegments = resolvedParams.path || [];
@@ -130,6 +135,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const denied = await requireRoleResponse('EDITOR');
+  if (denied) return denied;
   try {
     const resolvedParams = await params;
     const pathSegments = resolvedParams.path || [];
@@ -163,6 +170,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const denied = await requireRoleResponse('EDITOR');
+  if (denied) return denied;
   try {
     const resolvedParams = await params;
     const pathSegments = resolvedParams.path || [];
@@ -185,6 +194,8 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const denied = await requireRoleResponse('EDITOR');
+  if (denied) return denied;
   try {
     const resolvedParams = await params;
     const pathSegments = resolvedParams.path || [];

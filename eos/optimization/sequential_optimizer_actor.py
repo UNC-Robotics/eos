@@ -5,6 +5,7 @@ import pandas as pd
 import ray
 
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+from eos.optimization.beacon_optimizer import BeaconOptimizer
 
 
 async def _maybe_await(result) -> Any:
@@ -26,18 +27,15 @@ class SequentialOptimizerActor(AbstractSequentialOptimizer):
         return await _maybe_await(self.optimizer.sample(num_protocol_runs))
 
     async def sample_and_get_meta(self, num_protocol_runs: int = 1) -> tuple[pd.DataFrame, dict[str, Any] | None]:
-        df = await _maybe_await(self.optimizer.sample(num_protocol_runs))
-        meta = self.optimizer.get_meta() if hasattr(self.optimizer, "get_meta") else None
-        return df, meta
+        df = await self.sample(num_protocol_runs)
+        return df, self.get_optimizer_meta()
 
     async def report(self, input_df: pd.DataFrame, output_df: pd.DataFrame) -> None:
         await _maybe_await(self.optimizer.report(input_df, output_df))
 
     async def report_and_get_meta(self, input_df: pd.DataFrame, output_df: pd.DataFrame) -> dict[str, Any] | None:
-        await _maybe_await(self.optimizer.report(input_df, output_df))
-        if hasattr(self.optimizer, "get_meta"):
-            return self.optimizer.get_meta()
-        return None
+        await self.report(input_df, output_df)
+        return self.get_optimizer_meta()
 
     def get_optimal_solutions(self) -> pd.DataFrame:
         return self.optimizer.get_optimal_solutions()
@@ -58,6 +56,15 @@ class SequentialOptimizerActor(AbstractSequentialOptimizer):
 
     def get_optimizer_type(self) -> str:
         return type(self.optimizer).__name__
+
+    def get_optimizer_descriptor(self) -> dict[str, Any]:
+        """Describe the optimizer so the web UI knows which controls to render."""
+        optimizer_type = type(self.optimizer)
+        return {
+            "optimizer_type": optimizer_type.__name__,
+            "is_beacon": isinstance(self.optimizer, BeaconOptimizer),
+            "param_schema": optimizer_type.eos_param_schema(),
+        }
 
     def get_runtime_params(self) -> dict[str, Any]:
         if hasattr(self.optimizer, "get_runtime_params"):

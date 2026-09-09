@@ -4,7 +4,16 @@
  * Handles communication with the EOS orchestrator backend API.
  */
 
-const ORCHESTRATOR_BASE_URL = process.env.ORCHESTRATOR_API_URL || 'http://localhost:8070/api';
+import { getAccessToken } from '@/lib/auth/session';
+
+export const ORCHESTRATOR_BASE_URL = process.env.ORCHESTRATOR_API_URL || 'http://localhost:8070/api';
+
+async function buildHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = await getAccessToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
 
 async function handleErrorResponse(response: Response): Promise<never> {
   const text = await response.text();
@@ -34,7 +43,7 @@ async function parseResponse(response: Response): Promise<unknown> {
 export async function orchestratorPost(endpoint: string, data?: unknown): Promise<unknown> {
   const response = await fetch(`${ORCHESTRATOR_BASE_URL}${endpoint}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await buildHeaders(),
     body: data ? JSON.stringify(data) : undefined,
   });
 
@@ -48,7 +57,7 @@ export async function orchestratorPost(endpoint: string, data?: unknown): Promis
 export async function orchestratorGet(endpoint: string): Promise<unknown> {
   const response = await fetch(`${ORCHESTRATOR_BASE_URL}${endpoint}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await buildHeaders(),
     cache: 'no-store',
   });
 
@@ -62,8 +71,21 @@ export async function orchestratorGet(endpoint: string): Promise<unknown> {
 export async function orchestratorPut(endpoint: string, data?: unknown): Promise<unknown> {
   const response = await fetch(`${ORCHESTRATOR_BASE_URL}${endpoint}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await buildHeaders(),
     body: data ? JSON.stringify(data) : undefined,
+  });
+
+  if (!response.ok) await handleErrorResponse(response);
+  return parseResponse(response);
+}
+
+/**
+ * Make a DELETE request to the orchestrator API
+ */
+export async function orchestratorDelete(endpoint: string): Promise<unknown> {
+  const response = await fetch(`${ORCHESTRATOR_BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers: await buildHeaders(),
   });
 
   if (!response.ok) await handleErrorResponse(response);

@@ -4,7 +4,7 @@ import type {
   DomainConstraint,
   DomainValue,
 } from '@/features/campaigns/components/DomainEditor';
-import type { OptimizerDefaults } from '@/lib/types/api';
+import type { OptimizerDefaults, OptimizerParamSpec } from '@/lib/types/api';
 
 // ============================================================================
 // Types
@@ -31,6 +31,29 @@ export interface OptimizerConfig {
   ai_model_settings: Record<string, unknown> | null;
   ai_additional_parameters: string[] | null;
   ai_additional_context: string | null;
+  /** Optimizer-specific params declared via eos_param_schema(), emitted as flat literals. */
+  custom_params?: Record<string, unknown>;
+  /** Everything above `def eos_create_campaign_optimizer`, preserved verbatim (user classes, imports). */
+  preamble?: string;
+  /** Class name returned from eos_create_campaign_optimizer. Defaults to BeaconOptimizer. */
+  optimizer_class?: string;
+}
+
+const CREATION_FUNCTION = 'def eos_create_campaign_optimizer';
+
+/**
+ * Split optimizer.py into the user-owned preamble and the generated function.
+ * The preamble (imports plus any custom optimizer classes) is never rewritten.
+ */
+export function splitOptimizerPy(code: string): { preamble: string; body: string } | null {
+  const index = code.indexOf(CREATION_FUNCTION);
+  if (index === -1) return null;
+  return { preamble: code.slice(0, index).trimEnd(), body: code.slice(index) };
+}
+
+/** Class name returned from eos_create_campaign_optimizer, e.g. `return constructor_args, MyBeacon`. */
+export function extractOptimizerClass(code: string): string | null {
+  return /return\s+constructor_args\s*,\s*(\w+)/.exec(code)?.[1] ?? null;
 }
 
 // ============================================================================
@@ -44,18 +67,17 @@ export interface OptimizerConfig {
 export function isStandardOptimizerPy(code: string): boolean {
   if (!code.trim()) return false;
 
-  // Must contain the main function
-  if (!code.includes('def eos_create_campaign_optimizer')) return false;
+  const split = splitOptimizerPy(code);
+  if (!split) return false;
 
-  // Must have a return statement
-  if (!/return\s+constructor_args/.test(code)) return false;
+  // The generated function must be a plain constructor_args literal followed by the return
+  if (!/constructor_args\s*=\s*\{/.test(split.body)) return false;
+  if (!extractOptimizerClass(split.body)) return false;
 
-  // Count function definitions — should only have one (eos_create_campaign_optimizer)
-  const funcDefs = code.match(/^(?!#).*\bdef\s+\w+/gm) || [];
+  // Only the creation function itself may live below the preamble
+  const funcDefs = split.body.match(/^(?!#)\s*\bdef\s+\w+/gm) || [];
   if (funcDefs.length > 1) return false;
-
-  // No class definitions
-  if (/^(?!#).*\bclass\s+\w+/m.test(code)) return false;
+  if (/^(?!#)\s*\bclass\s+\w+/m.test(split.body)) return false;
 
   return true;
 }
@@ -217,17 +239,20 @@ function samplingMethodEnum(method: string): string {
  * Generate a complete optimizer.py from structured config.
  */
 export function generateOptimizerPython(config: OptimizerConfig): string {
-  const { bofireImports, eosImports } = collectImports(config);
-
   const lines: string[] = [];
 
-  // Imports
-  for (const imp of bofireImports) {
-    lines.push(imp);
-  }
-  lines.push('');
-  for (const imp of eosImports) {
-    lines.push(imp);
+  // A preserved preamble is user-owned code (imports plus custom optimizer classes) — never rewrite it
+  if (config.preamble?.trim()) {
+    lines.push(config.preamble.trimEnd());
+  } else {
+    const { bofireImports, eosImports } = collectImports(config);
+    for (const imp of bofireImports) {
+      lines.push(imp);
+    }
+    lines.push('');
+    for (const imp of eosImports) {
+      lines.push(imp);
+    }
   }
 
   lines.push('');
@@ -302,18 +327,53 @@ export function generateOptimizerPython(config: OptimizerConfig): string {
     lines.push(`        "ai_additional_context": ${JSON.stringify(config.ai_additional_context)},`);
   }
 
+  // Optimizer-specific params from eos_param_schema()
+  for (const [key, value] of Object.entries(config.custom_params ?? {})) {
+    if (value === undefined) continue;
+    lines.push(`        ${JSON.stringify(key)}: ${pythonLiteral(value)},`);
+  }
+
   lines.push('    }');
-  lines.push('    return constructor_args, BeaconOptimizer');
+  lines.push(`    return constructor_args, ${config.optimizer_class ?? 'BeaconOptimizer'}`);
   lines.push('');
 
   return lines.join('\n');
 }
 
+/** Render a JSON-ish value as a Python literal. */
+function pythonLiteral(value: unknown): string {
+  if (value === null) return 'None';
+  if (typeof value === 'boolean') return value ? 'True' : 'False';
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(pythonLiteral).join(', ')}]`;
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).map(
+      ([k, v]) => `${JSON.stringify(k)}: ${pythonLiteral(v)}`
+    );
+    return `{${entries.join(', ')}}`;
+  }
+  return 'None';
+}
+
 /**
  * Build an OptimizerConfig from the form values used in the editor panel.
  */
-export function buildOptimizerConfig(overrides: Record<string, unknown>, domain: DomainValue): OptimizerConfig {
+export function buildOptimizerConfig(
+  overrides: Record<string, unknown>,
+  domain: DomainValue,
+  schema: OptimizerParamSpec[] = [],
+  existingCode?: string
+): OptimizerConfig {
+  const split = existingCode ? splitOptimizerPy(existingCode) : null;
+  const customParams = Object.fromEntries(
+    schema.map((f) => [f.key, f.key in overrides ? overrides[f.key] : f.default]).filter(([, v]) => v !== undefined)
+  );
+
   return {
+    custom_params: customParams,
+    preamble: split?.preamble,
+    optimizer_class: (split && extractOptimizerClass(split.body)) ?? undefined,
     inputs: domain.inputs,
     outputs: domain.outputs,
     constraints: domain.constraints,
@@ -489,6 +549,7 @@ export function parseOptimizerPython(code: string): OptimizerDefaults | null {
     const argsMatch = /constructor_args\s*=\s*\{([\s\S]*)\}\s*\n\s*return\s+constructor_args/.exec(code);
     if (!argsMatch) return null;
     const argsBlock = argsMatch[1];
+    const optimizerClass = extractOptimizerClass(code) ?? 'BeaconOptimizer';
 
     // Parse domain lists
     const inputs = extractListItems(argsBlock, 'inputs')
@@ -527,6 +588,23 @@ export function parseOptimizerPython(code: string): OptimizerDefaults | null {
       return m?.[1] ?? null;
     };
 
+    // Parse a dict literal value: "key": { ... } → object (Python literals normalized to JSON)
+    const parseJsonParam = (key: string): Record<string, unknown> | null => {
+      const m = new RegExp(`"${key}"\\s*:\\s*(\\{[\\s\\S]*?\\})\\s*,\\n`).exec(argsBlock);
+      if (!m) return null;
+      try {
+        const json = m[1]
+          .replace(/,(\s*[}\]])/g, '$1')
+          .replace(/\bTrue\b/g, 'true')
+          .replace(/\bFalse\b/g, 'false')
+          .replace(/\bNone\b/g, 'null');
+        const parsed = JSON.parse(json);
+        return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
+      } catch {
+        return null;
+      }
+    };
+
     // Parse ai_additional_parameters: ["param1", "param2"]
     const additionalParamsMatch = new RegExp(`"ai_additional_parameters"\\s*:\\s*\\[([^\\]]*)\\]`).exec(argsBlock);
     let ai_additional_parameters: string[] | null = null;
@@ -541,7 +619,10 @@ export function parseOptimizerPython(code: string): OptimizerDefaults | null {
     }
 
     return {
-      optimizer_type: 'BeaconOptimizer',
+      optimizer_type: optimizerClass,
+      // A subclass still gets the Beacon UI; a truly foreign optimizer never parses as standard
+      is_beacon: true,
+      param_schema: [],
       inputs: inputs.map((i) => ({ ...i }) as Record<string, unknown>),
       outputs: outputs.map((o) => ({ ...o }) as Record<string, unknown>),
       constraints: constraints.map((c) => ({ ...c }) as Record<string, unknown>),
@@ -554,10 +635,10 @@ export function parseOptimizerPython(code: string): OptimizerDefaults | null {
         ai_additional_context: parseNullableString('ai_additional_context'),
         num_initial_samples: parseScalar('num_initial_samples', 5),
         initial_sampling_method,
-        ai_model_settings: null,
+        ai_model_settings: parseJsonParam('ai_model_settings'),
         ai_additional_parameters,
         acquisition_function,
-        surrogate_specs: null,
+        surrogate_specs: parseJsonParam('surrogate_specs'),
       },
     };
   } catch {

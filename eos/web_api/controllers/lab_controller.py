@@ -1,8 +1,10 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from litestar import get, post, Controller
 from pydantic import BaseModel
 
+from eos.auth.authorization import require_lab_admin, require_role, require_superuser
+from eos.auth.entities.user_role import Role
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
 
@@ -19,6 +21,7 @@ class LabController(Controller):
     """Controller for lab-related endpoints."""
 
     path = "/labs"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/")
     async def get_labs(self, orchestrator: Orchestrator) -> dict[str, bool]:
@@ -30,25 +33,25 @@ class LabController(Controller):
         """Get a report for a specific device."""
         return await orchestrator.labs.get_device_report(lab_name, device_name)
 
-    @post("/load")
+    @post("/load", guards=[require_superuser()])
     async def load_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Load lab configurations."""
         await orchestrator.loading.load_labs(db, set(data.lab_types))
         return {"message": "Lab configurations loaded"}
 
-    @post("/unload")
+    @post("/unload", guards=[require_superuser()])
     async def unload_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Unload lab configurations."""
         await orchestrator.loading.unload_labs(db, set(data.lab_types))
         return {"message": "Lab configurations unloaded"}
 
-    @post("/reload")
+    @post("/reload", guards=[require_superuser()])
     async def reload_labs(self, data: LabTypes, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
         """Reload lab configurations."""
         await orchestrator.loading.reload_labs(db, set(data.lab_types))
         return {"message": "Lab configurations reloaded"}
 
-    @post("/{lab_name:str}/devices/reload")
+    @post("/{lab_name:str}/devices/reload", guards=[require_lab_admin("lab_name")])
     async def reload_devices(
         self, lab_name: str, data: DeviceReload, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> dict[str, str]:

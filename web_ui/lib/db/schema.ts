@@ -2,7 +2,18 @@
  * Drizzle ORM Schema for EOS Database
  */
 
-import { pgTable, text, integer, json, timestamp, index, boolean, serial, primaryKey } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  integer,
+  json,
+  timestamp,
+  index,
+  uniqueIndex,
+  boolean,
+  serial,
+  primaryKey,
+} from 'drizzle-orm/pg-core';
 
 // ============================================================================
 // Tasks Table
@@ -250,6 +261,58 @@ export const allocationRequestDevices = pgTable(
   (table) => ({
     pk: primaryKey({ columns: [table.requestId, table.labName, table.name] }),
     labNameIdx: index('idx_alloc_req_devices_lab_name').on(table.labName),
+  })
+);
+
+// ============================================================================
+// User Roles Table
+// ============================================================================
+export const userRoles = pgTable(
+  'user_roles',
+  {
+    id: serial('id').primaryKey(),
+    sub: text('sub').notNull(),
+    role: text('role').notNull(),
+    labName: text('lab_name'),
+    grantedBy: text('granted_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    subIdx: index('ix_user_roles_sub').on(table.sub),
+  })
+);
+
+// ============================================================================
+// API Tokens Table
+// ============================================================================
+export const apiTokens = pgTable(
+  'api_tokens',
+  {
+    id: serial('id').primaryKey(),
+    ownerSub: text('owner_sub').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    label: text('label'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    ownerSubIdx: index('ix_api_tokens_owner_sub').on(table.ownerSub),
+    tokenHashIdx: uniqueIndex('uq_api_tokens_token_hash').on(table.tokenHash),
+  })
+);
+
+// ============================================================================
+// User Identities Table
+// ============================================================================
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    sub: text('sub').primaryKey(),
+    email: text('email'),
+    name: text('name'),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    emailIdx: index('ix_user_identities_email').on(table.email),
   })
 );
 

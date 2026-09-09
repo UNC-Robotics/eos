@@ -29,6 +29,8 @@ from pydantic_ai.usage import RequestUsage
 
 from collections.abc import Sequence
 
+from eos.logging.logger import log
+
 
 def _extract_instructions(messages: Sequence[ModelMessage]) -> str | None:
     """Extract system prompt instructions from Pydantic AI messages."""
@@ -72,6 +74,18 @@ def _build_user_prompt(messages: Sequence[ModelMessage]) -> str:
                     args_str = part.args if isinstance(part.args, str) else json.dumps(part.args)
                     parts.append(f"[Previous tool call '{part.tool_name}']: {args_str}")
     return "\n\n".join(parts)
+
+
+def _to_request_usage(usage: dict[str, Any] | None) -> RequestUsage:
+    """Map the Agent SDK's usage dict onto Pydantic AI's usage model."""
+    if not usage:
+        return RequestUsage()
+    return RequestUsage(
+        input_tokens=usage.get("input_tokens", 0),
+        output_tokens=usage.get("output_tokens", 0),
+        cache_write_tokens=usage.get("cache_creation_input_tokens", 0),
+        cache_read_tokens=usage.get("cache_read_input_tokens", 0),
+    )
 
 
 @dataclass(init=False)
@@ -120,8 +134,8 @@ class ClaudeAgentSDKModel(Model):
         user_prompt: str,
         instructions: str | None,
         output_format: dict[str, Any] | None,
-    ) -> tuple[str | None, Any]:
-        """Call the Claude Agent SDK and return (result_text, structured_output)."""
+    ) -> tuple[str | None, Any, RequestUsage]:
+        """Call the Claude Agent SDK and return (result_text, structured_output, usage)."""
         from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query  # noqa: PLC0415
 
         # Structured output uses an internal StructuredOutput tool call, which requires
@@ -134,6 +148,9 @@ class ClaudeAgentSDKModel(Model):
             max_turns=max_turns,
             allowed_tools=allowed_tools,
             permission_mode="bypassPermissions",
+            # No filesystem settings: CLAUDE.md and user settings are irrelevant here and would
+            # change the cached prompt prefix from one machine to the next.
+            setting_sources=[],
         )
         if instructions:
             sdk_options.system_prompt = instructions
@@ -144,6 +161,7 @@ class ClaudeAgentSDKModel(Model):
 
         result_text: str | None = None
         structured_output: Any = None
+        usage = RequestUsage()
 
         async for message in query(
             prompt=user_prompt or "Please provide your response.",
@@ -156,8 +174,20 @@ class ClaudeAgentSDKModel(Model):
                     result_text = message.result
                 if message.is_error:
                     raise UnexpectedModelBehavior(f"Claude Agent SDK returned an error: {message.result}")
+                usage = _to_request_usage(message.usage)
+                self._log_usage(message, usage)
 
-        return result_text, structured_output
+        return result_text, structured_output, usage
+
+    def _log_usage(self, message: Any, usage: RequestUsage) -> None:
+        cached = usage.cache_read_tokens + usage.cache_write_tokens
+        cache_hit = usage.cache_read_tokens / cached if cached else 0.0
+        cost = f"${message.total_cost_usd:.4f}" if message.total_cost_usd is not None else "n/a"
+        log.info(
+            f"Beacon AI call: {usage.input_tokens} in / {usage.output_tokens} out, "
+            f"cache {usage.cache_read_tokens} read / {usage.cache_write_tokens} write "
+            f"({cache_hit:.0%} hit), {message.num_turns} turn(s), {cost}"
+        )
 
     async def request(
         self,
@@ -167,6 +197,7 @@ class ClaudeAgentSDKModel(Model):
     ) -> ModelResponse:
         model_settings, model_request_parameters = self.prepare_request(model_settings, model_request_parameters)
 
+        # Instructions are the stable prefix, so they stay cached across calls and campaigns.
         instructions = _extract_instructions(messages)
         user_prompt = _build_user_prompt(messages)
 
@@ -180,7 +211,7 @@ class ClaudeAgentSDKModel(Model):
             }
 
         try:
-            result_text, structured_output = await self._call_sdk(user_prompt, instructions, output_format)
+            result_text, structured_output, usage = await self._call_sdk(user_prompt, instructions, output_format)
         except (UnexpectedModelBehavior, ImportError):
             raise
         except Exception as e:
@@ -199,5 +230,5 @@ class ClaudeAgentSDKModel(Model):
             parts=response_parts,
             model_name=self._full_model_name,
             timestamp=datetime.now(tz=UTC),
-            usage=RequestUsage(),
+            usage=usage,
         )

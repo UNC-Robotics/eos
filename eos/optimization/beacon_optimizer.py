@@ -1,6 +1,6 @@
 import asyncio
 import random
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 from bofire.data_models.acquisition_functions.acquisition_function import AcquisitionFunction
@@ -23,9 +23,7 @@ _PROBABILITY_TOLERANCE = 1e-9
 
 
 class BeaconOptimizer(AbstractSequentialOptimizer):
-    """
-    Hybrid Bayesian + AI optimizer that probabilistically selects between a BoFire
-    acquisition function and a reasoning AI at each sampling step."""
+    """Select between a pluggable optimizer and AI at each sampling step."""
 
     InputType = ContinuousInput | DiscreteInput | CategoricalInput
     OutputType = ContinuousOutput | CategoricalOutput
@@ -35,8 +33,8 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         inputs: list[InputType],
         outputs: list[OutputType],
         constraints: list[Constraint],
-        acquisition_function: AcquisitionFunction,
-        num_initial_samples: int,
+        acquisition_function: AcquisitionFunction | None = None,
+        num_initial_samples: int = 0,
         initial_sampling_method: SamplingMethodEnum = SamplingMethodEnum.SOBOL,
         surrogate_specs: BotorchSurrogates | None = None,
         # Beacon-specific
@@ -60,8 +58,7 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         self._ai_additional_context = ai_additional_context
         self._additional_parameters = set(ai_additional_parameters or [])
 
-        # Store AI config so agent can be created/destroyed at runtime
-        # (validated after _output_names is set below)
+        # Keep AI configuration for enabling the agent at runtime.
         self._ai_model = ai_model
         self._ai_api_key = ai_api_key
         self._ai_retries = ai_retries
@@ -81,16 +78,12 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         if overlap:
             raise ValueError(f"ai_additional_parameters overlap with output names: {overlap}")
 
-        # Compose the Bayesian optimizer
-        self._bayesian_optimizer = BayesianSequentialOptimizer(
-            inputs=inputs,
-            outputs=outputs,
-            constraints=constraints,
-            acquisition_function=acquisition_function,
-            num_initial_samples=num_initial_samples,
-            initial_sampling_method=initial_sampling_method,
-            surrogate_specs=surrogate_specs,
-        )
+        self._acquisition_function = acquisition_function
+        self._num_initial_samples = num_initial_samples
+        self._initial_sampling_method = initial_sampling_method
+        self._surrogate_specs = surrogate_specs
+
+        self._optimizer = self._create_optimizer(inputs, outputs, constraints)
 
         # Shared state (protected by _state_lock for concurrent access)
         self._history: list[dict[str, Any]] = []
@@ -104,6 +97,25 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         self._ai_agent: BeaconAIAgent | None = None
         if p_ai > 0:
             self._ai_agent = self._create_ai_agent()
+
+    def _create_optimizer(
+        self,
+        inputs: list[InputType],
+        outputs: list[OutputType],
+        constraints: list[Constraint],
+    ) -> AbstractSequentialOptimizer:
+        """Create the non-AI optimizer. Override to plug in a custom optimizer."""
+        if self._acquisition_function is None:
+            raise ValueError("acquisition_function is required by the default Bayesian optimizer")
+        return BayesianSequentialOptimizer(
+            inputs=inputs,
+            outputs=outputs,
+            constraints=constraints,
+            acquisition_function=self._acquisition_function,
+            num_initial_samples=self._num_initial_samples,
+            initial_sampling_method=self._initial_sampling_method,
+            surrogate_specs=self._surrogate_specs,
+        )
 
     def _create_ai_agent(self) -> BeaconAIAgent:
         agent = BeaconAIAgent(
@@ -125,60 +137,60 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
 
     def _tag_sample_journals(self, df: pd.DataFrame, journal: str | None) -> None:
         """Record the journal entry for each sampled row so report() can attribute correctly."""
-        for _, row in df.iterrows():
-            self._sample_journals.append((self._input_key(row.to_dict()), journal))
+        for row in df.to_dict(orient="records"):
+            self._sample_journals.append((self._input_key(row), journal))
 
     async def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
-        use_ai = self._ai_agent is not None and random.random() < self._p_ai  # noqa: S311
+        agent = self._ai_agent
+        use_ai = agent is not None and random.random() < self._p_ai  # noqa: S311
         if use_ai:
             log.info(f"Beacon sampling {num_protocol_runs} protocol run(s) via AI")
+
             # Snapshot shared state under lock, then release for I/O-bound AI call
             async with self._state_lock:
                 insights = list(self._insights)
                 self._insights.clear()
                 best_results = self._get_best_results()
+                total_runs = self._num_samples_reported
                 history = self._history[-self._ai_history_size :]
+
             try:
-                df, journal_entry = await self._ai_agent.suggest_async(
+                df, journal_entry = await agent.suggest_async(
                     num_protocol_runs,
                     history,
                     best_results,
                     insights,
+                    total_runs=total_runs,
                 )
+            except Exception as e:
+                log.warning(
+                    f"Beacon AI failed ({type(e).__name__}: {e}), falling back to {type(self._optimizer).__name__}",
+                    exc_info=True,
+                )
+                async with self._state_lock:
+                    self._insights = insights + self._insights
+
+            else:
                 async with self._state_lock:
                     self._journal.append(journal_entry)
                     self._tag_sample_journals(df, journal_entry)
                 return df
-            except Exception as e:
-                log.warning(
-                    f"Beacon AI failed ({type(e).__name__}: {e}), falling back to Bayesian sampling", exc_info=True
-                )
-                async with self._state_lock:
-                    self._insights = insights + self._insights
-                    loop = asyncio.get_running_loop()
-                    df = await loop.run_in_executor(None, self._bayesian_optimizer.sample, num_protocol_runs)
-                    self._tag_sample_journals(df, None)
-                return df
-        else:
-            log.info(f"Beacon sampling {num_protocol_runs} protocol run(s) via Bayesian optimizer")
-            async with self._state_lock:
-                loop = asyncio.get_running_loop()
-                df = await loop.run_in_executor(None, self._bayesian_optimizer.sample, num_protocol_runs)
-                self._tag_sample_journals(df, None)
-            return df
+
+        log.info(f"Beacon sampling {num_protocol_runs} protocol run(s) via {type(self._optimizer).__name__}")
+        async with self._state_lock:
+            df = await asyncio.to_thread(self._optimizer.sample, num_protocol_runs)
+            self._tag_sample_journals(df, None)
+        return df
 
     async def report(self, inputs_df: pd.DataFrame, outputs_df: pd.DataFrame) -> None:
         async with self._state_lock:
             context_cols = [c for c in outputs_df.columns if c in self._additional_parameters]
             opt_outputs = outputs_df.drop(columns=context_cols) if context_cols else outputs_df
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._bayesian_optimizer.report, inputs_df, opt_outputs)
+            await asyncio.to_thread(self._optimizer.report, inputs_df, opt_outputs)
 
             combined = pd.concat([inputs_df, outputs_df], axis=1)
-            for _, row in combined.iterrows():
-                entry = row.to_dict()
-                input_vals = {k: entry[k] for k in self._input_names}
-                key = self._input_key(input_vals)
+            for entry in combined.to_dict(orient="records"):
+                key = self._input_key(entry)
                 journal = None
                 for i, (stored_key, stored_journal) in enumerate(self._sample_journals):
                     if stored_key == key:
@@ -196,7 +208,7 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
                 self._history = self._history[-self._ai_history_size :]
 
     def get_optimal_solutions(self) -> pd.DataFrame:
-        return self._bayesian_optimizer.get_optimal_solutions()
+        return self._optimizer.get_optimal_solutions()
 
     def get_input_names(self) -> list[str]:
         return self._input_names
@@ -215,20 +227,43 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
         if self._ai_agent:
             self._ai_agent.set_protocol_context(protocol_yaml)
 
+    _RUNTIME_PARAM_KEYS: ClassVar[set[str]] = {
+        "p_bayesian",
+        "p_ai",
+        "ai_history_size",
+        "ai_additional_context",
+    }
+
     def get_runtime_params(self) -> dict[str, Any]:
-        return {
-            "p_bayesian": self._p_bayesian,
-            "p_ai": self._p_ai,
-            "ai_history_size": self._ai_history_size,
-            "ai_additional_context": self._ai_additional_context,
-        }
+        params = {}
+        if hasattr(self._optimizer, "get_runtime_params"):
+            params.update(self._optimizer.get_runtime_params())
+        params.update(
+            {
+                "p_bayesian": self._p_bayesian,
+                "p_ai": self._p_ai,
+                "ai_history_size": self._ai_history_size,
+                "ai_additional_context": self._ai_additional_context,
+            }
+        )
+        return params
 
     def set_runtime_params(self, params: dict[str, Any]) -> None:
-        if "p_bayesian" in params:
-            p_bayesian = float(params["p_bayesian"])
-            p_ai = 1.0 - p_bayesian
-            self._p_bayesian = p_bayesian
-            self._p_ai = p_ai
+        p_bayesian = float(params.get("p_bayesian", self._p_bayesian))
+        p_ai = float(params.get("p_ai", 1.0 - p_bayesian))
+        if "p_ai" in params and "p_bayesian" not in params:
+            p_bayesian = 1.0 - p_ai
+
+        if not (0 <= p_bayesian <= 1 and 0 <= p_ai <= 1):
+            raise ValueError("p_bayesian and p_ai must be between 0 and 1")
+        if abs(p_bayesian + p_ai - 1.0) > _PROBABILITY_TOLERANCE:
+            raise ValueError("p_bayesian + p_ai must equal 1.0")
+
+        history_size = int(params.get("ai_history_size", self._ai_history_size))
+        if history_size < 1:
+            raise ValueError(f"ai_history_size must be >= 1, got {history_size}")
+
+        if "p_bayesian" in params or "p_ai" in params:
             # Create AI agent on demand if enabling AI for first time
             if p_ai > 0 and self._ai_agent is None:
                 self._ai_agent = self._create_ai_agent()
@@ -237,18 +272,24 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
             elif p_ai == 0 and self._ai_agent is not None:
                 self._ai_agent = None
                 log.info("Beacon AI agent torn down at runtime")
-        if "ai_history_size" in params:
-            val = int(params["ai_history_size"])
-            if val < 1:
-                raise ValueError(f"ai_history_size must be >= 1, got {val}")
-            self._ai_history_size = val
+
+            self._p_bayesian = p_bayesian
+            self._p_ai = p_ai
+
+        self._ai_history_size = history_size
+        self._history = self._history[-history_size:]
+
         if "ai_additional_context" in params:
             self._ai_additional_context = params["ai_additional_context"] or None
             if self._ai_agent:
                 self._ai_agent.additional_context = self._ai_additional_context
 
+        inner_params = {k: v for k, v in params.items() if k not in self._RUNTIME_PARAM_KEYS}
+        if inner_params and hasattr(self._optimizer, "set_runtime_params"):
+            self._optimizer.set_runtime_params(inner_params)
+
     def add_insight(self, insight: str) -> None:
-        # Called from the Ray actor thread — use synchronous access since
+        # Called from the Ray actor thread. Use synchronous access since
         # asyncio.Lock can only be acquired from the event loop. The Ray actor
         # serializes sync method calls, so this is safe.
         self._insights.append(insight)
@@ -258,21 +299,23 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
     def get_meta(self) -> dict[str, Any]:
         """Return serializable Beacon state for persistence."""
         return {
-            "journal": self._journal,
+            "journal": list(self._journal),
             "insights": list(self._insights),
             "runtime_params": self.get_runtime_params(),
         }
 
     def restore_meta(self, meta: dict[str, Any]) -> None:
         """Restore Beacon state from persisted data."""
-        self._journal = meta.get("journal", [])
-        self._insights = meta.get("insights", [])
+        self.set_runtime_params(meta.get("runtime_params", {}))
+
+        self._journal = list(meta.get("journal", []))
+        self._insights = list(meta.get("insights", []))
 
     def _get_best_results(self) -> list[dict[str, Any]]:
         if self._num_samples_reported == 0:
             return []
         try:
-            pareto_df = self._bayesian_optimizer.get_optimal_solutions()
+            pareto_df = self._optimizer.get_optimal_solutions()
             return round_floats(pareto_df.to_dict(orient="records"))
         except Exception as e:
             log.warning(f"Failed to compute Pareto front for AI prompt: {type(e).__name__}: {e}")

@@ -20,12 +20,16 @@ import {
   Wifi,
   WifiOff,
   Terminal,
+  CircleUser,
+  LogOut,
 } from 'lucide-react';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { useTheme } from 'next-themes';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 import { useLogPanel } from '@/contexts/LogPanelContext';
+import { useUser } from '@/contexts/UserContext';
+import { signOutUser } from '@/features/auth/api/actions';
 
 export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -34,6 +38,7 @@ export function Sidebar() {
   const [mounted, setMounted] = useState(false);
   const { isConnected, isChecking, checkNow } = useOrchestratorConnected();
   const { showLogs, toggleLogs } = useLogPanel();
+  const user = useUser();
 
   // Avoid hydration mismatch
   useEffect(() => {
@@ -87,11 +92,24 @@ export function Sidebar() {
       icon: GanttChart,
       label: 'Simulator',
     },
-    {
-      href: '/management',
-      icon: Settings,
-      label: 'Management',
-    },
+    ...(user.isAdmin
+      ? [
+          {
+            href: '/management',
+            icon: Settings,
+            label: 'Management',
+          },
+        ]
+      : []),
+    ...(user.authEnabled
+      ? [
+          {
+            href: '/profile',
+            icon: CircleUser,
+            label: 'Profile',
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -326,6 +344,42 @@ export function Sidebar() {
                 </span>
               </button>
             )}
+
+            {/* Sign Out */}
+            {user.authEnabled &&
+              (!isExpanded ? (
+                <Tooltip.Root disableHoverableContent>
+                  <Tooltip.Trigger asChild>
+                    <button
+                      onClick={() => signOutUser()}
+                      className="w-full p-3 rounded-md transition-all duration-200 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-800"
+                      aria-label="Sign out"
+                    >
+                      <LogOut className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </button>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="right"
+                      className="bg-gray-900 dark:bg-slate-700 text-white px-3 py-2 rounded-md text-sm shadow-lg z-50 pointer-events-none"
+                      sideOffset={20}
+                      collisionPadding={10}
+                    >
+                      Sign out{user.name ? ` (${user.name})` : ''}
+                      <Tooltip.Arrow className="fill-gray-900 dark:fill-slate-700" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              ) : (
+                <button
+                  onClick={() => signOutUser()}
+                  className="w-full p-3 rounded-md transition-all duration-200 flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300"
+                  aria-label="Sign out"
+                >
+                  <LogOut className="w-5 h-5 flex-shrink-0" />
+                  <span className="transition-opacity duration-300 whitespace-nowrap">Sign out</span>
+                </button>
+              ))}
           </div>
         )}
       </Tooltip.Provider>

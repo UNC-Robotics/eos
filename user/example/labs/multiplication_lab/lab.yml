@@ -5,6 +5,9 @@ devices:
   multiplier:
     type: multiplier
     computer: eos_computer
+  multiplier_2:
+    type: multiplier
+    computer: eos_computer
   analyzer:
     type: analyzer
     computer: eos_computer

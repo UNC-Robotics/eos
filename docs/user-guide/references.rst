@@ -1,79 +1,50 @@
 References
 ==========
-References connect tasks in an EOS protocol. They let downstream tasks reuse:
+Use ``task_name.output_name`` to pass a value or reuse an allocation from an earlier task.
+The source task must precede the consuming task in the dependency graph.
 
-- Devices allocated upstream (device references)
-
-- Physical items used upstream (resource references)
-
-- Output values produced upstream (parameter references)
-
-You write references directly under devices, resources, or parameters in each task’s YAML.
-
-
-Quick syntax
-------------
-- Device reference (reuse an allocated device):
-
-  devices:
-    <alias>: <upstream_task>.<alias>
-
-- Resource reference (pass the same physical item):
-
-  resources:
-    <alias>: <upstream_task>.<alias>
-
-- Parameter reference (consume an output value):
-
-  parameters:
-    <param_name>: <upstream_task>.<output_name>
-
-
-Minimal example
----------------
+Syntax
+------
 .. code-block:: yaml
 
-  - name: retrieve_container
     devices:
-      robot_arm:
-        lab_name: color_lab
-        name: robot_arm
-      color_mixer:
-        allocation_type: dynamic
-        device_type: color_mixer
-        allowed_labs: [color_lab]
+      station: prepare.station
     resources:
-      beaker:
-        allocation_type: dynamic
-        resource_type: beaker
-    dependencies: []
-
-  - name: mix_colors
-    devices:
-      color_mixer: retrieve_container.color_mixer          # device reference
-    resources:
-      beaker: retrieve_container.beaker                    # resource reference
+      beaker: prepare.beaker
     parameters:
-      cyan_volume: eos_dynamic
-      mixing_time: eos_dynamic
-    dependencies: [retrieve_container]
+      volume: prepare.measured_volume
+    files:
+      raw_data: analyze.chromatogram.csv
 
-  - name: analyze_color
-    devices:
-      color_analyzer:
-        allocation_type: dynamic
-        device_type: color_analyzer
-        allowed_labs: [color_lab]
-    resources:
-      beaker: mix_colors.beaker                            # keep same beaker
-    dependencies: [mix_colors]
+Keys on the left are the consuming task's aliases or parameter names. References on the right
+identify the upstream task and its output. File names may contain dots.
 
-  - name: score_color
-    parameters:
-      red: analyze_color.red                               # output parameter references
-      green: analyze_color.green
-      blue: analyze_color.blue
-      total_color_volume: mix_colors.total_color_volume
-      max_total_color_volume: 300.0
-      target_color: eos_dynamic
-    dependencies: [analyze_color]
+Example
+-------
+.. code-block:: yaml
+
+    - name: analyze_color
+      type: Analyze Color
+      dependencies: [mix_colors]
+      devices:
+        color_station: mix_colors.color_station
+      resources:
+        beaker: mix_colors.beaker
+
+    - name: score_color
+      type: Score Color
+      dependencies: [analyze_color]
+      parameters:
+        red: analyze_color.red
+        green: analyze_color.green
+        blue: analyze_color.blue
+        total_color_volume: mix_colors.total_color_volume
+        max_total_color_volume: 300.0
+        target_color: eos_dynamic
+
+The first task reuses the station and beaker selected for mixing. The second consumes the
+measured RGB values. See :doc:`color_mixing` for the complete protocol.
+
+A reference identifies an allocation but does not reserve it between tasks. Use
+:doc:`scheduling` holds when another protocol run must not claim the device or resource in between.
+See :doc:`protocols` for fan-in references after conditional branches.

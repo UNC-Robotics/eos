@@ -1,18 +1,14 @@
 Devices
 =======
-In EOS, a device is an abstraction for a physical or virtual apparatus used by one or more tasks.
-Each device is managed by a dedicated process created when a laboratory definition is loaded.
-This process is usually implemented as a server that tasks call functions on.
-For example, a "magnetic mixer" device communicates with a physical mixer via serial and exposes functions such as ``start``, ``stop``, ``set_time``, and ``set_speed``.
+A device is a persistent process that exposes methods to tasks. It can control physical equipment
+or hold virtual state across protocol runs. EOS creates device processes when loading a lab.
+For objects that only need exclusive allocation, use :doc:`resources`.
 
 .. figure:: ../_static/img/tasks-devices.png
    :alt: EOS Tasks and Devices
    :align: center
 
-The figure shows a GC Sampling task that uses two devices: a GC and a mobile manipulation robot for automating sample injection with a syringe.
-Both are physical devices with EOS implementations running as persistent processes.
-
-Most often an EOS device represents a physical lab instrument, but it can also represent anything that needs persistent state across protocols, such as an AI module that records inputs. A device is always a persistent process.
+The GC Sampling task uses a gas chromatograph and a robot for sample injection.
 
 Device Implementation
 ---------------------
@@ -55,6 +51,7 @@ Example magnetic mixer implementation:
     from eos.devices.base_device import BaseDevice
     from user.eos_examples.color_lab.common.device_client import DeviceClient
 
+
     class MagneticMixer(BaseDevice):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
             port = int(init_parameters["port"])
@@ -75,23 +72,6 @@ Example magnetic mixer implementation:
 
             return container
 
-Every device implementation must define the following functions:
-
-#. **_initialize**
-
-   * Called when device process is created
-   * Should set up necessary resources (e.g., serial connections)
-
-#. **_cleanup**
-
-   * Called when the device process is terminated
-   * Should clean up any resources created by the device process (e.g., serial connections)
-
-#. **_report**
-
-   * Should return any data needed to determine the state of the device (e.g., status and feedback)
-
-The ``mix`` function is called by a task to mix a container's contents. It:
-
-* Sends a command to the lower-level driver with mixing time and speed
-* Updates container metadata with the mixing details
+Required lifecycle methods are ``_initialize`` to open connections, ``_cleanup`` to release them,
+and ``_report`` to return current state. Task-facing methods such as ``mix`` perform device actions
+and may update resource metadata.

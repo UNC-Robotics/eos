@@ -1,6 +1,6 @@
 # Contributing to EOS
 
-Thank you for your interest in contributing to the Experiment Orchestration System!
+Use this guide for development commands. See the [installation guide](https://unc-robotics.github.io/eos/user-guide/installation.html) for deployment and authentication setup.
 
 ## Development Setup
 
@@ -39,9 +39,9 @@ npm install
 ## Running EOS
 
 ```shell
-eos start        # Start the orchestrator
-eos ui           # Start the EOS UI (separate terminal)
-eos ui --dev     # Start the EOS UI dev server
+eos start          # Start the orchestrator
+eos start ui       # Start the EOS UI (separate terminal)
+eos start ui --dev # Start the EOS UI dev server
 ```
 
 ## Code Quality
@@ -73,11 +73,12 @@ eos_test -m "not slow"      # Skip slow tests
 
 ## Documentation
 
-Documentation is built with Sphinx:
+Build the Sphinx docs and check internal references before submitting documentation changes:
 
 ```shell
 eos_docs_build    # Build locally
 eos_docs_serve    # Serve locally
+uv run sphinx-build -n -W --keep-going docs docs/_build
 ```
 
 ## Submitting Changes

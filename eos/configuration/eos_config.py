@@ -9,6 +9,66 @@ class WebApiConfig(BaseSettings):
 
     host: str = Field("localhost", validation_alias="EOS_WEB_API_HOST")
     port: int = Field(8070, validation_alias="EOS_WEB_API_PORT")
+    cors_origins: list[str] = Field(default_factory=lambda: ["*"], validation_alias="EOS_WEB_API_CORS_ORIGINS")
+
+    model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore", populate_by_name=True)
+
+
+class AccountProvider(Enum):
+    """Who owns the accounts in the identity provider."""
+
+    # EOS owns the identity provider's organization and may manage accounts in it
+    SELF_HOSTED = "self_hosted"
+    # A shared identity provider owned by someone else, so EOS holds no management credential
+    EXTERNAL = "external"
+
+
+class AuthConfig(BaseSettings):
+    """Authentication and authorization configuration (OIDC)."""
+
+    enabled: bool = Field(False, validation_alias="EOS_AUTH_ENABLED")
+    provider: AccountProvider = Field(AccountProvider.SELF_HOSTED, validation_alias="EOS_AUTH_PROVIDER")
+    issuer: str | None = Field(None, validation_alias="EOS_AUTH_ISSUER")
+
+    # Accepted token audiences, defaulting to the Zitadel project ID
+    audiences: list[str] = Field(default_factory=list, validation_alias="EOS_AUTH_AUDIENCES")
+
+    # Account management via the 'eos auth' CLI, for the self_hosted provider only
+    org_id: str | None = Field(None, validation_alias="EOS_AUTH_ORG_ID")
+    project_id: str | None = Field(None, validation_alias="EOS_AUTH_PROJECT_ID")
+    service_user_pat: str | None = Field(None, validation_alias="EOS_AUTH_PAT")
+
+    # Credentials of an API app, used to introspect opaque tokens issued by the provider
+    introspection_client_id: str | None = Field(None, validation_alias="EOS_AUTH_INTROSPECTION_CLIENT_ID")
+    introspection_client_secret: str | None = Field(None, validation_alias="EOS_AUTH_INTROSPECTION_CLIENT_SECRET")
+
+    # CA bundle for verifying the issuer's TLS, e.g. an internal CA root; None uses the system trust store
+    ca_bundle: str | None = Field(None, validation_alias="EOS_AUTH_CA_BUNDLE")
+
+    jwks_cache_ttl: int = 300
+    introspection_cache_ttl: int = 60
+    leeway_seconds: int = 30
+
+    @property
+    def can_manage_accounts(self) -> bool:
+        """True when EOS owns the provider's accounts and may create or disable them."""
+        return self.enabled and self.provider is AccountProvider.SELF_HOSTED
+
+    @model_validator(mode="after")
+    def validate_config(self) -> "AuthConfig":
+        if not self.audiences and self.project_id:
+            self.audiences = [self.project_id]
+        if not self.enabled:
+            return self
+        if not self.issuer:
+            raise ValueError("auth.issuer is required when auth is enabled")
+        if not self.audiences:
+            raise ValueError("auth.audiences or auth.project_id is required when auth is enabled")
+        if self.provider is AccountProvider.EXTERNAL and (self.service_user_pat or self.org_id):
+            raise ValueError(
+                "Remove EOS_AUTH_PAT and EOS_AUTH_ORG_ID from .env. The external provider manages its own accounts."
+            )
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore", populate_by_name=True)
 
@@ -117,6 +177,7 @@ class EosConfig(BaseSettings):
     log_level: str = "INFO"
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
     web_api: WebApiConfig = Field(default_factory=WebApiConfig)
+    auth: AuthConfig = Field(default_factory=AuthConfig)
 
     db: DbConfig = Field(default_factory=DbConfig)
     file_db: FileDbConfig = Field(default_factory=FileDbConfig)

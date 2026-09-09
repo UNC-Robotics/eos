@@ -7,20 +7,24 @@ import {
   deletePrefix as s3DeletePrefix,
 } from '@/lib/s3/client';
 import type { BrowseResult, FileEntry } from '@/lib/s3/types';
+import { requireRole } from '@/lib/auth/authz';
 
 export async function browseFiles(
   prefix: string = '',
   continuationToken?: string,
   maxKeys: number = 200
 ): Promise<BrowseResult> {
+  await requireRole('VIEWER');
   return s3Browse(prefix, maxKeys, continuationToken);
 }
 
 export async function searchFiles(query: string, prefix: string = '', maxResults: number = 100): Promise<FileEntry[]> {
+  await requireRole('VIEWER');
   return s3Search(query, prefix, maxResults);
 }
 
 export async function deleteEntry(key: string, isFolder: boolean): Promise<{ deleted: number }> {
+  await requireRole('SUBMITTER');
   if (isFolder) {
     const deleted = await s3DeletePrefix(key);
     return { deleted };

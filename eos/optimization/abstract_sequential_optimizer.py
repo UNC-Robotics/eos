@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 import pandas as pd
 
@@ -60,3 +61,22 @@ class AbstractSequentialOptimizer(ABC):
 
         :return: The number of samples reported to the optimizer.
         """
+
+    @classmethod
+    def eos_param_schema(cls) -> list[dict[str, Any]]:
+        """
+        Describe optimizer-specific parameters so the web UI can render controls for them.
+
+        Each entry is a dict with keys:
+          key         - the constructor argument name (required)
+          type        - "number", "text", "select", "checkbox" or "json" (required)
+          label       - display name, defaults to the key
+          description - help text shown under the control
+          default     - value shown when the campaign does not override it
+          min/max/step - bounds for "number"
+          options     - list of allowed values for "select"
+          runtime     - True if the parameter can be changed while a campaign is running
+
+        :return: A list of parameter descriptors. Empty means no custom controls.
+        """
+        return []

@@ -9,7 +9,7 @@ import pandas as pd
 from ray.actor import ActorHandle
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
-from eos.campaigns.entities.campaign import CampaignStatus, Campaign, CampaignSubmission
+from eos.campaigns.entities.campaign import OPTIMIZER_META_KEY, CampaignStatus, Campaign, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.protocols.entities.protocol_run import ProtocolRunStatus, ProtocolRunSubmission
 from eos.protocols.exceptions import EosProtocolRunCancellationError
@@ -194,7 +194,7 @@ class CampaignExecutor:
         log.info(f"Creating optimizer for campaign '{self._campaign_name}'...")
         (
             self._optimizer,
-            optimizer_type_name,
+            optimizer_descriptor,
             config_snapshot,
         ) = await self._campaign_optimizer_manager.create_campaign_optimizer_actor(
             self._protocol,
@@ -208,14 +208,11 @@ class CampaignExecutor:
 
         # Persist optimizer config to campaign meta
         optimizer_config = {
-            "optimizer_type": optimizer_type_name,
+            **optimizer_descriptor,
             "constructor_args": config_snapshot,
             "created_at": datetime.now(UTC).isoformat(),
         }
-        async with self._db_interface.get_async_session() as db:
-            await self._campaign_manager.update_campaign_meta(
-                db, self._campaign_name, "beacon", {"optimizer_config": optimizer_config}
-            )
+        await self._save_optimizer_meta_dict({"optimizer_config": optimizer_config})
 
         (
             self._optimizer_input_names,
@@ -600,20 +597,35 @@ class CampaignExecutor:
 
     async def _restore_optimizer_state(self, db: AsyncDbSession) -> None:
         """Restore the optimizer state by reporting all completed protocol run results."""
+        meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name)
+        if meta and meta.get(OPTIMIZER_META_KEY):
+            optimizer_meta = dict(meta[OPTIMIZER_META_KEY])
+            runtime_params = dict(optimizer_meta.get("runtime_params", {}))
+            overrides = (self._campaign_submission.meta or {}).get("optimizer_overrides", {}) or {}
+
+            # Explicit resume overrides take precedence over saved runtime settings.
+            runtime_params.update({key: value for key, value in overrides.items() if key in runtime_params})
+            if "p_bayesian" in overrides and "p_ai" not in overrides and "p_ai" in runtime_params:
+                runtime_params["p_ai"] = 1.0 - float(runtime_params["p_bayesian"])
+            elif "p_ai" in overrides and "p_bayesian" not in overrides and "p_bayesian" in runtime_params:
+                runtime_params["p_bayesian"] = 1.0 - float(runtime_params["p_ai"])
+
+            optimizer_meta["runtime_params"] = runtime_params
+            await self._optimizer.restore_optimizer_meta.remote(optimizer_meta)
+            log.info(f"CMP '{self._campaign_name}' - Restored optimizer meta")
+
         completed_protocol_run_names = await self._campaign_manager.get_campaign_protocol_run_names(
             db, self._campaign_name, status=ProtocolRunStatus.COMPLETED
         )
 
-        inputs_df, outputs_df, additional = await self._collect_protocol_run_results(db, completed_protocol_run_names)
+        if completed_protocol_run_names:
+            inputs_df, outputs_df, additional = await self._collect_protocol_run_results(
+                db, completed_protocol_run_names
+            )
 
-        # Piggyback additional params onto outputs_df for optimizer (BeaconOptimizer strips them)
-        report_df = pd.concat([outputs_df, pd.DataFrame(additional)], axis=1) if additional else outputs_df
-        await self._optimizer.report.remote(inputs_df, report_df)
-
-        meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name)
-        if meta and meta.get("beacon"):
-            await self._optimizer.restore_optimizer_meta.remote(meta["beacon"])
-            log.info(f"CMP '{self._campaign_name}' - Restored optimizer meta")
+            # Restore settings before replay so the configured history limit applies to every result.
+            report_df = pd.concat([outputs_df, pd.DataFrame(additional)], axis=1) if additional else outputs_df
+            await self._optimizer.report.remote(inputs_df, report_df)
 
         log.info(
             f"CMP '{self._campaign_name}' - Restored optimizer state from {len(completed_protocol_run_names)} "
@@ -657,24 +669,25 @@ class CampaignExecutor:
         """
         Save pre-fetched optimizer meta (journal, insights) to Campaign.meta.
 
-        Merges into the existing 'beacon' key so optimizer_config is preserved.
+        Merges into the existing optimizer key so optimizer_config is preserved.
         """
         async with self._db_interface.get_async_session() as db:
             current_meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name) or {}
-            current_beacon = current_meta.get("beacon", {}) or {}
-            merged_beacon = {**current_beacon, **meta}
-            await self._campaign_manager.update_campaign_meta(db, self._campaign_name, "beacon", merged_beacon)
+            current = current_meta.get(OPTIMIZER_META_KEY, {}) or {}
+            await self._campaign_manager.update_campaign_meta(
+                db, self._campaign_name, OPTIMIZER_META_KEY, {**current, **meta}
+            )
 
     async def _process_results_for_optimization(self, db: AsyncDbSession, completed_protocol_runs: list[str]) -> None:
         """Record protocol run results and queue an optimizer report (non-blocking)."""
         await self._ensure_optimizer_initialized(db)
         inputs_df, outputs_df, additional = await self._collect_protocol_run_results(db, completed_protocol_runs)
 
-        # Store additional params under beacon key in sample meta
+        # Store additional params under the optimizer key in sample meta
         meta_list = None
         if additional:
             meta_list = [
-                {"beacon": {"additional_parameters": dict(zip(additional.keys(), vals, strict=True))}}
+                {OPTIMIZER_META_KEY: {"additional_parameters": dict(zip(additional.keys(), vals, strict=True))}}
                 for vals in zip(*additional.values(), strict=True)
             ]
 

@@ -6,8 +6,9 @@ from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
-from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignSubmission
+from eos.campaigns.entities.campaign import OPTIMIZER_META_KEY, Campaign, CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
+from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.orchestration.exceptions import EosProtocolRunDoesNotExistError
@@ -198,9 +199,10 @@ class CampaignService:
             return
         async with self._db_interface.get_async_session() as db:
             current_meta = await self._campaign_manager.get_campaign_meta(db, campaign_name) or {}
-            current_beacon = current_meta.get("beacon", {}) or {}
-            merged_beacon = {**current_beacon, **meta}
-            await self._campaign_manager.update_campaign_meta(db, campaign_name, "beacon", merged_beacon)
+            current = current_meta.get(OPTIMIZER_META_KEY, {}) or {}
+            await self._campaign_manager.update_campaign_meta(
+                db, campaign_name, OPTIMIZER_META_KEY, {**current, **meta}
+            )
 
     async def add_optimizer_insight(self, campaign_name: str, insight: str) -> None:
         """Add an expert insight to the optimizer of a running campaign."""
@@ -217,28 +219,39 @@ class CampaignService:
         if optimizer is None:
             return {"status": "initializing"}
 
-        optimizer_type, runtime_params, meta = await asyncio.gather(
-            optimizer.get_optimizer_type.remote(),
+        descriptor, runtime_params, meta = await asyncio.gather(
+            optimizer.get_optimizer_descriptor.remote(),
             optimizer.get_runtime_params.remote(),
             optimizer.get_optimizer_meta.remote(),
         )
 
         return {
             "status": "ready",
-            "optimizer_type": optimizer_type,
+            **descriptor,
             "runtime_params": runtime_params,
             "insights": meta.get("insights", []) if meta else [],
             "journal": meta.get("journal", []) if meta else [],
         }
 
     async def update_optimizer_params(self, campaign_name: str, params: dict[str, Any]) -> None:
-        """Update runtime-safe optimizer parameters for a running campaign."""
+        """
+        Update runtime-safe optimizer parameters for a running campaign.
+
+        The optimizer's own runtime params are the allowlist, so custom optimizers need no extra
+        registration to be tunable.
+        """
         optimizer = self._get_running_optimizer(campaign_name)
+        allowed = set(await optimizer.get_runtime_params.remote())
+        unknown = set(params) - allowed
+        if unknown:
+            raise ValueError(f"Optimizer has no runtime parameters {sorted(unknown)}")
         await optimizer.set_runtime_params.remote(params)
         await self._persist_optimizer_meta(campaign_name, optimizer)
 
-    def get_optimizer_defaults(self, protocol_type: str) -> tuple[str, dict[str, Any]] | None:
-        """Get optimizer type name and default params for a protocol type."""
+    def get_optimizer_defaults(
+        self, protocol_type: str
+    ) -> tuple[str, dict[str, Any], type[AbstractSequentialOptimizer]] | None:
+        """Get optimizer type name, default params, and optimizer class for a protocol type."""
         return self._campaign_optimizer_manager.get_optimizer_defaults(protocol_type)
 
     @property

@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import func, select, exists, delete, update
 
 from eos.campaigns.entities.campaign import (
+    OPTIMIZER_META_KEY,
     Campaign,
     CampaignStatus,
     CampaignSubmission,
@@ -114,6 +115,11 @@ class CampaignManager:
         """Update the campaign submission fields in the database."""
         await self._validate_campaign_exists(db, submission.name)
 
+        current_meta = await self.get_campaign_meta(db, submission.name) or {}
+        submission_meta = dict(submission.meta or {})
+        if OPTIMIZER_META_KEY in current_meta:
+            submission_meta[OPTIMIZER_META_KEY] = current_meta[OPTIMIZER_META_KEY]
+
         await db.execute(
             update(CampaignModel)
             .where(CampaignModel.name == submission.name)
@@ -125,7 +131,7 @@ class CampaignManager:
                 optimizer_ip=submission.optimizer_ip,
                 global_parameters=submission.global_parameters,
                 protocol_run_parameters=submission.protocol_run_parameters,
-                meta=submission.meta,
+                meta=submission_meta,
             )
         )
 

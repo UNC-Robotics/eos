@@ -12,9 +12,11 @@ import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 
 interface PackagesTabProps {
   initialPackages: PackageInfo[];
+  // Loading/unloading packages is superuser-only; others see a read-only table.
+  canManage: boolean;
 }
 
-export function PackagesTab({ initialPackages }: PackagesTabProps) {
+export function PackagesTab({ initialPackages, canManage }: PackagesTabProps) {
   const { isConnected } = useOrchestratorConnected();
   const [selectedRows, setSelectedRows] = React.useState<PackageInfo[]>([]);
   const [actionDialogOpen, setActionDialogOpen] = React.useState(false);
@@ -75,6 +77,9 @@ export function PackagesTab({ initialPackages }: PackagesTabProps) {
       },
     },
   ];
+
+  // Hide the per-row actions for users who cannot manage packages (row selection is also disabled below).
+  const visibleColumns = canManage ? columns : columns.filter((column) => column.id !== 'actions');
 
   const handleActionSingle = (action: 'load' | 'unload', packageName: string) => {
     const pkg = initialPackages.find((p) => p.name === packageName);
@@ -181,10 +186,10 @@ export function PackagesTab({ initialPackages }: PackagesTabProps) {
   return (
     <div className="space-y-4">
       <DataTable
-        columns={columns}
+        columns={visibleColumns}
         data={initialPackages}
         searchPlaceholder="Search packages..."
-        enableRowSelection
+        enableRowSelection={canManage}
         onSelectionChange={setSelectedRows}
         bulkActions={bulkActions}
       />

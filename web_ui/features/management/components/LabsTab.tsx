@@ -13,9 +13,11 @@ import { packageColumn } from './columns';
 
 interface LabsTabProps {
   initialLabs: Lab[];
+  // Loading/unloading labs is superuser-only; others see a read-only table.
+  canManage: boolean;
 }
 
-export function LabsTab({ initialLabs }: LabsTabProps) {
+export function LabsTab({ initialLabs, canManage }: LabsTabProps) {
   const { isConnected } = useOrchestratorConnected();
   const [selectedRows, setSelectedRows] = React.useState<Lab[]>([]);
   const [actionDialogOpen, setActionDialogOpen] = React.useState(false);
@@ -88,6 +90,9 @@ export function LabsTab({ initialLabs }: LabsTabProps) {
       },
     },
   ];
+
+  // Hide the per-row actions for users who cannot manage labs (row selection is also disabled below).
+  const visibleColumns = canManage ? columns : columns.filter((column) => column.id !== 'actions');
 
   const handleActionSingle = (action: 'load' | 'unload' | 'reload', labName: string) => {
     const lab = initialLabs.find((l) => l.name === labName);
@@ -217,10 +222,10 @@ export function LabsTab({ initialLabs }: LabsTabProps) {
   return (
     <div className="space-y-4">
       <DataTable
-        columns={columns}
+        columns={visibleColumns}
         data={initialLabs}
         searchPlaceholder="Search labs..."
-        enableRowSelection
+        enableRowSelection={canManage}
         onSelectionChange={setSelectedRows}
         bulkActions={bulkActions}
       />

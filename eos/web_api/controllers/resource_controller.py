@@ -1,6 +1,10 @@
+from typing import ClassVar
+
 from litestar import get, post, Controller
 from pydantic import BaseModel
 
+from eos.auth.authorization import require_role
+from eos.auth.entities.user_role import Role
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.utils.di.di_deps import get_resource_manager
 
@@ -13,6 +17,7 @@ class ResourceController(Controller):
     """Controller for resource-related endpoints."""
 
     path = "/resources"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/")
     async def get_resources(self, db: AsyncDbSession) -> list[dict]:
@@ -20,7 +25,7 @@ class ResourceController(Controller):
         resources = await get_resource_manager().get_resources(db)
         return [r.model_dump() for r in resources]
 
-    @post("/reset")
+    @post("/reset", guards=[require_role(Role.SUBMITTER)])
     async def reset_resources(self, data: ResetResourcesRequest, db: AsyncDbSession) -> list[dict]:
         """Reset resources to their default metadata from lab configuration."""
         resource_manager = get_resource_manager()

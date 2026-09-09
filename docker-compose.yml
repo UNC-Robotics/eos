@@ -1,3 +1,6 @@
+include:
+  - docker/zitadel/docker-compose.yml
+
 services:
   eos-postgresql:
     image: postgres:17.5

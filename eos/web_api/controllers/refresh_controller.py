@@ -1,5 +1,9 @@
+from typing import ClassVar
+
 from litestar import Controller, post
 
+from eos.auth.authorization import require_role
+from eos.auth.entities.user_role import Role
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
 
@@ -8,6 +12,7 @@ class RefreshController(Controller):
     """Controller for refreshing package discovery and specifications."""
 
     path = "/refresh"
+    guards: ClassVar = [require_role(Role.LAB_ADMIN)]
 
     @post("/packages")
     async def refresh_packages(self, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str | int]:

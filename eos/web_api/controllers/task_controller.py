@@ -1,6 +1,10 @@
+from typing import ClassVar
+
 from litestar import get, post, Controller
 from pydantic import BaseModel
 
+from eos.auth.authorization import DEV_SUPERUSER, require_role
+from eos.auth.entities.user_role import AuthenticatedUser, Role
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
 from eos.tasks.entities.task import TaskSubmission, Task
@@ -24,6 +28,7 @@ class TaskController(Controller):
     """Controller for task-related endpoints."""
 
     path = "/tasks"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/{protocol_run_name:str}/{task_name:str}")
     async def get_task(
@@ -35,13 +40,17 @@ class TaskController(Controller):
             raise APIError(status_code=404, detail="Task not found")
         return task
 
-    @post("/")
-    async def submit_task(self, data: TaskSubmission, db: AsyncDbSession, orchestrator: Orchestrator) -> dict[str, str]:
+    @post("/", guards=[require_role(Role.SUBMITTER)])
+    async def submit_task(
+        self, data: TaskSubmission, db: AsyncDbSession, orchestrator: Orchestrator, user: AuthenticatedUser
+    ) -> dict[str, str]:
         """Submit a new task for execution."""
+        if user is not DEV_SUPERUSER:
+            data.meta["submitted_by"] = user.sub
         await orchestrator.tasks.submit_task(db, data)
         return {"message": "Task submitted"}
 
-    @post("/{task_name:str}/cancel")
+    @post("/{task_name:str}/cancel", guards=[require_role(Role.SUBMITTER)])
     async def cancel_task(
         self, task_name: str, orchestrator: Orchestrator, protocol_run_name: str | None = None
     ) -> dict[str, str]:
@@ -55,7 +64,7 @@ class TaskController(Controller):
         task_types = await orchestrator.tasks.get_task_types()
         return TaskTypesResponse(task_types=task_types)
 
-    @post("/reload")
+    @post("/reload", guards=[require_role(Role.LAB_ADMIN)])
     async def reload_tasks(
         self, data: ReloadTaskPluginsRequest, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> ReloadTaskPluginsResponse:

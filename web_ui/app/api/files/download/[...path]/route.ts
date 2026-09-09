@@ -1,7 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { getFileStream } from '@/lib/s3/client';
+import { requireRoleResponse } from '@/lib/auth/authz';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const denied = await requireRoleResponse('VIEWER');
+  if (denied) return denied;
   try {
     const { path } = await params;
     const key = path.join('/');

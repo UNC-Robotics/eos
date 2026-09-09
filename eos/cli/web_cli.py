@@ -6,12 +6,31 @@ from typing import Annotated
 
 import typer
 
+from eos.utils.net import is_port_in_use
+
 WEB_UI_DIR = Path(__file__).resolve().parents[2] / "web_ui"
+WEB_UI_ENV = WEB_UI_DIR / ".env"
 IS_WINDOWS = os.name == "nt"
+DEFAULT_UI_PORT = 3000
 
 
 def _run_npm(*args: str, cwd: Path, env: dict[str, str] | None = None) -> int:
     return subprocess.call(["npm", *args], cwd=cwd, env=env, shell=IS_WINDOWS)  # noqa: S607
+
+
+def _node_ca_from_env_file() -> str | None:
+    """Read NODE_EXTRA_CA_CERTS from web_ui/.env.
+
+    Node configures its TLS trust store at process startup, before Next.js loads .env, so the value must
+    be in the process environment from the start. A shell export wins; otherwise we inject the .env value.
+    """
+    if "NODE_EXTRA_CA_CERTS" in os.environ or not WEB_UI_ENV.exists():
+        return None
+    for line in WEB_UI_ENV.read_text().splitlines():
+        key, sep, value = line.partition("=")
+        if sep and key.strip() == "NODE_EXTRA_CA_CERTS":
+            return value.strip().strip("\"'") or None
+    return None
 
 
 def start_web_ui(
@@ -30,7 +49,18 @@ def start_web_ui(
         typer.echo("Error: node_modules not found. Run 'npm install' in the web_ui/ directory first.", err=True)
         raise typer.Exit(1)
 
+    port = int(os.environ.get("PORT", DEFAULT_UI_PORT))
+    if is_port_in_use(host, port):
+        typer.echo(
+            f"Error: port {host}:{port} is already in use. The web UI may already be running.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     env = {**os.environ, "HOST": host}
+    node_ca = _node_ca_from_env_file()
+    if node_ca:
+        env["NODE_EXTRA_CA_CERTS"] = node_ca
 
     try:
         if dev:

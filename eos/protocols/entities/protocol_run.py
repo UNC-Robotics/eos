@@ -25,7 +25,7 @@ class ProtocolRunSubmission(BaseModel):
     name: str
     type: str
 
-    owner: str
+    owner: str = ""
 
     priority: int = Field(0, ge=0)
 

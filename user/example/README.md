@@ -1,17 +1,12 @@
 # Example EOS Package
-This is a very simple EOS package that implements a protocol for finding the smallest number that when multiplied by
-two factors is as close as possible to 1024.
 
-## Protocols
-The package contains the **optimize_multiplication** protocol which works as explained above.
+This package runs two multiplication tasks and scores how close their final product is to 1024.
+It needs no physical hardware.
 
-## Laboratories
-The package defines a very basic laboratory containing a "multiplier" and an "analyzer" device.
+- **Protocol**: `optimize_multiplication` selects a starting number and two factors.
+- **Laboratory**: `multiplication_lab` contains multiplier and analyzer devices.
+- **Tasks**: `Multiplication` computes a product. `Score Multiplication` returns `abs(product - 1024)` as its loss.
 
-## Devices
-1. **Multiplier**: Provides a function for multiplying two numbers.
-2. **Analyzer**: Provides a function for producing a score on how close we are to the objective of the protocol.
-
-## Tasks
-1. **Multiply**: Multiplies two numbers using the multiplier device.
-2. **Score Multiplication**: Scores the multiplication using the analyzer device.
+The protocol uses Beacon for optimization. See the
+[custom Beacon guide](https://unc-robotics.github.io/eos/user-guide/custom_beacon.html)
+for a complete grid-search replacement.

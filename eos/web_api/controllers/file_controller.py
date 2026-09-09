@@ -2,10 +2,13 @@ import io
 import zipfile
 from pathlib import Path
 from collections.abc import AsyncIterable
+from typing import ClassVar
 
 from litestar import get, Controller
 from litestar.response import Stream
 
+from eos.auth.authorization import require_role
+from eos.auth.entities.user_role import Role
 from eos.orchestration.orchestrator import Orchestrator
 from eos.web_api.exception_handling import APIError
 
@@ -17,6 +20,7 @@ class FileController(Controller):
     """Controller for file-related endpoints."""
 
     path = "/files"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/download/{protocol_run_name:str}/{task_name:str}/{file_name:str}")
     async def download_file(

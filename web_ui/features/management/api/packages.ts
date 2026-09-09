@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorGet, orchestratorPost } from '@/lib/api/orchestrator';
+import { requireSuperuser } from '@/lib/auth/authz';
 import type { PackageInfo, ActionResult } from '@/lib/types/management';
 
 /**
@@ -26,6 +27,7 @@ export async function getPackages(): Promise<PackageInfo[]> {
  */
 export async function loadPackages(packageNames: string[]): Promise<ActionResult> {
   try {
+    await requireSuperuser();
     await orchestratorPost('/packages/load', {
       package_names: packageNames,
     });
@@ -47,6 +49,7 @@ export async function loadPackages(packageNames: string[]): Promise<ActionResult
  */
 export async function unloadPackages(packageNames: string[]): Promise<ActionResult> {
   try {
+    await requireSuperuser();
     await orchestratorPost('/packages/unload', {
       package_names: packageNames,
     });

@@ -3,11 +3,14 @@ import json
 import os
 import shutil
 import tempfile
+from typing import ClassVar
 
 import yaml
 from litestar import Controller, post
 from pydantic import BaseModel
 
+from eos.auth.authorization import require_role
+from eos.auth.entities.user_role import Role
 from eos.orchestration.orchestrator import Orchestrator
 
 
@@ -46,6 +49,7 @@ def _get_eos_cli() -> str:
 
 class SimulatorController(Controller):
     path = "/simulator"
+    guards: ClassVar = [require_role(Role.LAB_ADMIN)]
 
     @post("/run")
     async def run_simulation(self, data: SimRunRequest, orchestrator: Orchestrator) -> dict:

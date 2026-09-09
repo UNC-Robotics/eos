@@ -140,6 +140,9 @@ node_modules/
 
 # EOS specific
 /config.yml
+/docker/zitadel/eos-instance.env
+/docker/zitadel/tls/
+/docker/zitadel/caddy-root.crt
 
 /user/*
 !/user/example/

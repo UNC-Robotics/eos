@@ -1,9 +1,11 @@
 'use server';
 
 import { orchestratorGet, orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole } from '@/lib/auth/authz';
 import type { SimConfig, SimResults } from '../types';
 
 export async function runSimulation(config: SimConfig): Promise<SimResults> {
+  await requireRole('LAB_ADMIN');
   return (await orchestratorPost('/simulator/run', config)) as SimResults;
 }
 

@@ -1,0 +1,128 @@
+# Central Zitadel identity provider for EOS (shared across all EOS instances).
+# Modeled on the official compose: https://github.com/zitadel/zitadel/tree/main/deploy/compose
+#
+# Configure with two settings; 'eos setup' and deploy.py derive the rest into .env:
+#   EOS_AUTH_ISSUER   public origin Zitadel is served on, e.g. https://auth.example.org
+#   ZITADEL_TLS_MODE  how the bundled proxy terminates TLS: none | internal | custom | acme
+#
+# On a dedicated identity host, run `python3 deploy.py` in this directory instead of `eos setup`.
+services:
+  zitadel-db:
+    image: postgres:17-alpine
+    container_name: eos-zitadel-db
+    profiles: [auth]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zitadel
+      POSTGRES_PASSWORD: ${ZITADEL_DB_PASSWORD:-}
+      POSTGRES_DB: zitadel
+    volumes:
+      - zitadel_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U zitadel -d zitadel']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:${ZITADEL_VERSION:-v4.15.1}
+    container_name: eos-zitadel
+    profiles: [auth]
+    restart: unless-stopped
+    # Root needed to write the bootstrap PATs to the shared volume (matches the official compose)
+    user: '0'
+    # Masterkey must be exactly 32 characters and can never change.
+    # TLS behavior comes from ZITADEL_EXTERNALSECURE / ZITADEL_TLS_ENABLED (no --tlsMode flag, it overrides them).
+    command: start-from-init --masterkey "${ZITADEL_MASTERKEY:-}"
+    environment:
+      ZITADEL_DATABASE_POSTGRES_DSN: postgresql://zitadel:${ZITADEL_DB_PASSWORD:-}@zitadel-db:5432/zitadel?sslmode=disable
+      # Derived from EOS_AUTH_ISSUER
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_DOMAIN:-localhost}
+      ZITADEL_EXTERNALPORT: ${ZITADEL_EXTERNAL_PORT:-443}
+      ZITADEL_EXTERNALSECURE: ${ZITADEL_EXTERNAL_SECURE:-true}
+      ZITADEL_TLS_ENABLED: false
+      # First admin user (sign in at <public origin>/ui/console)
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_USERNAME: ${ZITADEL_ADMIN_USERNAME:-eos-admin}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD: ${ZITADEL_ADMIN_PASSWORD:-}
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: false
+      # Admin machine user for API bootstrap/automation (PAT written to the shared volume)
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_USERNAME: zitadel-admin-sa
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_MACHINE_NAME: Admin Service Account
+      ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: '2099-01-01T00:00:00Z'
+      ZITADEL_FIRSTINSTANCE_PATPATH: /zitadel/bootstrap/admin-sa.pat
+      # Login V2 (separate container, required in Zitadel v4)
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: ${EOS_AUTH_ISSUER:-https://localhost}/ui/v2/login/
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: ${EOS_AUTH_ISSUER:-https://localhost}/ui/v2/login/login?authRequest=
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: ${EOS_AUTH_ISSUER:-https://localhost}/ui/v2/login/logout?post_logout_redirect=
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Login Client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: '2099-01-01T00:00:00Z'
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
+    volumes:
+      - zitadel_bootstrap:/zitadel/bootstrap
+    healthcheck:
+      test: ['CMD', '/app/zitadel', 'ready']
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      zitadel-db:
+        condition: service_healthy
+
+  zitadel-login:
+    # EOS-branded build of the ZITADEL Login V2 app (see docker/zitadel/login/).
+    image: ${ZITADEL_LOGIN_IMAGE:-eos-zitadel-login:v4.15.1-eos}
+    container_name: eos-zitadel-login
+    profiles: [auth]
+    restart: unless-stopped
+    user: '0'
+    environment:
+      ZITADEL_API_URL: http://zitadel:8080
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel/bootstrap/login-client.pat
+      # Derived from EOS_AUTH_ISSUER
+      CUSTOM_REQUEST_HEADERS: Host:${ZITADEL_DOMAIN:-localhost},X-Forwarded-Proto:${ZITADEL_PUBLIC_SCHEME:-https}
+    volumes:
+      - zitadel_bootstrap:/zitadel/bootstrap:ro
+    healthcheck:
+      test: ['CMD', '/bin/sh', '-c', 'node /app/healthcheck.mjs http://localhost:3000/ui/v2/login/healthy']
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      zitadel:
+        condition: service_healthy
+
+  zitadel-proxy:
+    image: caddy:2-alpine
+    container_name: eos-zitadel-proxy
+    profiles: [auth]
+    restart: unless-stopped
+    # Derived from EOS_AUTH_ISSUER: 80/443 with TLS, the issuer's port and 8443 without.
+    ports:
+      - '${ZITADEL_HTTP_PORT:-80}:80'
+      - '${ZITADEL_HTTPS_PORT:-443}:443'
+    entrypoint: ['/bin/sh', '/etc/caddy/entrypoint.sh']
+    command: []
+    environment:
+      ZITADEL_DOMAIN: ${ZITADEL_DOMAIN:-localhost}
+      ZITADEL_TLS_MODE: ${ZITADEL_TLS_MODE:-internal}
+      ZITADEL_ACME_EMAIL: ${ZITADEL_ACME_EMAIL:-}
+    volumes:
+      - ./caddy-entrypoint.sh:/etc/caddy/entrypoint.sh:ro
+      - ./tls:/tls:ro
+      # Persists the internal CA root and ACME certificates across restarts.
+      - caddy_data:/data
+    depends_on:
+      zitadel:
+        condition: service_healthy
+      zitadel-login:
+        condition: service_healthy
+
+volumes:
+  zitadel_db_data:
+  zitadel_bootstrap:
+  caddy_data:

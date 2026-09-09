@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorPost, orchestratorGet } from '@/lib/api/orchestrator';
+import { requireSuperuser } from '@/lib/auth/authz';
 import { db } from '@/lib/db/client';
 import { definitions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -41,6 +42,7 @@ export async function getLabs(): Promise<Lab[]> {
  */
 export async function loadLabs(labTypes: string[]): Promise<ActionResult> {
   try {
+    await requireSuperuser();
     await orchestratorPost('/labs/load', {
       lab_types: labTypes,
     });
@@ -62,6 +64,7 @@ export async function loadLabs(labTypes: string[]): Promise<ActionResult> {
  */
 export async function unloadLabs(labTypes: string[]): Promise<ActionResult> {
   try {
+    await requireSuperuser();
     await orchestratorPost('/labs/unload', {
       lab_types: labTypes,
     });
@@ -83,6 +86,7 @@ export async function unloadLabs(labTypes: string[]): Promise<ActionResult> {
  */
 export async function reloadLabs(labTypes: string[]): Promise<ActionResult> {
   try {
+    await requireSuperuser();
     await orchestratorPost('/labs/reload', {
       lab_types: labTypes,
     });

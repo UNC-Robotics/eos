@@ -1,22 +1,35 @@
 import subprocess
+from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 import yaml
 
+from eos.cli._common import DEFAULT_CONFIG_PATH, ConfigOption, UserDirOption, run
 from eos.configuration.exceptions import EosConfigurationError
 from eos.configuration.packages import Package, discover_packages
 from eos.logging.logger import log
 
-pkg_app = typer.Typer(no_args_is_help=True)
-add_app = typer.Typer(no_args_is_help=True)
-pkg_app.add_typer(add_app, name="add", help="Add entities to an existing package")
+pkg_app = typer.Typer(help="Manage EOS packages", no_args_is_help=True)
 
-EntityType = Literal["lab", "device", "task", "protocol"]
-
-DEFAULT_CONFIG_PATH = "./config.yml"
 DEFAULT_USER_DIR = "./user"
+
+
+class EntityType(StrEnum):
+    LAB = "lab"
+    DEVICE = "device"
+    TASK = "task"
+    PROTOCOL = "protocol"
+
+
+# Starter files stamped out (empty) for each entity type.
+ENTITY_FILES: dict[EntityType, list[str]] = {
+    EntityType.LAB: ["lab.yml"],
+    EntityType.DEVICE: ["device.yml", "device.py"],
+    EntityType.TASK: ["task.yml", "task.py"],
+    EntityType.PROTOCOL: ["protocol.yml", "optimizer.py"],
+}
 
 
 def _resolve_user_dir(user_dir: str | None, config: str) -> Path:
@@ -47,9 +60,8 @@ def _discover_or_exit(user_dir: Path) -> dict[str, Package]:
 
 
 def _run_uv_install(pyproject: Path, extra_args: list[str]) -> None:
-    cmd = ["uv", "pip", "install", "-r", str(pyproject), *extra_args]
     try:
-        subprocess.run(cmd, check=True)
+        run(["uv", "pip", "install", "-r", str(pyproject), *extra_args])
     except subprocess.CalledProcessError as e:
         typer.echo(f"Failed to install dependencies from {pyproject}: {e}", err=True)
         raise typer.Exit(1) from e
@@ -251,18 +263,14 @@ def _validate_package_exists(package_dir: Path) -> None:
         raise typer.BadParameter(f"{package_dir} is not a directory")
 
 
-def _add_entity(package_dir: Path, entity_type: EntityType, name: str, files: dict[str, str] | None = None) -> None:
-    """Add a new entity to the package with specified files."""
+def _add_entity(package_dir: Path, entity_type: str, name: str, files: list[str]) -> None:
+    """Add a new entity to the package, creating its (empty) starter files."""
     base_dir = package_dir / f"{entity_type}s" / name
 
     try:
         base_dir.mkdir(parents=True, exist_ok=False)
-
-        if files:
-            for filename, content in files.items():
-                file_path = base_dir / filename
-                file_path.write_text(content or "")
-
+        for filename in files:
+            (base_dir / filename).write_text("")
         typer.echo(f"Successfully created {entity_type} '{name}' in {base_dir}")
     except FileExistsError:
         typer.echo(f"Error: {entity_type.title()} '{name}' already exists", err=True)
@@ -273,11 +281,8 @@ def _add_entity(package_dir: Path, entity_type: EntityType, name: str, files: di
 @pkg_app.command(name="create")
 def create_package(
     name: Annotated[str, typer.Argument(help="Name of the package to create")],
-    user_dir: Annotated[
-        str | None,
-        typer.Option("--user-dir", "-u", help="Override user directory (defaults to config.yml or ./user)"),
-    ] = None,
-    config: Annotated[str, typer.Option("--config", "-c", help="Path to EOS config YAML")] = DEFAULT_CONFIG_PATH,
+    user_dir: UserDirOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
 ) -> None:
     """Create a new package with the specified name in the user directory."""
     resolved_user_dir = _resolve_user_dir(user_dir, config)
@@ -315,76 +320,18 @@ dependencies = [
         typer.echo(f"Error creating package: {e!s}", err=True)
 
 
-@add_app.command(name="lab")
-def add_lab(
+@pkg_app.command(name="add")
+def add_entity(
+    entity: Annotated[EntityType, typer.Argument(help="Type of entity to add")],
     package: Annotated[str, typer.Argument(help="Name of the target package")],
-    name: Annotated[str, typer.Argument(help="Name of the lab to create")],
-    user_dir: Annotated[
-        str | None,
-        typer.Option("--user-dir", "-u", help="Override user directory (defaults to config.yml or ./user)"),
-    ] = None,
-    config: Annotated[str, typer.Option("--config", "-c", help="Path to EOS config YAML")] = DEFAULT_CONFIG_PATH,
+    name: Annotated[str, typer.Argument(help="Name of the entity to create")],
+    user_dir: UserDirOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
 ) -> None:
-    """Add a new lab to an existing package."""
+    """Add a new lab, device, task, or protocol to an existing package."""
     package_dir = _resolve_user_dir(user_dir, config) / package
     _validate_package_exists(package_dir)
-
-    files = {"lab.yml": ""}
-    _add_entity(package_dir, "lab", name, files)
-
-
-@add_app.command(name="device")
-def add_device(
-    package: Annotated[str, typer.Argument(help="Name of the target package")],
-    name: Annotated[str, typer.Argument(help="Name of the device to create")],
-    user_dir: Annotated[
-        str | None,
-        typer.Option("--user-dir", "-u", help="Override user directory (defaults to config.yml or ./user)"),
-    ] = None,
-    config: Annotated[str, typer.Option("--config", "-c", help="Path to EOS config YAML")] = DEFAULT_CONFIG_PATH,
-) -> None:
-    """Add a new device to an existing package."""
-    package_dir = _resolve_user_dir(user_dir, config) / package
-    _validate_package_exists(package_dir)
-
-    files = {"device.yml": "", "device.py": ""}
-    _add_entity(package_dir, "device", name, files)
-
-
-@add_app.command(name="task")
-def add_task(
-    package: Annotated[str, typer.Argument(help="Name of the target package")],
-    name: Annotated[str, typer.Argument(help="Name of the task to create")],
-    user_dir: Annotated[
-        str | None,
-        typer.Option("--user-dir", "-u", help="Override user directory (defaults to config.yml or ./user)"),
-    ] = None,
-    config: Annotated[str, typer.Option("--config", "-c", help="Path to EOS config YAML")] = DEFAULT_CONFIG_PATH,
-) -> None:
-    """Add a new task to an existing package."""
-    package_dir = _resolve_user_dir(user_dir, config) / package
-    _validate_package_exists(package_dir)
-
-    files = {"task.yml": "", "task.py": ""}
-    _add_entity(package_dir, "task", name, files)
-
-
-@add_app.command(name="protocol")
-def add_protocol(
-    package: Annotated[str, typer.Argument(help="Name of the target package")],
-    name: Annotated[str, typer.Argument(help="Name of the protocol to create")],
-    user_dir: Annotated[
-        str | None,
-        typer.Option("--user-dir", "-u", help="Override user directory (defaults to config.yml or ./user)"),
-    ] = None,
-    config: Annotated[str, typer.Option("--config", "-c", help="Path to EOS config YAML")] = DEFAULT_CONFIG_PATH,
-) -> None:
-    """Add a new protocol to an existing package."""
-    package_dir = _resolve_user_dir(user_dir, config) / package
-    _validate_package_exists(package_dir)
-
-    files = {"protocol.yml": "", "optimizer.py": ""}
-    _add_entity(package_dir, "protocol", name, files)
+    _add_entity(package_dir, entity.value, name, ENTITY_FILES[entity])
 
 
 @pkg_app.command(
@@ -394,11 +341,8 @@ def add_protocol(
 def install_package(
     ctx: typer.Context,
     all_packages: Annotated[bool, typer.Option("--all", "-a", help="Install deps for every package")] = False,
-    user_dir: Annotated[
-        str | None,
-        typer.Option("--user-dir", "-u", help="Override user directory (defaults to config.yml or ./user)"),
-    ] = None,
-    config: Annotated[str, typer.Option("--config", "-c", help="Path to EOS config YAML")] = DEFAULT_CONFIG_PATH,
+    user_dir: UserDirOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
 ) -> None:
     """Install the Python dependencies of one or more EOS user packages via uv.
 

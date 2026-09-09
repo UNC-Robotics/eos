@@ -7,6 +7,7 @@
 import path from 'path';
 import { revalidatePath } from 'next/cache';
 import { orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole, requireSuperuser } from '@/lib/auth/authz';
 
 export interface ActionResult {
   success: boolean;
@@ -73,6 +74,12 @@ async function entityAction(
   }
 
   try {
+    // Loading whole labs is superuser-only; protocols/tasks/devices are lab admin.
+    if (entityType === 'labs') {
+      await requireSuperuser();
+    } else {
+      await requireRole('LAB_ADMIN');
+    }
     const { path: endpoint, body } = buildRequest(action, entityType, toTypeName(entityName), labName, options);
     await orchestratorPost(endpoint, body);
 

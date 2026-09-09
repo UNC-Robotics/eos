@@ -1,181 +1,128 @@
 Optimizers
 ==========
-Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to campaigns by optimizing task parameters to achieve objectives over time.
-EOS optimizers are *sequential*, meaning they iteratively optimize parameters by drawing on previous protocol runs.
-**Bayesian optimization** is one of the most common sequential methods, especially useful for expensive-to-evaluate black-box functions.
+A sequential optimizer proposes task parameters and learns from completed protocol runs.
+EOS runs it in a dedicated Ray actor, optionally on another computer selected by ``optimizer_ip``.
 
 .. figure:: ../_static/img/optimize-protocol-loop.png
    :alt: Optimization and protocol run loop
    :align: center
 
-EOS has a built-in Bayesian optimizer powered by `BoFire <https://experimental-design.github.io/bofire/>`_
-(based on `BoTorch <https://botorch.org/>`_).
-This optimizer supports both constrained single-objective and multi-objective Bayesian optimization.
-It offers several different surrogate models, including Gaussian Processes (GPs) and Multi-Layer Perceptrons (MLPs),
-along with various acquisition functions.
+Choose an Optimizer
+-------------------
+* ``BayesianSequentialOptimizer`` uses BoFire and BoTorch for constrained single-objective
+  or multi-objective optimization.
+* :doc:`beacon_optimizer` mixes an optimizer with AI suggestions, a journal, and expert insights.
+* Implement ``AbstractSequentialOptimizer`` for a standalone algorithm, or follow
+  :doc:`custom_beacon` to plug one into Beacon.
 
-Distributed Execution
----------------------
-EOS optimizers run in a dedicated Ray actor process, which can be placed on any machine with an active Ray worker.
-This allows the optimizer to run on a more capable machine than the one hosting the EOS orchestrator.
+Protocol Integration
+--------------------
+Place ``optimizer.py`` beside ``protocol.yml``. Its factory returns constructor arguments and
+an optimizer class. Input and output keys use ``task_name.parameter_name`` so EOS can collect
+and route values.
 
-Optimizer Implementation
-------------------------
-EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``protocol.yml`` in an EOS package.
-Below is an example:
-
-:bdg-primary:`optimizer.py`
+This Bayesian optimizer works with the bundled multiplication protocol:
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.acquisition_functions.acquisition_function import qLogNEI
+    from bofire.data_models.features.continuous import ContinuousOutput
+    from bofire.data_models.features.discrete import DiscreteInput
     from bofire.data_models.objectives.identity import MinimizeObjective
 
     from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
 
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
+    def eos_create_campaign_optimizer():
+        return {
             "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
+                DiscreteInput(key="mult_1.number", values=list(range(2, 34))),
+                DiscreteInput(key="mult_1.factor", values=list(range(2, 18))),
+                DiscreteInput(key="mult_2.factor", values=list(range(2, 18))),
             ],
             "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+                ContinuousOutput(
+                    key="score_multiplication.loss",
+                    objective=MinimizeObjective(),
+                ),
             ],
             "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 10,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-        }
+            "acquisition_function": qLogNEI(),
+            "num_initial_samples": 5,
+        }, BayesianSequentialOptimizer
 
-        return constructor_args, BayesianSequentialOptimizer
+The domain contains input features, output objectives, and constraints. The acquisition function
+selects later Bayesian samples after initialization. See the
+`BoFire documentation <https://experimental-design.github.io/bofire/>`_ for domain and strategy options.
 
-Each ``optimizer.py`` must contain ``eos_create_campaign_optimizer``, which returns:
+Custom Optimizer Contract
+-------------------------
+Inherit from ``eos.optimization.abstract_sequential_optimizer.AbstractSequentialOptimizer``
+and implement these methods:
 
-#. The constructor arguments for an optimizer class instance
-#. The optimizer class type
+.. list-table::
+   :header-rows: 1
 
-This example uses EOS' built-in Bayesian optimizer.
+   * - Method
+     - Contract
+   * - ``sample(num_protocol_runs=1)``
+     - Return a DataFrame with one row per requested run and one column per input.
+   * - ``report(inputs_df, outputs_df)``
+     - Record measured results. Input and output rows must correspond.
+   * - ``get_optimal_solutions()``
+     - Return the best observed inputs and outputs, or the non-dominated set for multiple objectives.
+   * - ``get_input_names()`` / ``get_output_names()``
+     - Return the DataFrame column names.
+   * - ``get_num_samples_reported()``
+     - Count reported rows, not sampling calls.
 
-For most use cases, the :doc:`beacon_optimizer` is recommended. It combines Bayesian optimization with AI-driven reasoning for faster convergence, using the same domain definition (inputs, outputs, constraints) but adding an AI agent that reasons about protocol run history to suggest smarter parameter sets.
+Results may arrive in batches or out of order. Track pending samples if the algorithm needs to
+avoid duplicates. On resume, EOS creates a new optimizer and replays completed results.
 
-Custom optimizers can also be defined in this file; just return their constructor arguments and class type from ``eos_create_campaign_optimizer``.
+Define classes in ``optimizer.py`` or install them as an importable Python package on the
+optimizer worker. EOS loads ``optimizer.py`` by file path without adding its directory to
+``sys.path``. Sibling modules need an importable package path.
 
-.. note::
-    All optimizers must inherit from the class ``AbstractSequentialOptimizer`` under the ``eos.optimization`` module.
+See :doc:`custom_beacon` for a complete grid-search implementation of this contract.
 
-Input and Output Parameter Naming
-"""""""""""""""""""""""""""""""""
-Input and output parameter names must reference task parameters using the EOS reference format:
+.. _optimizer-parameter-schema:
 
-**TASK.PARAMETER_NAME**
-
-This lets EOS associate the optimizer with protocol tasks and forward parameter values correctly.
-
-Example Custom Optimizer
-------------------------
-Below is a custom optimizer that randomly samples parameters for the same color mixing problem:
-
-:bdg-primary:`optimizer.py`
+Parameter Schema and Runtime Controls
+-------------------------------------
+Declare ``eos_param_schema()`` on the optimizer class returned by the factory. It is optional
+and defaults to an empty list. EOS uses it for submission controls and allowed overrides.
 
 .. code-block:: python
 
-    import random
-    from dataclasses import dataclass
-    from enum import Enum
-    import pandas as pd
+    @classmethod
+    def eos_param_schema(cls):
+        return [
+            {"key": "descending", "type": "checkbox", "default": False, "runtime": True},
+        ]
 
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+.. list-table::
+   :header-rows: 1
 
+   * - Field
+     - Meaning
+   * - ``key`` / ``type``
+     - Required constructor argument name and control type. Types are ``number``, ``text``,
+       ``select``, ``checkbox``, and ``json``.
+   * - ``label`` / ``description``
+     - Optional display name and help text. The label defaults to the key.
+   * - ``default``
+     - Value displayed when no override is supplied. Keep it consistent with the constructor.
+   * - ``min`` / ``max`` / ``step``
+     - Numeric control bounds and increment.
+   * - ``options``
+     - Allowed choices for ``select``.
+   * - ``runtime``
+     - Whether the parameter can change during a campaign. Defaults to false.
 
-    class ObjectiveType(Enum):
-        MINIMIZE = 1
-        MAXIMIZE = 2
+Runtime controls also require ``get_runtime_params()`` and ``set_runtime_params(params)``.
+The getter's keys are the runtime API allowlist. Validate values in the setter. UI constraints
+are not a substitute for validation in your optimizer.
 
-
-    @dataclass
-    class Parameter:
-        name: str
-        lower_bound: float
-        upper_bound: float
-
-
-    @dataclass
-    class Metric:
-        name: str
-        objective: ObjectiveType
-
-
-    class RandomSamplingOptimizer(AbstractSequentialOptimizer):
-        def __init__(self, parameters: list[Parameter], metrics: list[Metric]):
-            self.parameters = parameters
-            self.metrics = metrics
-            self.results: list[dict] = []
-
-        def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
-            samples = []
-            for _ in range(num_protocol_runs):
-                sample = {p.name: random.uniform(p.lower_bound, p.upper_bound) for p in self.parameters}
-                samples.append(sample)
-            return pd.DataFrame(samples)
-
-        def report(self, inputs_df: pd.DataFrame, outputs_df: pd.DataFrame) -> None:
-            for _, row in pd.concat([inputs_df, outputs_df], axis=1).iterrows():
-                self.results.append(row.to_dict())
-
-        def get_optimal_solutions(self) -> pd.DataFrame:
-            if not self.results:
-                return pd.DataFrame(
-                    columns=[p.name for p in self.parameters] + [m.name for m in self.metrics]
-                )
-            df = pd.DataFrame(self.results)
-            optimal_solutions = []
-            for m in self.metrics:
-                if m.objective == ObjectiveType.MINIMIZE:
-                    optimal = df.loc[df[m.name].idxmin()]
-                else:
-                    optimal = df.loc[df[m.name].idxmax()]
-                optimal_solutions.append(optimal)
-            return pd.DataFrame(optimal_solutions)
-
-        def get_input_names(self) -> list[str]:
-            return [p.name for p in self.parameters]
-
-        def get_output_names(self) -> list[str]:
-            return [m.name for m in self.metrics]
-
-        def get_num_samples_reported(self) -> int:
-            return len(self.results)
-
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "parameters": [
-                Parameter(name="mix_colors.cyan_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.cyan_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.magenta_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.magenta_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.yellow_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.yellow_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.black_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.black_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.mixing_time", lower_bound=1, upper_bound=45),
-                Parameter(name="mix_colors.mixing_speed", lower_bound=100, upper_bound=200),
-            ],
-            "metrics": [
-                Metric(name="score_color.loss", objective=ObjectiveType.MINIMIZE),
-            ],
-        }
-        return constructor_args, RandomSamplingOptimizer
+Beacon merges the inner optimizer's runtime parameters with its own, forwards custom updates,
+and persists them for resume. Standalone optimizers can implement ``get_meta()`` and
+``restore_meta(meta)`` to persist additional state. The web UI shows AI controls only for Beacon subclasses.

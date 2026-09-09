@@ -6,11 +6,9 @@ import sys
 import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated, TYPE_CHECKING
 
 import typer
-import yaml
 
 if sys.platform == "win32":
     # Prevent Intel Fortran runtime from intercepting signals and aborting the process
@@ -18,8 +16,10 @@ if sys.platform == "win32":
 
 import eos.configuration.env  # noqa: F401
 
-from eos.configuration.eos_config import EosConfig, WebApiConfig
+from eos.cli._common import DEFAULT_CONFIG_PATH, load_config
+from eos.configuration.eos_config import EosConfig
 from eos.logging.logger import log, LogLevel
+from eos.utils.net import is_port_in_use
 
 if TYPE_CHECKING:
     from eos.orchestration.orchestrator import Orchestrator
@@ -35,18 +35,6 @@ EOS_BANNER = f"""Experiment Orchestration System v{importlib.metadata.version("e
 ███████╗╚██████╔╝███████║
 ╚══════╝ ╚═════╝ ╚══════╝
 """
-
-
-def load_config(config_file: str) -> EosConfig:
-    """Load EOS configuration from a YAML file."""
-    config_file_path = Path(config_file)
-    if not config_file_path.exists():
-        raise FileNotFoundError(f"Config file '{config_file}' does not exist")
-
-    with Path.open(config_file_path) as f:
-        user_config = yaml.safe_load(f) or {}
-
-    return EosConfig(**user_config)
 
 
 def parse_list_arg(arg: str | None) -> list[str]:
@@ -78,88 +66,6 @@ async def setup_orchestrator(config: EosConfig) -> "Orchestrator":
         await orchestrator.loading.load_protocols(db, config.protocols)
 
     return orchestrator
-
-
-def setup_web_api(orchestrator: "Orchestrator", config: WebApiConfig) -> "uvicorn.Server":
-    """Set up the web API server."""
-    from litestar import Litestar, Router
-    from litestar import Controller
-    from litestar.config.cors import CORSConfig
-    from litestar.logging import LoggingConfig
-    from litestar.openapi import OpenAPIConfig
-    from litestar.openapi.plugins import ScalarRenderPlugin
-    import uvicorn
-    from eos.web_api.controllers.campaign_controller import CampaignController
-    from eos.web_api.controllers.definition_controller import DefinitionController
-    from eos.web_api.controllers.protocol_controller import ProtocolController
-    from eos.web_api.controllers.file_controller import FileController
-    from eos.web_api.controllers.health_controller import HealthController
-    from eos.web_api.controllers.lab_controller import LabController
-    from eos.web_api.controllers.package_controller import PackageController
-    from eos.web_api.controllers.refresh_controller import RefreshController
-    from eos.web_api.controllers.resource_controller import ResourceController
-    from eos.web_api.controllers.rpc_controller import RPCController
-    from eos.web_api.controllers.optimizer_controller import OptimizerController
-    from eos.web_api.controllers.log_controller import LogController
-    from eos.web_api.controllers.simulator_controller import SimulatorController
-    from eos.web_api.controllers.task_controller import TaskController
-    from eos.web_api.dependencies import get_common_dependencies
-    from eos.web_api.exception_handling import general_exception_handler
-
-    litestar_logging_config = LoggingConfig(
-        configure_root_logger=False,
-        loggers={"litestar": {"level": "CRITICAL"}},
-    )
-    os.environ["LITESTAR_WARN_IMPLICIT_SYNC_TO_THREAD"] = "0"
-
-    controllers: list[type[Controller]] = [
-        CampaignController,
-        DefinitionController,
-        ProtocolController,
-        FileController,
-        HealthController,
-        LabController,
-        LogController,
-        OptimizerController,
-        PackageController,
-        RefreshController,
-        ResourceController,
-        RPCController,
-        SimulatorController,
-        TaskController,
-    ]
-
-    api_router = Router(
-        path="/api",
-        route_handlers=controllers,
-        dependencies=get_common_dependencies(orchestrator),
-    )
-
-    cors_config = CORSConfig(
-        allow_origins=["*"],
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-    )
-
-    openapi_config = OpenAPIConfig(
-        title="EOS REST API",
-        description="EOS REST API documentation",
-        version="0.1.0",
-        path="/docs",
-        render_plugins=[ScalarRenderPlugin()],
-    )
-
-    web_api_app = Litestar(
-        route_handlers=[api_router],
-        logging_config=litestar_logging_config,
-        exception_handlers={Exception: general_exception_handler},
-        cors_config=cors_config,
-        openapi_config=openapi_config,
-    )
-
-    uv_config = uvicorn.Config(web_api_app, host=config.host, port=config.port, log_level="critical")
-
-    return uvicorn.Server(uv_config)
 
 
 @asynccontextmanager
@@ -231,8 +137,13 @@ async def run_eos(config: EosConfig) -> None:
 
     log_buffer.set_loop(asyncio.get_running_loop())
 
+    from eos.web_api.app import build_web_api
+
     orchestrator = await setup_orchestrator(config)
-    web_api_server = setup_web_api(orchestrator, config.web_api)
+    web_api_server = build_web_api(orchestrator, config)
+
+    if not config.auth.enabled:
+        log.warning("AUTHENTICATION IS DISABLED. The REST API is unprotected. Do not expose it on untrusted networks.")
 
     log.info("EOS initialized.")
 
@@ -266,9 +177,10 @@ async def run_eos(config: EosConfig) -> None:
 
 
 def start_orchestrator(
+    ctx: typer.Context,
     config_file: Annotated[
         str, typer.Option("--config", "-c", help="Path to the EOS configuration file")
-    ] = "./config.yml",
+    ] = DEFAULT_CONFIG_PATH,
     user_dir: (
         Annotated[str, typer.Option("--user-dir", "-u", help="The directory containing EOS user configurations")] | None
     ) = None,
@@ -293,12 +205,10 @@ def start_orchestrator(
     ] = False,
 ) -> None:
     """Start the EOS orchestrator with the given configuration."""
+    if ctx.invoked_subcommand is not None:
+        return
+
     typer.echo(EOS_BANNER)
-
-    if profile or profile_mem or profile_mem_all:
-        from eos.utils.profiler import start as start_profiler
-
-        start_profiler(memory=profile_mem or profile_mem_all, memory_all=profile_mem_all)
 
     file_config = load_config(config_file)
 
@@ -322,6 +232,18 @@ def start_orchestrator(
         config = file_config
 
     log.set_level(config.log_level)
+
+    if is_port_in_use(config.web_api.host, config.web_api.port):
+        log.error(
+            f"Port {config.web_api.host}:{config.web_api.port} is already in use. "
+            "EOS may already be running; refusing to start a second instance."
+        )
+        raise typer.Exit(1)
+
+    if profile or profile_mem or profile_mem_all:
+        from eos.utils.profiler import start as start_profiler
+
+        start_profiler(memory=profile_mem or profile_mem_all, memory_all=profile_mem_all)
 
     _block_shutdown_signals()
     asyncio.run(run_eos(config))

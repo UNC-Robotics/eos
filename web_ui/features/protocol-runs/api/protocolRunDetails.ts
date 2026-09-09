@@ -10,6 +10,7 @@ import {
   TaskStatusRow,
 } from '@/lib/db/queries';
 import type { ProtocolRun, Task, TaskStatus, TaskDeviceConfig } from '@/lib/types/api';
+import { requireRole } from '@/lib/auth/authz';
 
 export interface TaskStatusInfo {
   name: string;
@@ -60,6 +61,7 @@ export async function getProtocolRunDetails(protocolRunName: string): Promise<{
   protocolRun: ProtocolRun | null;
   tasks: Task[];
 }> {
+  await requireRole('VIEWER');
   try {
     const [protocolRunRow, taskRows] = await Promise.all([
       getProtocolRunByName(protocolRunName),
@@ -81,6 +83,7 @@ export async function getProtocolRunDetails(protocolRunName: string): Promise<{
 }
 
 export async function getProtocolRunTasks(protocolRunName: string): Promise<Task[]> {
+  await requireRole('VIEWER');
   try {
     const taskRows = await getTasksByProtocolRun(protocolRunName);
     return taskRows.map(transformDbTask);
@@ -91,6 +94,7 @@ export async function getProtocolRunTasks(protocolRunName: string): Promise<Task
 }
 
 export async function getTaskStatuses(protocolRunName: string): Promise<TaskStatusInfo[]> {
+  await requireRole('VIEWER');
   try {
     const statusRows = await getTaskStatusesByProtocolRun(protocolRunName);
     return statusRows.map((row: TaskStatusRow) => ({
@@ -105,6 +109,7 @@ export async function getTaskStatuses(protocolRunName: string): Promise<TaskStat
 }
 
 export async function getTaskDetails(taskName: string, protocolRunName: string): Promise<Task | null> {
+  await requireRole('VIEWER');
   try {
     const taskRow = await getTaskByName(taskName, protocolRunName);
     if (!taskRow) return null;
@@ -119,6 +124,7 @@ export async function getProtocolRunWithTaskStatuses(protocolRunName: string): P
   protocolRun: ProtocolRun | null;
   taskStatuses: TaskStatusInfo[];
 }> {
+  await requireRole('VIEWER');
   try {
     const [protocolRunRow, statusRows] = await Promise.all([
       getProtocolRunByName(protocolRunName),

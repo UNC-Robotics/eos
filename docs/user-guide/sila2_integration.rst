@@ -1,18 +1,8 @@
 SiLA 2 Integration
 ==================
 
-EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_ to ease integration with
-SiLA-compliant instruments.
-
-Overview
---------
-
-The SiLA integration allows you to:
-
-* Host SiLA servers inside EOS devices
-* Connect to external SiLA servers (manual or with autodiscovery)
-* Call SiLA servers from tasks with automatic connection management
-* Use LockController for exclusive device access (automatic)
+EOS can host SiLA 2 servers inside devices or connect to external servers.
+Tasks use ``SilaClientContext`` for connection management and automatic LockController handling.
 
 Setup
 -----
@@ -31,9 +21,12 @@ Host SiLA servers inside EOS devices using ``SilaDeviceMixin``:
 
 .. code-block:: python
 
+    from typing import Any
+
     from eos.devices.base_device import BaseDevice
     from eos.integrations.sila import SilaDeviceMixin
     from your_package.sila import Server as YourSilaServer
+
 
     class YourDevice(BaseDevice, SilaDeviceMixin):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
@@ -106,6 +99,7 @@ Connect to SiLA servers using ``SilaClientContext``:
     from eos.integrations.sila import SilaClientContext
     from your_package.sila import Client as YourSilaClient
 
+
     class YourTask(BaseTask):
         async def _execute(self, devices, parameters, resources):
             device = devices["your_device"]
@@ -154,9 +148,12 @@ SiLA servers can also be called from within an EOS device:
 
 .. code-block:: python
 
+    from typing import Any
+
     from eos.devices.base_device import BaseDevice
     from eos.integrations.sila import SilaDeviceMixin, SilaClientContext
     from your_package.sila import Client as YourSilaClient
+
 
     class YourDevice(BaseDevice, SilaDeviceMixin):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
@@ -181,15 +178,6 @@ EOS automatically handles LockController when present:
 * **Metadata injection**: Adds lock identifier to all calls
 * **Auto-retry**: Waits up to 60s if locked
 * **Auto-unlock**: Releases on context exit
-
-Default Behavior
-~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-    # Automatically locked for 60 seconds
-    async with SilaClientContext.connect(device, Client) as client:
-        response = client.Feature.Command()
 
 Custom Timeout
 ~~~~~~~~~~~~~~

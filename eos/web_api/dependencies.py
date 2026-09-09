@@ -1,7 +1,10 @@
 from collections.abc import AsyncGenerator, Callable
 
+from litestar import Request
 from litestar.di import Provide
 
+from eos.auth.authorization import DEV_SUPERUSER, is_auth_disabled
+from eos.auth.entities.user_role import AuthenticatedUser
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
 
@@ -17,9 +20,17 @@ def get_orchestrator_provider(orchestrator: Orchestrator) -> Callable[[], Orches
     return lambda: orchestrator
 
 
+def provide_current_user(request: Request) -> AuthenticatedUser:
+    """Provide the authenticated user, or a dev superuser when auth is disabled."""
+    if is_auth_disabled(request):
+        return DEV_SUPERUSER
+    return request.user
+
+
 def get_common_dependencies(orchestrator: Orchestrator) -> dict:
     """Get common dependencies for controllers."""
     return {
         "db": Provide(provide_db_session),
         "orchestrator": Provide(get_orchestrator_provider(orchestrator)),
+        "user": Provide(provide_current_user, sync_to_thread=False),
     }

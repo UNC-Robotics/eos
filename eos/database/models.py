@@ -8,3 +8,6 @@ from eos.allocation.entities.device_allocation import DeviceAllocationModel
 from eos.allocation.entities.resource_allocation import ResourceAllocationModel
 from eos.allocation.entities.reservation import ReservationModel
 from eos.configuration.entities.definition import DefinitionModel
+from eos.auth.entities.user_role import UserRoleModel
+from eos.auth.entities.api_token import ApiTokenModel
+from eos.auth.entities.user_identity import UserIdentityModel

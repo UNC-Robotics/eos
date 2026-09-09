@@ -100,7 +100,8 @@ export function registerOptimizerTools(server: McpServer) {
     {
       title: 'Update Optimizer Params',
       description:
-        'Update runtime optimizer parameters for a campaign. p_ai is automatically derived as 1 - p_bayesian.',
+        'Update runtime optimizer parameters for a campaign. p_ai is automatically derived as 1 - p_bayesian. ' +
+        'Custom optimizers expose their own parameters via custom_params.',
       inputSchema: {
         campaign_name: z.string().describe('Campaign name'),
         p_bayesian: z
@@ -116,11 +117,18 @@ export function registerOptimizerTools(server: McpServer) {
           .optional()
           .describe('Number of historical samples to include in AI context'),
         ai_additional_context: z.string().optional().describe('Additional context/instructions for the AI optimizer'),
+        custom_params: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe(
+            "Optimizer-specific runtime parameters, as declared by the optimizer's eos_param_schema(). " +
+              'Read them from get_optimizer_info.'
+          ),
       },
     },
-    async ({ campaign_name, p_bayesian, ai_history_size, ai_additional_context }) => {
+    async ({ campaign_name, p_bayesian, ai_history_size, ai_additional_context, custom_params }) => {
       try {
-        const params: Record<string, unknown> = {};
+        const params: Record<string, unknown> = { ...custom_params };
         if (p_bayesian !== undefined) params.p_bayesian = p_bayesian;
         if (ai_history_size !== undefined) params.ai_history_size = ai_history_size;
         if (ai_additional_context !== undefined) params.ai_additional_context = ai_additional_context;

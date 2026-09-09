@@ -152,7 +152,7 @@ export function registerSimulatorTools(server: McpServer) {
           .array(
             z.object({
               type: z.string().describe('Protocol type name'),
-              iterations: z.number().int().min(1).max(50).describe('Number of protocol run instances'),
+              iterations: z.number().int().min(1).max(50).describe('Number of protocol runs'),
               max_concurrent: z.number().int().min(0).default(0).describe('Max concurrent runs (0 = unlimited)'),
               priority: z.number().int().default(1),
             })

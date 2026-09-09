@@ -19,6 +19,7 @@ import { useServerTable } from '@/hooks/useServerTable';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { SubmitCampaignDialog } from './SubmitCampaignDialog';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
+import { useUser } from '@/contexts/UserContext';
 import { ConditionalJsonSection, DetailField, TimelineSection } from '@/features/protocol-runs/components/shared';
 import { SECTION_DIVIDER } from '@/features/protocol-runs/styles';
 
@@ -38,6 +39,7 @@ interface CampaignsTableProps {
 export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: CampaignsTableProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
+  const { canSubmit } = useUser();
   const [pollingInterval, setPollingInterval] = React.useState(5000);
   const [submitDialogOpen, setSubmitDialogOpen] = React.useState(false);
   const [cancellingCampaign, setCancellingCampaign] = React.useState<string | null>(null);
@@ -201,7 +203,7 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
                     <DropdownMenu.Item
                       className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-gray-100 dark:hover:bg-slate-700 focus:bg-gray-100 dark:focus:bg-slate-700 dark:text-gray-300"
                       onClick={() => setCampaignToCancel(campaign.name)}
-                      disabled={cancellingCampaign === campaign.name || !isConnected}
+                      disabled={cancellingCampaign === campaign.name || !isConnected || !canSubmit}
                     >
                       <X className="h-4 w-4" />
                       <span>{cancellingCampaign === campaign.name ? 'Cancelling...' : 'Cancel Campaign'}</span>
@@ -235,7 +237,7 @@ export function CampaignsTable({ initialData, protocolSpecs, taskSpecs }: Campai
           </div>
           <Button
             variant="primary"
-            disabled={!isConnected}
+            disabled={!isConnected || !canSubmit}
             title={!isConnected ? 'Orchestrator offline' : undefined}
             onClick={() => {
               setCampaignToClone(null);

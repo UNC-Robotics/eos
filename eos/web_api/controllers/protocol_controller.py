@@ -1,10 +1,13 @@
 import re
+from typing import ClassVar
 
 import yaml as pyyaml
 from litestar import get, post, Controller
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from eos.auth.authorization import require_role, stamp_owner
+from eos.auth.entities.user_role import AuthenticatedUser, Role
 from eos.configuration.entities.definition import DefinitionModel
 from eos.configuration.entities.protocol_def import ProtocolDef
 from eos.configuration.entities.lab_def import LabDef
@@ -55,16 +58,18 @@ class ProtocolController(Controller):
     """Controller for protocol-related endpoints."""
 
     path = "/protocols"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
-    @post("/")
+    @post("/", guards=[require_role(Role.SUBMITTER)])
     async def submit_protocol_run(
-        self, data: ProtocolRunSubmission, db: AsyncDbSession, orchestrator: Orchestrator
+        self, data: ProtocolRunSubmission, db: AsyncDbSession, orchestrator: Orchestrator, user: AuthenticatedUser
     ) -> dict[str, str]:
         """Submit a new protocol run for execution."""
+        stamp_owner(data, user)
         await orchestrator.protocols.submit_protocol_run(db, data)
         return {"message": "ProtocolRun submitted"}
 
-    @post("/{protocol_run_name:str}/cancel")
+    @post("/{protocol_run_name:str}/cancel", guards=[require_role(Role.SUBMITTER)])
     async def cancel_protocol_run(self, protocol_run_name: str, orchestrator: Orchestrator) -> dict[str, str]:
         """Cancel a running protocol run (standalone or part of a campaign)."""
         # First try to cancel as a standalone protocol run
@@ -96,7 +101,7 @@ class ProtocolController(Controller):
         """List protocol types."""
         return await orchestrator.loading.list_protocols()
 
-    @post("/load")
+    @post("/load", guards=[require_role(Role.LAB_ADMIN)])
     async def load_protocols(
         self, data: ProtocolTypes, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> dict[str, str]:
@@ -104,7 +109,7 @@ class ProtocolController(Controller):
         await orchestrator.loading.load_protocols(db, set(data.protocol_types))
         return {"message": "Protocol configurations loaded"}
 
-    @post("/unload")
+    @post("/unload", guards=[require_role(Role.LAB_ADMIN)])
     async def unload_protocols(
         self, data: ProtocolTypes, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> dict[str, str]:
@@ -112,7 +117,7 @@ class ProtocolController(Controller):
         await orchestrator.loading.unload_protocols(db, set(data.protocol_types))
         return {"message": "Protocol configurations unloaded"}
 
-    @post("/reload")
+    @post("/reload", guards=[require_role(Role.LAB_ADMIN)])
     async def reload_protocols(
         self, data: ReloadProtocolsRequest, db: AsyncDbSession, orchestrator: Orchestrator
     ) -> ReloadProtocolsResponse:
@@ -120,7 +125,7 @@ class ProtocolController(Controller):
         reloaded = await orchestrator.loading.reload_protocols(db, set(data.protocol_types), if_unused=data.if_unused)
         return ReloadProtocolsResponse(reloaded=sorted(reloaded))
 
-    @post("/validate")
+    @post("/validate", guards=[require_role(Role.EDITOR)])
     async def validate_protocol_yaml(self, data: ProtocolValidationRequest, db: AsyncDbSession) -> dict:
         """Validate protocol YAML against lab and task specs.
 

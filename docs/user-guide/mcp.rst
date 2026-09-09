@@ -1,16 +1,10 @@
 MCP Server
 ==========
-EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI,
-allowing AI assistants like Claude to interact with EOS directly: querying protocols, submitting campaigns, inspecting devices, and more.
+EOS exposes an MCP server through the web UI. Connected assistants can inspect definitions,
+submit work, monitor campaigns, and call device functions.
 
-Once connected, the AI assistant automatically discovers all available tools and you can ask it things like
-"check the status of my campaign", "submit 10 multiplication protocols", or "what functions does the pipette support?"
-
-.. warning::
-
-    The MCP endpoint has no authentication.
-    Only expose it in trusted environments (local network or behind a reverse proxy with auth).
-
+With :doc:`authentication` enabled, clients need a bearer token. The SQL tool requires the
+superuser role. With authentication disabled, expose the endpoint only on trusted networks.
 
 Connecting
 ----------
@@ -50,15 +44,15 @@ replacing ``localhost:3000`` with your web UI host and port if needed.
 Capabilities
 ------------
 
-The MCP server exposes 50 tools across the following categories:
+Tools cover the following categories:
 
-* **Campaigns, Protocol Runs, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
-* **Definitions** -- Browse loaded task types, device types, lab layouts, and protocol workflows.
-* **Management** -- Load, unload, and reload labs, protocols, devices, and packages.
-* **Optimizer** -- Query optimizer state, update runtime parameters, and provide expert insights.
-* **Devices** -- List devices, inspect state, discover available RPC functions, and call them directly.
-* **SQL** -- Run read-only queries against the EOS database.
-* **Filesystem** -- Browse packages and read entity configuration files (YAML, Python).
+* **Campaigns, Protocol Runs, Tasks**: List, inspect, submit, and cancel at every level of the execution hierarchy.
+* **Definitions**: Browse loaded task types, device types, lab layouts, and protocol workflows.
+* **Management**: Load, unload, and reload labs, protocols, devices, and packages.
+* **Optimizer**: Query optimizer state, update runtime parameters, and provide expert insights.
+* **Devices**: List devices, inspect state, discover available RPC functions, and call them directly.
+* **SQL**: Run read-only queries against the EOS database.
+* **Filesystem**: Browse packages and read entity configuration files (YAML, Python).
 
 
 Examples
@@ -70,7 +64,7 @@ Natural language prompts you might give an AI assistant connected to EOS via MCP
 
     "Show me the status of the catalyst_screening campaign and list all completed protocols"
 
-    "Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
+    "Submit a color mixing protocol run targeting RGB(120, 45, 200)"
 
     "What devices are available in the wet lab? What functions does the liquid handler support?"
 

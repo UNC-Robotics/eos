@@ -1,7 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { uploadFile } from '@/lib/s3/client';
+import { requireRoleResponse } from '@/lib/auth/authz';
 
 export async function POST(request: NextRequest) {
+  const denied = await requireRoleResponse('SUBMITTER');
+  if (denied) return denied;
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

@@ -3,16 +3,11 @@
 import { useCallback, useRef } from 'react';
 import { useEditorStore } from '@/lib/stores/editorStore';
 import { serializeCurrentProtocol } from '@/lib/utils/protocolSerializer';
-import { orchestratorPost } from '@/lib/api/orchestrator';
-
-interface ValidationResponse {
-  valid: boolean;
-  errors: Array<{ task: string | null; message: string }>;
-}
+import { validateProtocol } from '@/features/editor/api/validate';
 
 /**
  * Hook that exposes a manual validate function.
- * Calls the orchestrator's /protocols/validate endpoint.
+ * Calls the orchestrator's /protocols/validate endpoint via a server action.
  * Degrades gracefully when the orchestrator is unavailable.
  */
 export function useProtocolValidation() {
@@ -38,9 +33,7 @@ export function useProtocolValidation() {
     setIsValidating(true);
 
     try {
-      const result = (await orchestratorPost('/protocols/validate', {
-        protocol_yaml: yaml,
-      })) as ValidationResponse;
+      const result = await validateProtocol(yaml);
 
       if (!controller.signal.aborted) {
         setValidationResult({

@@ -8,7 +8,7 @@
 import { desc, count, eq, and, asc, or, ilike, inArray } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { db } from './client';
-import { tasks, protocolRuns, campaigns, campaignSamples, resources } from './schema';
+import { tasks, protocolRuns, campaigns, campaignSamples, resources, userRoles, apiTokens } from './schema';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions, type ColumnFilterOption } from '@/lib/types/table';
 
 // Paginated result wrapper
@@ -423,4 +423,35 @@ export async function getProtocolRunsByCampaign(campaignName: string): Promise<P
     .where(eq(protocolRuns.campaign, campaignName))
     .orderBy(desc(protocolRuns.createdAt));
   return results.map(mapProtocolRunRow);
+}
+
+export interface UserRoleRow {
+  id: number;
+  sub: string;
+  role: string;
+  labName: string | null;
+  grantedBy: string;
+  createdAt: Date;
+}
+
+/**
+ * Roles for a principal, matching the EOS API's get_user_roles. An API token resolves to its
+ * owner before this point, so the lookup is always by the owner's sub.
+ */
+export async function getUserRoles(sub: string): Promise<UserRoleRow[]> {
+  return db.select().from(userRoles).where(eq(userRoles.sub, sub));
+}
+
+/** Owner of an EOS-issued API token, looked up by the token's hash. */
+export async function getApiTokenOwner(tokenHash: string): Promise<string | null> {
+  const rows = await db
+    .select({ ownerSub: apiTokens.ownerSub })
+    .from(apiTokens)
+    .where(eq(apiTokens.tokenHash, tokenHash))
+    .limit(1);
+  return rows[0]?.ownerSub ?? null;
+}
+
+export async function getAllUserRoles(): Promise<UserRoleRow[]> {
+  return db.select().from(userRoles).orderBy(asc(userRoles.sub));
 }

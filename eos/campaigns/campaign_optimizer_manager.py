@@ -13,6 +13,8 @@ from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
 from eos.configuration.packages import EntityType
 from eos.logging.logger import log
+from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+from eos.optimization.beacon_optimizer import BeaconOptimizer
 from eos.optimization.sequential_optimizer_actor import SequentialOptimizerActor
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 
@@ -88,7 +90,7 @@ class CampaignOptimizerManager:
         is_resume: bool = False,
         global_parameters: dict[str, dict[str, Any]] | None = None,
         protocol_run_parameters: list[dict[str, dict[str, Any]]] | None = None,
-    ) -> tuple[ActorHandle, str, dict[str, Any]]:
+    ) -> tuple[ActorHandle, dict[str, Any], dict[str, Any]]:
         """
         Create a new campaign optimizer Ray actor with status check.
 
@@ -99,7 +101,7 @@ class CampaignOptimizerManager:
         :param is_resume: Whether this is a resume (restricts which overrides are allowed).
         :raises TimeoutError: If the actor fails to respond within timeout
         :raises RuntimeError: If the actor creation or initialization fails
-        :return: Tuple of (initialized optimizer actor, optimizer type name, final constructor args)
+        :return: Tuple of (initialized optimizer actor, optimizer descriptor, final constructor args)
         """
         try:
             constructor_args, optimizer_type = (
@@ -113,10 +115,12 @@ class CampaignOptimizerManager:
 
         # Merge overrides into constructor args
         if optimizer_overrides:
-            if is_resume:
-                allowed_keys = self._TIER1_RUNTIME_KEYS | self._TIER2_INIT_KEYS
-            else:
-                allowed_keys = self._TIER1_RUNTIME_KEYS | self._TIER2_INIT_KEYS | self._TIER3_DOMAIN_KEYS
+            schema = optimizer_type.eos_param_schema()
+            runtime_keys = self._TIER1_RUNTIME_KEYS | {f["key"] for f in schema if f.get("runtime")}
+            init_keys = self._TIER2_INIT_KEYS | {f["key"] for f in schema if not f.get("runtime")}
+            allowed_keys = runtime_keys | init_keys
+            if not is_resume:
+                allowed_keys |= self._TIER3_DOMAIN_KEYS
 
             for key, value in optimizer_overrides.items():
                 if key in allowed_keys:
@@ -141,7 +145,11 @@ class CampaignOptimizerManager:
         if protocol_run_parameters:
             constructor_args["protocol_run_parameters_schedule"] = protocol_run_parameters
 
-        optimizer_type_name = optimizer_type.__name__
+        descriptor = {
+            "optimizer_type": optimizer_type.__name__,
+            "is_beacon": issubclass(optimizer_type, BeaconOptimizer),
+            "param_schema": optimizer_type.eos_param_schema(),
+        }
 
         # Build config snapshot (strip sensitive keys, serialize BoFire objects for JSON persistence)
         config_snapshot = _serialize_config_snapshot(constructor_args)
@@ -155,10 +163,12 @@ class CampaignOptimizerManager:
         await self._validate_optimizer_health(optimizer_actor)
 
         self._optimizer_actors[campaign_name] = optimizer_actor
-        return optimizer_actor, optimizer_type_name, config_snapshot
+        return optimizer_actor, descriptor, config_snapshot
 
-    def get_optimizer_defaults(self, protocol: str) -> tuple[str, dict[str, Any]] | None:
-        """Get optimizer type name and default constructor args for a protocol type."""
+    def get_optimizer_defaults(
+        self, protocol: str
+    ) -> tuple[str, dict[str, Any], type[AbstractSequentialOptimizer]] | None:
+        """Get optimizer type name, default constructor args, and optimizer class for a protocol type."""
         if protocol not in self._campaign_optimizer_plugin_registry.plugin_types:
             self._campaign_optimizer_plugin_registry.load_campaign_optimizer(protocol)
         result = self._campaign_optimizer_plugin_registry.get_campaign_optimizer_creation_parameters(protocol)
@@ -166,7 +176,7 @@ class CampaignOptimizerManager:
             return None
         constructor_args, optimizer_type = result
         safe_args = {k: v for k, v in constructor_args.items() if k not in _SNAPSHOT_SKIP_KEYS}
-        return optimizer_type.__name__, safe_args
+        return optimizer_type.__name__, safe_args, optimizer_type
 
     def terminate_campaign_optimizer_actor(self, campaign_name: str) -> None:
         """

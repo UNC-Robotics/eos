@@ -2,6 +2,17 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ClientLayout } from '@/components/layout/ClientLayout';
+import { UserProvider, type CurrentUser } from '@/contexts/UserContext';
+import { getSessionUser } from '@/lib/auth/session';
+import { rolesFor, isSuperuser } from '@/lib/auth/authz';
+import { env } from '@/lib/env';
+
+async function loadCurrentUser(): Promise<CurrentUser | null> {
+  const user = await getSessionUser();
+  if (!user) return null;
+  const roles = await rolesFor(user.sub);
+  return { ...user, superuser: isSuperuser(roles), roles, authEnabled: env.AUTH_ENABLED };
+}
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -40,15 +51,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await loadCurrentUser();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ClientLayout>{children}</ClientLayout>
+        <UserProvider user={user}>
+          <ClientLayout>{children}</ClientLayout>
+        </UserProvider>
       </body>
     </html>
   );

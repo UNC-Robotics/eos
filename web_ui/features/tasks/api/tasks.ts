@@ -11,8 +11,10 @@ import { orchestratorPost } from '@/lib/api/orchestrator';
 import type { Task, TaskDefinition, ActionResult } from '@/lib/types/api';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions } from '@/lib/types/table';
 import { getAllTasks, type PaginatedResult } from '@/lib/db/queries';
+import { requireRole } from '@/lib/auth/authz';
 
 export async function getTasks(options: TableQueryOptions = {}): Promise<PaginatedResult<Task>> {
+  await requireRole('VIEWER');
   try {
     const result = await getAllTasks({ limit: DEFAULT_PAGE_SIZE, offset: 0, ...options });
 

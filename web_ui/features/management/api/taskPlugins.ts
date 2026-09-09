@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole } from '@/lib/auth/authz';
 import { db } from '@/lib/db/client';
 import { definitions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -44,6 +45,7 @@ export async function getTaskPlugins(): Promise<TaskPluginInfo[]> {
  */
 export async function reloadTaskPlugins(taskTypes: string[]): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost('/tasks/reload', {
       task_types: taskTypes,
     });

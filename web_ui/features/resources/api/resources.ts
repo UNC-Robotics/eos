@@ -5,8 +5,10 @@ import { orchestratorPost } from '@/lib/api/orchestrator';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions } from '@/lib/types/table';
 import { getAllResources, type PaginatedResult, type ResourceRow } from '@/lib/db/queries';
 import type { ActionResult } from '@/lib/types/management';
+import { requireRole } from '@/lib/auth/authz';
 
 export async function getResources(options: TableQueryOptions = {}): Promise<PaginatedResult<ResourceRow>> {
+  await requireRole('VIEWER');
   return await getAllResources({ limit: DEFAULT_PAGE_SIZE, offset: 0, ...options });
 }
 

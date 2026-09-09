@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from pydantic_ai.result import AgentRunResult
 
 FLOAT_PRECISION = 5
+# History is only read for trends, so it renders coarser than the values Beacon returns.
+_HISTORY_FLOAT_PRECISION = 4
 _DISCRETE_INLINE_LIMIT = 20
 _CONSTRAINT_TOLERANCE = 1e-6
 _BACKOFF_MAX_ATTEMPTS = 3
@@ -49,6 +51,7 @@ class BeaconDeps:
     history: list[dict[str, Any]]
     best_results: list[dict[str, Any]]
     insights: list[str]
+    total_runs: int = 0
 
 
 def round_floats(value: Any) -> Any:
@@ -117,45 +120,39 @@ def _build_constraint_section(domain: Domain) -> str | None:
     return "\n".join(lines)
 
 
-def _build_example_section(domain: Domain) -> str:
-    """Build a few-shot example showing the expected output format with actual parameter names."""
-    example_params: dict[str, Any] = {}
-    for feat in domain.inputs.features:
-        if isinstance(feat, ContinuousInput):
-            lo, hi = feat.bounds
-            example_params[feat.key] = round((lo + hi) / 2, FLOAT_PRECISION)
-        elif isinstance(feat, DiscreteInput):
-            vals = feat.values
-            example_params[feat.key] = vals[len(vals) // 2]
-        elif isinstance(feat, CategoricalInput):
-            example_params[feat.key] = feat.categories[0]
-
-    example = {
-        "suggestions": [{"parameters": example_params}],
-        "journal_entry": "Iteration 1: Starting with a midpoint sample to establish a baseline.",
-    }
-    return "EXAMPLE OUTPUT (for 1 suggestion):\n" + json.dumps(example, indent=2)
-
-
 def _get_journal(entry: dict[str, Any]) -> str | None:
     return (entry.get("_beacon") or {}).get("journal")
 
 
-def _build_history_section(history: list[dict[str, Any]]) -> str:
+def _format_cell(value: Any) -> str:
+    """Render one table cell, trimming float noise that costs tokens and carries no information."""
+    if isinstance(value, float):
+        return f"{round(value, _HISTORY_FLOAT_PRECISION):g}"
+    return "" if value is None else str(value)
+
+
+def _build_table(rows: list[dict[str, Any]], columns: list[str]) -> str:
+    """Render rows as TSV. Far cheaper than indented JSON, which repeats every key on every row."""
+    lines = ["\t".join(columns)]
+    lines.extend("\t".join(_format_cell(row.get(c)) for c in columns) for row in rows)
+    return "\n".join(lines)
+
+
+def _build_history_section(history: list[dict[str, Any]], columns: list[str]) -> str:
     """
     Build the experimental history section, grouping protocols into rounds.
 
     Consecutive protocols with the same journal entry are grouped together.
     Experiments without a journal (e.g. from Bayesian sampling) form separate rounds.
     """
-    lines: list[str] = [f"EXPERIMENTAL HISTORY ({len(history)} protocols):"]
+    lines: list[str] = [f"EXPERIMENTAL HISTORY ({len(history)} protocols, tab-separated):"]
     for round_num, (journal, group) in enumerate(groupby(history, key=_get_journal), 1):
         batch = [{k: v for k, v in e.items() if k != "_beacon"} for e in group]
         method = "AI" if journal else "Bayesian"
         lines.append(f"--- Round {round_num} ({method}) ---")
         if journal:
             lines.append(f"Journal: {journal}")
-        lines.append(f"Experiments: {json.dumps(batch, indent=2)}")
+        lines.append(_build_table(batch, columns))
 
     return "\n".join(lines)
 
@@ -175,45 +172,31 @@ def build_system_prompt(domain: Domain) -> str:
     if constraint_section:
         sections.append(constraint_section)
 
-    sections.append(_build_example_section(domain))
-
     sections.append(
-        "OPTIMIZATION STRATEGY:\n"
-        "  1. EXPLORE AGGRESSIVELY: Default to broad exploration. Push parameters toward extremes and "
-        "test diverse regions — optima are often near boundaries. Never repeat or nearly repeat past "
-        "experiments, and spread batch suggestions across maximally different regions.\n"
-        "  2. USE DOMAIN KNOWLEDGE: Apply scientific reasoning to predict promising regions and "
-        "understand cause-and-effect between parameters.\n"
-        "  3. ANALYZE CRITICALLY: Study history for trends and interactions, but remain skeptical of "
-        "patterns until confirmed by multiple data points. If results plateau, make radical changes.\n"
-        "  4. RESPECT EXPERT INSIGHTS: When expert insights are provided, incorporate them into your "
-        "experimental design and acknowledge them in your journal entry. Prioritize insights over "
-        "your own hypotheses — if you disagree, explain why but still test the insight."
+        "STRATEGY:\n"
+        "  - Explore broadly before exploiting. Optima are often near boundaries, and batched "
+        "suggestions should cover distinct regions rather than cluster.\n"
+        "  - Never repeat or nearly repeat a past experiment.\n"
+        "  - Apply scientific reasoning about cause and effect between parameters.\n"
+        "  - Read history for trends, but stay skeptical of patterns until several points confirm "
+        "them. If results plateau, change course sharply.\n"
+        "  - Prioritize expert insights over your own hypotheses and acknowledge them in the "
+        "journal. If you disagree, say why, but still test the insight."
     )
 
     sections.append(
-        "JOURNAL FORMAT (use markdown, use LaTeX for any math e.g. $x^2$ or $$\\sum_{i=1}^n x_i$$):\n"
-        "Your journal_entry must follow this structure:\n"
-        "```\n"
-        "## Run {N} (or Runs {N}-{M} for batches)\n"
-        "\n"
-        "### Observations\n"
-        "- Key patterns, trends, or surprises from past runs\n"
-        "- What worked, what didn't, and why\n"
-        "- For the first run, state your prior assumptions about the system\n"
-        "\n"
-        "### Hypotheses\n"
-        "- Your current hypotheses, each grounded in specific observations above\n"
-        "- Note which hypotheses are new vs. carried over or revised from prior runs\n"
-        "\n"
-        "### Actions\n"
-        "- What you are testing in this batch and which hypothesis each experiment targets\n"
-        "```"
+        "JOURNAL FORMAT: markdown, LaTeX for math (e.g. $x^2$). Head it "
+        "`## Run {N}` (or `## Runs {N}-{M}`) and use three sections:\n"
+        "  ### Observations — patterns, trends and surprises in past runs; on the first run, your "
+        "prior assumptions about the system instead.\n"
+        "  ### Hypotheses — each grounded in an observation above, flagged as new, carried over or "
+        "revised.\n"
+        "  ### Actions — what this batch tests, and which hypothesis each experiment targets."
     )
 
     sections.append(
         "RULES:\n"
-        "  - All values must be within the specified bounds and all constraints must be satisfied.\n"
+        "  - Every value must be within bounds and satisfy every constraint.\n"
         "  - Parameter names must be EXACTLY as listed above, including dots "
         "(e.g. 'task.param', NOT 'task_param')."
     )
@@ -222,37 +205,34 @@ def build_system_prompt(domain: Domain) -> str:
 
 
 _CLAUDE_AGENT_SDK_PREFIX = "claude-agent-sdk:"
-
+_OLLAMA_PREFIX = "ollama:"
+_SUPPORTED_MODEL_PREFIXES = (_CLAUDE_AGENT_SDK_PREFIX, _OLLAMA_PREFIX)
 
 _OLLAMA_DEFAULT_BASE_URL = "http://localhost:11434/v1"
 
 
+def _validate_model(model: str) -> None:
+    """Beacon supports the Claude Agent SDK and Ollama only."""
+    if not model.startswith(_SUPPORTED_MODEL_PREFIXES):
+        raise ValueError(
+            f"Unsupported Beacon AI model '{model}'. "
+            f"Model must start with one of: {', '.join(_SUPPORTED_MODEL_PREFIXES)}"
+        )
+
+
 def _set_api_key(model: str, api_key: str | None) -> None:
     """Set the appropriate environment variable for the model provider."""
-    provider = model.split(":", maxsplit=1)[0] if ":" in model else ""
-
-    # Ollama requires OLLAMA_BASE_URL; default to localhost if not set
-    if provider == "ollama" and "OLLAMA_BASE_URL" not in os.environ:
+    # Ollama requires OLLAMA_BASE_URL, default to localhost if not set
+    if model.startswith(_OLLAMA_PREFIX) and "OLLAMA_BASE_URL" not in os.environ:
         os.environ["OLLAMA_BASE_URL"] = _OLLAMA_DEFAULT_BASE_URL
 
-    if api_key is None:
-        return
-    env_var_map = {
-        "claude-agent-sdk": "ANTHROPIC_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "google": "GOOGLE_API_KEY",
-        "google-gla": "GOOGLE_API_KEY",
-    }
-    env_var = env_var_map.get(provider)
-    if env_var:
-        os.environ[env_var] = api_key
+    if api_key is not None and model.startswith(_CLAUDE_AGENT_SDK_PREFIX):
+        os.environ["ANTHROPIC_API_KEY"] = api_key
 
 
 def _resolve_model(model: str, model_settings: dict[str, Any] | None) -> tuple[Any, bool]:
     """Resolve the model string to a Pydantic AI model instance."""
-    is_claude_sdk = model.startswith(_CLAUDE_AGENT_SDK_PREFIX)
-    if not is_claude_sdk:
+    if not model.startswith(_CLAUDE_AGENT_SDK_PREFIX):
         return model, False
     from eos.optimization.claude_agent_sdk_model import ClaudeAgentSDKModel  # noqa: PLC0415
 
@@ -272,6 +252,7 @@ class BeaconAIAgent:
         additional_context: str | None = None,
         protocol_run_parameters_schedule: list[dict[str, dict[str, Any]]] | None = None,
     ):
+        _validate_model(model)
         _set_api_key(model, api_key)
         self._domain = domain
         self._input_names = [f.key for f in domain.inputs.features]
@@ -281,12 +262,12 @@ class BeaconAIAgent:
         self._additional_context: str | None = additional_context
         self._protocol_run_parameters_schedule = protocol_run_parameters_schedule
 
-        resolved_model, is_claude_sdk = _resolve_model(model, model_settings)
-        self._code_execution = is_claude_sdk
-
-        # Filter out SDK-specific keys before passing to Pydantic AI ModelSettings
         if isinstance(model_settings, str):
             model_settings = json.loads(model_settings) if model_settings.strip() else None
+
+        resolved_model, self._code_execution = _resolve_model(model, model_settings)
+
+        # Filter out SDK-specific keys before passing to Pydantic AI ModelSettings
         sdk_keys = {"effort"}
         filtered = {k: v for k, v in model_settings.items() if k not in sdk_keys} if model_settings else {}
         self._model_settings = ModelSettings(**filtered) if filtered else None
@@ -301,10 +282,16 @@ class BeaconAIAgent:
         self._register_dynamic_prompt()
 
     def _register_dynamic_prompt(self) -> None:
-        """Register the dynamic system prompt and output validator on the agent."""
+        """Register the campaign-scoped system prompt and output validator on the agent."""
 
         @self._agent.system_prompt
-        def dynamic_prompt(ctx: RunContext[BeaconDeps]) -> str:
+        def campaign_prompt(ctx: RunContext[BeaconDeps]) -> str:
+            """
+            Content that is fixed for the life of a campaign, so it stays in the cached prefix.
+
+            Per-suggestion content belongs in the user prompt instead — anything that changes here
+            invalidates the cache for everything after it.
+            """
             parts: list[str] = []
 
             if self._protocol_context:
@@ -319,27 +306,12 @@ class BeaconAIAgent:
                     lines.append(f"  Iteration {i}: {json.dumps(params)}")
                 parts.append("\n".join(lines))
 
-            if ctx.deps.best_results:
-                parts.append(f"BEST RESULTS SO FAR:\n{json.dumps(ctx.deps.best_results, indent=2)}")
-
-            if ctx.deps.history:
-                parts.append(_build_history_section(ctx.deps.history))
-
-            if ctx.deps.insights:
-                parts.append("EXPERT INSIGHTS:\n" + "\n".join(f"  - {insight}" for insight in ctx.deps.insights))
-
             if self._code_execution:
                 parts.append(
                     "CODE EXECUTION: You can write and run Python scripts (Bash, Read, Write tools) "
                     "to analyze experimental data — useful for statistical analysis, trend detection, "
                     "and identifying non-obvious patterns."
                 )
-
-            total_runs = len(ctx.deps.history)
-            parts.append(
-                f"You have {total_runs} completed experiment(s) so far. "
-                f"Please suggest {ctx.deps.num_protocol_runs} new experiment(s)."
-            )
 
             return "\n\n".join(parts)
 
@@ -349,6 +321,44 @@ class BeaconAIAgent:
             output: ProtocolRunSuggestions,
         ) -> ProtocolRunSuggestions:
             return _validate_suggestions(ctx, output)
+
+    def _history_columns(self, history: list[dict[str, Any]]) -> list[str]:
+        """Table columns: domain inputs, then outputs, then any additional parameters carried along."""
+        columns = list(self._input_names) + [f.key for f in self._domain.outputs.features]
+        known = set(columns)
+        for entry in history:
+            for key in entry:
+                if key != "_beacon" and key not in known:
+                    known.add(key)
+                    columns.append(key)
+        return columns
+
+    def _build_user_prompt(self, deps: BeaconDeps) -> str:
+        """
+        Build the per-suggestion prompt.
+
+        Everything that changes between suggestions lives here rather than in the system prompt, so
+        the cached prefix survives from one call to the next.
+        """
+        parts: list[str] = []
+
+        if deps.history:
+            columns = self._history_columns(deps.history)
+            parts.append(_build_history_section(deps.history, columns))
+
+        if deps.best_results:
+            columns = self._history_columns(deps.best_results)
+            parts.append("BEST RESULTS SO FAR (tab-separated):\n" + _build_table(deps.best_results, columns))
+
+        if deps.insights:
+            parts.append("EXPERT INSIGHTS:\n" + "\n".join(f"  - {insight}" for insight in deps.insights))
+
+        parts.append(
+            f"You have {deps.total_runs} completed experiment(s) so far. "
+            f"Please suggest {deps.num_protocol_runs} new experiment(s)."
+        )
+
+        return "\n\n".join(parts)
 
     @property
     def additional_context(self) -> str | None:
@@ -361,35 +371,34 @@ class BeaconAIAgent:
     def set_protocol_context(self, protocol_yaml: str) -> None:
         self._protocol_context = protocol_yaml
 
+    def _build_deps(
+        self,
+        num_protocol_runs: int,
+        history: list[dict[str, Any]],
+        best_results: list[dict[str, Any]],
+        insights: list[str],
+        total_runs: int | None,
+    ) -> BeaconDeps:
+        return BeaconDeps(
+            domain=self._domain,
+            num_protocol_runs=num_protocol_runs,
+            history=round_floats(history),
+            best_results=round_floats(best_results),
+            insights=insights,
+            total_runs=len(history) if total_runs is None else total_runs,
+        )
+
     def suggest(
         self,
         num_protocol_runs: int,
         history: list[dict[str, Any]],
         best_results: list[dict[str, Any]],
         insights: list[str],
+        total_runs: int | None = None,
     ) -> tuple[pd.DataFrame, str]:
-        deps = BeaconDeps(
-            domain=self._domain,
-            num_protocol_runs=num_protocol_runs,
-            history=round_floats(history),
-            best_results=round_floats(best_results),
-            insights=insights,
-        )
+        deps = self._build_deps(num_protocol_runs, history, best_results, insights, total_runs)
         result = self._run_with_backoff(deps)
-        suggestions = result.output
-
-        rows = []
-        for s in suggestions.suggestions:
-            row = {}
-            for name in self._input_names:
-                val = s.parameters[name]
-                if isinstance(val, float):
-                    val = round(val, FLOAT_PRECISION)
-                row[name] = val
-            rows.append(row)
-
-        df = pd.DataFrame(rows, columns=self._input_names)
-        return df, suggestions.journal_entry
+        return self._format_suggestions(result.output)
 
     async def suggest_async(
         self,
@@ -397,28 +406,18 @@ class BeaconAIAgent:
         history: list[dict[str, Any]],
         best_results: list[dict[str, Any]],
         insights: list[str],
+        total_runs: int | None = None,
     ) -> tuple[pd.DataFrame, str]:
         """Async version of suggest() that yields during the LLM API call."""
-        deps = BeaconDeps(
-            domain=self._domain,
-            num_protocol_runs=num_protocol_runs,
-            history=round_floats(history),
-            best_results=round_floats(best_results),
-            insights=insights,
-        )
+        deps = self._build_deps(num_protocol_runs, history, best_results, insights, total_runs)
         result = await self._run_with_backoff_async(deps)
-        suggestions = result.output
+        return self._format_suggestions(result.output)
 
-        rows = []
-        for s in suggestions.suggestions:
-            row = {}
-            for name in self._input_names:
-                val = s.parameters[name]
-                if isinstance(val, float):
-                    val = round(val, FLOAT_PRECISION)
-                row[name] = val
-            rows.append(row)
-
+    def _format_suggestions(self, suggestions: ProtocolRunSuggestions) -> tuple[pd.DataFrame, str]:
+        rows = [
+            {name: round_floats(suggestion.parameters[name]) for name in self._input_names}
+            for suggestion in suggestions.suggestions
+        ]
         df = pd.DataFrame(rows, columns=self._input_names)
         return df, suggestions.journal_entry
 
@@ -435,7 +434,7 @@ class BeaconAIAgent:
 
         Runs synchronously — acceptable because this executes inside a Ray actor (single-threaded).
         """
-        return self._agent.run_sync("", deps=deps, model_settings=self._model_settings)
+        return self._agent.run_sync(self._build_user_prompt(deps), deps=deps, model_settings=self._model_settings)
 
     @retry(
         stop=stop_after_attempt(_BACKOFF_MAX_ATTEMPTS),
@@ -446,7 +445,7 @@ class BeaconAIAgent:
     )
     async def _run_with_backoff_async(self, deps: BeaconDeps) -> "AgentRunResult[ProtocolRunSuggestions]":
         """Async version with exponential backoff — yields during the LLM API call."""
-        return await self._agent.run("", deps=deps, model_settings=self._model_settings)
+        return await self._agent.run(self._build_user_prompt(deps), deps=deps, model_settings=self._model_settings)
 
 
 def _validate_and_coerce_feature(

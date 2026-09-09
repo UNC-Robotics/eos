@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.30.0
+
+- Added optional Zitadel authentication with role-based access, lab-scoped administration, and user management through the CLI and web UI.
+- Added personal API tokens for REST API and MCP access, plus a profile page for tokens and password changes.
+- Made Beacon's underlying optimizer pluggable while retaining AI suggestions, journal entries, and expert insights.
+- Added optimizer-defined parameter controls in the web UI for campaign submission and runtime updates.
+- Fixed Beacon state restoration when resuming campaigns, including runtime settings, journal entries, and insights.
+- Reduced Beacon prompt overhead with compact history and cache-friendly prompts. Added token usage, cache, and cost logging.
+- Added `eos setup` for configuration and optional Zitadel bootstrap, and `eos services` for infrastructure management.
+- Grouped startup under `eos start` and `eos start ui`, with port checks to prevent duplicate instances.
+- Streamlined the documentation and added a runnable custom Beacon optimizer example.
+
 ## 0.29.0
 
 - Implemented support for file inputs in tasks

@@ -21,6 +21,7 @@ User Guide
     campaigns
     optimizers
     beacon_optimizer
+    custom_beacon
     scheduling
 
 .. toctree::
@@ -29,6 +30,7 @@ User Guide
     web_ui
     rest_api
     mcp
+    authentication
 
 .. toctree::
     :caption: Advanced

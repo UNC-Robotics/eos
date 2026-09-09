@@ -1,107 +1,75 @@
 <p align="center">
-    <img src="docs/_static/img/eos-logo.png" alt="Alt Text" width="400">
+    <img src="docs/_static/img/eos-logo.png" alt="EOS logo" width="400">
 </p>
 
 <h1 align="center">The Experiment Orchestration System (EOS)</h1>
 <h3 align="center">Foundation for laboratory automation</h3>
 
 ![python](https://img.shields.io/badge/Python-3.11+-darkgreen)
-[![Docs](https://img.shields.io/badge/Docs-Available-brightgreen)](https://unc-robotics.github.io/eos/) 
+[![Docs](https://img.shields.io/badge/Docs-Available-brightgreen)](https://unc-robotics.github.io/eos/)
 ![license](https://img.shields.io/badge/License-BSD_3--Clause-blue)
 
 EOS is a software framework and runtime for laboratory automation, designed to serve as
 the foundation for one or more automated or self-driving labs (SDLs).
 
 **Core**
+
 * Plugin system for defining labs, devices, tasks, protocols, and optimizers
 * Package system for sharing and reusing automation code
 * Validation of protocols, parameters, and configurations at load time and runtime
 
 **Execution & Scheduling**
+
 * Central orchestrator that coordinates devices and protocols across multiple computers
 * Intelligent task scheduling with dynamic device and resource allocation
 * Scheduling simulation for testing strategies offline without hardware
 
 **Optimization**
+
 * Built-in Bayesian optimization for protocol run campaigns, with single and multi-objective support
-* Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
+* Beacon optimizer that combines a [pluggable algorithm](https://unc-robotics.github.io/eos/user-guide/custom_beacon.html) with AI reasoning
 
 **Interfaces**
+
 * Web UI with visual protocol editor, real-time monitoring, device inspector, and file browser
 * REST API with OpenAPI documentation
 * MCP server for connecting AI assistants
+* Optional authentication with role-based access and personal API tokens
 * SiLA 2 instrument protocol integration
 
 Documentation is available at [https://unc-robotics.github.io/eos/](https://unc-robotics.github.io/eos/).
 
 ## Installation
 
-EOS should be installed on a central laboratory computer that is easily accessible.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), Node.js and npm, and Docker Compose.
+Then clone EOS and run the setup wizard:
 
-EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. These can be 
-run with Docker Compose.
+```shell
+git clone https://github.com/UNC-Robotics/eos
+cd eos
+uv sync --all-groups
+uv run eos setup
+uv run eos services up
+uv run eos start
+```
 
-1. **Install uv**
-   - **Linux/Mac**
-     ```shell
-     curl -LsSf https://astral.sh/uv/install.sh | sh
-     ```
-   - **Windows**
-     ```shell
-     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-     ```
+In another terminal, install and start the web UI:
 
-2. **Install EOS**
-   ```shell
-   git clone https://github.com/UNC-Robotics/eos
-   cd eos
-   uv venv
-   source .venv/bin/activate
-   uv sync --all-groups
-   ```
+```shell
+cd eos/web_ui
+npm install
+uv run eos start ui
+```
 
-3. **Configure EOS**
-   ```shell
-   cp .env.example .env
-   cp config.example.yml config.yml
-   ```
-
-   Edit both `.env` and `config.yml` and provide values for missing fields
-
-4. **Launch External Services**
-   ```shell
-   docker compose up -d
-   ```
-
-5. **Start EOS**
-   ```shell
-   eos start
-   ```
-
-6. **Configure the Web UI**
-   ```shell
-   cd web_ui
-   cp .env.example .env
-   # Edit .env and provide values
-   ```
-
-7. **Launch the Web UI**
-
-   **Option A: Without Docker**
-   ```shell
-   npm install
-   eos ui
-   ```
-
-   **Option B: With Docker**
-   ```shell
-   cp .env.docker.example .env.docker
-   # Edit .env.docker and provide values
-   docker compose up -d
-   ```
+See the [installation guide](https://unc-robotics.github.io/eos/user-guide/installation.html)
+for manual configuration and platform details. The
+[authentication guide](https://unc-robotics.github.io/eos/user-guide/authentication.html)
+covers shared identity services and roles.
 
 ## Citation
+
 If you use EOS for your work, please cite:
+
 ```bibtex
 @inproceedings{Angelopoulos2025_EOS,
   title = {The {{Experiment Orchestration System}} ({{EOS}}): {{Comprehensive Foundation}} for {{Laboratory Automation}}},

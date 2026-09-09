@@ -99,8 +99,26 @@ export interface Campaign extends CampaignDefinition {
 // Optimizer Types
 // ============================================================================
 
+/** UI descriptor for an optimizer-specific parameter, from AbstractSequentialOptimizer.eos_param_schema(). */
+export interface OptimizerParamSpec {
+  key: string;
+  type: 'number' | 'text' | 'select' | 'checkbox' | 'json';
+  label?: string;
+  description?: string;
+  default?: unknown;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: string[];
+  /** Whether the parameter can be changed while a campaign is running. */
+  runtime?: boolean;
+}
+
 export interface OptimizerDefaults {
   optimizer_type: string;
+  /** True when the optimizer extends Beacon, so the AI sections apply. */
+  is_beacon: boolean;
+  param_schema: OptimizerParamSpec[];
   inputs: Record<string, unknown>[];
   outputs: Record<string, unknown>[];
   constraints: Record<string, unknown>[];
@@ -117,17 +135,19 @@ export interface OptimizerDefaults {
     ai_additional_parameters: string[] | null;
     acquisition_function: Record<string, unknown> | null;
     surrogate_specs: Record<string, unknown> | null;
-  };
+  } & Record<string, unknown>;
 }
 
 export interface OptimizerInfo {
   optimizer_type: string;
+  is_beacon: boolean;
+  param_schema: OptimizerParamSpec[];
   runtime_params: {
     p_bayesian: number;
     p_ai: number;
     ai_history_size: number;
     ai_additional_context: string | null;
-  };
+  } & Record<string, unknown>;
   insights: string[];
   journal: string[];
 }

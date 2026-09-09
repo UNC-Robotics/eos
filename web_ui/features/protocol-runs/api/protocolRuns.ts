@@ -6,6 +6,7 @@ import type { ProtocolRun, ProtocolRunDefinition, ActionResult } from '@/lib/typ
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions } from '@/lib/types/table';
 import { getAllProtocolRuns, type PaginatedResult } from '@/lib/db/queries';
 import { createSuccessResult, createErrorResult } from '@/lib/utils/protocolHelpers';
+import { requireRole } from '@/lib/auth/authz';
 
 function transformDbProtocolRun(exp: unknown): ProtocolRun {
   const e = exp as {
@@ -40,6 +41,7 @@ function transformDbProtocolRun(exp: unknown): ProtocolRun {
 }
 
 export async function getProtocolRuns(options: TableQueryOptions = {}): Promise<PaginatedResult<ProtocolRun>> {
+  await requireRole('VIEWER');
   try {
     const result = await getAllProtocolRuns({ limit: DEFAULT_PAGE_SIZE, offset: 0, ...options });
     return {

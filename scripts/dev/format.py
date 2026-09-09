@@ -2,7 +2,7 @@ import subprocess
 
 
 def main():
-    subprocess.run(["ruff", "format", "eos", "tests"], check=True)
+    subprocess.run(["ruff", "format", "eos", "tests", "docker"], check=True)
 
 
 if __name__ == "__main__":

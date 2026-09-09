@@ -10,6 +10,7 @@ import { RefreshControl } from '@/components/ui/RefreshControl';
 import { ConfirmDialog } from '@/components/dialogs/ConfirmDialog';
 import { useServerTable } from '@/hooks/useServerTable';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
+import { useUser } from '@/contexts/UserContext';
 import { getResources, resetResources } from '../api/resources';
 import type { PaginatedResult, ResourceRow } from '@/lib/db/queries';
 
@@ -19,6 +20,7 @@ interface ResourcesTableProps {
 
 export function ResourcesTable({ initialData }: ResourcesTableProps) {
   const { isConnected: _isConnected } = useOrchestratorConnected();
+  const { canSubmit } = useUser();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const isConnected = mounted ? _isConnected : true;
@@ -131,7 +133,7 @@ export function ResourcesTable({ initialData }: ResourcesTableProps) {
         <Button
           variant="ghost"
           size="sm"
-          disabled={!isConnected || isResetting}
+          disabled={!isConnected || isResetting || !canSubmit}
           onClick={(e) => {
             e.stopPropagation();
             setConfirmDialog({
@@ -153,7 +155,7 @@ export function ResourcesTable({ initialData }: ResourcesTableProps) {
     <Button
       variant="outline"
       size="sm"
-      disabled={!isConnected || isResetting}
+      disabled={!isConnected || isResetting || !canSubmit}
       onClick={() =>
         setConfirmDialog({
           title: `Reset ${selectedRows.length} resource(s)`,
@@ -172,7 +174,7 @@ export function ResourcesTable({ initialData }: ResourcesTableProps) {
       {labs.length > 1 ? (
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <Button variant="outline" size="sm" disabled={!isConnected || isResetting}>
+            <Button variant="outline" size="sm" disabled={!isConnected || isResetting || !canSubmit}>
               Reset Lab
             </Button>
           </DropdownMenu.Trigger>
@@ -204,7 +206,7 @@ export function ResourcesTable({ initialData }: ResourcesTableProps) {
         <Button
           variant="outline"
           size="sm"
-          disabled={!isConnected || isResetting}
+          disabled={!isConnected || isResetting || !canSubmit}
           onClick={() => {
             const labResources = serverTable.data.filter((r) => r.lab === labs[0]).map((r) => r.name);
             setConfirmDialog({
@@ -221,7 +223,7 @@ export function ResourcesTable({ initialData }: ResourcesTableProps) {
       <Button
         variant="primary"
         size="sm"
-        disabled={!isConnected || isResetting || serverTable.data.length === 0}
+        disabled={!isConnected || isResetting || !canSubmit || serverTable.data.length === 0}
         onClick={() =>
           setConfirmDialog({
             title: 'Reset all resources',
@@ -315,7 +317,7 @@ export function ResourcesTable({ initialData }: ResourcesTableProps) {
                   variant="outline"
                   size="sm"
                   className="w-full"
-                  disabled={!isConnected || isResetting}
+                  disabled={!isConnected || isResetting || !canSubmit}
                   onClick={() =>
                     setConfirmDialog({
                       title: `Reset ${selectedResource.name}`,

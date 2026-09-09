@@ -17,8 +17,8 @@ import { DescriptionTooltip } from '@/components/ui/DescriptionTooltip';
 import { submitCampaign } from '@/features/campaigns/api/campaigns';
 import { getOptimizerDefaults } from '@/features/campaigns/api/optimizer';
 import { ProtocolRunParameterField } from '@/features/protocol-runs/components/ProtocolRunParameterField';
-import { BeaconOptimizerPanel } from './BeaconOptimizerPanel';
-import { extractBeaconDomain } from '../utils/beaconMeta';
+import { OptimizerPanel } from './OptimizerPanel';
+import { extractOptimizerDomain } from '../utils/optimizerMeta';
 import { parseProtocolRunParameters } from '../utils/protocolRunParametersParsing';
 import {
   hasNonEmptyObject,
@@ -626,14 +626,14 @@ export function SubmitCampaignDialog({
             Loading optimizer settings...
           </div>
         )}
-        {optimize && optimizerDefaults && optimizerDefaults.optimizer_type === 'BeaconOptimizer' && (
-          <BeaconOptimizerPanel
+        {optimize && optimizerDefaults && (
+          <OptimizerPanel
             mode="submission"
             defaults={optimizerDefaults}
             isResume={isResume}
             overrides={optimizerOverrides}
             onChange={setOptimizerOverrides}
-            persistedDomain={isResume && initialCampaign?.meta ? extractBeaconDomain(initialCampaign.meta) : null}
+            persistedDomain={isResume && initialCampaign?.meta ? extractOptimizerDomain(initialCampaign.meta) : null}
           />
         )}
 

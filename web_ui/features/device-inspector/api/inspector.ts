@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorGet, orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole } from '@/lib/auth/authz';
 import type { DeviceIntrospection, FunctionCallResult } from '@/lib/types/device-inspector';
 import type { DeviceReport, ActionResult } from '@/lib/types/management';
 
@@ -35,6 +36,7 @@ export async function callDeviceFunction(
   parameters: Record<string, unknown>
 ): Promise<FunctionCallResult> {
   try {
+    await requireRole('LAB_ADMIN');
     const result = await orchestratorPost(`/rpc/${labName}/${deviceName}/${functionName}`, parameters);
 
     return {
@@ -68,6 +70,7 @@ export async function getDeviceState(labName: string, deviceName: string): Promi
  */
 export async function reloadDevice(labName: string, deviceName: string): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost(`/labs/${labName}/devices/reload`, {
       device_names: [deviceName],
     });

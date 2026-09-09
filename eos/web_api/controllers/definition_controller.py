@@ -1,7 +1,9 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from litestar import get, Controller
 
+from eos.auth.authorization import require_role
+from eos.auth.entities.user_role import Role
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
 from eos.web_api.exception_handling import APIError
@@ -11,6 +13,7 @@ class DefinitionController(Controller):
     """Controller for definition-related endpoints."""
 
     path = "/defs"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/")
     async def list_definitions(

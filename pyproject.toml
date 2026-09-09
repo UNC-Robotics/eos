@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.29.0"
+version = "0.30.0"
 description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "protocol", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -37,6 +37,8 @@ dependencies = [
     "ortools<=9.12",
     "litestar[standard]>=2.19.0",
     "pydantic-ai>=1.57.0",
+    "pyjwt[crypto]>=2.10",
+    "httpx>=0.28",
 ]
 
 [dependency-groups]
@@ -74,6 +76,7 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
+    "respx",
 ]
 docs = [
     "sphinx",
@@ -118,6 +121,7 @@ asyncio_mode = "auto"
 [tool.ruff]
 include = [
     "{eos,tests}/**/*.py",
+    "docker/**/*.py",
     "pyproject.toml"
 ]
 exclude = [
@@ -189,6 +193,7 @@ lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR091
 "eos/database/_migrations/versions/**/*.*" = ["ALL"]
 "eos/cli/db_cli.py" = ["PLC0415"]
 "eos/cli/orchestrator_cli.py" = ["PLC0415"]
+"docker/**/*.py" = ["T201", "S607"]
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [

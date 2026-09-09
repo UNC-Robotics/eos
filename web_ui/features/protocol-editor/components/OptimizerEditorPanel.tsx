@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import { useEditorStore } from '@/lib/stores/editorStore';
-import { BeaconOptimizerPanel } from '@/features/campaigns/components/BeaconOptimizerPanel';
+import { OptimizerPanel } from '@/features/campaigns/components/OptimizerPanel';
 import type { DomainValue } from '@/features/campaigns/components/DomainEditor';
 import { getOptimizerDefaults } from '@/features/campaigns/api/optimizer';
 import {
@@ -121,11 +121,10 @@ export function OptimizerEditorPanel() {
     };
   }, [protocolType, pythonContent]);
 
-  const isBeacon = !pythonContent || pythonContent.includes('BeaconOptimizer');
-  const isStandard = isBeacon && isStandardOptimizerPy(pythonContent);
+  const isStandard = isStandardOptimizerPy(pythonContent);
 
   const handleSave = async (values: Record<string, unknown>, domain: DomainValue) => {
-    const config = buildOptimizerConfig(values, domain);
+    const config = buildOptimizerConfig(values, domain, defaults?.param_schema ?? [], pythonContent);
     const code = generateOptimizerPython(config);
     updatePythonContent(code);
 
@@ -140,7 +139,7 @@ export function OptimizerEditorPanel() {
     <div className="h-full flex flex-col bg-white dark:bg-slate-900">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-slate-700">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Beacon Optimizer</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Optimizer</h2>
         <button
           onClick={() => setIsOptimizerPanelOpen(false)}
           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -165,27 +164,17 @@ export function OptimizerEditorPanel() {
           </div>
         )}
 
-        {!isLoading && !error && !isBeacon && (
+        {!isLoading && !error && !isStandard && (
           <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
             <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-400">
-              Visual optimizer setup is only available for Beacon. This protocol uses a different optimizer. Please edit
-              the code manually.
-            </p>
-          </div>
-        )}
-
-        {!isLoading && !error && isBeacon && !isStandard && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
-            <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              Non-standard Beacon configuration detected. Please edit the code manually.
+              Non-standard optimizer configuration detected. Please edit the code manually.
             </p>
           </div>
         )}
 
         {!isLoading && !error && isStandard && defaults && (
-          <BeaconOptimizerPanel key={JSON.stringify(defaults)} mode="editor" defaults={defaults} onSave={handleSave} />
+          <OptimizerPanel key={JSON.stringify(defaults)} mode="editor" defaults={defaults} onSave={handleSave} />
         )}
       </div>
     </div>

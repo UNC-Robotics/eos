@@ -150,6 +150,7 @@ class TestCampaignExecutor:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("resume_history_size", [None, 7])
     async def test_campaign_resumption(
         self,
         campaign_executor_setup,
@@ -160,6 +161,7 @@ class TestCampaignExecutor:
         protocol_executor_factory,
         db_interface,
         task_executor,
+        resume_history_size,
     ):
         """Test campaign can be properly resumed after cancellation."""
         async with db_interface.get_async_session() as db:
@@ -172,6 +174,13 @@ class TestCampaignExecutor:
         async with db_interface.get_async_session() as db:
             initial_campaign = await campaign_manager.get_campaign(db, CAMPAIGN_CONFIG["CAMPAIGN_NAME"])
 
+        await campaign_executor_setup.optimizer.add_insight.remote("Retain this insight across resume")
+        await campaign_executor_setup.optimizer.set_runtime_params.remote(
+            {"ai_history_size": 2, "ai_additional_context": "Retain the experimental context"}
+        )
+        initial_meta = await campaign_executor_setup.optimizer.get_optimizer_meta.remote()
+        await campaign_executor_setup._save_optimizer_meta_dict(initial_meta)
+
         await campaign_executor_setup.cancel_campaign()
         campaign_executor_setup.cleanup()
 
@@ -182,6 +191,7 @@ class TestCampaignExecutor:
             max_protocol_runs=CAMPAIGN_CONFIG["MAX_PROTOCOL_RUNS"],
             optimize=CAMPAIGN_CONFIG["OPTIMIZE"],
             resume=True,
+            meta={"optimizer_overrides": {"ai_history_size": resume_history_size}} if resume_history_size else {},
         )
         resumed_executor = CampaignExecutor(
             resume_submission,
@@ -206,6 +216,14 @@ class TestCampaignExecutor:
 
         resumed_samples = ray.get(resumed_executor.optimizer.get_num_samples_reported.remote())
         assert resumed_samples == initial_campaign.protocol_runs_completed
+
+        restored_meta = await resumed_executor.optimizer.get_optimizer_meta.remote()
+        assert restored_meta["journal"] == initial_meta["journal"]
+        assert restored_meta["insights"] == initial_meta["insights"]
+        assert restored_meta["runtime_params"] == {
+            **initial_meta["runtime_params"],
+            "ai_history_size": resume_history_size or 2,
+        }
 
         await self.wait_for_campaign_progress(
             resumed_executor, campaign_manager, task_executor, db_interface, num_protocol_runs=5

@@ -59,6 +59,13 @@ def generate_llms_txt(docs_dir: Path, output_file: Path) -> None:
         output_parts.append(content)
         output_parts.append("\n")
 
+    # Include downloadable examples used by literalinclude directives.
+    for example in sorted((docs_dir / "_examples").glob("*.py")):
+        relative_path = example.relative_to(docs_dir)
+        output_parts.append(f"# File: {relative_path}\n\n```python\n")
+        output_parts.append(example.read_text(encoding="utf-8"))
+        output_parts.append("\n```\n\n")
+
     # Write the output file
     output_content = "".join(output_parts)
     output_file.write_text(output_content, encoding="utf-8")

@@ -19,6 +19,7 @@ import { TaskOutputFiles } from '@/features/files/components/TaskOutputFiles';
 import type { TaskSpec } from '@/lib/types/protocol';
 import type { LabSpec } from '@/lib/api/specs';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
+import { useUser } from '@/contexts/UserContext';
 import { ConditionalJsonSection, DetailField, TimelineSection } from '@/features/protocol-runs/components/shared';
 import { SECTION_DIVIDER } from '@/features/protocol-runs/styles';
 
@@ -35,6 +36,7 @@ interface TasksTableProps {
 
 export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps) {
   const { isConnected: _isConnected } = useOrchestratorConnected();
+  const { canSubmit } = useUser();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const isConnected = mounted ? _isConnected : true; // Avoid hydration mismatch
@@ -175,7 +177,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
                     onClick={() =>
                       setTaskToCancel({ name: task.name, protocolRunName: task.protocol_run_name ?? null })
                     }
-                    disabled={cancellingTask === task.name || !isConnected}
+                    disabled={cancellingTask === task.name || !isConnected || !canSubmit}
                   >
                     <X className="h-4 w-4" />
                     <span>{cancellingTask === task.name ? 'Cancelling...' : 'Cancel Task'}</span>
@@ -208,7 +210,7 @@ export function TasksTable({ initialData, taskSpecs, labSpecs }: TasksTableProps
           </div>
           <Button
             variant="primary"
-            disabled={!isConnected}
+            disabled={!isConnected || !canSubmit}
             title={!isConnected ? 'Orchestrator offline' : undefined}
             onClick={() => {
               setTaskToClone(null);

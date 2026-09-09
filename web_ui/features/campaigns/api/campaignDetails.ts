@@ -9,6 +9,7 @@ import {
   ProtocolRunRow,
 } from '@/lib/db/queries';
 import type { Campaign, ProtocolRun } from '@/lib/types/api';
+import { requireRole } from '@/lib/auth/authz';
 
 export interface CampaignSample {
   campaignName: string;
@@ -73,6 +74,7 @@ function transformDbProtocolRun(exp: ProtocolRunRow): ProtocolRun {
 }
 
 export async function getCampaignDetails(campaignName: string): Promise<Campaign | null> {
+  await requireRole('VIEWER');
   try {
     const campaignRow = await getCampaignByName(campaignName);
     if (!campaignRow) return null;
@@ -84,6 +86,7 @@ export async function getCampaignDetails(campaignName: string): Promise<Campaign
 }
 
 export async function getCampaignOptimizationSamples(campaignName: string): Promise<CampaignSample[]> {
+  await requireRole('VIEWER');
   try {
     const sampleRows = await getCampaignSamples(campaignName);
     return sampleRows.map(transformDbSample);
@@ -94,6 +97,7 @@ export async function getCampaignOptimizationSamples(campaignName: string): Prom
 }
 
 export async function getCampaignProtocolRuns(campaignName: string): Promise<ProtocolRun[]> {
+  await requireRole('VIEWER');
   try {
     const protocolRunRows = await getProtocolRunsByCampaign(campaignName);
     return protocolRunRows.map(transformDbProtocolRun);
@@ -108,6 +112,7 @@ export async function getCampaignWithDetails(campaignName: string): Promise<{
   samples: CampaignSample[];
   protocolRuns: ProtocolRun[];
 }> {
+  await requireRole('VIEWER');
   try {
     const [campaignRow, sampleRows, protocolRunRows] = await Promise.all([
       getCampaignByName(campaignName),

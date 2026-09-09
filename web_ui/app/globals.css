@@ -201,16 +201,28 @@ body {
   opacity: 0.5;
 }
 
+/* Gradient lives on the native track so the thumb can never drift off-centre.
+   Alpha is baked into the stops: opacity on a track pseudo-element is unreliable.
+   Vendor selectors are kept in separate rules, since one unknown selector in a
+   list drops the whole rule. */
 .strategy-slider::-webkit-slider-runnable-track {
   height: 14px;
-  background: transparent;
   border-radius: 9999px;
+  background: linear-gradient(to right, rgba(220, 38, 38, 0.85), rgba(147, 51, 234, 0.85));
 }
 
 .strategy-slider::-moz-range-track {
   height: 14px;
-  background: transparent;
   border-radius: 9999px;
+  background: linear-gradient(to right, rgba(220, 38, 38, 0.85), rgba(147, 51, 234, 0.85));
+}
+
+.strategy-slider:disabled::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, rgba(220, 38, 38, 0.4), rgba(147, 51, 234, 0.4));
+}
+
+.strategy-slider:disabled::-moz-range-track {
+  background: linear-gradient(to right, rgba(220, 38, 38, 0.4), rgba(147, 51, 234, 0.4));
 }
 
 /* Brief yellow flash for a field that was just navigated to (TaskPropertiesPanel). */

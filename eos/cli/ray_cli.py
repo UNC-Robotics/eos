@@ -1,94 +1,49 @@
-import subprocess
-
 import typer
 
-ray_app = typer.Typer(help="Manage EOS Ray cluster commands", no_args_is_help=True)
+from eos.cli._common import cli_command, run
+
+ray_app = typer.Typer(help="Manage the EOS Ray cluster", no_args_is_help=True)
 
 
 @ray_app.command()
+@cli_command("Failed to start head node")
 def head(
     dashboard: bool = typer.Option(False, "--dashboard", help="Enable the Ray dashboard"),
     additional_params: list[str] = typer.Argument(None, help="Additional parameters to pass to 'ray start'"),
 ) -> None:
-    """
-    Create a Ray head node.
-    """
-
+    """Start a Ray head node."""
     cmd = ["ray", "start", "--head", "--resources", '{"eos": 1000}', "--disable-usage-stats"]
     if not dashboard:
         cmd.append("--include-dashboard=false")
-
-    # Append any additional parameters provided by the user
     if additional_params:
         cmd.extend(additional_params)
-
-    try:
-        subprocess.run(cmd, check=True)
-        typer.echo("Started the Ray head node.")
-    except subprocess.CalledProcessError as e:
-        typer.echo(f"Failed to start head node: {e}", err=True)
-        raise typer.Exit(1) from e
+    run(cmd)
+    typer.echo("Started the Ray head node.")
 
 
 @ray_app.command()
+@cli_command("Failed to start worker node")
 def worker(
     address: str = typer.Option(..., "--address", "-a", help="Address of the head node to connect to"),
-    additional_params: list[str] = typer.Argument(
-        None, help="Additional parameters to pass to 'ray start' for worker node"
-    ),
+    additional_params: list[str] = typer.Argument(None, help="Additional parameters to pass to 'ray start'"),
 ) -> None:
-    """
-    Create a Ray worker node that connects to a specified head node.
-
-    This command calls the Ray CLI command:
-        ray start --address <address> <additional_params>
-    """
-
-    # Base Ray CLI command for worker node
+    """Start a Ray worker node connected to the given head node."""
     cmd = ["ray", "start", "--address", address, "--disable-usage-stats"]
-
-    # Append any additional parameters provided by the user
     if additional_params:
         cmd.extend(additional_params)
-
-    try:
-        subprocess.run(cmd, check=True)
-        typer.echo(f"Started a Ray worker node connecting to {address}.")
-    except subprocess.CalledProcessError as e:
-        typer.echo(f"Failed to start worker node: {e}", err=True)
-        raise typer.Exit(1) from e
+    run(cmd)
+    typer.echo(f"Started a Ray worker node connecting to {address}.")
 
 
 @ray_app.command()
+@cli_command("Failed to stop Ray")
 def stop() -> None:
-    """
-    Stop Ray.
-
-    This command calls the Ray CLI command:
-        ray stop
-    """
-
-    cmd = ["ray", "stop"]
-
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        typer.echo(f"Failed to stop Ray: {e}", err=True)
-        raise typer.Exit(1) from e
+    """Stop Ray on this node."""
+    run(["ray", "stop"])
 
 
 @ray_app.command()
+@cli_command("Failed to retrieve status")
 def status() -> None:
-    """
-    Display the current status of the Ray cluster.
-
-    This command calls the Ray CLI command:
-        ray status
-    """
-
-    cmd = ["ray", "status"]
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        typer.echo(f"Failed to retrieve status: {e}", err=True)
-        raise typer.Exit(1) from e
+    """Show the Ray cluster status."""
+    run(["ray", "status"])

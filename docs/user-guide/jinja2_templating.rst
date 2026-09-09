@@ -1,19 +1,9 @@
 Jinja2 Templating
 =================
-The YAML files used to define labs, devices, protocols, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
-templating, enabling variables, loops, conditionals, macros, and more.
-Jinja2 templates are evaluated with Python, so some expressions follow Python syntax.
-
-.. note::
-    Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
-
-Jinja is useful for defining protocol templates with placeholders and variables that produce different
-protocol variations when set, including altering the task sequence.
-
-.. note::
-    Protocol templating is useful if EOS dynamic parameters and references do not suffice.
-
-Below are some useful Jinja2 features:
+EOS evaluates `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_ templates when loading YAML
+for labs, devices, tasks, and protocols. Use templates to generate definitions with variables,
+loops, or macros. For values and conditions that change during execution, use dynamic parameters,
+:doc:`references`, or protocol ``run_if`` conditions.
 
 Variables
 ---------

@@ -6,6 +6,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { orchestratorPost } from '@/lib/api/orchestrator';
+import { requireRole } from '@/lib/auth/authz';
 import { db } from '@/lib/db/client';
 import { definitions } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -41,6 +42,7 @@ export async function getProtocolTypes(): Promise<ProtocolType[]> {
  */
 export async function loadProtocolTypes(protocolTypes: string[]): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost('/protocols/load', {
       protocol_types: protocolTypes,
     });
@@ -65,6 +67,7 @@ export async function loadProtocolTypes(protocolTypes: string[]): Promise<Action
  */
 export async function unloadProtocolTypes(protocolTypes: string[]): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost('/protocols/unload', {
       protocol_types: protocolTypes,
     });
@@ -89,6 +92,7 @@ export async function unloadProtocolTypes(protocolTypes: string[]): Promise<Acti
  */
 export async function reloadProtocolTypes(protocolTypes: string[]): Promise<ActionResult> {
   try {
+    await requireRole('LAB_ADMIN');
     await orchestratorPost('/protocols/reload', {
       protocol_types: protocolTypes,
     });

@@ -1,5 +1,9 @@
+from typing import ClassVar
+
 from litestar import get, post, Controller
 
+from eos.auth.authorization import require_role, stamp_owner
+from eos.auth.entities.user_role import AuthenticatedUser, Role
 from eos.campaigns.entities.campaign import CampaignSubmission, Campaign
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.orchestration.orchestrator import Orchestrator
@@ -10,6 +14,7 @@ class CampaignController(Controller):
     """Controller for campaign-related endpoints."""
 
     path = "/campaigns"
+    guards: ClassVar = [require_role(Role.VIEWER)]
 
     @get("/{campaign_name:str}")
     async def get_campaign(self, campaign_name: str, db: AsyncDbSession, orchestrator: Orchestrator) -> Campaign:
@@ -21,15 +26,16 @@ class CampaignController(Controller):
 
         return campaign
 
-    @post("/")
+    @post("/", guards=[require_role(Role.SUBMITTER)])
     async def submit_campaign(
-        self, data: CampaignSubmission, db: AsyncDbSession, orchestrator: Orchestrator
+        self, data: CampaignSubmission, db: AsyncDbSession, orchestrator: Orchestrator, user: AuthenticatedUser
     ) -> dict[str, str]:
         """Submit a new campaign for execution."""
+        stamp_owner(data, user)
         await orchestrator.campaigns.submit_campaign(db, data)
         return {"message": "Campaign submitted"}
 
-    @post("/{campaign_name:str}/cancel")
+    @post("/{campaign_name:str}/cancel", guards=[require_role(Role.SUBMITTER)])
     async def cancel_campaign(self, campaign_name: str, orchestrator: Orchestrator) -> dict[str, str]:
         """Cancel a running campaign."""
         await orchestrator.campaigns.cancel_campaign(campaign_name)
