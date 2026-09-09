@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,22 +428,15 @@
                   
   <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>EOS should be installed on an easily accessible central laboratory computer.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>EOS requires bi-directional network access to any computers used for automation.</p>
-<p>Using an isolated laboratory network for security and performance is strongly recommended.
-See <a class="reference internal" href="infrastructure_setup.html"><span class="doc">infrastructure setup</span></a> for details.</p>
-</div>
-<p>EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
-Docker Compose file to set up these services.</p>
-<section id="install-uv">
-<h2>1. Install uv<a class="headerlink" href="#install-uv" title="Link to this heading">#</a></h2>
-<p>uv manages EOS dependencies.</p>
+<p>Install EOS on the central laboratory computer. You need Python 3.11+, uv, Node.js and npm
+for the web UI, and Docker Compose for PostgreSQL and S3-compatible storage.
+See <a class="reference internal" href="infrastructure_setup.html"><span class="doc">Infrastructure Setup</span></a> before connecting other lab computers.</p>
+<section id="install-uv-and-eos">
+<h2>Install uv and EOS<a class="headerlink" href="#install-uv-and-eos" title="Link to this heading">#</a></h2>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
-Linux/Mac</label><div class="sd-tab-content docutils">
+Linux/macOS</label><div class="sd-tab-content docutils">
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
 </pre></div>
 </div>
@@ -449,79 +444,63 @@ Linux/Mac</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Windows</label><div class="sd-tab-content docutils">
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>powershell<span class="w"> </span>-ExecutionPolicy<span class="w"> </span>ByPass<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="n">powershell</span> <span class="n">-ExecutionPolicy</span> <span class="n">ByPass</span> <span class="n">-c</span> <span class="s2">&quot;irm https://astral.sh/uv/install.ps1 | iex&quot;</span>
 </pre></div>
 </div>
 </div>
 </div>
-</section>
-<section id="install-eos">
-<h2>2. Install EOS<a class="headerlink" href="#install-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone repository</span>
-git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-Robotics/eos
+<p>Clone the repository and install dependencies:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-Robotics/eos
 <span class="nb">cd</span><span class="w"> </span>eos
-
-<span class="c1"># Create and activate virtual environment</span>
-uv<span class="w"> </span>venv
-<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
-
-<span class="c1"># Install dependencies</span>
 uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
 </pre></div>
 </div>
+<p>Activate the environment with <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">.venv/bin/activate</span></code> on Linux/macOS or
+<code class="docutils literal notranslate"><span class="pre">.venv\Scripts\Activate.ps1</span></code> in Windows PowerShell.</p>
 </section>
-<section id="configure-eos">
-<h2>3. Configure EOS<a class="headerlink" href="#configure-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set environment variables</span>
-cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit .env file and provide values</span>
-
-<span class="c1"># Configure EOS</span>
-cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
-<span class="c1"># Edit config.yml and provide values</span>
+<section id="configure-and-start">
+<h2>Configure and Start<a class="headerlink" href="#configure-and-start" title="Link to this heading">#</a></h2>
+<p>The setup wizard writes the configuration and can bootstrap Zitadel for <a class="reference internal" href="authentication.html"><span class="doc">Authentication &amp; Authorization</span></a>.
+Then start the infrastructure services and EOS, which initializes the database on its first run:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>setup
+eos<span class="w"> </span>services<span class="w"> </span>up
+eos<span class="w"> </span>start
 </pre></div>
 </div>
-</section>
-<section id="launch-external-services">
-<h2>4. Launch External Services<a class="headerlink" href="#launch-external-services" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Start external services (PostgreSQL and SeaweedFS)</span>
-docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-</pre></div>
-</div>
-</section>
-<section id="start-eos">
-<h2>5. Start EOS<a class="headerlink" href="#start-eos" title="Link to this heading">#</a></h2>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>start
-</pre></div>
-</div>
-<p>By default, EOS loads the “multiplication_lab” laboratory and “optimize_multiplication” protocol from an example package. This can be changed in the configuration file.</p>
-</section>
-<section id="launch-the-web-ui">
-<h2>6. Launch the Web UI<a class="headerlink" href="#launch-the-web-ui" title="Link to this heading">#</a></h2>
-<p><strong>Option A: Without Docker</strong></p>
+<p>Install the web UI dependencies and start it in another terminal:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
-cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit .env and provide values</span>
 npm<span class="w"> </span>install
-eos<span class="w"> </span>ui
+eos<span class="w"> </span>start<span class="w"> </span>ui
 </pre></div>
 </div>
-<p><strong>Option B: With Docker</strong></p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
-cp<span class="w"> </span>.env.docker.example<span class="w"> </span>.env.docker
-<span class="c1"># Edit .env.docker and provide values</span>
-docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-</pre></div>
-</div>
-<p>The web UI is available at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>.</p>
+<p>The UI defaults to <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>. The example configuration loads
+<code class="docutils literal notranslate"><span class="pre">multiplication_lab</span></code> and <code class="docutils literal notranslate"><span class="pre">optimize_multiplication</span></code>. Change <code class="docutils literal notranslate"><span class="pre">config.yml</span></code> to load your packages.</p>
 </section>
-<section id="updating-eos">
-<h2>Updating EOS<a class="headerlink" href="#updating-eos" title="Link to this heading">#</a></h2>
+<section id="manual-configuration">
+<h2>Manual Configuration<a class="headerlink" href="#manual-configuration" title="Link to this heading">#</a></h2>
+<p>If you do not use the wizard, copy and edit the templates:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
+cp<span class="w"> </span>web_ui/.env.example<span class="w"> </span>web_ui/.env
+</pre></div>
+</div>
+<p>Then initialize services and start the orchestrator:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>services<span class="w"> </span>up
+eos<span class="w"> </span>db<span class="w"> </span>init
+eos<span class="w"> </span>start
+</pre></div>
+</div>
+<p>Install and start the UI as above. For a Docker UI deployment, copy and edit
+<code class="docutils literal notranslate"><span class="pre">web_ui/.env.docker.example</span></code> as <code class="docutils literal notranslate"><span class="pre">web_ui/.env.docker</span></code>, then run <code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">up</span> <span class="pre">-d</span></code>
+from <code class="docutils literal notranslate"><span class="pre">web_ui</span></code>.</p>
+</section>
+<section id="update-eos">
+<h2>Update EOS<a class="headerlink" href="#update-eos" title="Link to this heading">#</a></h2>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>update
 </pre></div>
 </div>
-<p>Pulls the latest <code class="docutils literal notranslate"><span class="pre">master</span></code>, syncs dependencies, and runs database migrations. User package
-code and dependencies are preserved. Run <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">update</span> <span class="pre">--help</span></code> for available flags.</p>
+<p>This pulls <code class="docutils literal notranslate"><span class="pre">master</span></code>, syncs dependencies, and runs database migrations while preserving
+user package code and dependencies. Use <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">update</span> <span class="pre">--help</span></code> for options.</p>
 </section>
 </section>
 
@@ -572,13 +551,10 @@ code and dependencies are preserved. Run <code class="docutils literal notransla
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-uv">1. Install uv</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-eos">2. Install EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-eos">3. Configure EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-external-services">4. Launch External Services</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#start-eos">5. Start EOS</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#launch-the-web-ui">6. Launch the Web UI</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#updating-eos">Updating EOS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#install-uv-and-eos">Install uv and EOS</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-and-start">Configure and Start</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#manual-configuration">Manual Configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#update-eos">Update EOS</a></li>
 </ul>
   </nav></div>
 

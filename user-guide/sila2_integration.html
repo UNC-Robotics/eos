@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -52,7 +52,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Jinja2 Templating" href="jinja2_templating.html" />
-    <link rel="prev" title="MCP Server" href="mcp.html" />
+    <link rel="prev" title="Authentication &amp; Authorization" href="authentication.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="current nav bd-sidenav">
@@ -426,18 +428,8 @@
                   
   <section id="sila-2-integration">
 <h1>SiLA 2 Integration<a class="headerlink" href="#sila-2-integration" title="Link to this heading">#</a></h1>
-<p>EOS provides built-in support for <a class="reference external" href="https://sila-standard.com/">SiLA 2</a> to ease integration with
-SiLA-compliant instruments.</p>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
-<p>The SiLA integration allows you to:</p>
-<ul class="simple">
-<li><p>Host SiLA servers inside EOS devices</p></li>
-<li><p>Connect to external SiLA servers (manual or with autodiscovery)</p></li>
-<li><p>Call SiLA servers from tasks with automatic connection management</p></li>
-<li><p>Use LockController for exclusive device access (automatic)</p></li>
-</ul>
-</section>
+<p>EOS can host SiLA 2 servers inside devices or connect to external servers.
+Tasks use <code class="docutils literal notranslate"><span class="pre">SilaClientContext</span></code> for connection management and automatic LockController handling.</p>
 <section id="setup">
 <h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
 <p>Install the SiLA 2 Python package and supporting packages:</p>
@@ -449,9 +441,12 @@ SiLA-compliant instruments.</p>
 <h2>Hosting SiLA Servers<a class="headerlink" href="#hosting-sila-servers" title="Link to this heading">#</a></h2>
 <p>Host SiLA servers inside EOS devices using <code class="docutils literal notranslate"><span class="pre">SilaDeviceMixin</span></code>:</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">device.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.integrations.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">SilaDeviceMixin</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">your_package.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">Server</span> <span class="k">as</span> <span class="n">YourSilaServer</span>
+
 
 <span class="k">class</span><span class="w"> </span><span class="nc">YourDevice</span><span class="p">(</span><span class="n">BaseDevice</span><span class="p">,</span> <span class="n">SilaDeviceMixin</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -515,6 +510,7 @@ SiLA-compliant instruments.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.integrations.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">SilaClientContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">your_package.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span> <span class="k">as</span> <span class="n">YourSilaClient</span>
 
+
 <span class="k">class</span><span class="w"> </span><span class="nc">YourTask</span><span class="p">(</span><span class="n">BaseTask</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">devices</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">resources</span><span class="p">):</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">devices</span><span class="p">[</span><span class="s2">&quot;your_device&quot;</span><span class="p">]</span>
@@ -555,9 +551,12 @@ SiLA-compliant instruments.</p>
 <section id="calling-servers-from-device-code">
 <h3>Calling Servers from Device Code<a class="headerlink" href="#calling-servers-from-device-code" title="Link to this heading">#</a></h3>
 <p>SiLA servers can also be called from within an EOS device:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.integrations.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">SilaDeviceMixin</span><span class="p">,</span> <span class="n">SilaClientContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">your_package.sila</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span> <span class="k">as</span> <span class="n">YourSilaClient</span>
+
 
 <span class="k">class</span><span class="w"> </span><span class="nc">YourDevice</span><span class="p">(</span><span class="n">BaseDevice</span><span class="p">,</span> <span class="n">SilaDeviceMixin</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -585,14 +584,6 @@ SiLA-compliant instruments.</p>
 <li><p><strong>Auto-retry</strong>: Waits up to 60s if locked</p></li>
 <li><p><strong>Auto-unlock</strong>: Releases on context exit</p></li>
 </ul>
-<section id="default-behavior">
-<h3>Default Behavior<a class="headerlink" href="#default-behavior" title="Link to this heading">#</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Automatically locked for 60 seconds</span>
-<span class="k">async</span> <span class="k">with</span> <span class="n">SilaClientContext</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">Client</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
-    <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">Feature</span><span class="o">.</span><span class="n">Command</span><span class="p">()</span>
-</pre></div>
-</div>
-</section>
 <section id="custom-timeout">
 <h3>Custom Timeout<a class="headerlink" href="#custom-timeout" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Lock for 120 seconds</span>
@@ -645,12 +636,12 @@ SiLA-compliant instruments.</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="mcp.html"
+       href="authentication.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">MCP Server</p>
+        <p class="prev-next-title">Authentication &amp; Authorization</p>
       </div>
     </a>
     <a class="right-next"
@@ -681,7 +672,6 @@ SiLA-compliant instruments.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#overview">Overview</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hosting-sila-servers">Hosting SiLA Servers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#connecting-to-external-sila-servers">Connecting to External SiLA Servers</a><ul class="nav section-nav flex-column">
@@ -695,7 +685,6 @@ SiLA-compliant instruments.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#lockcontroller-support">LockController Support</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#default-behavior">Default Behavior</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-timeout">Custom Timeout</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-retry-behavior">Custom Retry Behavior</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#disable-auto-locking">Disable Auto-Locking</a></li>

@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -51,7 +51,7 @@
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="SiLA 2 Integration" href="sila2_integration.html" />
+    <link rel="next" title="Authentication &amp; Authorization" href="authentication.html" />
     <link rel="prev" title="REST API" href="rest_api.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,15 +428,10 @@
                   
   <section id="mcp-server">
 <h1>MCP Server<a class="headerlink" href="#mcp-server" title="Link to this heading">#</a></h1>
-<p>EOS exposes a <a class="reference external" href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server through its web UI,
-allowing AI assistants like Claude to interact with EOS directly: querying protocols, submitting campaigns, inspecting devices, and more.</p>
-<p>Once connected, the AI assistant automatically discovers all available tools and you can ask it things like
-“check the status of my campaign”, “submit 10 multiplication protocols”, or “what functions does the pipette support?”</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The MCP endpoint has no authentication.
-Only expose it in trusted environments (local network or behind a reverse proxy with auth).</p>
-</div>
+<p>EOS exposes an MCP server through the web UI. Connected assistants can inspect definitions,
+submit work, monitor campaigns, and call device functions.</p>
+<p>With <a class="reference internal" href="authentication.html"><span class="doc">Authentication &amp; Authorization</span></a> enabled, clients need a bearer token. The SQL tool requires the
+superuser role. With authentication disabled, expose the endpoint only on trusted networks.</p>
 <section id="connecting">
 <h2>Connecting<a class="headerlink" href="#connecting" title="Link to this heading">#</a></h2>
 <p>The MCP server is available at <code class="docutils literal notranslate"><span class="pre">http://&lt;web-ui-host&gt;:3000/api/mcp</span></code> using the Streamable HTTP transport.</p>
@@ -466,15 +463,15 @@ replacing <code class="docutils literal notranslate"><span class="pre">localhost
 </section>
 <section id="capabilities">
 <h2>Capabilities<a class="headerlink" href="#capabilities" title="Link to this heading">#</a></h2>
-<p>The MCP server exposes 50 tools across the following categories:</p>
+<p>Tools cover the following categories:</p>
 <ul class="simple">
-<li><p><strong>Campaigns, Protocol Runs, Tasks</strong> – List, inspect, submit, and cancel at every level of the execution hierarchy.</p></li>
-<li><p><strong>Definitions</strong> – Browse loaded task types, device types, lab layouts, and protocol workflows.</p></li>
-<li><p><strong>Management</strong> – Load, unload, and reload labs, protocols, devices, and packages.</p></li>
-<li><p><strong>Optimizer</strong> – Query optimizer state, update runtime parameters, and provide expert insights.</p></li>
-<li><p><strong>Devices</strong> – List devices, inspect state, discover available RPC functions, and call them directly.</p></li>
-<li><p><strong>SQL</strong> – Run read-only queries against the EOS database.</p></li>
-<li><p><strong>Filesystem</strong> – Browse packages and read entity configuration files (YAML, Python).</p></li>
+<li><p><strong>Campaigns, Protocol Runs, Tasks</strong>: List, inspect, submit, and cancel at every level of the execution hierarchy.</p></li>
+<li><p><strong>Definitions</strong>: Browse loaded task types, device types, lab layouts, and protocol workflows.</p></li>
+<li><p><strong>Management</strong>: Load, unload, and reload labs, protocols, devices, and packages.</p></li>
+<li><p><strong>Optimizer</strong>: Query optimizer state, update runtime parameters, and provide expert insights.</p></li>
+<li><p><strong>Devices</strong>: List devices, inspect state, discover available RPC functions, and call them directly.</p></li>
+<li><p><strong>SQL</strong>: Run read-only queries against the EOS database.</p></li>
+<li><p><strong>Filesystem</strong>: Browse packages and read entity configuration files (YAML, Python).</p></li>
 </ul>
 </section>
 <section id="examples">
@@ -482,7 +479,7 @@ replacing <code class="docutils literal notranslate"><span class="pre">localhost
 <p>Natural language prompts you might give an AI assistant connected to EOS via MCP:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&quot;Show me the status of the catalyst_screening campaign and list all completed protocols&quot;
 
-&quot;Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis&quot;
+&quot;Submit a color mixing protocol run targeting RGB(120, 45, 200)&quot;
 
 &quot;What devices are available in the wet lab? What functions does the liquid handler support?&quot;
 
@@ -514,11 +511,11 @@ replacing <code class="docutils literal notranslate"><span class="pre">localhost
       </div>
     </a>
     <a class="right-next"
-       href="sila2_integration.html"
+       href="authentication.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">SiLA 2 Integration</p>
+        <p class="prev-next-title">Authentication &amp; Authorization</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

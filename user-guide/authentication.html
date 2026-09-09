@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Protocols &#8212; EOS</title>
+    <title>Authentication &amp; Authorization &#8212; EOS</title>
   
   
   
@@ -47,12 +47,12 @@
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../_static/copybutton.js?v=f281be69"></script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/protocols';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user-guide/authentication';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Campaigns" href="campaigns.html" />
-    <link rel="prev" title="References" href="references.html" />
+    <link rel="next" title="SiLA 2 Integration" href="sila2_integration.html" />
+    <link rel="prev" title="MCP Server" href="mcp.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -337,14 +337,14 @@
 <li class="toctree-l1"><a class="reference internal" href="multi_computer_setup.html">Multi-Computer Lab Setup</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Concepts</span></p>
-<ul class="current nav bd-sidenav">
+<ul class="nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="packages.html">Packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="devices.html">Devices</a></li>
 <li class="toctree-l1"><a class="reference internal" href="resources.html">Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a></li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
@@ -352,11 +352,11 @@
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
-<ul class="nav bd-sidenav">
+<ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
-<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -409,7 +409,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">User Guide</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Protocols</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Authentication &amp; Authorization</span></li>
   </ul>
 </nav>
 </div>
@@ -426,130 +426,163 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="protocols">
-<h1>Protocols<a class="headerlink" href="#protocols" title="Link to this heading">#</a></h1>
-<p>A protocol is a directed acyclic graph of tasks. Dependencies set execution order, and
-<a class="reference internal" href="references.html"><span class="doc">References</span></a> pass values, devices, resources, and files between tasks.</p>
-<figure class="align-center">
-<img alt="Example protocol graph" src="../_images/protocol-graph.png" />
-</figure>
-<section id="define-a-protocol">
-<h2>Define a Protocol<a class="headerlink" href="#define-a-protocol" title="Link to this heading">#</a></h2>
-<p>Place <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code> in <code class="docutils literal notranslate"><span class="pre">protocols/&lt;protocol_name&gt;/</span></code> inside an EOS package.
-Add <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> only when the protocol supports <a class="reference internal" href="campaigns.html"><span class="doc">Campaigns</span></a> with optimization.</p>
-<p>This example uses the multiplication tasks from the bundled example package:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">optimize_multiplication</span>
-<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Find parameters whose multiplied value is 1024</span>
-<span class="nt">labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">multiplication_lab</span><span class="p p-Indicator">]</span>
-
-<span class="nt">tasks</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mult_1</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Multiplication</span>
-<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">multiplier</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">multiplication_lab</span>
-<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">multiplier</span>
-<span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="w">      </span><span class="nt">factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mult_2</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Multiplication</span>
-<span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mult_1</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">multiplier</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mult_1.multiplier</span>
-<span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mult_1.product</span>
-<span class="w">      </span><span class="nt">factor</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_multiplication</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Multiplication</span>
-<span class="w">    </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mult_1</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">mult_2</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">analyzer</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">multiplication_lab</span>
-<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyzer</span>
-<span class="w">    </span><span class="nt">parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mult_1.in_number</span>
-<span class="w">      </span><span class="nt">product</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mult_2.product</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">type</span></code> identifies the protocol definition. Each execution has a separate protocol run name.
-<code class="docutils literal notranslate"><span class="pre">labs</span></code> lists the laboratories available to its tasks.</p>
-</section>
-<section id="task-fields">
-<h2>Task Fields<a class="headerlink" href="#task-fields" title="Link to this heading">#</a></h2>
+  <section id="authentication-authorization">
+<h1>Authentication &amp; Authorization<a class="headerlink" href="#authentication-authorization" title="Link to this heading">#</a></h1>
+<p>EOS supports optional authentication and authorization backed by <a class="reference external" href="https://zitadel.com">Zitadel</a>,
+an open-source identity provider. Authentication is disabled by default. In that mode, expose
+the REST API, web UI, and MCP endpoint only on trusted networks.</p>
+<section id="how-it-works">
+<h2>How It Works<a class="headerlink" href="#how-it-works" title="Link to this heading">#</a></h2>
+<section id="identity">
+<h3>Identity<a class="headerlink" href="#identity" title="Link to this heading">#</a></h3>
+<p>Accounts live in one central Zitadel instance that every EOS instance at an institution can share,
+so a person uses a single account everywhere. EOS stores no accounts or passwords. Tokens are
+validated locally against Zitadel’s JWKS, with no per-request call to Zitadel:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code> identifies the task within this protocol. <code class="docutils literal notranslate"><span class="pre">type</span></code> selects a task specification.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dependencies</span></code> lists tasks that must finish first.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">parameters</span></code> overrides task defaults. <code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code> requires a value from the submission
-or optimizer before the task can run.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">devices</span></code> and <code class="docutils literal notranslate"><span class="pre">resources</span></code> assign specific instances, request dynamic allocation, or
-reference an earlier task’s allocation. See <a class="reference internal" href="references.html"><span class="doc">References</span></a> and <a class="reference internal" href="scheduling.html"><span class="doc">Scheduling</span></a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">files</span></code> references earlier task output files. See <a class="reference internal" href="tasks.html"><span class="doc">Tasks</span></a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">duration</span></code> supplies the expected execution time in seconds for scheduling.</p></li>
+<li><p><strong>Web UI</strong>: OpenID Connect sign-in (authorization code + PKCE).</p></li>
+<li><p><strong>REST API</strong> and <strong>MCP endpoint</strong>: <code class="docutils literal notranslate"><span class="pre">Authorization:</span> <span class="pre">Bearer</span> <span class="pre">&lt;token&gt;</span></code> on every request.</p></li>
 </ul>
-<p>See <a class="reference internal" href="color_mixing.html"><span class="doc">Color Mixing</span></a> for a larger protocol with device allocation and resource movement.</p>
-<section id="conditionals-run-if">
-<h3>Conditionals (run_if)<a class="headerlink" href="#conditionals-run-if" title="Link to this heading">#</a></h3>
-<p>Add a <code class="docutils literal notranslate"><span class="pre">run_if</span></code> field to a task to make it conditional.
-The task runs only if the expression evaluates to <code class="docutils literal notranslate"><span class="pre">True</span></code>, otherwise it is skipped.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">reanalyze</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Analyze Color</span>
-<span class="w">  </span><span class="nt">run_if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color.loss &gt; 0.2</span>
-<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">score_color</span><span class="p p-Indicator">]</span>
+</section>
+<section id="roles">
+<h3>Roles<a class="headerlink" href="#roles" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Role</p></th>
+<th class="head"><p>Scope</p></th>
+<th class="head"><p>Permissions</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">viewer</span></code></p></td>
+<td><p>One instance</p></td>
+<td><p>Read-only</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">submitter</span></code></p></td>
+<td><p>One instance</p></td>
+<td><p>Viewer, plus submit and cancel tasks, protocols, and campaigns, reset resources, and tune optimizers</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">editor</span></code></p></td>
+<td><p>One instance</p></td>
+<td><p>Submitter, plus author task, protocol, and device definitions</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">lab_admin</span></code></p></td>
+<td><p>Specific labs in one instance</p></td>
+<td><p>Editor, plus load protocols, reload devices and task plugins, run the simulator, and device RPC for their labs</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">superuser</span></code></p></td>
+<td><p>One instance</p></td>
+<td><p>Everything, including loading labs and packages and managing users</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Roles are cumulative and live in each instance’s own database, so one account can be <code class="docutils literal notranslate"><span class="pre">superuser</span></code>
+in one instance and <code class="docutils literal notranslate"><span class="pre">viewer</span></code> in another. The token identifies the user. Authorization is local to each instance.</p>
+</section>
+<section id="accounts">
+<h3>Accounts<a class="headerlink" href="#accounts" title="Link to this heading">#</a></h3>
+<p>There is no self-registration. Superusers create accounts from the Management page’s <strong>Users</strong> tab
+or <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">auth</span> <span class="pre">create-user</span></code>, and the user gets a temporary password to change at first sign-in.
+Submitted protocol runs and campaigns are owned by the authenticated user.</p>
+</section>
+<section id="machine-access">
+<h3>Machine Access<a class="headerlink" href="#machine-access" title="Link to this heading">#</a></h3>
+<p>Scripts and MCP clients use Zitadel service accounts with either <strong>JWT access tokens</strong> (client
+credentials flow, validated locally) or <strong>personal access tokens</strong> (long-lived opaque tokens, handy
+for MCP configs, validated by introspection with the EOS API app credentials).</p>
+</section>
+</section>
+<section id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">#</a></h2>
+<p>Deployment is automated. Each path below creates the org, project, both apps, and the
+<code class="docutils literal notranslate"><span class="pre">eos-user-admin</span></code> service user, and is safe to re-run.</p>
+<p><strong>Single box.</strong> <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">setup</span></code> deploys Zitadel and writes <code class="docutils literal notranslate"><span class="pre">.env</span></code> and <code class="docutils literal notranslate"><span class="pre">web_ui/.env</span></code> for you.</p>
+<p><strong>Dedicated identity host</strong>, shared by several EOS instances. The standalone deployer needs only
+Docker:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>docker/zitadel
+python3<span class="w"> </span>deploy.py<span class="w"> </span>--url<span class="w"> </span>https://eos-auth.lab.internal<span class="w"> </span>--tls-mode<span class="w"> </span>internal
+python3<span class="w"> </span>deploy.py<span class="w"> </span>--url<span class="w"> </span>http://localhost:8080<span class="w">                          </span><span class="c1"># local http</span>
 </pre></div>
 </div>
-<p>Expressions reference earlier task outputs as <code class="docutils literal notranslate"><span class="pre">task_name.output_name</span></code>.
-Referenced tasks must be ancestors of the conditional task.</p>
-<p>Supported syntax:</p>
+<p>It generates secrets, brings up the stack, provisions everything, and writes <code class="docutils literal notranslate"><span class="pre">eos-instance.env</span></code>
+with the values to paste into each instance. Use <code class="docutils literal notranslate"><span class="pre">--ui-url</span></code> to register an instance’s web UI
+redirect (default <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>), re-running with another to add more.</p>
+<p><strong>Existing Zitadel</strong> you already run. Create an instance-admin PAT in its console, then point the
+same deployer at it to provision without deploying:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>deploy.py<span class="w"> </span>--issuer<span class="w"> </span>https://auth.example.org<span class="w"> </span>--admin-pat<span class="w"> </span>&lt;PAT&gt;
+</pre></div>
+</div>
+<p>Afterward the only manual step is granting yourself superuser:
+<code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">auth</span> <span class="pre">create-user</span> <span class="pre">&lt;username&gt;</span> <span class="pre">&lt;email&gt;</span> <span class="pre">--superuser</span></code>.</p>
+<section id="tls">
+<h3>TLS<a class="headerlink" href="#tls" title="Link to this heading">#</a></h3>
+<p>The bundled Caddy proxy terminates TLS, so no external reverse proxy is needed. Set
+<code class="docutils literal notranslate"><span class="pre">ZITADEL_TLS_MODE</span></code> (or <code class="docutils literal notranslate"><span class="pre">deploy.py</span> <span class="pre">--tls-mode</span></code>). Published ports follow from
+<code class="docutils literal notranslate"><span class="pre">EOS_AUTH_ISSUER</span></code>:</p>
 <ul class="simple">
-<li><p>Comparisons: <code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code></p></li>
-<li><p>Boolean operators: <code class="docutils literal notranslate"><span class="pre">and</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code>, <code class="docutils literal notranslate"><span class="pre">not</span></code></p></li>
-<li><p>Literals: ints, floats, quoted strings, <code class="docutils literal notranslate"><span class="pre">True</span></code> / <code class="docutils literal notranslate"><span class="pre">False</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">internal</span></code> (recommended for isolated lab networks): a self-signed certificate for the issuer’s
+host. Export its root CA and distribute it to every browser and EOS service that reaches Zitadel,
+or JWKS and token fetches fail:
+<code class="docutils literal notranslate"><span class="pre">docker</span> <span class="pre">compose</span> <span class="pre">--profile</span> <span class="pre">auth</span> <span class="pre">exec</span> <span class="pre">zitadel-proxy</span> <span class="pre">cat</span> <span class="pre">/data/caddy/pki/authorities/local/root.crt</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">custom</span></code>: your own certificate at <code class="docutils literal notranslate"><span class="pre">docker/zitadel/tls/cert.pem</span></code> and <code class="docutils literal notranslate"><span class="pre">tls/key.pem</span></code>. Preferred
+when an institutional CA your machines already trust issued it, since it skips the step above.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">acme</span></code>: automatic Let’s Encrypt for a public domain reachable on ports 80 and 443. Set
+<code class="docutils literal notranslate"><span class="pre">ZITADEL_ACME_EMAIL</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">none</span></code>: plain HTTP, for local development or behind your own TLS proxy.</p></li>
 </ul>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">run_if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prep.product &gt;= 0 and prep.product &lt;= 100</span>
-<span class="nt">run_if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">not calibration.passed</span>
-<span class="nt">run_if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mode.setting == &#39;high&#39; or sample.count &gt;= 3</span>
+</section>
+<section id="configuration-reference">
+<h3>Configuration reference<a class="headerlink" href="#configuration-reference" title="Link to this heading">#</a></h3>
+<p>The deployers write these values. Set them by hand only when pointing EOS at a Zitadel you
+provisioned yourself. In <code class="docutils literal notranslate"><span class="pre">config.yml</span></code>, or the matching <code class="docutils literal notranslate"><span class="pre">EOS_AUTH_*</span></code> variables in <code class="docutils literal notranslate"><span class="pre">.env</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">auth</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">issuer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://auth.example.org</span>
+<span class="w">  </span><span class="nt">org_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;org-id&gt;&quot;</span>
+<span class="w">  </span><span class="nt">project_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;project-id&gt;&quot;</span>
+<span class="w">  </span><span class="nt">service_user_pat</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;eos-user-admin</span><span class="nv"> </span><span class="s">PAT&gt;&quot;</span>
+<span class="w">  </span><span class="nt">introspection_client_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;EOS</span><span class="nv"> </span><span class="s">API</span><span class="nv"> </span><span class="s">app</span><span class="nv"> </span><span class="s">client</span><span class="nv"> </span><span class="s">id&gt;&quot;</span>
+<span class="w">  </span><span class="nt">introspection_client_secret</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;EOS</span><span class="nv"> </span><span class="s">API</span><span class="nv"> </span><span class="s">app</span><span class="nv"> </span><span class="s">client</span><span class="nv"> </span><span class="s">secret&gt;&quot;</span>
+
+<span class="nt">web_api</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">cors_origins</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;https://&lt;ui-host&gt;&quot;</span><span class="p p-Indicator">]</span>
 </pre></div>
 </div>
-<p>Expressions must return a boolean and are validated at load time.
-Negative numbers are allowed. Binary arithmetic, function calls, indexing, and chained attribute access are not.</p>
-<p>Skips propagate: a task is skipped if all of its dependencies were skipped, or (for a conditional task) if any task its
-<code class="docutils literal notranslate"><span class="pre">run_if</span></code> references was skipped.
-A task with at least one non-skipped dependency still runs, enabling fan-in convergence across conditional branches.</p>
-<p><strong>Branching and fan-in</strong>: give branches complementary conditions so exactly one runs, then converge on a task depending
-on both. To read the output of whichever branch ran, set a parameter to a <strong>fan-in list</strong> of references:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">measure</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Measure</span>
-<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">heat</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Heat</span>
-<span class="w">  </span><span class="nt">run_if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">measure.temperature &lt; 50</span>
-<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">measure</span><span class="p p-Indicator">]</span>
-
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cool</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Cool</span>
-<span class="w">  </span><span class="nt">run_if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">measure.temperature &gt;= 50</span>
-<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">measure</span><span class="p p-Indicator">]</span>
-
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">report</span>
-<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Report</span>
-<span class="w">  </span><span class="nt">dependencies</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">heat</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">cool</span><span class="p p-Indicator">]</span>
-<span class="w">  </span><span class="nt">parameters</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">reading</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">heat.result</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">cool.result</span><span class="p p-Indicator">]</span><span class="w">  </span><span class="c1"># fan-in: value of whichever branch ran</span>
+<p>Zitadel audiences tokens to the project, so <code class="docutils literal notranslate"><span class="pre">project_id</span></code> is also the accepted audience.</p>
+<p>In <code class="docutils literal notranslate"><span class="pre">web_ui/.env</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">AUTH_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+<span class="nv">AUTH_SECRET</span><span class="o">=</span>&lt;random<span class="w"> </span>string,<span class="w"> </span>e.g.<span class="w"> </span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span>&gt;
+<span class="nv">AUTH_ISSUER</span><span class="o">=</span>https://auth.example.org
+<span class="nv">AUTH_CLIENT_ID</span><span class="o">=</span>&lt;EOS<span class="w"> </span>Web<span class="w"> </span>UI<span class="w"> </span>app<span class="w"> </span>client<span class="w"> </span>id&gt;
+<span class="nv">AUTH_ORG_ID</span><span class="o">=</span>&lt;org-id&gt;
+<span class="nv">AUTH_PROJECT_ID</span><span class="o">=</span>&lt;project-id&gt;
+<span class="nv">AUTH_PAT</span><span class="o">=</span>&lt;eos-user-admin<span class="w"> </span>PAT&gt;
+<span class="nv">AUTH_INTROSPECTION_CLIENT_ID</span><span class="o">=</span>&lt;EOS<span class="w"> </span>API<span class="w"> </span>app<span class="w"> </span>client<span class="w"> </span>id&gt;
+<span class="nv">AUTH_INTROSPECTION_CLIENT_SECRET</span><span class="o">=</span>&lt;EOS<span class="w"> </span>API<span class="w"> </span>app<span class="w"> </span>client<span class="w"> </span>secret&gt;
 </pre></div>
 </div>
-<p>Each fan-in reference must point to an ancestor, and exactly one branch must run, so make the branch conditions mutually
-exclusive.</p>
 </section>
 </section>
-<section id="optimization">
-<h2>Optimization<a class="headerlink" href="#optimization" title="Link to this heading">#</a></h2>
-<p>Define <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer()</span></code> in <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> to return constructor arguments
-and an optimizer class. See <a class="reference internal" href="optimizers.html"><span class="doc">Optimizers</span></a> for the interface, <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a> for
-hybrid optimization, and <a class="reference internal" href="custom_beacon.html"><span class="doc">Customizing Beacon</span></a> to replace Beacon’s default optimizer.</p>
+<section id="managing-users-from-the-cli">
+<h2>Managing Users from the CLI<a class="headerlink" href="#managing-users-from-the-cli" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">auth</span></code> CLI mirrors the Users tab. Users can be referenced by username, email, or Zitadel
+user ID.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>auth<span class="w"> </span>create-user<span class="w"> </span>alice<span class="w"> </span>alice@example.org<span class="w"> </span><span class="o">[</span>--superuser<span class="o">]</span>
+eos<span class="w"> </span>auth<span class="w"> </span>list-users
+eos<span class="w"> </span>auth<span class="w"> </span>deactivate-user<span class="w"> </span>alice
+eos<span class="w"> </span>auth<span class="w"> </span>assign-role<span class="w"> </span>alice<span class="w"> </span>editor
+eos<span class="w"> </span>auth<span class="w"> </span>assign-role<span class="w"> </span>alice<span class="w"> </span>lab_admin<span class="w"> </span>--lab<span class="w"> </span>color_lab
+eos<span class="w"> </span>auth<span class="w"> </span>revoke-role<span class="w"> </span>alice<span class="w"> </span>editor
+eos<span class="w"> </span>auth<span class="w"> </span>list-roles
+</pre></div>
+</div>
+</section>
+<section id="calling-the-api-with-a-token">
+<h2>Calling the API with a Token<a class="headerlink" href="#calling-the-api-with-a-token" title="Link to this heading">#</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># PAT or JWT access token</span>
+curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span><span class="w"> </span>https://&lt;eos-host&gt;:8070/api/tasks/types
+</pre></div>
+</div>
 </section>
 </section>
 
@@ -564,20 +597,20 @@ hybrid optimization, and <a class="reference internal" href="custom_beacon.html"
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="references.html"
+       href="mcp.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">References</p>
+        <p class="prev-next-title">MCP Server</p>
       </div>
     </a>
     <a class="right-next"
-       href="campaigns.html"
+       href="sila2_integration.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Campaigns</p>
+        <p class="prev-next-title">SiLA 2 Integration</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -600,12 +633,20 @@ hybrid optimization, and <a class="reference internal" href="custom_beacon.html"
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#define-a-protocol">Define a Protocol</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#task-fields">Task Fields</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#conditionals-run-if">Conditionals (run_if)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-it-works">How It Works</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#identity">Identity</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#roles">Roles</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accounts">Accounts</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#machine-access">Machine Access</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimization">Optimization</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setup">Setup</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#tls">TLS</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration-reference">Configuration reference</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#managing-users-from-the-cli">Managing Users from the CLI</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#calling-the-api-with-a-token">Calling the API with a Token</a></li>
 </ul>
   </nav></div>
 

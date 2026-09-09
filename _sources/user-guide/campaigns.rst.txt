@@ -1,122 +1,59 @@
 Campaigns
 =========
-A campaign in EOS is a protocol executed multiple times in sequence, usually with varying parameters, toward goals such as optimizing objectives by searching for optimal parameters.
-Campaigns are the highest-level execution unit in EOS and can be used to implement autonomous (self-driving) labs.
-
-The DMTA loop is a common paradigm in autonomous experimentation, and EOS campaigns can implement it.
-EOS has built-in support for running campaigns of a protocol, including a built-in Bayesian optimizer for parameter optimization.
+A campaign runs a protocol repeatedly with supplied or optimizer-generated parameters.
+``max_concurrent_protocol_runs`` controls how many runs can execute at once.
 
 .. figure:: ../_static/img/dmta-loop.png
-   :alt: The DMTA Loop
+   :alt: The Design, Make, Test, Analyze loop
    :align: center
 
-Optimization Setup (Analyze and Design Phases)
-----------------------------------------------
-Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing protocol parameters over time.
-EOS natively supports this through a built-in Bayesian optimizer that integrates with the campaign execution module.
-Custom algorithms such as reinforcement learning can also be incorporated.
+Choose How to Supply Parameters
+-------------------------------
+* **Optimization**: Set ``optimize: true`` and define an ``optimizer.py`` beside the protocol.
+  EOS samples inputs, runs the protocol, and reports measured outputs to the optimizer.
+* **Fixed parameters**: Use ``global_parameters`` for values shared by every run.
+* **Parameter schedule**: Use ``protocol_run_parameters`` for values that vary by run.
+  Without optimization, supply either global parameters or a complete schedule.
 
-The color mixing protocol shows how a campaign with optimization can be set up.
-It has ten dynamic parameters, all defined on the "mix_colors" task:
+For example, the :doc:`color_mixing` campaign optimizes mixing parameters to minimize
+``score_color.loss``. The desired ``score_color.target_color`` is fixed in ``global_parameters``.
+See :doc:`optimizers` for the optimizer contract and :doc:`rest_api` for submission examples.
 
-.. code-block:: yaml
+Campaign Settings
+-----------------
+.. list-table::
+   :header-rows: 1
 
-    cyan_volume: eos_dynamic
-    cyan_strength: eos_dynamic
-    magenta_volume: eos_dynamic
-    magenta_strength: eos_dynamic
-    yellow_volume: eos_dynamic
-    yellow_strength: eos_dynamic
-    black_volume: eos_dynamic
-    black_strength: eos_dynamic
-    mixing_time: eos_dynamic
-    mixing_speed: eos_dynamic
+   * - Field
+     - Purpose
+   * - ``name`` / ``protocol``
+     - Unique campaign name and loaded protocol type.
+   * - ``max_protocol_runs``
+     - Total number of runs, including completed runs when resuming.
+   * - ``max_concurrent_protocol_runs``
+     - Maximum simultaneous runs. Defaults to 1.
+   * - ``optimizer_ip``
+     - Ray worker for optimization. Defaults to ``127.0.0.1``.
+   * - ``meta.optimizer_overrides``
+     - Optimizer settings to override at submission or resume.
+   * - ``resume``
+     - Resume an existing campaign using the same name.
 
-Looking at the task specification of the ``score_color`` task, we also see that there is an output parameter called "loss".
+Resuming
+--------
+EOS reconstructs the optimizer by reporting completed protocol results to it. Incomplete runs
+are removed before execution continues. Beacon also restores its journal, queued insights,
+and runtime settings. Explicit resume overrides take precedence over saved settings.
 
-:bdg-primary:`task.yml`
+Keep the optimizer domain compatible with completed results. Domain overrides are not accepted
+on resume. See :doc:`beacon_optimizer` for Beacon state and :doc:`custom_beacon` for custom optimizers.
 
-.. code-block:: yaml
-
-    type: Score Color
-    desc: Score a color based on how close it is to an expected color
-
-    input_parameters:
-      red:
-        type: int
-        unit: n/a
-        desc: The red component of the color
-      green:
-        type: int
-        unit: n/a
-        desc: The green component of the color
-      blue:
-        type: int
-        unit: n/a
-        desc: The blue component of the color
-
-    output_parameters:
-      loss:
-        type: float
-        unit: n/a
-        desc: Total loss of the color compared to the expected color
-
-This protocol involves selecting CMYK color component volumes, a mixing time, and a mixing speed to minimize the loss of a synthesized color compared to an expected color.
-
-This setup is summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
-
-:bdg-primary:`optimizer.py`
-
-.. code-block:: python
-
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
-    from bofire.data_models.objectives.identity import MinimizeObjective
-
-    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-
-
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
-            ],
-            "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
-            ],
-            "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 10,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-        }
-
-        return constructor_args, BayesianSequentialOptimizer
-
-The ``eos_create_campaign_optimizer`` function creates the campaign optimizer.
-The inputs are all the dynamic parameters in the protocol, the output is the "loss" parameter from the "score_color" task, and the objective is to minimize this loss.
-
-More about optimizers can be found in the Optimizers section.
-
-Automation Setup (Make and Test Phases)
----------------------------------------
-EOS manages automation execution. Tasks and devices must be implemented by the user, and the protocol must be carefully set up to run autonomously.
-
-Some guidelines:
-
-* Each protocol run should be standalone and not depend on previous runs.
-* Each protocol run should leave the lab in a state ready for the next run.
-* Minimize dependencies between tasks. A task should depend on another only when necessary.
-* Tasks should declare any device they interact with, even if they do not operate it directly.
-  For example, if a robot transfer task moves a container from device A to device B, the robot arm and both devices should be required.
-* Branches and loops are not supported. If needed, encapsulate them inside larger tasks that span multiple protocol steps.
+Prepare a Protocol for Repeated Runs
+------------------------------------
+* Make each run independent and leave the lab ready for the next run.
+* Declare every device a task interacts with. A robot transfer should request the robot,
+  source device, and destination device.
+* Add only necessary dependencies. Use :doc:`scheduling` holds when an allocation must survive
+  between tasks.
+* Use ``run_if`` for conditional branches. Protocol graphs cannot contain loops.
+  See :doc:`protocols` for branching and fan-in.

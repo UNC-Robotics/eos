@@ -24,7 +24,7 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
 **Optimization**
 
 * Built-in Bayesian optimization for protocol run campaigns, with single and multi-objective support
-* Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
+* Beacon optimizer that combines a pluggable algorithm with AI reasoning
 
 **Interfaces**
 
@@ -65,6 +65,7 @@ User Guide
     campaigns
     optimizers
     beacon_optimizer
+    custom_beacon
     scheduling
 
 .. toctree::
@@ -73,6 +74,7 @@ User Guide
     web_ui
     rest_api
     mcp
+    authentication
 
 .. toctree::
     :caption: Advanced
@@ -85,317 +87,362 @@ User Guide
 
     color_mixing
 
+# File: user-guide/authentication.rst
+================================================================================
+
+Authentication & Authorization
+==============================
+EOS supports optional authentication and authorization backed by `Zitadel <https://zitadel.com>`_,
+an open-source identity provider. Authentication is disabled by default. In that mode, expose
+the REST API, web UI, and MCP endpoint only on trusted networks.
+
+How It Works
+------------
+
+Identity
+~~~~~~~~
+Accounts live in one central Zitadel instance that every EOS instance at an institution can share,
+so a person uses a single account everywhere. EOS stores no accounts or passwords. Tokens are
+validated locally against Zitadel's JWKS, with no per-request call to Zitadel:
+
+* **Web UI**: OpenID Connect sign-in (authorization code + PKCE).
+* **REST API** and **MCP endpoint**: ``Authorization: Bearer <token>`` on every request.
+
+Roles
+~~~~~
+.. list-table::
+   :header-rows: 1
+
+   * - Role
+     - Scope
+     - Permissions
+   * - ``viewer``
+     - One instance
+     - Read-only
+   * - ``submitter``
+     - One instance
+     - Viewer, plus submit and cancel tasks, protocols, and campaigns, reset resources, and tune optimizers
+   * - ``editor``
+     - One instance
+     - Submitter, plus author task, protocol, and device definitions
+   * - ``lab_admin``
+     - Specific labs in one instance
+     - Editor, plus load protocols, reload devices and task plugins, run the simulator, and device RPC for their labs
+   * - ``superuser``
+     - One instance
+     - Everything, including loading labs and packages and managing users
+
+Roles are cumulative and live in each instance's own database, so one account can be ``superuser``
+in one instance and ``viewer`` in another. The token identifies the user. Authorization is local to each instance.
+
+Accounts
+~~~~~~~~
+There is no self-registration. Superusers create accounts from the Management page's **Users** tab
+or ``eos auth create-user``, and the user gets a temporary password to change at first sign-in.
+Submitted protocol runs and campaigns are owned by the authenticated user.
+
+Machine Access
+~~~~~~~~~~~~~~
+Scripts and MCP clients use Zitadel service accounts with either **JWT access tokens** (client
+credentials flow, validated locally) or **personal access tokens** (long-lived opaque tokens, handy
+for MCP configs, validated by introspection with the EOS API app credentials).
+
+Setup
+-----
+Deployment is automated. Each path below creates the org, project, both apps, and the
+``eos-user-admin`` service user, and is safe to re-run.
+
+**Single box.** ``eos setup`` deploys Zitadel and writes ``.env`` and ``web_ui/.env`` for you.
+
+**Dedicated identity host**, shared by several EOS instances. The standalone deployer needs only
+Docker:
+
+.. code-block:: shell
+
+    cd docker/zitadel
+    python3 deploy.py --url https://eos-auth.lab.internal --tls-mode internal
+    python3 deploy.py --url http://localhost:8080                          # local http
+
+It generates secrets, brings up the stack, provisions everything, and writes ``eos-instance.env``
+with the values to paste into each instance. Use ``--ui-url`` to register an instance's web UI
+redirect (default ``http://localhost:3000``), re-running with another to add more.
+
+**Existing Zitadel** you already run. Create an instance-admin PAT in its console, then point the
+same deployer at it to provision without deploying:
+
+.. code-block:: shell
+
+    python3 deploy.py --issuer https://auth.example.org --admin-pat <PAT>
+
+Afterward the only manual step is granting yourself superuser:
+``eos auth create-user <username> <email> --superuser``.
+
+TLS
+~~~
+The bundled Caddy proxy terminates TLS, so no external reverse proxy is needed. Set
+``ZITADEL_TLS_MODE`` (or ``deploy.py --tls-mode``). Published ports follow from
+``EOS_AUTH_ISSUER``:
+
+* ``internal`` (recommended for isolated lab networks): a self-signed certificate for the issuer's
+  host. Export its root CA and distribute it to every browser and EOS service that reaches Zitadel,
+  or JWKS and token fetches fail:
+  ``docker compose --profile auth exec zitadel-proxy cat /data/caddy/pki/authorities/local/root.crt``.
+* ``custom``: your own certificate at ``docker/zitadel/tls/cert.pem`` and ``tls/key.pem``. Preferred
+  when an institutional CA your machines already trust issued it, since it skips the step above.
+* ``acme``: automatic Let's Encrypt for a public domain reachable on ports 80 and 443. Set
+  ``ZITADEL_ACME_EMAIL``.
+* ``none``: plain HTTP, for local development or behind your own TLS proxy.
+
+Configuration reference
+~~~~~~~~~~~~~~~~~~~~~~~~
+The deployers write these values. Set them by hand only when pointing EOS at a Zitadel you
+provisioned yourself. In ``config.yml``, or the matching ``EOS_AUTH_*`` variables in ``.env``:
+
+.. code-block:: yaml
+
+    auth:
+      enabled: true
+      issuer: https://auth.example.org
+      org_id: "<org-id>"
+      project_id: "<project-id>"
+      service_user_pat: "<eos-user-admin PAT>"
+      introspection_client_id: "<EOS API app client id>"
+      introspection_client_secret: "<EOS API app client secret>"
+
+    web_api:
+      cors_origins: ["https://<ui-host>"]
+
+Zitadel audiences tokens to the project, so ``project_id`` is also the accepted audience.
+
+In ``web_ui/.env``:
+
+.. code-block:: bash
+
+    AUTH_ENABLED=true
+    AUTH_SECRET=<random string, e.g. openssl rand -base64 32>
+    AUTH_ISSUER=https://auth.example.org
+    AUTH_CLIENT_ID=<EOS Web UI app client id>
+    AUTH_ORG_ID=<org-id>
+    AUTH_PROJECT_ID=<project-id>
+    AUTH_PAT=<eos-user-admin PAT>
+    AUTH_INTROSPECTION_CLIENT_ID=<EOS API app client id>
+    AUTH_INTROSPECTION_CLIENT_SECRET=<EOS API app client secret>
+
+Managing Users from the CLI
+---------------------------
+The ``eos auth`` CLI mirrors the Users tab. Users can be referenced by username, email, or Zitadel
+user ID.
+
+.. code-block:: bash
+
+    eos auth create-user alice alice@example.org [--superuser]
+    eos auth list-users
+    eos auth deactivate-user alice
+    eos auth assign-role alice editor
+    eos auth assign-role alice lab_admin --lab color_lab
+    eos auth revoke-role alice editor
+    eos auth list-roles
+
+Calling the API with a Token
+----------------------------
+.. code-block:: bash
+
+    # PAT or JWT access token
+    curl -H "Authorization: Bearer $TOKEN" https://<eos-host>:8070/api/tasks/types
+
 # File: user-guide/beacon_optimizer.rst
 ================================================================================
 
 Beacon Optimizer
 ================
-The Beacon optimizer combines Bayesian optimization with AI-driven reasoning.
-At each sampling step, it probabilistically selects between an acquisition function and an AI model
-that reasons about protocol run data to suggest new parameters.
+Beacon combines a pluggable optimizer with AI reasoning. Each sampling call uses the optimizer
+with probability ``p_bayesian`` or the AI with probability ``p_ai``. The probabilities must sum to 1.
+The default optimizer is Bayesian, but :doc:`custom_beacon` shows how to replace it.
 
-How It Works
-------------
-A weighted coin flip decides which strategy is used:
+How Sampling Works
+------------------
+* The AI receives the domain, protocol context, recent results, best observed results, and queued insights.
+  Its suggestions are validated against the domain.
+* If the AI call fails, Beacon restores the queued insights and falls back to the plugged-in optimizer.
+* All measured results are reported to the plugged-in optimizer, including results from AI suggestions.
+  Beacon keeps a recent history and associates AI samples with their journal entries.
 
-* **Bayesian**: Uses an acquisition function over a surrogate model.
-* **AI**: Sends protocol run history and domain constraints to an AI model that reasons about patterns
-  and suggests parameter sets. Suggestions are validated against the domain before being accepted.
-
-If the AI fails, Beacon falls back to Bayesian sampling automatically.
-Both strategies share the same result history.
-
-Why Hybrid?
-~~~~~~~~~~~
-* Bayesian optimizers treat the objective as a black box; AI can apply domain reasoning to make informed jumps.
-* AI models can hallucinate; the Bayesian component provides a mathematically grounded baseline.
-* Probabilistic mixing lets each strategy compensate for the other's weaknesses.
-
-Setting Up
-----------
-Modify your protocol's ``optimizer.py`` to return ``BeaconOptimizer``:
-
-:bdg-primary:`optimizer.py`
+Configure Beacon
+----------------
+Use the factory in :doc:`optimizers`, change its returned class to ``BeaconOptimizer``, and
+add Beacon settings to the constructor arguments:
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
-    from bofire.data_models.objectives.identity import MinimizeObjective
-
     from eos.optimization.beacon_optimizer import BeaconOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
+    # Add these keys to the factory's constructor arguments.
+    beacon_settings = {
+        "p_bayesian": 0.5,
+        "p_ai": 0.5,
+        "ai_model": "claude-agent-sdk:sonnet",
+        "ai_history_size": 50,
+        "ai_additional_context": "Prefer experiments that use less starting material.",
+    }
 
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-            ],
-            "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
-            ],
-            "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 2,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-            "p_bayesian": 0.5,
-            "p_ai": 0.5,
-            "ai_model": "claude-agent-sdk:sonnet",
-            "ai_model_settings": {
-                "effort": "high",
-            },
-            "ai_additional_context": "The loss is euclidean distance of RGB components.",
-        }
+The default Bayesian optimizer still needs ``acquisition_function``. A custom replacement can
+omit Bayesian-specific settings. See the complete :doc:`custom_beacon` example.
 
-        return constructor_args, BeaconOptimizer
-
-.. note::
-    Domain parameters (``inputs``, ``outputs``, ``constraints``, etc.) work identically to
-    ``BayesianSequentialOptimizer``. See the :doc:`optimizers` page for details.
-
-Parameter Reference
--------------------
-
-Strategy Mix
-~~~~~~~~~~~~
-The **Bayesian / AI** slider controls the probability of each strategy at each sampling step.
-Default is 50/50. Fully **AI** makes Beacon AI-driven; fully **Bayesian** disables the AI agent.
-
-AI Model
-~~~~~~~~
-
+Settings
+--------
 .. list-table::
    :header-rows: 1
-   :widths: 20 15 65
 
-   * - Field
+   * - Constructor key
      - Default
-     - Description
-   * - **Model**
+     - Meaning
+   * - ``p_bayesian`` / ``p_ai``
+     - ``0.5`` / ``0.5``
+     - Probability of selecting the plugged-in optimizer or AI. ``p_ai=0`` disables the AI agent.
+   * - ``ai_model``
      - ``claude-agent-sdk:sonnet``
-     - Select from the dropdown or type a custom ``provider:model`` value.
-   * - **Model Settings**
-     - (empty)
-     - JSON settings, e.g., ``{"temperature": 0.3}``.
-   * - **Retries**
+     - A ``claude-agent-sdk:MODEL`` or ``ollama:MODEL`` identifier.
+   * - ``ai_model_settings``
+     - ``None``
+     - Model settings dictionary, such as ``{"effort": "high"}`` for Claude Agent SDK.
+   * - ``ai_retries``
      - ``3``
-     - Max retries for invalid AI suggestions.
-
-**Model** examples:
-
-* ``claude-agent-sdk:sonnet`` — Claude Sonnet via Agent SDK **(recommended)**
-* ``anthropic:claude-sonnet-4-6`` — Claude Sonnet 4.6 (requires ``ANTHROPIC_API_KEY``)
-* ``openai:gpt-5.4`` — GPT-5.4 (requires ``OPENAI_API_KEY``)
-* ``google-gla:gemini-3.1-pro-preview`` — Gemini 3.1 Pro (requires ``GOOGLE_API_KEY``)
-* ``ollama:qwen3.5:9b`` — Qwen 3.5 9B via Ollama (no API key, see below)
-
-.. tip::
-    The ``claude-agent-sdk`` provider is recommended. It uses Claude Code's agentic harness with
-    Claude's frontier reasoning capabilities, and authenticates via a Claude subscription
-    (``~/.claude`` credentials) or an ``ANTHROPIC_API_KEY``.
-
-AI Context
-~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
-
-   * - Field
-     - Default
-     - Description
-   * - **History Size**
+     - Retries for invalid AI output.
+   * - ``ai_history_size``
      - ``50``
-     - Number of recent protocols included in the AI prompt.
-   * - **Additional Context**
-     - (empty)
-     - Free-text domain knowledge for the AI.
-   * - **Additional Parameters**
-     - (empty)
-     - Extra result columns shown to the AI as context (not optimized).
-       Example: ``analyze_color.red, analyze_color.green, analyze_color.blue``
+     - Maximum recent result rows included in the AI prompt. Use a positive integer.
+   * - ``ai_additional_context``
+     - ``None``
+     - Free-text domain knowledge.
+   * - ``ai_additional_parameters``
+     - ``None``
+     - Extra ``task.parameter`` values included as AI context, such as ``mult_2.product``.
+       Beacon removes these columns before reporting outputs to the inner optimizer.
 
+AI Providers
+------------
 Claude Agent SDK
-----------------
-The ``claude-agent-sdk`` provider authenticates via Claude Code CLI credentials (``~/.claude``)
-or an ``ANTHROPIC_API_KEY``.
-
-Install the dependency:
+~~~~~~~~~~~~~~~~
+Install the optional dependency on the optimizer worker:
 
 .. code-block:: shell
 
-    uv pip install --group claude_agent_sdk
+    uv sync --group claude_agent_sdk
 
-Then set **Model** to ``claude-agent-sdk:sonnet`` (or ``opus``, ``haiku``).
+Use ``claude-agent-sdk:sonnet`` or another model supported by your Claude installation.
+Authentication uses Claude Code credentials in ``~/.claude`` or ``ANTHROPIC_API_KEY``.
+The optional ``ai_api_key`` constructor argument supplies that API key explicitly.
 
-Using Local Models with Ollama
-------------------------------
-Beacon supports local LLMs via `Ollama <https://ollama.com>`_.
-
-**1. Start Ollama** with sufficient context length:
+Ollama
+~~~~~~
+Start a local model server with enough context for the history you intend to send:
 
 .. code-block:: shell
 
     OLLAMA_CONTEXT_LENGTH=32000 ollama serve
 
-**2. Pull a model:**
+In another terminal, pull the model:
 
 .. code-block:: shell
 
     ollama pull qwen3.5:9b
 
-**3. Configure** in the web UI:
+Set ``ai_model`` to ``ollama:qwen3.5:9b``. Optional model settings include
+``{"temperature": 0.3}``. Other provider prefixes are rejected when the AI agent is created.
 
-* **Model** — ``ollama:qwen3.5:9b``
-* **Model Settings** — ``{"temperature": 0.3}``
+Runtime Changes and Insights
+----------------------------
+The web UI and REST API can change the strategy mix, history size, additional context, and
+custom runtime parameters without restarting the campaign. Updating either probability derives
+the other. Setting ``p_ai`` to zero removes the AI agent, and enabling it creates one as needed.
 
-
-Runtime Parameters
-------------------
-These can be changed at runtime via the REST API or the web UI without restarting a campaign:
-strategy mix, history size, and additional context.
-
-Expert Insights
-~~~~~~~~~~~~~~~
-Send domain knowledge to the AI agent during a running campaign via the web UI or REST API:
+For the default API address:
 
 .. code-block:: shell
 
-    curl -X POST http://localhost:8070/campaigns/my_campaign/optimizer/insight \
+    curl -X PUT http://localhost:8070/api/campaigns/my_campaign/optimizer/params \
       -H "Content-Type: application/json" \
-      -d '{"insight": "High mixing speed causes foaming, avoid values above 180."}'
+      -d '{"p_bayesian": 0.7, "ai_history_size": 20}'
 
-Insights are included in the next AI prompt and persisted across campaign resumes.
+    curl -X POST http://localhost:8070/api/campaigns/my_campaign/optimizer/insight \
+      -H "Content-Type: application/json" \
+      -d '{"insight": "Prefer smaller starting numbers."}'
+
+Add a bearer token when :doc:`authentication` is enabled. Insights are queued until an AI
+suggestion succeeds. The journal, queued insights, and runtime settings persist across resume.
+Explicit resume overrides take precedence. See :doc:`campaigns` for the resume lifecycle.
+
+History and Token Use
+---------------------
+Beacon sends history as a compact table. Domain and campaign context form a stable prompt prefix
+that can benefit from provider caching. History size bounds the recent results and attached
+reasoning sent to the AI, while the full journal remains available in the web UI.
+
+Claude Agent SDK calls log token usage, cache statistics, and reported cost. Use those logs to
+choose a history size that fits the model's context window and your token budget.
+
 # File: user-guide/campaigns.rst
 ================================================================================
 
 Campaigns
 =========
-A campaign in EOS is a protocol executed multiple times in sequence, usually with varying parameters, toward goals such as optimizing objectives by searching for optimal parameters.
-Campaigns are the highest-level execution unit in EOS and can be used to implement autonomous (self-driving) labs.
-
-The DMTA loop is a common paradigm in autonomous experimentation, and EOS campaigns can implement it.
-EOS has built-in support for running campaigns of a protocol, including a built-in Bayesian optimizer for parameter optimization.
+A campaign runs a protocol repeatedly with supplied or optimizer-generated parameters.
+``max_concurrent_protocol_runs`` controls how many runs can execute at once.
 
 .. figure:: ../_static/img/dmta-loop.png
-   :alt: The DMTA Loop
+   :alt: The Design, Make, Test, Analyze loop
    :align: center
 
-Optimization Setup (Analyze and Design Phases)
-----------------------------------------------
-Both the "analyze" and "design" phases of the DMTA loop can be automated by optimizing protocol parameters over time.
-EOS natively supports this through a built-in Bayesian optimizer that integrates with the campaign execution module.
-Custom algorithms such as reinforcement learning can also be incorporated.
+Choose How to Supply Parameters
+-------------------------------
+* **Optimization**: Set ``optimize: true`` and define an ``optimizer.py`` beside the protocol.
+  EOS samples inputs, runs the protocol, and reports measured outputs to the optimizer.
+* **Fixed parameters**: Use ``global_parameters`` for values shared by every run.
+* **Parameter schedule**: Use ``protocol_run_parameters`` for values that vary by run.
+  Without optimization, supply either global parameters or a complete schedule.
 
-The color mixing protocol shows how a campaign with optimization can be set up.
-It has ten dynamic parameters, all defined on the "mix_colors" task:
+For example, the :doc:`color_mixing` campaign optimizes mixing parameters to minimize
+``score_color.loss``. The desired ``score_color.target_color`` is fixed in ``global_parameters``.
+See :doc:`optimizers` for the optimizer contract and :doc:`rest_api` for submission examples.
 
-.. code-block:: yaml
+Campaign Settings
+-----------------
+.. list-table::
+   :header-rows: 1
 
-    cyan_volume: eos_dynamic
-    cyan_strength: eos_dynamic
-    magenta_volume: eos_dynamic
-    magenta_strength: eos_dynamic
-    yellow_volume: eos_dynamic
-    yellow_strength: eos_dynamic
-    black_volume: eos_dynamic
-    black_strength: eos_dynamic
-    mixing_time: eos_dynamic
-    mixing_speed: eos_dynamic
+   * - Field
+     - Purpose
+   * - ``name`` / ``protocol``
+     - Unique campaign name and loaded protocol type.
+   * - ``max_protocol_runs``
+     - Total number of runs, including completed runs when resuming.
+   * - ``max_concurrent_protocol_runs``
+     - Maximum simultaneous runs. Defaults to 1.
+   * - ``optimizer_ip``
+     - Ray worker for optimization. Defaults to ``127.0.0.1``.
+   * - ``meta.optimizer_overrides``
+     - Optimizer settings to override at submission or resume.
+   * - ``resume``
+     - Resume an existing campaign using the same name.
 
-Looking at the task specification of the ``score_color`` task, we also see that there is an output parameter called "loss".
+Resuming
+--------
+EOS reconstructs the optimizer by reporting completed protocol results to it. Incomplete runs
+are removed before execution continues. Beacon also restores its journal, queued insights,
+and runtime settings. Explicit resume overrides take precedence over saved settings.
 
-:bdg-primary:`task.yml`
+Keep the optimizer domain compatible with completed results. Domain overrides are not accepted
+on resume. See :doc:`beacon_optimizer` for Beacon state and :doc:`custom_beacon` for custom optimizers.
 
-.. code-block:: yaml
-
-    type: Score Color
-    desc: Score a color based on how close it is to an expected color
-
-    input_parameters:
-      red:
-        type: int
-        unit: n/a
-        desc: The red component of the color
-      green:
-        type: int
-        unit: n/a
-        desc: The green component of the color
-      blue:
-        type: int
-        unit: n/a
-        desc: The blue component of the color
-
-    output_parameters:
-      loss:
-        type: float
-        unit: n/a
-        desc: Total loss of the color compared to the expected color
-
-This protocol involves selecting CMYK color component volumes, a mixing time, and a mixing speed to minimize the loss of a synthesized color compared to an expected color.
-
-This setup is summarized in the ``optimizer.py`` file adjacent to ``protocol.yml``.
-
-:bdg-primary:`optimizer.py`
-
-.. code-block:: python
-
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
-    from bofire.data_models.objectives.identity import MinimizeObjective
-
-    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-
-
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
-            ],
-            "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
-            ],
-            "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 10,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-        }
-
-        return constructor_args, BayesianSequentialOptimizer
-
-The ``eos_create_campaign_optimizer`` function creates the campaign optimizer.
-The inputs are all the dynamic parameters in the protocol, the output is the "loss" parameter from the "score_color" task, and the objective is to minimize this loss.
-
-More about optimizers can be found in the Optimizers section.
-
-Automation Setup (Make and Test Phases)
----------------------------------------
-EOS manages automation execution. Tasks and devices must be implemented by the user, and the protocol must be carefully set up to run autonomously.
-
-Some guidelines:
-
-* Each protocol run should be standalone and not depend on previous runs.
-* Each protocol run should leave the lab in a state ready for the next run.
-* Minimize dependencies between tasks. A task should depend on another only when necessary.
-* Tasks should declare any device they interact with, even if they do not operate it directly.
-  For example, if a robot transfer task moves a container from device A to device B, the robot arm and both devices should be required.
-* Branches and loops are not supported. If needed, encapsulate them inside larger tasks that span multiple protocol steps.
+Prepare a Protocol for Repeated Runs
+------------------------------------
+* Make each run independent and leave the lab ready for the next run.
+* Declare every device a task interacts with. A robot transfer should request the robot,
+  source device, and destination device.
+* Add only necessary dependencies. Use :doc:`scheduling` holds when an allocation must survive
+  between tasks.
+* Use ``run_if`` for conditional branches. Protocol graphs cannot contain loops.
+  See :doc:`protocols` for branching and fan-in.
 
 # File: user-guide/color_mixing.rst
 ================================================================================
@@ -404,7 +451,7 @@ Color Mixing
 ============
 This example demonstrates a virtual color mixing protocol in EOS.
 CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
-The example uses no physical devices; color mixing is simulated via real-time fluid simulation in a web browser.
+Color mixing runs in a browser fluid simulation without physical devices.
 
 The example is implemented in an EOS package called **color_lab**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
 
@@ -417,11 +464,11 @@ Installation
     cd eos/user
     git clone https://github.com/UNC-Robotics/eos-examples eos_examples
 
-2. Install the package's dependencies in the EOS venv:
+2. Return to the EOS repository root and install the package dependencies in its environment:
 
 .. code-block:: bash
 
-   uv pip install -r user/eos_examples/color_lab/pyproject.toml
+   eos pkg install color_lab
 
 3. Load the package in EOS:
 
@@ -444,27 +491,7 @@ Sample Usage
 3. Start EOS.
 4. Submit tasks, protocols, or campaigns through the REST API.
 
-You can submit a request to run a campaign through the REST API with `curl` as follows:
-
-.. code-block:: bash
-
-    curl -X POST http://localhost:8070/api/campaigns \
-         -H "Content-Type: application/json" \
-         -d '{
-              "name": "color_mixing",
-              "protocol": "color_mixing",
-              "owner": "name",
-              "priority": 0,
-              "max_protocol_runs": 100,
-              "max_concurrent_protocol_runs": 3,
-              "optimize": true,
-              "optimizer_ip": "127.0.0.1",
-              "global_parameters": {
-                "score_color": {
-                    "target_color": [47, 181, 49]
-                }
-              }
-        }'
+Use the color campaign request in :doc:`rest_api`, setting ``score_color.target_color`` to the desired RGB value.
 
 .. note::
 
@@ -863,77 +890,113 @@ Provide it via ``global_parameters`` or ``protocol_run_parameters`` in the campa
 
 The optimizer used for this protocol is defined in ``optimizer.py`` adjacent to the protocol YAML and uses Bayesian optimization to minimize ``score_color.loss``.
 
-References Between Tasks
-------------------------
-EOS protocols commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing protocol demonstrates each kind of reference.
+The protocol reuses its color station and beaker through :doc:`references`. The score task
+consumes the measured RGB values and total color volume. See :doc:`scheduling` for holding
+allocations between tasks in concurrent campaigns.
 
-**Device references**: reuse the same physical device across tasks by referencing a named device handle from a prior task.
+# File: user-guide/custom_beacon.rst
+================================================================================
 
-Example:
+Customizing Beacon
+==================
+Replace Beacon's default Bayesian optimizer by overriding ``_create_optimizer``. Beacon retains
+AI sampling, fallback, expert insights, journaling, runtime controls, and metadata persistence.
+The inner optimizer implements the :doc:`optimizers` contract.
 
-.. code-block:: yaml
+Integration Rules
+-----------------
+* Set custom constructor attributes **before** calling ``super().__init__()``. Beacon invokes
+  ``_create_optimizer(inputs, outputs, constraints)`` during initialization.
+* The inner ``sample`` and ``report`` methods must be synchronous. Beacon runs them in a worker thread.
+* Accept every valid measured point in ``report``, including points proposed by AI.
+* Handle batch sampling and reports that arrive out of order. Completed results are replayed on resume.
+* Keep custom parameter names distinct from Beacon settings. Declare UI fields on the Beacon subclass
+  and implement runtime getters and setters on the inner optimizer.
 
-    - name: mix_colors
-      devices:
-        color_station: retrieve_container.color_station
+A Complete Grid-Search Example
+------------------------------
+This example searches the multiplication protocol's discrete inputs and minimizes
+``score_multiplication.loss``, computed as ``abs(product - 1024)``. It uses no Bayesian acquisition function.
+The grid contains 36 combinations, with a minimum loss of 0. One optimum is ``number=4`` with both factors equal to 16.
 
-    - name: analyze_color
-      devices:
-        color_station: mix_colors.color_station
+The implementation supports discrete inputs, one minimization objective, and no constraints.
+It tracks pending and completed points to avoid repeating them. Exhausting the grid raises an
+error, so limit a grid-only campaign to at most 36 runs.
 
-The mix_colors task reuses the color_station allocated by retrieve_container; analyze_color then reuses the same station, ensuring the mixed color is analyzed on the same simulation window.
+Download :download:`the complete example <../_examples/custom_beacon.py>` and save it as
+``user/example/protocols/optimize_multiplication/optimizer.py``. Back up the existing file first,
+then reload the protocol before submitting a new campaign.
 
-**Resource references**: pass the same physical resource instance (e.g., a beaker) downstream.
+Grid Optimizer
+~~~~~~~~~~~~~~
+The algorithm records all reported results and returns the best observed rows. It reconstructs
+its completed-point set when EOS replays results after a resume.
 
-Example:
+.. literalinclude:: ../_examples/custom_beacon.py
+   :language: python
+   :pyobject: GridSearchOptimizer
 
-.. code-block:: yaml
+Beacon Subclass
+~~~~~~~~~~~~~~~
+``descending`` changes the grid traversal order. Its schema creates a checkbox, and the inner
+optimizer's runtime methods let Beacon forward and persist changes.
 
-    - name: mix_colors
-      resources:
-        beaker: retrieve_container.beaker
+.. literalinclude:: ../_examples/custom_beacon.py
+   :language: python
+   :pyobject: GridBeacon
 
-    - name: analyze_color
-      resources:
-        beaker: mix_colors.beaker
+Factory
+~~~~~~~
+The factory defaults to grid-only sampling so the example runs without an AI provider.
+To enable AI, configure a :doc:`provider <beacon_optimizer>` and use probabilities such as
+``p_bayesian=0.5`` and ``p_ai=0.5``. Despite its name, ``p_bayesian`` selects the custom grid optimizer.
 
-The beaker dynamically chosen by retrieve_container is passed through mix_colors and into analyze_color.
+.. literalinclude:: ../_examples/custom_beacon.py
+   :language: python
+   :pyobject: eos_create_campaign_optimizer
 
-**Parameter references**: feed outputs from one task as inputs to another by referencing output parameters.
+Run and Tune a Campaign
+-----------------------
+Load the multiplication lab and protocol, then submit a campaign through the web UI or REST API:
 
-Example:
+.. code-block:: shell
 
-.. code-block:: yaml
+    curl -X POST http://localhost:8070/api/campaigns \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "custom_grid",
+        "protocol": "optimize_multiplication",
+        "owner": "example",
+        "max_protocol_runs": 12,
+        "optimize": true,
+        "meta": {"optimizer_overrides": {"descending": true}}
+      }'
 
-    - name: score_color
-      parameters:
-        red: analyze_color.red
-        green: analyze_color.green
-        blue: analyze_color.blue
-        total_color_volume: mix_colors.total_color_volume
-        max_total_color_volume: 300.0
-        target_color: eos_dynamic
+Change traversal order while it runs:
 
-The score_color task consumes the RGB outputs from analyze_color and the total color volume from mix_colors.
+.. code-block:: shell
+
+    curl -X PUT http://localhost:8070/api/campaigns/custom_grid/optimizer/params \
+      -H "Content-Type: application/json" \
+      -d '{"descending": false}'
+
+For the full parameter schema, see :ref:`optimizer-parameter-schema`.
+API requests need a bearer token when :doc:`authentication` is enabled.
 
 # File: user-guide/devices.rst
 ================================================================================
 
 Devices
 =======
-In EOS, a device is an abstraction for a physical or virtual apparatus used by one or more tasks.
-Each device is managed by a dedicated process created when a laboratory definition is loaded.
-This process is usually implemented as a server that tasks call functions on.
-For example, a "magnetic mixer" device communicates with a physical mixer via serial and exposes functions such as ``start``, ``stop``, ``set_time``, and ``set_speed``.
+A device is a persistent process that exposes methods to tasks. It can control physical equipment
+or hold virtual state across protocol runs. EOS creates device processes when loading a lab.
+For objects that only need exclusive allocation, use :doc:`resources`.
 
 .. figure:: ../_static/img/tasks-devices.png
    :alt: EOS Tasks and Devices
    :align: center
 
-The figure shows a GC Sampling task that uses two devices: a GC and a mobile manipulation robot for automating sample injection with a syringe.
-Both are physical devices with EOS implementations running as persistent processes.
-
-Most often an EOS device represents a physical lab instrument, but it can also represent anything that needs persistent state across protocols, such as an AI module that records inputs. A device is always a persistent process.
+The GC Sampling task uses a gas chromatograph and a robot for sample injection.
 
 Device Implementation
 ---------------------
@@ -976,6 +1039,7 @@ Example magnetic mixer implementation:
     from eos.devices.base_device import BaseDevice
     from user.eos_examples.color_lab.common.device_client import DeviceClient
 
+
     class MagneticMixer(BaseDevice):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
             port = int(init_parameters["port"])
@@ -996,26 +1060,9 @@ Example magnetic mixer implementation:
 
             return container
 
-Every device implementation must define the following functions:
-
-#. **_initialize**
-
-   * Called when device process is created
-   * Should set up necessary resources (e.g., serial connections)
-
-#. **_cleanup**
-
-   * Called when the device process is terminated
-   * Should clean up any resources created by the device process (e.g., serial connections)
-
-#. **_report**
-
-   * Should return any data needed to determine the state of the device (e.g., status and feedback)
-
-The ``mix`` function is called by a task to mix a container's contents. It:
-
-* Sends a command to the lower-level driver with mixing time and speed
-* Updates container metadata with the mixing details
+Required lifecycle methods are ``_initialize`` to open connections, ``_cleanup`` to release them,
+and ``_report`` to return current state. Task-facing methods such as ``mix`` perform device actions
+and may update resource metadata.
 
 # File: user-guide/infrastructure_setup.rst
 ================================================================================
@@ -1037,31 +1084,21 @@ Key Requirements
    :alt: Example LAN setup for EOS
    :scale: 75%
    :align: center
+
 # File: user-guide/installation.rst
 ================================================================================
 
 Installation
 ============
+Install EOS on the central laboratory computer. You need Python 3.11+, uv, Node.js and npm
+for the web UI, and Docker Compose for PostgreSQL and S3-compatible storage.
+See :doc:`infrastructure_setup` before connecting other lab computers.
 
-EOS should be installed on an easily accessible central laboratory computer.
-
-.. note::
-    EOS requires bi-directional network access to any computers used for automation.
-
-    Using an isolated laboratory network for security and performance is strongly recommended.
-    See :doc:`infrastructure setup <infrastructure_setup>` for details.
-
-EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
-Docker Compose file to set up these services.
-
-1. Install uv
-^^^^^^^^^^^^^
-
-uv manages EOS dependencies.
-
+Install uv and EOS
+------------------
 .. tab-set::
 
-    .. tab-item:: Linux/Mac
+    .. tab-item:: Linux/macOS
 
         .. code-block:: shell
 
@@ -1069,109 +1106,83 @@ uv manages EOS dependencies.
 
     .. tab-item:: Windows
 
-        .. code-block:: shell
+        .. code-block:: powershell
 
             powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-2. Install EOS
-^^^^^^^^^^^^^^
+Clone the repository and install dependencies:
 
 .. code-block:: shell
 
-    # Clone repository
     git clone https://github.com/UNC-Robotics/eos
     cd eos
-
-    # Create and activate virtual environment
-    uv venv
-    source .venv/bin/activate
-
-    # Install dependencies
     uv sync --all-groups
 
-3. Configure EOS
-^^^^^^^^^^^^^^^^
+Activate the environment with ``source .venv/bin/activate`` on Linux/macOS or
+``.venv\Scripts\Activate.ps1`` in Windows PowerShell.
+
+Configure and Start
+-------------------
+The setup wizard writes the configuration and can bootstrap Zitadel for :doc:`authentication`.
+Then start the infrastructure services and EOS, which initializes the database on its first run:
 
 .. code-block:: shell
 
-    # Set environment variables
-    cp .env.example .env
-    # Edit .env file and provide values
-
-    # Configure EOS
-    cp config.example.yml config.yml
-    # Edit config.yml and provide values
-
-4. Launch External Services
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: shell
-
-    # Start external services (PostgreSQL and SeaweedFS)
-    docker compose up -d
-
-5. Start EOS
-^^^^^^^^^^^^
-
-.. code-block:: shell
-
+    eos setup
+    eos services up
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example package. This can be changed in the configuration file.
-
-6. Launch the Web UI
-^^^^^^^^^^^^^^^^^^^^
-
-**Option A: Without Docker**
+Install the web UI dependencies and start it in another terminal:
 
 .. code-block:: shell
 
     cd web_ui
-    cp .env.example .env
-    # Edit .env and provide values
     npm install
-    eos ui
+    eos start ui
 
-**Option B: With Docker**
+The UI defaults to ``http://localhost:3000``. The example configuration loads
+``multiplication_lab`` and ``optimize_multiplication``. Change ``config.yml`` to load your packages.
+
+Manual Configuration
+--------------------
+If you do not use the wizard, copy and edit the templates:
 
 .. code-block:: shell
 
-    cd web_ui
-    cp .env.docker.example .env.docker
-    # Edit .env.docker and provide values
-    docker compose up -d
+    cp .env.example .env
+    cp config.example.yml config.yml
+    cp web_ui/.env.example web_ui/.env
 
-The web UI is available at ``http://localhost:3000``.
+Then initialize services and start the orchestrator:
 
-Updating EOS
-^^^^^^^^^^^^
+.. code-block:: shell
 
+    eos services up
+    eos db init
+    eos start
+
+Install and start the UI as above. For a Docker UI deployment, copy and edit
+``web_ui/.env.docker.example`` as ``web_ui/.env.docker``, then run ``docker compose up -d``
+from ``web_ui``.
+
+Update EOS
+----------
 .. code-block:: shell
 
     eos update
 
-Pulls the latest ``master``, syncs dependencies, and runs database migrations. User package
-code and dependencies are preserved. Run ``eos update --help`` for available flags.
+This pulls ``master``, syncs dependencies, and runs database migrations while preserving
+user package code and dependencies. Use ``eos update --help`` for options.
 
 # File: user-guide/jinja2_templating.rst
 ================================================================================
 
 Jinja2 Templating
 =================
-The YAML files used to define labs, devices, protocols, and tasks support `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_
-templating, enabling variables, loops, conditionals, macros, and more.
-Jinja2 templates are evaluated with Python, so some expressions follow Python syntax.
-
-.. note::
-    Jinja2 templates are evaluated during loading of the YAML file, not during runtime.
-
-Jinja is useful for defining protocol templates with placeholders and variables that produce different
-protocol variations when set, including altering the task sequence.
-
-.. note::
-    Protocol templating is useful if EOS dynamic parameters and references do not suffice.
-
-Below are some useful Jinja2 features:
+EOS evaluates `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_ templates when loading YAML
+for labs, devices, tasks, and protocols. Use templates to generate definitions with variables,
+loops, or macros. For values and conditions that change during execution, use dynamic parameters,
+:doc:`references`, or protocol ``run_if`` conditions.
 
 Variables
 ---------
@@ -1276,296 +1287,91 @@ Below, the ``create_resources`` macro creates resources with a prefix and a numb
 
 Laboratories
 ============
-Laboratories are where devices and resources exist and where tasks, protocols, and campaigns take place.
+A laboratory groups computers, :doc:`devices`, and :doc:`resources` used by protocols.
+Define it in ``labs/<lab_name>/lab.yml`` inside an EOS package.
 
-A laboratory in EOS is a collection of:
-
-* Computers (e.g., devices capable of controlling equipment)
-* Devices (e.g., equipment/apparatuses in the laboratory)
-* Resources (e.g., containers for holding samples, reagents, lab location, consumables, etc.)
-
-Laboratory Implementation
--------------------------
-* Laboratories are implemented in the `laboratories` subdirectory inside an EOS package
-* Each laboratory has its own subfolder (e.g., laboratories/color_lab)
-* The laboratory is defined in a YAML file named ``lab.yml``.
-
-Below is an example laboratory YAML file for a solar cell fabrication lab:
-
-:bdg-primary:`lab.yml`
-
+Example
+-------
 .. code-block:: yaml
 
-    name: solar_cell_fabrication_lab
-    desc: A laboratory for fabricating and characterizing perovskite solar cells
+    name: solar_cell_lab
+    desc: Fabrication and characterization of solar cells
 
     computers:
       xrd_computer:
-        desc: XRD system control and data analysis
         ip: 192.168.1.101
-      solar_sim_computer:
-        desc: Solar simulator control and J-V measurements
-        ip: 192.168.1.102
-      robot_computer:
-        desc: Mobile manipulation robot control
-        ip: 192.168.1.103
+        desc: X-ray diffraction control
 
     devices:
       spin_coater:
-        desc: Spin coater for depositing perovskite and transport layers
         type: spin_coater
         computer: eos_computer
-
         meta:
           location: glovebox
-
-      uv_ozone_cleaner:
-        desc: UV-Ozone cleaner for substrate treatment
-        type: uv_ozone_cleaner
-        computer: eos_computer
-
-        meta:
-          location: fume_hood
-
-      thermal_evaporator:
-        desc: Thermal evaporator for metal electrode deposition
-        type: thermal_evaporator
-        computer: eos_computer
-
-        init_parameters:
-          max_temperature: 1000C
-          materials: [Au, Ag, Al]
-
-        meta:
-          location: evaporation_chamber
-
-      solar_simulator:
-        desc: Solar simulator for J-V curve measurements
-        type: solar_simulator
-        computer: solar_sim_computer
-
-        init_parameters:
-          spectrum: AM1.5G
-          intensity: 100mW/cm2
-
-        meta:
-          location: characterization_room
-
       xrd_system:
-        desc: X-ray diffractometer for crystal structure analysis
         type: xrd
         computer: xrd_computer
-
-        meta:
-          location: characterization_room
-
-      mobile_robot:
-        desc: Mobile manipulation robot for automated sample transfer
-        type: mobile_robot
-        computer: robot_computer
-
         init_parameters:
-          locations:
-            - glovebox
-            - fume_hood
-            - annealing_station
-            - evaporation_chamber
-            - characterization_room
-
-        meta:
-          location: characterization_room
+          port: 5003
 
     resource_types:
       vial:
         meta:
-          capacity: 20  # ml
-
-      petri_dish:
-        meta:
-          capacity: 100  # ml
-
-      crucible:
-        meta:
-          capacity: 5  # ml
+          capacity_ml: 20
 
     resources:
-      precursor_vial_1:
+      precursor_vial:
         type: vial
         meta:
           location: glovebox
 
-      precursor_vial_2:
-        type: vial
-        meta:
-          location: glovebox
-
-      precursor_vial_3:
-        type: vial
-        meta:
-          location: glovebox
-
-      substrate_dish_1:
-        type: petri_dish
-        meta:
-          location: glovebox
-
-      substrate_dish_2:
-        type: petri_dish
-        meta:
-          location: glovebox
-
-      au_crucible:
-        type: crucible
-        meta:
-          location: evaporation_chamber
-
-      ag_crucible:
-        type: crucible
-        meta:
-          location: evaporation_chamber
-
-
-Computers (Optional)
-""""""""""""""""""""
-Computers control devices and host EOS devices.
-Each computer that must interface with one or more devices must be defined in this section.
-The IP address of each computer must be specified.
-
-There is always a computer in each lab called **eos_computer** with the IP "127.0.0.1".
-This is the computer running the EOS orchestrator and can be thought of as the "central" computer.
-No other computer named "eos_computer" is allowed, and no other computer can have the IP "127.0.0.1".
-The "computers" section need not be defined unless additional computers are required (e.g., if not all devices are
-connected to eos_computer).
+Computers
+---------
+The built-in ``eos_computer`` represents the orchestrator at ``127.0.0.1``.
+Define ``computers`` only for additional machines, each with an IP address.
+Neither the built-in name nor its address can be reused.
 
 .. figure:: ../_static/img/eos-computers.png
    :alt: EOS computers
    :align: center
 
-.. code-block:: yaml
+See :doc:`multi_computer_setup` to join workers to the Ray cluster and
+:doc:`infrastructure_setup` for network requirements.
 
-    computers:
-      xrd_computer:
-        desc: XRD system control and data analysis
-        ip: 192.168.1.101
-      solar_sim_computer:
-        desc: Solar simulator control and J-V measurements
-        ip: 192.168.1.102
-      robot_computer:
-        desc: Mobile manipulation robot control
-        ip: 192.168.1.103
+Devices
+-------
+Device names must be unique within a lab. Multiple instances may share a device type.
 
-Devices (Required)
-""""""""""""""""""
-Devices are equipment or apparatuses in the laboratory required to perform tasks.
-Each device must have a unique name inside the lab and must be defined in the ``devices`` section of the laboratory YAML file.
+.. list-table::
+   :header-rows: 1
 
-.. code-block:: yaml
+   * - Field
+     - Meaning
+   * - ``type``
+     - A device specification from an EOS package.
+   * - ``computer``
+     - ``eos_computer`` or a computer defined above.
+   * - ``init_parameters``
+     - Optional overrides for the device's initialization defaults.
+   * - ``meta``
+     - Optional instance metadata, such as location.
 
-    devices:
-      spin_coater:
-        desc: Spin coater for depositing perovskite and transport layers
-        type: spin_coater
-        computer: eos_computer
-
-        meta:
-          location: glovebox
-
-      uv_ozone_cleaner:
-        desc: UV-Ozone cleaner for substrate treatment
-        type: uv_ozone_cleaner
-        computer: eos_computer
-
-        meta:
-          location: fume_hood
-
-      thermal_evaporator:
-        desc: Thermal evaporator for metal electrode deposition
-        type: thermal_evaporator
-        computer: eos_computer
-
-        init_parameters:
-          max_temperature: 1000C
-          materials: [Au, Ag, Al]
-
-        meta:
-          location: evaporation_chamber
-
-**type**: Every device must have a type, which matches a device specification (e.g., defined in the ``devices`` subdirectory
-of an EOS package).
-There can be multiple devices with different names of the same type.
-
-**computer**: The computer that controls the device.
-If not "eos_computer", the computer must be defined in the "computers" section.
-
-**init_parameters** (optional): Parameters required to initialize the device.
-These parameters are defined in the device specification and can be overridden here.
-
-**meta** (optional): A dictionary of arbitrary metadata for the device instance (e.g., ``location``).
-
-Resources (Optional)
-""""""""""""""""""""
-Resources represent anything tasks should exclusively allocate, such as containers (vessels for holding samples),
-lab locations that can only be occupied by one container, reagents, or other consumables.
-
-Resources are defined using two sections in the laboratory YAML file:
-
-1. **resource_types**: Templates that define the properties of a resource type
-2. **resources**: Individual resource instances with unique names
-
-.. code-block:: yaml
-
-    resource_types:
-      vial:
-        meta:
-          capacity: 20  # ml
-
-      petri_dish:
-        meta:
-          capacity: 100  # ml
-
-    resources:
-      precursor_vial_1:
-        type: vial
-        meta:
-          location: glovebox
-
-      precursor_vial_2:
-        type: vial
-        meta:
-          location: glovebox
-
-      substrate_dish_1:
-        type: petri_dish
-        meta:
-          location: glovebox
-
-**Resource Types**:
-
-* Define templates with shared properties for resources of the same type
-* **meta** (optional): Default metadata for all resources of this type (e.g., capacity)
-
-**Resources**:
-
-* Each resource has a unique name (e.g., ``precursor_vial_1``)
-* **type**: The resource type (must match a defined ``resource_type``)
-* **meta** (optional): Instance-specific metadata that overrides or extends the resource type's meta (e.g., current location)
+Resources
+---------
+``resource_types`` defines types and their default metadata. ``resources`` defines named
+instances whose metadata overrides those defaults. Resource names must be unique across labs.
+See :doc:`resources` for task declarations, dynamic allocation, and passing resources between tasks.
 
 # File: user-guide/mcp.rst
 ================================================================================
 
 MCP Server
 ==========
-EOS exposes a `Model Context Protocol <https://modelcontextprotocol.io>`_ (MCP) server through its web UI,
-allowing AI assistants like Claude to interact with EOS directly: querying protocols, submitting campaigns, inspecting devices, and more.
+EOS exposes an MCP server through the web UI. Connected assistants can inspect definitions,
+submit work, monitor campaigns, and call device functions.
 
-Once connected, the AI assistant automatically discovers all available tools and you can ask it things like
-"check the status of my campaign", "submit 10 multiplication protocols", or "what functions does the pipette support?"
-
-.. warning::
-
-    The MCP endpoint has no authentication.
-    Only expose it in trusted environments (local network or behind a reverse proxy with auth).
-
+With :doc:`authentication` enabled, clients need a bearer token. The SQL tool requires the
+superuser role. With authentication disabled, expose the endpoint only on trusted networks.
 
 Connecting
 ----------
@@ -1605,15 +1411,15 @@ replacing ``localhost:3000`` with your web UI host and port if needed.
 Capabilities
 ------------
 
-The MCP server exposes 50 tools across the following categories:
+Tools cover the following categories:
 
-* **Campaigns, Protocol Runs, Tasks** -- List, inspect, submit, and cancel at every level of the execution hierarchy.
-* **Definitions** -- Browse loaded task types, device types, lab layouts, and protocol workflows.
-* **Management** -- Load, unload, and reload labs, protocols, devices, and packages.
-* **Optimizer** -- Query optimizer state, update runtime parameters, and provide expert insights.
-* **Devices** -- List devices, inspect state, discover available RPC functions, and call them directly.
-* **SQL** -- Run read-only queries against the EOS database.
-* **Filesystem** -- Browse packages and read entity configuration files (YAML, Python).
+* **Campaigns, Protocol Runs, Tasks**: List, inspect, submit, and cancel at every level of the execution hierarchy.
+* **Definitions**: Browse loaded task types, device types, lab layouts, and protocol workflows.
+* **Management**: Load, unload, and reload labs, protocols, devices, and packages.
+* **Optimizer**: Query optimizer state, update runtime parameters, and provide expert insights.
+* **Devices**: List devices, inspect state, discover available RPC functions, and call them directly.
+* **SQL**: Run read-only queries against the EOS database.
+* **Filesystem**: Browse packages and read entity configuration files (YAML, Python).
 
 
 Examples
@@ -1625,7 +1431,7 @@ Natural language prompts you might give an AI assistant connected to EOS via MCP
 
     "Show me the status of the catalyst_screening campaign and list all completed protocols"
 
-    "Submit a color mixing protocol run targeting RGB(120, 45, 200) with ink dispensing and UV-Vis analysis"
+    "Submit a color mixing protocol run targeting RGB(120, 45, 200)"
 
     "What devices are available in the wet lab? What functions does the liquid handler support?"
 
@@ -1639,7 +1445,8 @@ Natural language prompts you might give an AI assistant connected to EOS via MCP
 Multi-Computer Lab Setup
 ========================
 
-EOS can orchestrate protocols across multiple computers using Ray for distributed communication. One computer runs the EOS orchestrator as the head node; additional computers join as worker nodes.
+One computer runs the EOS orchestrator and Ray head node. Additional computers join as Ray workers.
+See :doc:`infrastructure_setup` for network requirements.
 
 Main EOS Computer
 -----------------
@@ -1659,20 +1466,10 @@ Main EOS Computer
 Worker Computers
 ----------------
 
-1. Install dependencies:
+1. Install uv, clone EOS, and activate its environment as described in :doc:`installation`.
+   On workers, use the worker installer in place of the full dependency installation:
 
    .. code-block:: shell
-
-       # Install uv
-       curl -LsSf https://astral.sh/uv/install.sh | sh
-
-       # Clone EOS repository
-       git clone https://github.com/UNC-Robotics/eos
-       cd eos
-
-       # Create and activate virtual environment
-       uv venv
-       source .venv/bin/activate
 
        # Install EOS worker dependencies
        python3 scripts/install_worker.py
@@ -1691,200 +1488,146 @@ Worker Computers
 
 Optimizers
 ==========
-Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to campaigns by optimizing task parameters to achieve objectives over time.
-EOS optimizers are *sequential*, meaning they iteratively optimize parameters by drawing on previous protocol runs.
-**Bayesian optimization** is one of the most common sequential methods, especially useful for expensive-to-evaluate black-box functions.
+A sequential optimizer proposes task parameters and learns from completed protocol runs.
+EOS runs it in a dedicated Ray actor, optionally on another computer selected by ``optimizer_ip``.
 
 .. figure:: ../_static/img/optimize-protocol-loop.png
    :alt: Optimization and protocol run loop
    :align: center
 
-EOS has a built-in Bayesian optimizer powered by `BoFire <https://experimental-design.github.io/bofire/>`_
-(based on `BoTorch <https://botorch.org/>`_).
-This optimizer supports both constrained single-objective and multi-objective Bayesian optimization.
-It offers several different surrogate models, including Gaussian Processes (GPs) and Multi-Layer Perceptrons (MLPs),
-along with various acquisition functions.
+Choose an Optimizer
+-------------------
+* ``BayesianSequentialOptimizer`` uses BoFire and BoTorch for constrained single-objective
+  or multi-objective optimization.
+* :doc:`beacon_optimizer` mixes an optimizer with AI suggestions, a journal, and expert insights.
+* Implement ``AbstractSequentialOptimizer`` for a standalone algorithm, or follow
+  :doc:`custom_beacon` to plug one into Beacon.
 
-Distributed Execution
----------------------
-EOS optimizers run in a dedicated Ray actor process, which can be placed on any machine with an active Ray worker.
-This allows the optimizer to run on a more capable machine than the one hosting the EOS orchestrator.
+Protocol Integration
+--------------------
+Place ``optimizer.py`` beside ``protocol.yml``. Its factory returns constructor arguments and
+an optimizer class. Input and output keys use ``task_name.parameter_name`` so EOS can collect
+and route values.
 
-Optimizer Implementation
-------------------------
-EOS optimizers are defined in the ``optimizer.py`` file adjacent to ``protocol.yml`` in an EOS package.
-Below is an example:
-
-:bdg-primary:`optimizer.py`
+This Bayesian optimizer works with the bundled multiplication protocol:
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
+    from bofire.data_models.acquisition_functions.acquisition_function import qLogNEI
+    from bofire.data_models.features.continuous import ContinuousOutput
+    from bofire.data_models.features.discrete import DiscreteInput
     from bofire.data_models.objectives.identity import MinimizeObjective
 
     from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
 
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
+    def eos_create_campaign_optimizer():
+        return {
             "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
+                DiscreteInput(key="mult_1.number", values=list(range(2, 34))),
+                DiscreteInput(key="mult_1.factor", values=list(range(2, 18))),
+                DiscreteInput(key="mult_2.factor", values=list(range(2, 18))),
             ],
             "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
+                ContinuousOutput(
+                    key="score_multiplication.loss",
+                    objective=MinimizeObjective(),
+                ),
             ],
             "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 10,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-        }
+            "acquisition_function": qLogNEI(),
+            "num_initial_samples": 5,
+        }, BayesianSequentialOptimizer
 
-        return constructor_args, BayesianSequentialOptimizer
+The domain contains input features, output objectives, and constraints. The acquisition function
+selects later Bayesian samples after initialization. See the
+`BoFire documentation <https://experimental-design.github.io/bofire/>`_ for domain and strategy options.
 
-Each ``optimizer.py`` must contain ``eos_create_campaign_optimizer``, which returns:
+Custom Optimizer Contract
+-------------------------
+Inherit from ``eos.optimization.abstract_sequential_optimizer.AbstractSequentialOptimizer``
+and implement these methods:
 
-#. The constructor arguments for an optimizer class instance
-#. The optimizer class type
+.. list-table::
+   :header-rows: 1
 
-This example uses EOS' built-in Bayesian optimizer.
+   * - Method
+     - Contract
+   * - ``sample(num_protocol_runs=1)``
+     - Return a DataFrame with one row per requested run and one column per input.
+   * - ``report(inputs_df, outputs_df)``
+     - Record measured results. Input and output rows must correspond.
+   * - ``get_optimal_solutions()``
+     - Return the best observed inputs and outputs, or the non-dominated set for multiple objectives.
+   * - ``get_input_names()`` / ``get_output_names()``
+     - Return the DataFrame column names.
+   * - ``get_num_samples_reported()``
+     - Count reported rows, not sampling calls.
 
-For most use cases, the :doc:`beacon_optimizer` is recommended. It combines Bayesian optimization with AI-driven reasoning for faster convergence, using the same domain definition (inputs, outputs, constraints) but adding an AI agent that reasons about protocol run history to suggest smarter parameter sets.
+Results may arrive in batches or out of order. Track pending samples if the algorithm needs to
+avoid duplicates. On resume, EOS creates a new optimizer and replays completed results.
 
-Custom optimizers can also be defined in this file; just return their constructor arguments and class type from ``eos_create_campaign_optimizer``.
+Define classes in ``optimizer.py`` or install them as an importable Python package on the
+optimizer worker. EOS loads ``optimizer.py`` by file path without adding its directory to
+``sys.path``. Sibling modules need an importable package path.
 
-.. note::
-    All optimizers must inherit from the class ``AbstractSequentialOptimizer`` under the ``eos.optimization`` module.
+See :doc:`custom_beacon` for a complete grid-search implementation of this contract.
 
-Input and Output Parameter Naming
-"""""""""""""""""""""""""""""""""
-Input and output parameter names must reference task parameters using the EOS reference format:
+.. _optimizer-parameter-schema:
 
-**TASK.PARAMETER_NAME**
-
-This lets EOS associate the optimizer with protocol tasks and forward parameter values correctly.
-
-Example Custom Optimizer
-------------------------
-Below is a custom optimizer that randomly samples parameters for the same color mixing problem:
-
-:bdg-primary:`optimizer.py`
+Parameter Schema and Runtime Controls
+-------------------------------------
+Declare ``eos_param_schema()`` on the optimizer class returned by the factory. It is optional
+and defaults to an empty list. EOS uses it for submission controls and allowed overrides.
 
 .. code-block:: python
 
-    import random
-    from dataclasses import dataclass
-    from enum import Enum
-    import pandas as pd
+    @classmethod
+    def eos_param_schema(cls):
+        return [
+            {"key": "descending", "type": "checkbox", "default": False, "runtime": True},
+        ]
 
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+.. list-table::
+   :header-rows: 1
 
+   * - Field
+     - Meaning
+   * - ``key`` / ``type``
+     - Required constructor argument name and control type. Types are ``number``, ``text``,
+       ``select``, ``checkbox``, and ``json``.
+   * - ``label`` / ``description``
+     - Optional display name and help text. The label defaults to the key.
+   * - ``default``
+     - Value displayed when no override is supplied. Keep it consistent with the constructor.
+   * - ``min`` / ``max`` / ``step``
+     - Numeric control bounds and increment.
+   * - ``options``
+     - Allowed choices for ``select``.
+   * - ``runtime``
+     - Whether the parameter can change during a campaign. Defaults to false.
 
-    class ObjectiveType(Enum):
-        MINIMIZE = 1
-        MAXIMIZE = 2
+Runtime controls also require ``get_runtime_params()`` and ``set_runtime_params(params)``.
+The getter's keys are the runtime API allowlist. Validate values in the setter. UI constraints
+are not a substitute for validation in your optimizer.
 
+Beacon merges the inner optimizer's runtime parameters with its own, forwards custom updates,
+and persists them for resume. Standalone optimizers can implement ``get_meta()`` and
+``restore_meta(meta)`` to persist additional state. The web UI shows AI controls only for Beacon subclasses.
 
-    @dataclass
-    class Parameter:
-        name: str
-        lower_bound: float
-        upper_bound: float
-
-
-    @dataclass
-    class Metric:
-        name: str
-        objective: ObjectiveType
-
-
-    class RandomSamplingOptimizer(AbstractSequentialOptimizer):
-        def __init__(self, parameters: list[Parameter], metrics: list[Metric]):
-            self.parameters = parameters
-            self.metrics = metrics
-            self.results: list[dict] = []
-
-        def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:
-            samples = []
-            for _ in range(num_protocol_runs):
-                sample = {p.name: random.uniform(p.lower_bound, p.upper_bound) for p in self.parameters}
-                samples.append(sample)
-            return pd.DataFrame(samples)
-
-        def report(self, inputs_df: pd.DataFrame, outputs_df: pd.DataFrame) -> None:
-            for _, row in pd.concat([inputs_df, outputs_df], axis=1).iterrows():
-                self.results.append(row.to_dict())
-
-        def get_optimal_solutions(self) -> pd.DataFrame:
-            if not self.results:
-                return pd.DataFrame(
-                    columns=[p.name for p in self.parameters] + [m.name for m in self.metrics]
-                )
-            df = pd.DataFrame(self.results)
-            optimal_solutions = []
-            for m in self.metrics:
-                if m.objective == ObjectiveType.MINIMIZE:
-                    optimal = df.loc[df[m.name].idxmin()]
-                else:
-                    optimal = df.loc[df[m.name].idxmax()]
-                optimal_solutions.append(optimal)
-            return pd.DataFrame(optimal_solutions)
-
-        def get_input_names(self) -> list[str]:
-            return [p.name for p in self.parameters]
-
-        def get_output_names(self) -> list[str]:
-            return [m.name for m in self.metrics]
-
-        def get_num_samples_reported(self) -> int:
-            return len(self.results)
-
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "parameters": [
-                Parameter(name="mix_colors.cyan_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.cyan_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.magenta_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.magenta_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.yellow_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.yellow_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.black_volume", lower_bound=0, upper_bound=25),
-                Parameter(name="mix_colors.black_strength", lower_bound=2, upper_bound=100),
-                Parameter(name="mix_colors.mixing_time", lower_bound=1, upper_bound=45),
-                Parameter(name="mix_colors.mixing_speed", lower_bound=100, upper_bound=200),
-            ],
-            "metrics": [
-                Metric(name="score_color.loss", objective=ObjectiveType.MINIMIZE),
-            ],
-        }
-        return constructor_args, RandomSamplingOptimizer
 # File: user-guide/packages.rst
 ================================================================================
 
 Packages
 ========
-Code and resources in EOS are organized into packages, discovered and loaded at runtime.
-Each package is a folder that can contain laboratory, device, task, and protocol definitions, code, and data, enabling reuse and sharing.
-For example, a package can contain task and device implementations for a specific manufacturer's equipment, while another may contain only protocols for a specific lab.
+Packages contain reusable lab, device, task, and protocol definitions, plus supporting code and data.
+A package can serve one lab or share equipment implementations across labs.
 
 .. figure:: ../_static/img/package.png
    :alt: EOS package
    :align: center
 
-Using a package is as simple as placing it in a directory that EOS loads packages from.
-By default, this directory is called `user` and is located in the root of the EOS repository.
+Place packages under ``user_dir``, which defaults to ``user`` in the EOS repository.
 
 Below is the directory tree of an example EOS package called "color_lab".
 It contains a laboratory called "color_lab", the "color_mixing" protocol, and
@@ -1902,8 +1645,7 @@ Create a Package
 
    eos pkg create my_package
 
-This command creates a new package with all subdirectories.
-Feel free to delete subdirectories you don't expect to use.
+This creates the package directory structure. Remove unused subdirectories as needed.
 
 Add Entities to a Package
 -------------------------
@@ -1920,9 +1662,8 @@ seeds it with empty starter files.
 
 Install Package Dependencies
 ----------------------------
-Each package declares its Python dependencies in its ``pyproject.toml``. The ``install`` command
-is a thin wrapper around ``uv pip install -r <package>/pyproject.toml`` that resolves each
-package by name (even if it is nested inside a subdirectory under ``user/``).
+Declare Python dependencies in ``pyproject.toml``. ``eos pkg install`` resolves packages by name,
+including nested packages, and installs their dependencies with uv.
 
 .. code-block:: shell
 
@@ -1955,265 +1696,72 @@ All ``eos pkg`` commands resolve the user directory in the following order:
 
 Protocols
 =========
-Protocols are a set of tasks executed in a specific order, represented as directed acyclic graphs (DAGs) where nodes are tasks and edges are dependencies.
-Tasks in a protocol can pass parameters, devices, and resources to each other using EOS' reference system.
-Parameters may be fully defined or left undefined as dynamic parameters.
-Protocols with dynamic parameters can run campaigns where an optimizer generates dynamic parameter values across repeated runs to optimize some objectives.
+A protocol is a directed acyclic graph of tasks. Dependencies set execution order, and
+:doc:`references` pass values, devices, resources, and files between tasks.
 
 .. figure:: ../_static/img/protocol-graph.png
    :alt: Example protocol graph
    :align: center
 
-Above is an example of a possible protocol that could be implemented with EOS.
-There is a series of tasks, each requiring one or more devices.
-In addition to task precedence dependencies, there can also be dependencies in the form of parameters, devices, and resources passed between tasks.
-For example, the task "Mix Solutions" may take as input the volumes of solutions to mix, output from the "Dispense Solutions" task.
-Tasks can reference input/output parameters, devices, and resources from other tasks.
+Define a Protocol
+-----------------
+Place ``protocol.yml`` in ``protocols/<protocol_name>/`` inside an EOS package.
+Add ``optimizer.py`` only when the protocol supports :doc:`campaigns` with optimization.
 
-Protocol Implementation
------------------------
-* Protocols are implemented in the `protocols` subdirectory inside an EOS package
-* Each protocol has its own subfolder (e.g., protocols/optimize_yield)
-* There are two key files per protocol: ``protocol.yml`` and ``optimizer.py`` (for running campaigns with optimization)
-
-YAML File (protocol.yml)
-~~~~~~~~~~~~~~~~~~~~~~~~~
-Defines the protocol.
-Specifies the protocol type, labs, and tasks
-
-Below is the protocol YAML file for the :doc:`color mixing <color_mixing>` example.
-It uses a ``color_station`` device that handles both mixing and analysis, a ``robot_arm`` for moving containers,
-and a ``cleaning_station`` for cleanup:
-
-:bdg-primary:`protocol.yml`
+This example uses the multiplication tasks from the bundled example package:
 
 .. code-block:: yaml
 
-    type: color_mixing
-    desc: Protocol to find optimal parameters to synthesize a desired color
-
-    labs:
-      - color_lab
+    type: optimize_multiplication
+    desc: Find parameters whose multiplied value is 1024
+    labs: [multiplication_lab]
 
     tasks:
-      - name: retrieve_container
-        type: Retrieve Container
-        desc: Get a container from storage and move it to the color dispenser
-        duration: 5
+      - name: mult_1
+        type: Multiplication
         devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          color_station:
-            allocation_type: dynamic
-            device_type: color_station
-        resources:
-          beaker:
-            allocation_type: dynamic
-            resource_type: beaker
-        dependencies: []
-
-      - name: mix_colors
-        type: Mix Colors
-        desc: Mix the colors in the container
-        duration: 20
-        devices:
-          color_station: retrieve_container.color_station
-        resources:
-          beaker: retrieve_container.beaker
+          multiplier:
+            lab_name: multiplication_lab
+            name: multiplier
         parameters:
-          cyan_volume: eos_dynamic
-          cyan_strength: eos_dynamic
-          magenta_volume: eos_dynamic
-          magenta_strength: eos_dynamic
-          yellow_volume: eos_dynamic
-          yellow_strength: eos_dynamic
-          black_volume: eos_dynamic
-          black_strength: eos_dynamic
-          mixing_time: eos_dynamic
-          mixing_speed: eos_dynamic
-        dependencies: [retrieve_container]
+          number: eos_dynamic
+          factor: eos_dynamic
 
-      - name: analyze_color
-        type: Analyze Color
-        desc: Analyze the color of the solution in the container and output the RGB values
-        duration: 2
+      - name: mult_2
+        type: Multiplication
+        dependencies: [mult_1]
         devices:
-          color_station: mix_colors.color_station
-        resources:
-          beaker: mix_colors.beaker
-        dependencies: [mix_colors]
-
-      - name: score_color
-        type: Score Color
-        desc: Score the color based on the RGB values
-        duration: 1
+          multiplier: mult_1.multiplier
         parameters:
-          red: analyze_color.red
-          green: analyze_color.green
-          blue: analyze_color.blue
-          total_color_volume: mix_colors.total_color_volume
-          max_total_color_volume: 300.0
-          target_color: eos_dynamic
-        dependencies: [analyze_color]
+          number: mult_1.product
+          factor: eos_dynamic
 
-      - name: empty_container
-        type: Empty Container
-        desc: Empty the container and move it to the cleaning station
-        duration: 5
+      - name: score_multiplication
+        type: Score Multiplication
+        dependencies: [mult_1, mult_2]
         devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-          cleaning_station:
-            allocation_type: dynamic
-            device_type: cleaning_station
-            allowed_labs: [color_lab]
-        resources:
-          beaker: analyze_color.beaker
+          analyzer:
+            lab_name: multiplication_lab
+            name: analyzer
         parameters:
-          emptying_location: emptying_location
-        dependencies: [analyze_color]
+          number: mult_1.in_number
+          product: mult_2.product
 
-      - name: clean_container
-        type: Clean Container
-        desc: Clean the container by rinsing it with distilled water
-        duration: 5
-        devices:
-          cleaning_station: empty_container.cleaning_station
-        resources:
-          beaker: empty_container.beaker
-        parameters:
-          duration: 2
-        dependencies: [empty_container]
+``type`` identifies the protocol definition. Each execution has a separate protocol run name.
+``labs`` lists the laboratories available to its tasks.
 
-      - name: store_container
-        type: Store Container
-        desc: Store the container back in the container storage
-        duration: 5
-        devices:
-          robot_arm:
-            lab_name: color_lab
-            name: robot_arm
-        resources:
-          beaker: clean_container.beaker
-        parameters:
-          storage_location: container_storage
-        dependencies: [clean_container]
+Task Fields
+-----------
+* ``name`` identifies the task within this protocol. ``type`` selects a task specification.
+* ``dependencies`` lists tasks that must finish first.
+* ``parameters`` overrides task defaults. ``eos_dynamic`` requires a value from the submission
+  or optimizer before the task can run.
+* ``devices`` and ``resources`` assign specific instances, request dynamic allocation, or
+  reference an earlier task's allocation. See :doc:`references` and :doc:`scheduling`.
+* ``files`` references earlier task output files. See :doc:`tasks`.
+* ``duration`` supplies the expected execution time in seconds for scheduling.
 
-Let's dissect this file:
-
-.. code-block:: yaml
-
-    type: color_mixing
-    desc: Protocol to find optimal parameters to synthesize a desired color
-
-    labs:
-      - color_lab
-
-Every protocol has a type used to identify the class of protocol.
-When a protocol is running, there are instances (protocol runs) with different IDs.
-Each protocol also requires one or more labs.
-
-Now let's look at the first task in the protocol:
-
-.. code-block:: yaml
-
-    - name: retrieve_container
-      type: Retrieve Container
-      desc: Get a container from storage and move it to the color dispenser
-      duration: 5
-      devices:
-        robot_arm:
-          lab_name: color_lab
-          name: robot_arm
-        color_station:
-          allocation_type: dynamic
-          device_type: color_station
-      resources:
-        beaker:
-          allocation_type: dynamic
-          resource_type: beaker
-      dependencies: []
-
-The first task is named ``retrieve_container``.
-This task demonstrates several key concepts:
-
-**Named Devices**: Devices are specified as a dictionary where each key is a named reference (e.g., ``robot_arm``, ``color_station``).
-These names are used by the task implementation to access the device.
-
-**Specific Device Allocation**: The ``robot_arm`` device is explicitly assigned:
-
-.. code-block:: yaml
-
-    robot_arm:
-      lab_name: color_lab
-      name: robot_arm
-
-This tells EOS to use the specific robot arm device from the color_lab.
-
-**Dynamic Device Allocation**: The ``color_station`` uses dynamic allocation:
-
-.. code-block:: yaml
-
-    color_station:
-      allocation_type: dynamic
-      device_type: color_station
-
-The scheduler will automatically select an available ``color_station`` device from the protocol's labs when this task is ready to execute.
-
-**Dynamic Resource Allocation**: The ``beaker`` resource is dynamically allocated from available beakers of type ``beaker``.
-
-Let's look at the next task:
-
-.. code-block:: yaml
-
-    - name: mix_colors
-      type: Mix Colors
-      desc: Mix the colors in the container
-      duration: 20
-      devices:
-        color_station: retrieve_container.color_station
-      resources:
-        beaker: retrieve_container.beaker
-      parameters:
-        cyan_volume: eos_dynamic
-        cyan_strength: eos_dynamic
-        magenta_volume: eos_dynamic
-        magenta_strength: eos_dynamic
-        yellow_volume: eos_dynamic
-        yellow_strength: eos_dynamic
-        black_volume: eos_dynamic
-        black_strength: eos_dynamic
-        mixing_time: eos_dynamic
-        mixing_speed: eos_dynamic
-      dependencies: [retrieve_container]
-
-This task demonstrates **device and resource references**:
-
-**Device Reference**: ``color_station: retrieve_container.color_station`` tells EOS to use the same color_station allocated to ``retrieve_container``, ensuring the beaker stays at the same station.
-
-**Resource Reference**: ``beaker: retrieve_container.beaker`` passes the beaker resource from the previous task.
-
-**Dynamic Parameters**: The mixing parameters are set to ``eos_dynamic``, a special keyword for defining dynamic parameters.
-These must be specified by the user or an optimizer before a protocol run can execute.
-
-The ``analyze_color`` task shows another device reference:
-
-.. code-block:: yaml
-
-    - name: analyze_color
-      type: Analyze Color
-      desc: Analyze the color of the solution in the container and output the RGB values
-      duration: 2
-      devices:
-        color_station: mix_colors.color_station
-      resources:
-        beaker: mix_colors.beaker
-      dependencies: [mix_colors]
-
-Here, ``color_station`` references the same station from the ``mix_colors`` task,
-ensuring the analysis happens at the same station where the color was mixed.
+See :doc:`color_mixing` for a larger protocol with device allocation and resource movement.
 
 Conditionals (run_if)
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -2243,7 +1791,7 @@ Supported syntax:
     run_if: mode.setting == 'high' or sample.count >= 3
 
 Expressions must return a boolean and are validated at load time.
-Negative numbers are allowed; binary arithmetic, function calls, indexing, and chained attribute access are not.
+Negative numbers are allowed. Binary arithmetic, function calls, indexing, and chained attribute access are not.
 
 Skips propagate: a task is skipped if all of its dependencies were skipped, or (for a conditional task) if any task its
 ``run_if`` references was skipped.
@@ -2277,144 +1825,74 @@ on both. To read the output of whichever branch ran, set a parameter to a **fan-
 Each fan-in reference must point to an ancestor, and exactly one branch must run, so make the branch conditions mutually
 exclusive.
 
-Optimizer File (optimizer.py)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Contains a function that returns the constructor arguments for and the optimizer class type for an optimizer.
 
-As an example, below is the optimizer file for the color mixing protocol:
-
-:bdg-primary:`optimizer.py`
-
-.. code-block:: python
-
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
-    from bofire.data_models.objectives.identity import MinimizeObjective
-
-    from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-
-
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.yellow_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.yellow_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.black_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.black_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.mixing_time", bounds=(1, 45)),
-                ContinuousInput(key="mix_colors.mixing_speed", bounds=(100, 200)),
-            ],
-            "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
-            ],
-            "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 10,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-        }
-
-        return constructor_args, BayesianSequentialOptimizer
-
-The ``optimizer.py`` file is optional and only required for running protocol run campaigns with optimization managed by EOS.
+Optimization
+------------
+Define ``eos_create_campaign_optimizer()`` in ``optimizer.py`` to return constructor arguments
+and an optimizer class. See :doc:`optimizers` for the interface, :doc:`beacon_optimizer` for
+hybrid optimization, and :doc:`custom_beacon` to replace Beacon's default optimizer.
 
 # File: user-guide/references.rst
 ================================================================================
 
 References
 ==========
-References connect tasks in an EOS protocol. They let downstream tasks reuse:
+Use ``task_name.output_name`` to pass a value or reuse an allocation from an earlier task.
+The source task must precede the consuming task in the dependency graph.
 
-- Devices allocated upstream (device references)
-
-- Physical items used upstream (resource references)
-
-- Output values produced upstream (parameter references)
-
-You write references directly under devices, resources, or parameters in each task’s YAML.
-
-
-Quick syntax
-------------
-- Device reference (reuse an allocated device):
-
-  devices:
-    <alias>: <upstream_task>.<alias>
-
-- Resource reference (pass the same physical item):
-
-  resources:
-    <alias>: <upstream_task>.<alias>
-
-- Parameter reference (consume an output value):
-
-  parameters:
-    <param_name>: <upstream_task>.<output_name>
-
-
-Minimal example
----------------
+Syntax
+------
 .. code-block:: yaml
 
-  - name: retrieve_container
     devices:
-      robot_arm:
-        lab_name: color_lab
-        name: robot_arm
-      color_mixer:
-        allocation_type: dynamic
-        device_type: color_mixer
-        allowed_labs: [color_lab]
+      station: prepare.station
     resources:
-      beaker:
-        allocation_type: dynamic
-        resource_type: beaker
-    dependencies: []
-
-  - name: mix_colors
-    devices:
-      color_mixer: retrieve_container.color_mixer          # device reference
-    resources:
-      beaker: retrieve_container.beaker                    # resource reference
+      beaker: prepare.beaker
     parameters:
-      cyan_volume: eos_dynamic
-      mixing_time: eos_dynamic
-    dependencies: [retrieve_container]
+      volume: prepare.measured_volume
+    files:
+      raw_data: analyze.chromatogram.csv
 
-  - name: analyze_color
-    devices:
-      color_analyzer:
-        allocation_type: dynamic
-        device_type: color_analyzer
-        allowed_labs: [color_lab]
-    resources:
-      beaker: mix_colors.beaker                            # keep same beaker
-    dependencies: [mix_colors]
+Keys on the left are the consuming task's aliases or parameter names. References on the right
+identify the upstream task and its output. File names may contain dots.
 
-  - name: score_color
-    parameters:
-      red: analyze_color.red                               # output parameter references
-      green: analyze_color.green
-      blue: analyze_color.blue
-      total_color_volume: mix_colors.total_color_volume
-      max_total_color_volume: 300.0
-      target_color: eos_dynamic
-    dependencies: [analyze_color]
+Example
+-------
+.. code-block:: yaml
+
+    - name: analyze_color
+      type: Analyze Color
+      dependencies: [mix_colors]
+      devices:
+        color_station: mix_colors.color_station
+      resources:
+        beaker: mix_colors.beaker
+
+    - name: score_color
+      type: Score Color
+      dependencies: [analyze_color]
+      parameters:
+        red: analyze_color.red
+        green: analyze_color.green
+        blue: analyze_color.blue
+        total_color_volume: mix_colors.total_color_volume
+        max_total_color_volume: 300.0
+        target_color: eos_dynamic
+
+The first task reuses the station and beaker selected for mixing. The second consumes the
+measured RGB values. See :doc:`color_mixing` for the complete protocol.
+
+A reference identifies an allocation but does not reserve it between tasks. Use
+:doc:`scheduling` holds when another protocol run must not claim the device or resource in between.
+See :doc:`protocols` for fan-in references after conditional branches.
 
 # File: user-guide/resources.rst
 ================================================================================
 
 Resources
 =========
-Resources in EOS represent anything that requires exclusive allocation during task execution but does not need its own long‑running process like a device. They cover labware and shared objects such as beakers, vials, tip racks, pipettes, holders, fixtures, bench slots, fridge locations, etc. If multiple tasks could contend for the same physical thing, model it as a resource.
-
-- Use a device when you need a persistent process with methods (e.g., a mixer, GC, robot).
-- Use a resource when you only need exclusive use of something for a task.
+Resources provide exclusive access to labware, tools, and locations such as beakers, tip racks,
+and bench slots. Use a :doc:`device <devices>` when the object needs a persistent process with methods.
 
 Defining resources in laboratories
 ----------------------------------
@@ -2460,7 +1938,7 @@ Resources are defined per laboratory in ``lab.yml`` using two sections:
 
 Notes
 """""
-- Resource names must be globally unique across all labs; EOS enforces this at load time.
+- Resource names must be globally unique across all labs. EOS enforces this at load time.
 - Instance ``meta`` overrides any defaults from the corresponding ``resource_types`` entry.
 
 Declaring resources in task specifications
@@ -2474,8 +1952,9 @@ Tasks declare required resource types in ``task.yml``. EOS validates that protoc
     type: Magnetic Mixing
     desc: Mix contents in a beaker
 
-    device_types:
-      - magnetic_mixer
+    devices:
+      mixer:
+        type: magnetic_mixer
 
     input_resources:
       beaker:
@@ -2513,6 +1992,8 @@ In protocol tasks, assign specific resource names or request resources dynamical
       - name: process_batch
         type: Magnetic Mixing
         duration: 120
+        devices:
+          mixer: prepare.mixer
         # Dynamically allocate a beaker of the required type
         resources:
           beaker:
@@ -2523,6 +2004,8 @@ In protocol tasks, assign specific resource names or request resources dynamical
       - name: analyze
         type: Magnetic Mixing
         duration: 30
+        devices:
+          mixer: process_batch.mixer
         # Reuse the same instance selected for 'process_batch'
         # (when a task outputs a resource, it can be referenced by name)
         resources:
@@ -2534,7 +2017,7 @@ In protocol tasks, assign specific resource names or request resources dynamical
 
 Protocol‑level resource metadata (optional)
 --------------------------------------------
-You may attach protocol-specific metadata to resources via the top-level ``resources`` block. This annotates existing resource instances; it does not define new ones.
+You may attach protocol-specific metadata to resources via the top-level ``resources`` block. This annotates existing resource instances. It does not define new ones.
 
 :bdg-primary:`protocol.yml`
 
@@ -2552,41 +2035,31 @@ You may attach protocol-specific metadata to resources via the top-level ``resou
     tasks:
       - name: mixing
         type: Magnetic Mixing
+        devices:
+          mixer:
+            lab_name: small_lab
+            name: magnetic_mixer
         resources:
           beaker: BEAKER_A
 
 Allocation and exclusivity
 --------------------------
-- EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.
+- EOS allocates resources exclusively to the task that holds them. Conflicting tasks wait until resources are free.
 - Specific assignments must name an existing resource instance defined in one of the protocol’s labs.
 - Dynamic assignments select from the pool of eligible instances by ``resource_type``.
 - Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.
-
-When to model as a resource
----------------------------
-- Labware: beakers, vials, flasks, tip racks, plates.
-- Fixtures/locations: bench or instrument slots, holders, storage positions.
-- Tools without stateful control loops: manual pipettes, clamps, lids.
-
-Choose a device instead when the object exposes actions and status via a process (e.g., start/stop/move, sensors, drivers).
 
 # File: user-guide/rest_api.rst
 ================================================================================
 
 REST API
 ========
-EOS exposes a REST API to control the orchestrator. Example capabilities:
+Use the REST API to submit work, inspect results, manage definitions, and call devices.
+The examples use the default server at ``http://localhost:8070``. Interactive endpoint documentation
+is available at ``http://localhost:8070/docs``.
 
-* Submit tasks, protocols, and campaigns, as well as cancel them
-* Load, unload, and reload protocols and laboratories
-* Get the status of tasks, protocols, and campaigns
-* Download task output files
-
-.. warning::
-
-    The REST API has no authentication. Only expose it on trusted networks.
-    Use a VPN or reverse proxy with auth if remote access is needed.
-
+When :doc:`authentication` is enabled, add ``-H "Authorization: Bearer $TOKEN"`` to requests.
+Otherwise, expose the API only on trusted networks.
 
 Submitting Protocol Runs
 ------------------------
@@ -2622,7 +2095,6 @@ Submit a protocol run. All dynamic parameters (``eos_dynamic``) must be provided
               }
         }'
 
-
 Submitting Campaigns
 --------------------
 Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameters.
@@ -2651,30 +2123,28 @@ Submit a campaign to run a protocol multiple times, optionally with optimizer-dr
               }
         }'
 
-**Without optimization** (user provides all parameters):
+**Without optimization**, provide global parameters, a per-run schedule, or both.
+This example uses the bundled multiplication protocol:
 
 .. code-block:: bash
 
     curl -X POST http://localhost:8070/api/campaigns \
-         -H "Content-Type: application/json" \
-         -d '{
-              "name": "color_sweep",
-              "protocol": "color_mixing",
-              "owner": "alice",
-              "max_protocol_runs": 3,
-              "max_concurrent_protocol_runs": 1,
-              "optimize": false,
-              "protocol_run_parameters": [
-                {"mix_colors": {"cyan_volume": 5, "cyan_strength": 50, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [0, 200, 200]}},
-                {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 5, "magenta_strength": 50, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 0, 200]}},
-                {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 5, "yellow_strength": 50, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 200, 0]}}
-              ]
-        }'
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "multiplication_sweep",
+        "protocol": "optimize_multiplication",
+        "max_protocol_runs": 3,
+        "optimize": false,
+        "global_parameters": {"mult_1": {"factor": 8}, "mult_2": {"factor": 16}},
+        "protocol_run_parameters": [
+          {"mult_1": {"number": 4}},
+          {"mult_1": {"number": 8}},
+          {"mult_1": {"number": 16}}
+        ]
+      }'
 
-.. note::
-
-    When ``optimize`` is ``false``, ``protocol_run_parameters`` must have exactly ``max_protocol_runs`` entries.
-
+If supplied without optimization, the schedule must contain exactly ``max_protocol_runs`` entries.
+See :doc:`campaigns` for resume and concurrency settings and :doc:`beacon_optimizer` for runtime tuning.
 
 Submitting On-Demand Tasks
 --------------------------
@@ -2709,7 +2179,6 @@ Submit a single task for execution outside a protocol run.
               }
         }'
 
-
 Cancelling
 ----------
 Cancel a running protocol run or campaign:
@@ -2722,7 +2191,6 @@ Cancel a running protocol run or campaign:
     # Cancel a campaign
     curl -X POST http://localhost:8070/api/campaigns/color_optimization/cancel
 
-
 Querying Status
 ---------------
 Get the status of protocols and campaigns:
@@ -2734,7 +2202,6 @@ Get the status of protocols and campaigns:
 
     # Get campaign details
     curl http://localhost:8070/api/campaigns/color_optimization
-
 
 Device RPC
 ----------
@@ -2759,15 +2226,6 @@ The endpoint calls the specified function on the device actor with the provided 
 
     Direct device control bypasses EOS validation, resource allocation, and scheduling.
 
-Documentation
--------------
-The REST API is documented with `OpenAPI <https://swagger.io/specification/>`_ and accessible at:
-
-.. code-block:: bash
-
-    http://localhost:8070/docs
-
-or the host and port configured for the REST API server.
 # File: user-guide/scheduling.rst
 ================================================================================
 
@@ -2830,45 +2288,9 @@ If omitted, tasks default to **1 second**.
 
 Device and resource allocation
 ------------------------------
-Both schedulers support **specific** and **dynamic** devices and resources for tasks.
-
-**Devices**
-
-- *Specific device* - tasks request specific devices with a lab_name/name identifier.
-- *Dynamic device* - tasks request "any device of type X," optionally with constraints (allowed labs/devices).
-
-.. code-block:: yaml
-
-    # Specific device
-    devices:
-      color_analyzer:
-        lab_name: color_lab
-        name: color_analyzer
-
-    # Dynamic device (one device is selected)
-    devices:
-      color_analyzer:
-        allocation_type: dynamic
-        device_type: color_analyzer
-        allowed_labs: [color_lab]
-
-**Resources**
-
-- *Specific resource* - tasks request specific resources by name.
-- *Dynamic resource* - tasks request resources by **type** (one resource is selected).
-
-.. code-block:: yaml
-
-    # Specific resources
-    resources:
-      beaker: beaker_A
-      buffer: buffer_01
-
-    # Dynamic resource (one resource is selected)
-    resources:
-      tips:
-        allocation_type: dynamic
-        resource_type: p200_tips
+Both schedulers support specific and dynamic device or resource assignments.
+See :doc:`protocols` and :doc:`resources` for assignment syntax, and :doc:`references` for reusing
+an earlier task's allocation.
 
 **How schedulers choose**
 
@@ -2971,7 +2393,7 @@ Both schedulers fully support holds.
 
 Protocol run priorities
 -----------------------
-Each protocol run has an integer priority (default **0**; higher values = higher importance). Priority is set at
+Each protocol run has an integer priority (default **0**, with higher values taking priority). Priority is set at
 submission time via the REST API or a campaign definition, not in ``protocol.yml``.
 
 - **CP-SAT**: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
@@ -3035,67 +2457,14 @@ bottlenecks.
 **Output** includes a timeline of task START/DONE events, per-device and per-resource utilization percentages,
 parallelism metrics (max and average concurrent tasks), and scheduler overhead statistics.
 
-Comparison table
-----------------
-.. list-table::
-   :header-rows: 1
-   :widths: 28 36 36
-
-   * - Capability
-     - Greedy Scheduler
-     - CP-SAT Scheduler
-   * - Decision scope
-     - ✅ Per-task, on demand
-     - ✅ Global schedule across protocols
-   * - Optimization goal
-     - ✅ Start tasks ASAP
-     - ✅ Minimize protocol run durations
-   * - Device/resource holds
-     - ✅ Supported
-     - ✅ Supported
-   * - Task groups
-     - ❌ Not supported
-     - ✅ Supported
-   * - Task durations
-     - ❌ Not supported
-     - ✅ Supported and required
-   * - Dynamic device allocation
-     - ✅ First available from eligible pool
-     - ✅ Optimized choices to reduce conflicts
-   * - Dynamic resource allocation
-     - ✅ First available from eligible pool
-     - ✅ Optimized choices to reduce conflicts
-   * - Protocol run priorities
-     - ❌ Only for tie-breaks
-     - ✅ Shapes overall completion order
-   * - Multi-protocol-run optimization
-     - ❌ Per protocol run
-     - ✅ Joint scheduling of all protocol runs
-   * - Tuning / parameters
-     - ❌ None
-     - ✅ Solver knobs (time limit, workers, seed)
-   * - Computational complexity
-     - Low
-     - High
-
 # File: user-guide/sila2_integration.rst
 ================================================================================
 
 SiLA 2 Integration
 ==================
 
-EOS provides built-in support for `SiLA 2 <https://sila-standard.com/>`_ to ease integration with
-SiLA-compliant instruments.
-
-Overview
---------
-
-The SiLA integration allows you to:
-
-* Host SiLA servers inside EOS devices
-* Connect to external SiLA servers (manual or with autodiscovery)
-* Call SiLA servers from tasks with automatic connection management
-* Use LockController for exclusive device access (automatic)
+EOS can host SiLA 2 servers inside devices or connect to external servers.
+Tasks use ``SilaClientContext`` for connection management and automatic LockController handling.
 
 Setup
 -----
@@ -3114,9 +2483,12 @@ Host SiLA servers inside EOS devices using ``SilaDeviceMixin``:
 
 .. code-block:: python
 
+    from typing import Any
+
     from eos.devices.base_device import BaseDevice
     from eos.integrations.sila import SilaDeviceMixin
     from your_package.sila import Server as YourSilaServer
+
 
     class YourDevice(BaseDevice, SilaDeviceMixin):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
@@ -3189,6 +2561,7 @@ Connect to SiLA servers using ``SilaClientContext``:
     from eos.integrations.sila import SilaClientContext
     from your_package.sila import Client as YourSilaClient
 
+
     class YourTask(BaseTask):
         async def _execute(self, devices, parameters, resources):
             device = devices["your_device"]
@@ -3237,9 +2610,12 @@ SiLA servers can also be called from within an EOS device:
 
 .. code-block:: python
 
+    from typing import Any
+
     from eos.devices.base_device import BaseDevice
     from eos.integrations.sila import SilaDeviceMixin, SilaClientContext
     from your_package.sila import Client as YourSilaClient
+
 
     class YourDevice(BaseDevice, SilaDeviceMixin):
         async def _initialize(self, init_parameters: dict[str, Any]) -> None:
@@ -3264,15 +2640,6 @@ EOS automatically handles LockController when present:
 * **Metadata injection**: Adds lock identifier to all calls
 * **Auto-retry**: Waits up to 60s if locked
 * **Auto-unlock**: Releases on context exit
-
-Default Behavior
-~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-    # Automatically locked for 60 seconds
-    async with SilaClientContext.connect(device, Client) as client:
-        response = client.Feature.Command()
 
 Custom Timeout
 ~~~~~~~~~~~~~~
@@ -3315,27 +2682,17 @@ Manual Lock Control
         client.lock(timeout=90)  # Lock with auto-generated UUID
         response = client.Feature.Command()
         client.unlock()
+
 # File: user-guide/tasks.rst
 ================================================================================
 
 Tasks
 =====
-A task in EOS encapsulates an operation and can be thought of as a function.
-Tasks are the elementary building block in EOS.
-A task is ephemeral: created, executed, and terminated.
-A task takes inputs and returns outputs, and may use one or more devices.
+A task performs one operation, then terminates. It may call devices and exchange three kinds of data:
 
-There are three kinds of inputs:
-
-#. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are passed to the task.
-#. **Resources**: Laboratory resources such as containers (vessels that may contain samples), reagents, or other consumables.
-#. **Files**: Raw data or reports produced by an earlier task, passed in as input for further processing.
-
-There are three kinds of outputs:
-
-#. **Parameters**: Data such as integers, decimals, strings, booleans, etc that are returned by the task.
-#. **Resources**: Laboratory resources such as containers, reagents, or consumables.
-#. **Files**: Raw data or reports generated by the task, such as output files from analysis.
+* **Parameters**: Typed values such as numbers, strings, and dictionaries.
+* **Resources**: Exclusively allocated labware, tools, or locations.
+* **Files**: Raw data or reports passed between tasks or downloaded by users.
 
 .. figure:: ../_static/img/task-inputs-outputs.svg
    :alt: EOS Task Inputs and Outputs
@@ -3343,38 +2700,13 @@ There are three kinds of outputs:
 
 Parameters
 ----------
-Parameters are values input to or output from a task, each with a specific data type.
-EOS supports the following parameter types:
-
-* **int**: An int number.
-  Equivalent to Python's ``int``
-* **float**: A float number.
-  Equivalent to Python's ``float``
-* **str**: A str (series of text characters).
-  Equivalent to Python's ``str``
-* **bool**: A true/false value.
-  Equivalent to Python's ``bool``
-* **choice**: A value that must be one of a set of predefined choices.
-  The choices can be any type.
-* **list**: A list of values of a specific type.
-  Equivalent to Python's ``list``.
-* **dict**: A dict of key-value pairs.
-  Equivalent to Python's ``dict``.
-
-Tasks can have multiple parameters of different types.
-EOS validates that parameters are the correct type and meet their constraints.
+EOS supports ``int``, ``float``, ``str``, ``bool``, ``choice``, ``list``, and ``dict`` parameters.
+Task specifications declare their types, defaults, and constraints. EOS validates supplied values.
 
 Resources
 ---------
-Resources represent anything tasks must exclusively allocate (other than devices): sample containers (beakers, vials), lab locations that can only be occupied by one container, reagents, or any other asset requiring exclusive access.
-
-Resources are referenced by a unique **resource name**, specified in the laboratory definition under the ``resources`` section.
-Resources are *global* objects that can move across labs, but each must have a "home" lab from which it originates.
-
-To pass or return a resource, its name is used (or a reference to another task's resource).
-Each task accepts specific resource types such as ``beaker``, ``vial``, or custom types, and multiple resources can be passed to a single task.
-Resource types are defined in the laboratory definition under ``resource_types`` and act as templates; individual instances are created under ``resources`` with a specified type.
-EOS ensures only compatible resource types are passed to a task.
+Declare the resource types a task accepts in ``task.yml``. Protocols supply resource names or
+references to earlier tasks. See :doc:`resources` for type definitions and allocation rules.
 
 Files
 -----
@@ -3435,12 +2767,8 @@ Below is an example task YAML file for a GC analysis task using SRI Instruments 
         type: dict
         desc: Peaks and peak areas of substances that could not be identified
 
-The task specification makes clear that:
-
-* The task is of type "SRI GC Analysis"
-* The task requires a device named ``gc`` of type ``sri_gas_chromatograph``, accessible in the implementation via ``devices["gc"]``.
-* The task takes an int parameter ``analysis_time`` in seconds, with a default of 480 (optional).
-* The task outputs two dictionaries: ``known_substances`` and ``unknown_substances``.
+The implementation accesses the named device through ``devices["gc"]``. The task accepts
+``analysis_time`` in seconds and returns two dictionaries.
 
 Parameter Specification
 """""""""""""""""""""""
@@ -3543,12 +2871,12 @@ Dictionary
           CaCl2: 1.0
         temperature: 25
 
-Dictionaries are key-value pairs; values can be any type.
+Dictionary values can be any type.
 
 Parameter Groups
 """"""""""""""""
 Related parameters can optionally be nested under a named group for presentation purposes.
-A top-level entry under ``input_parameters`` is a group when it has **no** ``type:`` field; its direct children are leaf parameter specs.
+A top-level entry under ``input_parameters`` is a group when it has **no** ``type:`` field. Its direct children are leaf parameter specs.
 
 .. code-block:: yaml
 
@@ -3571,8 +2899,8 @@ Notes:
 
 * Grouping is purely a display concept for the visual protocol editor and submission forms. Runtime payloads, ``protocol.yml`` overrides, and task records remain flat: a submitted parameter dict is ``{diameter: 300.0}``, never ``{wafer_parameters: {diameter: 300.0}}``.
 * Leaf names must be unique across all top-level leaves and groups (no two leaves named ``x`` in different groups).
-* Only one level of nesting is allowed; groups cannot contain groups.
-* Groups are optional; flat ``input_parameters`` continue to work unchanged.
+* Only one level of nesting is allowed. Groups cannot contain groups.
+* Groups are optional. Flat ``input_parameters`` continue to work unchanged.
 
 Python File (task.py)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -3604,7 +2932,7 @@ Python File (task.py)
 ``_execute`` is the only required method in a task implementation and accepts up to four arguments:
 
 #. ``devices``: Devices assigned to the task, accessed by name (e.g., ``devices["mixer"]``).
-   Devices are Ray actor reference wrappers; the implementation can call any function from the device implementation.
+   Device wrappers let the task call methods defined by the device implementation.
 #. ``parameters``: Input parameters keyed by name.
 #. ``resources``: Input resources keyed by name, as ``Resource`` objects.
 #. ``files``: Input files keyed by name, each providing access to the file's contents.
@@ -3614,16 +2942,13 @@ Python File (task.py)
 
 Web UI
 ======
-EOS includes a rich web UI for visually designing protocols, monitoring execution, controlling devices,
-and browsing results. It connects to the EOS orchestrator and provides real-time updates.
-
-Access it at ``http://localhost:3000`` (default).
+Use the web UI to edit protocols, monitor execution, inspect devices, and browse results.
+See :doc:`installation` to start it at ``http://localhost:3000``.
 
 .. figure:: /_static/img/eos-ui.png
    :align: center
 
    Screenshot of the EOS web UI editor view.
-
 
 Editor
 ------
@@ -3631,11 +2956,10 @@ The editor is the central workspace for designing and building EOS packages:
 
 * Visual protocol designer with interactive task graphs showing dependencies and data flow
 * Build protocols by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters
-* Seamless switching between visual and code views (changes sync both ways)
+* Switching between visual and code views (changes sync both ways)
 * Reload tasks, devices, labs, and protocols without restarting EOS
 * Syntax-highlighted code editing for YAML configs and Python code
 * Package file tree for creating, renaming, and deleting entities
-
 
 Tasks
 -----
@@ -3643,7 +2967,6 @@ The tasks view manages individual task submissions:
 
 * Submit tasks using specific devices and input parameters
 * Clone previous tasks for easy re-submission
-
 
 Protocol Runs
 -------------
@@ -3653,16 +2976,14 @@ The protocol runs view tracks protocol run execution:
 * Visual task flow graph with real-time status updates (pending, running, completed, failed)
 * Inspect task inputs, outputs, devices, and timing
 
-
 Campaigns
 ---------
 The campaigns view manages repeated protocol run execution and optimization:
 
 * Submit campaigns with parameters as JSON/CSV, or via optimizer sampling
-* Configure optimizer settings when optimization is enabled
+* Configure :doc:`optimizers`, including Beacon and custom parameter controls
 * Monitor progress with optimization charts and Pareto front visualization
 * Configurable auto-refresh intervals across all views
-
 
 Device Inspector
 ----------------
@@ -3673,26 +2994,133 @@ The device inspector provides direct device interaction, useful for debugging an
 * Call device functions directly with specific parameter inputs
 * View call history and results
 
-
 Files
 -----
 The file browser provides access to EOS object storage (S3-compatible):
 
 * Upload, download, delete, and search files
 
-
 Management
 ----------
 The management view handles system configuration:
 
-* **Packages** -- Installed packages and their status
-* **Labs** -- Load, unload, and reload laboratory configurations
-* **Devices** -- Device health status and lab assignments
-* **Task Plugins** -- Available task types and their parameter specs
-* **Protocol Types** -- Load, unload, and reload protocol configurations
-
+* **Packages**: Installed packages and their status
+* **Labs**: Load, unload, and reload laboratory configurations
+* **Devices**: Device health status and lab assignments
+* **Task Plugins**: Available task types and their parameter specs
+* **Protocol Types**: Load, unload, and reload protocol configurations
 
 Logs
 ----
 A sidebar log panel streams orchestrator logs in real time.
+
+# File: _examples/custom_beacon.py
+
+```python
+"""A discrete grid-search optimizer for the bundled multiplication protocol."""
+
+from itertools import product
+
+import pandas as pd
+from bofire.data_models.features.continuous import ContinuousOutput
+from bofire.data_models.features.discrete import DiscreteInput
+from bofire.data_models.objectives.identity import MinimizeObjective
+
+from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
+from eos.optimization.beacon_optimizer import BeaconOptimizer
+
+
+class GridSearchOptimizer(AbstractSequentialOptimizer):
+    def __init__(self, inputs, outputs, constraints, descending=False):
+        if constraints or not all(isinstance(feature, DiscreteInput) for feature in inputs):
+            raise ValueError("This example supports discrete inputs without constraints")
+        if len(outputs) != 1 or not isinstance(outputs[0].objective, MinimizeObjective):
+            raise ValueError("This example requires one minimization objective")
+
+        self._input_names = [feature.key for feature in inputs]
+        self._output_names = [feature.key for feature in outputs]
+        self._grid = list(product(*(feature.values for feature in inputs)))
+        self._pending = set()
+        self._completed = set()
+        self._results = []
+        self.set_runtime_params({"descending": descending})
+
+    def sample(self, num_protocol_runs=1):
+        available = [
+            point
+            for point in sorted(self._grid, reverse=self._descending)
+            if point not in self._completed and point not in self._pending
+        ]
+        selected = available[:num_protocol_runs]
+        if len(selected) != num_protocol_runs:
+            raise ValueError("Grid exhausted")
+
+        self._pending.update(selected)
+        return pd.DataFrame(selected, columns=self._input_names)
+
+    def report(self, inputs_df, outputs_df):
+        rows = pd.concat([inputs_df.reset_index(drop=True), outputs_df.reset_index(drop=True)], axis=1)
+        self._results.extend(rows.to_dict(orient="records"))
+
+        for point in inputs_df[self._input_names].itertuples(index=False, name=None):
+            self._completed.add(point)
+            self._pending.discard(point)
+
+    def get_optimal_solutions(self):
+        results = pd.DataFrame(self._results, columns=self._input_names + self._output_names)
+        if results.empty:
+            return results
+
+        objective = results[self._output_names[0]]
+        return results.loc[objective == objective.min()].copy()
+
+    def get_input_names(self):
+        return self._input_names
+
+    def get_output_names(self):
+        return self._output_names
+
+    def get_num_samples_reported(self):
+        return len(self._results)
+
+    def get_runtime_params(self):
+        return {"descending": self._descending}
+
+    def set_runtime_params(self, params):
+        if "descending" in params:
+            if not isinstance(params["descending"], bool):
+                raise ValueError("descending must be a boolean")
+            self._descending = params["descending"]
+
+
+class GridBeacon(BeaconOptimizer):
+    def __init__(self, descending=False, **kwargs):
+        self._descending = descending
+        super().__init__(**kwargs)
+
+    def _create_optimizer(self, inputs, outputs, constraints):
+        return GridSearchOptimizer(inputs, outputs, constraints, descending=self._descending)
+
+    @classmethod
+    def eos_param_schema(cls):
+        return [{"key": "descending", "type": "checkbox", "default": False, "runtime": True}]
+
+
+def eos_create_campaign_optimizer():
+    return {
+        "inputs": [
+            DiscreteInput(key="mult_1.number", values=[4, 8, 16, 32]),
+            DiscreteInput(key="mult_1.factor", values=[4, 8, 16]),
+            DiscreteInput(key="mult_2.factor", values=[4, 8, 16]),
+        ],
+        "outputs": [
+            ContinuousOutput(key="score_multiplication.loss", objective=MinimizeObjective()),
+        ],
+        "constraints": [],
+        "p_bayesian": 1.0,
+        "p_ai": 0.0,
+        "ai_additional_parameters": ["mult_2.product"],
+    }, GridBeacon
+
+```
 

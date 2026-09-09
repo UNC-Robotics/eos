@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,18 +428,11 @@
                   
   <section id="rest-api">
 <h1>REST API<a class="headerlink" href="#rest-api" title="Link to this heading">#</a></h1>
-<p>EOS exposes a REST API to control the orchestrator. Example capabilities:</p>
-<ul class="simple">
-<li><p>Submit tasks, protocols, and campaigns, as well as cancel them</p></li>
-<li><p>Load, unload, and reload protocols and laboratories</p></li>
-<li><p>Get the status of tasks, protocols, and campaigns</p></li>
-<li><p>Download task output files</p></li>
-</ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The REST API has no authentication. Only expose it on trusted networks.
-Use a VPN or reverse proxy with auth if remote access is needed.</p>
-</div>
+<p>Use the REST API to submit work, inspect results, manage definitions, and call devices.
+The examples use the default server at <code class="docutils literal notranslate"><span class="pre">http://localhost:8070</span></code>. Interactive endpoint documentation
+is available at <code class="docutils literal notranslate"><span class="pre">http://localhost:8070/docs</span></code>.</p>
+<p>When <a class="reference internal" href="authentication.html"><span class="doc">Authentication &amp; Authorization</span></a> is enabled, add <code class="docutils literal notranslate"><span class="pre">-H</span> <span class="pre">&quot;Authorization:</span> <span class="pre">Bearer</span> <span class="pre">$TOKEN&quot;</span></code> to requests.
+Otherwise, expose the API only on trusted networks.</p>
 <section id="submitting-protocol-runs">
 <h2>Submitting Protocol Runs<a class="headerlink" href="#submitting-protocol-runs" title="Link to this heading">#</a></h2>
 <p>Submit a protocol run. All dynamic parameters (<code class="docutils literal notranslate"><span class="pre">eos_dynamic</span></code>) must be provided via <code class="docutils literal notranslate"><span class="pre">parameters</span></code>.</p>
@@ -494,28 +489,26 @@ Use a VPN or reverse proxy with auth if remote access is needed.</p>
 <span class="s1">    }&#39;</span>
 </pre></div>
 </div>
-<p><strong>Without optimization</strong> (user provides all parameters):</p>
+<p><strong>Without optimization</strong>, provide global parameters, a per-run schedule, or both.
+This example uses the bundled multiplication protocol:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
-<span class="s1">          &quot;name&quot;: &quot;color_sweep&quot;,</span>
-<span class="s1">          &quot;protocol&quot;: &quot;color_mixing&quot;,</span>
-<span class="s1">          &quot;owner&quot;: &quot;alice&quot;,</span>
-<span class="s1">          &quot;max_protocol_runs&quot;: 3,</span>
-<span class="s1">          &quot;max_concurrent_protocol_runs&quot;: 1,</span>
-<span class="s1">          &quot;optimize&quot;: false,</span>
-<span class="s1">          &quot;protocol_run_parameters&quot;: [</span>
-<span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 5, &quot;cyan_strength&quot;: 50, &quot;magenta_volume&quot;: 0, &quot;magenta_strength&quot;: 0, &quot;yellow_volume&quot;: 0, &quot;yellow_strength&quot;: 0, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [0, 200, 200]}},</span>
-<span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 0, &quot;cyan_strength&quot;: 0, &quot;magenta_volume&quot;: 5, &quot;magenta_strength&quot;: 50, &quot;yellow_volume&quot;: 0, &quot;yellow_strength&quot;: 0, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [200, 0, 200]}},</span>
-<span class="s1">            {&quot;mix_colors&quot;: {&quot;cyan_volume&quot;: 0, &quot;cyan_strength&quot;: 0, &quot;magenta_volume&quot;: 0, &quot;magenta_strength&quot;: 0, &quot;yellow_volume&quot;: 5, &quot;yellow_strength&quot;: 50, &quot;black_volume&quot;: 0, &quot;black_strength&quot;: 0, &quot;mixing_time&quot;: 10, &quot;mixing_speed&quot;: 150}, &quot;score_color&quot;: {&quot;target_color&quot;: [200, 200, 0]}}</span>
-<span class="s1">          ]</span>
-<span class="s1">    }&#39;</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">    &quot;name&quot;: &quot;multiplication_sweep&quot;,</span>
+<span class="s1">    &quot;protocol&quot;: &quot;optimize_multiplication&quot;,</span>
+<span class="s1">    &quot;max_protocol_runs&quot;: 3,</span>
+<span class="s1">    &quot;optimize&quot;: false,</span>
+<span class="s1">    &quot;global_parameters&quot;: {&quot;mult_1&quot;: {&quot;factor&quot;: 8}, &quot;mult_2&quot;: {&quot;factor&quot;: 16}},</span>
+<span class="s1">    &quot;protocol_run_parameters&quot;: [</span>
+<span class="s1">      {&quot;mult_1&quot;: {&quot;number&quot;: 4}},</span>
+<span class="s1">      {&quot;mult_1&quot;: {&quot;number&quot;: 8}},</span>
+<span class="s1">      {&quot;mult_1&quot;: {&quot;number&quot;: 16}}</span>
+<span class="s1">    ]</span>
+<span class="s1">  }&#39;</span>
 </pre></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>When <code class="docutils literal notranslate"><span class="pre">optimize</span></code> is <code class="docutils literal notranslate"><span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">protocol_run_parameters</span></code> must have exactly <code class="docutils literal notranslate"><span class="pre">max_protocol_runs</span></code> entries.</p>
-</div>
+<p>If supplied without optimization, the schedule must contain exactly <code class="docutils literal notranslate"><span class="pre">max_protocol_runs</span></code> entries.
+See <a class="reference internal" href="campaigns.html"><span class="doc">Campaigns</span></a> for resume and concurrency settings and <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a> for runtime tuning.</p>
 </section>
 <section id="submitting-on-demand-tasks">
 <h2>Submitting On-Demand Tasks<a class="headerlink" href="#submitting-on-demand-tasks" title="Link to this heading">#</a></h2>
@@ -591,14 +584,6 @@ curl<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimizati
 <p>Direct device control bypasses EOS validation, resource allocation, and scheduling.</p>
 </div>
 </section>
-<section id="documentation">
-<h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h2>
-<p>The REST API is documented with <a class="reference external" href="https://swagger.io/specification/">OpenAPI</a> and accessible at:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>http://localhost:8070/docs
-</pre></div>
-</div>
-<p>or the host and port configured for the REST API server.</p>
-</section>
 </section>
 
 
@@ -654,7 +639,6 @@ curl<span class="w"> </span>http://localhost:8070/api/campaigns/color_optimizati
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cancelling">Cancelling</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#querying-status">Querying Status</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#device-rpc">Device RPC</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a></li>
 </ul>
   </nav></div>
 

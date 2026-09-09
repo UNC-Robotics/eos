@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,267 +428,85 @@
                   
   <section id="laboratories">
 <h1>Laboratories<a class="headerlink" href="#laboratories" title="Link to this heading">#</a></h1>
-<p>Laboratories are where devices and resources exist and where tasks, protocols, and campaigns take place.</p>
-<p>A laboratory in EOS is a collection of:</p>
-<ul class="simple">
-<li><p>Computers (e.g., devices capable of controlling equipment)</p></li>
-<li><p>Devices (e.g., equipment/apparatuses in the laboratory)</p></li>
-<li><p>Resources (e.g., containers for holding samples, reagents, lab location, consumables, etc.)</p></li>
-</ul>
-<section id="laboratory-implementation">
-<h2>Laboratory Implementation<a class="headerlink" href="#laboratory-implementation" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>Laboratories are implemented in the <cite>laboratories</cite> subdirectory inside an EOS package</p></li>
-<li><p>Each laboratory has its own subfolder (e.g., laboratories/color_lab)</p></li>
-<li><p>The laboratory is defined in a YAML file named <code class="docutils literal notranslate"><span class="pre">lab.yml</span></code>.</p></li>
-</ul>
-<p>Below is an example laboratory YAML file for a solar cell fabrication lab:</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">lab.yml</span></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_cell_fabrication_lab</span>
-<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">A laboratory for fabricating and characterizing perovskite solar cells</span>
+<p>A laboratory groups computers, <a class="reference internal" href="devices.html"><span class="doc">Devices</span></a>, and <a class="reference internal" href="resources.html"><span class="doc">Resources</span></a> used by protocols.
+Define it in <code class="docutils literal notranslate"><span class="pre">labs/&lt;lab_name&gt;/lab.yml</span></code> inside an EOS package.</p>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Link to this heading">#</a></h2>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_cell_lab</span>
+<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Fabrication and characterization of solar cells</span>
 
 <span class="nt">computers</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">xrd_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XRD system control and data analysis</span>
 <span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.101</span>
-<span class="w">  </span><span class="nt">solar_sim_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator control and J-V measurements</span>
-<span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.102</span>
-<span class="w">  </span><span class="nt">robot_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot control</span>
-<span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.103</span>
+<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">X-ray diffraction control</span>
 
 <span class="nt">devices</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spin_coater</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-
 <span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">uv_ozone_cleaner</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UV-Ozone cleaner for substrate treatment</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv_ozone_cleaner</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fume_hood</span>
-
-<span class="w">  </span><span class="nt">thermal_evaporator</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporator for metal electrode deposition</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">thermal_evaporator</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-
-<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">max_temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000C</span>
-<span class="w">      </span><span class="nt">materials</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Au</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Ag</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Al</span><span class="p p-Indicator">]</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
-
-<span class="w">  </span><span class="nt">solar_simulator</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator for J-V curve measurements</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_simulator</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">solar_sim_computer</span>
-
-<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">spectrum</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">AM1.5G</span>
-<span class="w">      </span><span class="nt">intensity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100mW/cm2</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
-
 <span class="w">  </span><span class="nt">xrd_system</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">X-ray diffractometer for crystal structure analysis</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xrd</span>
 <span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">xrd_computer</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
-
-<span class="w">  </span><span class="nt">mobile_robot</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot for automated sample transfer</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mobile_robot</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot_computer</span>
-
 <span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">locations</span><span class="p">:</span>
-<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fume_hood</span>
-<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">annealing_station</span>
-<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
-<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">characterization_room</span>
+<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5003</span>
 
 <span class="nt">resource_types</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">vial</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w">  </span><span class="c1"># ml</span>
-
-<span class="w">  </span><span class="nt">petri_dish</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">  </span><span class="c1"># ml</span>
-
-<span class="w">  </span><span class="nt">crucible</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">  </span><span class="c1"># ml</span>
+<span class="w">      </span><span class="nt">capacity_ml</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 
 <span class="nt">resources</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">precursor_vial_1</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">precursor_vial</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
 <span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">precursor_vial_2</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">precursor_vial_3</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">substrate_dish_1</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">petri_dish</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">substrate_dish_2</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">petri_dish</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">au_crucible</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">crucible</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
-
-<span class="w">  </span><span class="nt">ag_crucible</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">crucible</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
 </pre></div>
 </div>
-<section id="computers-optional">
-<h3>Computers (Optional)<a class="headerlink" href="#computers-optional" title="Link to this heading">#</a></h3>
-<p>Computers control devices and host EOS devices.
-Each computer that must interface with one or more devices must be defined in this section.
-The IP address of each computer must be specified.</p>
-<p>There is always a computer in each lab called <strong>eos_computer</strong> with the IP “127.0.0.1”.
-This is the computer running the EOS orchestrator and can be thought of as the “central” computer.
-No other computer named “eos_computer” is allowed, and no other computer can have the IP “127.0.0.1”.
-The “computers” section need not be defined unless additional computers are required (e.g., if not all devices are
-connected to eos_computer).</p>
+</section>
+<section id="computers">
+<h2>Computers<a class="headerlink" href="#computers" title="Link to this heading">#</a></h2>
+<p>The built-in <code class="docutils literal notranslate"><span class="pre">eos_computer</span></code> represents the orchestrator at <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>.
+Define <code class="docutils literal notranslate"><span class="pre">computers</span></code> only for additional machines, each with an IP address.
+Neither the built-in name nor its address can be reused.</p>
 <figure class="align-center">
 <img alt="EOS computers" src="../_images/eos-computers.png" />
 </figure>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">computers</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">xrd_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">XRD system control and data analysis</span>
-<span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.101</span>
-<span class="w">  </span><span class="nt">solar_sim_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Solar simulator control and J-V measurements</span>
-<span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.102</span>
-<span class="w">  </span><span class="nt">robot_computer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mobile manipulation robot control</span>
-<span class="w">    </span><span class="nt">ip</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.1.103</span>
-</pre></div>
+<p>See <a class="reference internal" href="multi_computer_setup.html"><span class="doc">Multi-Computer Lab Setup</span></a> to join workers to the Ray cluster and
+<a class="reference internal" href="infrastructure_setup.html"><span class="doc">Infrastructure Setup</span></a> for network requirements.</p>
+</section>
+<section id="devices">
+<h2>Devices<a class="headerlink" href="#devices" title="Link to this heading">#</a></h2>
+<p>Device names must be unique within a lab. Multiple instances may share a device type.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p>A device specification from an EOS package.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">computer</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">eos_computer</span></code> or a computer defined above.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">init_parameters</span></code></p></td>
+<td><p>Optional overrides for the device’s initialization defaults.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">meta</span></code></p></td>
+<td><p>Optional instance metadata, such as location.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
 </section>
-<section id="devices-required">
-<h3>Devices (Required)<a class="headerlink" href="#devices-required" title="Link to this heading">#</a></h3>
-<p>Devices are equipment or apparatuses in the laboratory required to perform tasks.
-Each device must have a unique name inside the lab and must be defined in the <code class="docutils literal notranslate"><span class="pre">devices</span></code> section of the laboratory YAML file.</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">spin_coater</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Spin coater for depositing perovskite and transport layers</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">spin_coater</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">uv_ozone_cleaner</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">UV-Ozone cleaner for substrate treatment</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">uv_ozone_cleaner</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fume_hood</span>
-
-<span class="w">  </span><span class="nt">thermal_evaporator</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Thermal evaporator for metal electrode deposition</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">thermal_evaporator</span>
-<span class="w">    </span><span class="nt">computer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_computer</span>
-
-<span class="w">    </span><span class="nt">init_parameters</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">max_temperature</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1000C</span>
-<span class="w">      </span><span class="nt">materials</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">Au</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Ag</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">Al</span><span class="p p-Indicator">]</span>
-
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">evaporation_chamber</span>
-</pre></div>
-</div>
-<p><strong>type</strong>: Every device must have a type, which matches a device specification (e.g., defined in the <code class="docutils literal notranslate"><span class="pre">devices</span></code> subdirectory
-of an EOS package).
-There can be multiple devices with different names of the same type.</p>
-<p><strong>computer</strong>: The computer that controls the device.
-If not “eos_computer”, the computer must be defined in the “computers” section.</p>
-<p><strong>init_parameters</strong> (optional): Parameters required to initialize the device.
-These parameters are defined in the device specification and can be overridden here.</p>
-<p><strong>meta</strong> (optional): A dictionary of arbitrary metadata for the device instance (e.g., <code class="docutils literal notranslate"><span class="pre">location</span></code>).</p>
-</section>
-<section id="resources-optional">
-<h3>Resources (Optional)<a class="headerlink" href="#resources-optional" title="Link to this heading">#</a></h3>
-<p>Resources represent anything tasks should exclusively allocate, such as containers (vessels for holding samples),
-lab locations that can only be occupied by one container, reagents, or other consumables.</p>
-<p>Resources are defined using two sections in the laboratory YAML file:</p>
-<ol class="arabic simple">
-<li><p><strong>resource_types</strong>: Templates that define the properties of a resource type</p></li>
-<li><p><strong>resources</strong>: Individual resource instances with unique names</p></li>
-</ol>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">resource_types</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">vial</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span><span class="w">  </span><span class="c1"># ml</span>
-
-<span class="w">  </span><span class="nt">petri_dish</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">capacity</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span><span class="w">  </span><span class="c1"># ml</span>
-
-<span class="nt">resources</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">precursor_vial_1</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">precursor_vial_2</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">vial</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-
-<span class="w">  </span><span class="nt">substrate_dish_1</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">petri_dish</span>
-<span class="w">    </span><span class="nt">meta</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">location</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">glovebox</span>
-</pre></div>
-</div>
-<p><strong>Resource Types</strong>:</p>
-<ul class="simple">
-<li><p>Define templates with shared properties for resources of the same type</p></li>
-<li><p><strong>meta</strong> (optional): Default metadata for all resources of this type (e.g., capacity)</p></li>
-</ul>
-<p><strong>Resources</strong>:</p>
-<ul class="simple">
-<li><p>Each resource has a unique name (e.g., <code class="docutils literal notranslate"><span class="pre">precursor_vial_1</span></code>)</p></li>
-<li><p><strong>type</strong>: The resource type (must match a defined <code class="docutils literal notranslate"><span class="pre">resource_type</span></code>)</p></li>
-<li><p><strong>meta</strong> (optional): Instance-specific metadata that overrides or extends the resource type’s meta (e.g., current location)</p></li>
-</ul>
-</section>
+<section id="resources">
+<h2>Resources<a class="headerlink" href="#resources" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">resource_types</span></code> defines types and their default metadata. <code class="docutils literal notranslate"><span class="pre">resources</span></code> defines named
+instances whose metadata overrides those defaults. Resource names must be unique across labs.
+See <a class="reference internal" href="resources.html"><span class="doc">Resources</span></a> for task declarations, dynamic allocation, and passing resources between tasks.</p>
 </section>
 </section>
 
@@ -737,12 +557,10 @@ lab locations that can only be occupied by one container, reagents, or other con
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#laboratory-implementation">Laboratory Implementation</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#computers-optional">Computers (Optional)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#devices-required">Devices (Required)</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#resources-optional">Resources (Optional)</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example">Example</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#computers">Computers</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#devices">Devices</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#resources">Resources</a></li>
 </ul>
   </nav></div>
 

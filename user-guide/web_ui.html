@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,9 +428,8 @@
                   
   <section id="web-ui">
 <h1>Web UI<a class="headerlink" href="#web-ui" title="Link to this heading">#</a></h1>
-<p>EOS includes a rich web UI for visually designing protocols, monitoring execution, controlling devices,
-and browsing results. It connects to the EOS orchestrator and provides real-time updates.</p>
-<p>Access it at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code> (default).</p>
+<p>Use the web UI to edit protocols, monitor execution, inspect devices, and browse results.
+See <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> to start it at <code class="docutils literal notranslate"><span class="pre">http://localhost:3000</span></code>.</p>
 <figure class="align-center" id="id1">
 <img alt="../_images/eos-ui.png" src="../_images/eos-ui.png" />
 <figcaption>
@@ -441,7 +442,7 @@ and browsing results. It connects to the EOS orchestrator and provides real-time
 <ul class="simple">
 <li><p>Visual protocol designer with interactive task graphs showing dependencies and data flow</p></li>
 <li><p>Build protocols by adding tasks, connecting inputs/outputs, assigning devices, and configuring parameters</p></li>
-<li><p>Seamless switching between visual and code views (changes sync both ways)</p></li>
+<li><p>Switching between visual and code views (changes sync both ways)</p></li>
 <li><p>Reload tasks, devices, labs, and protocols without restarting EOS</p></li>
 <li><p>Syntax-highlighted code editing for YAML configs and Python code</p></li>
 <li><p>Package file tree for creating, renaming, and deleting entities</p></li>
@@ -469,7 +470,7 @@ and browsing results. It connects to the EOS orchestrator and provides real-time
 <p>The campaigns view manages repeated protocol run execution and optimization:</p>
 <ul class="simple">
 <li><p>Submit campaigns with parameters as JSON/CSV, or via optimizer sampling</p></li>
-<li><p>Configure optimizer settings when optimization is enabled</p></li>
+<li><p>Configure <a class="reference internal" href="optimizers.html"><span class="doc">Optimizers</span></a>, including Beacon and custom parameter controls</p></li>
 <li><p>Monitor progress with optimization charts and Pareto front visualization</p></li>
 <li><p>Configurable auto-refresh intervals across all views</p></li>
 </ul>
@@ -495,11 +496,11 @@ and browsing results. It connects to the EOS orchestrator and provides real-time
 <h2>Management<a class="headerlink" href="#management" title="Link to this heading">#</a></h2>
 <p>The management view handles system configuration:</p>
 <ul class="simple">
-<li><p><strong>Packages</strong> – Installed packages and their status</p></li>
-<li><p><strong>Labs</strong> – Load, unload, and reload laboratory configurations</p></li>
-<li><p><strong>Devices</strong> – Device health status and lab assignments</p></li>
-<li><p><strong>Task Plugins</strong> – Available task types and their parameter specs</p></li>
-<li><p><strong>Protocol Types</strong> – Load, unload, and reload protocol configurations</p></li>
+<li><p><strong>Packages</strong>: Installed packages and their status</p></li>
+<li><p><strong>Labs</strong>: Load, unload, and reload laboratory configurations</p></li>
+<li><p><strong>Devices</strong>: Device health status and lab assignments</p></li>
+<li><p><strong>Task Plugins</strong>: Available task types and their parameter specs</p></li>
+<li><p><strong>Protocol Types</strong>: Load, unload, and reload protocol configurations</p></li>
 </ul>
 </section>
 <section id="logs">

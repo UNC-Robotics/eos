@@ -1,17 +1,11 @@
 REST API
 ========
-EOS exposes a REST API to control the orchestrator. Example capabilities:
+Use the REST API to submit work, inspect results, manage definitions, and call devices.
+The examples use the default server at ``http://localhost:8070``. Interactive endpoint documentation
+is available at ``http://localhost:8070/docs``.
 
-* Submit tasks, protocols, and campaigns, as well as cancel them
-* Load, unload, and reload protocols and laboratories
-* Get the status of tasks, protocols, and campaigns
-* Download task output files
-
-.. warning::
-
-    The REST API has no authentication. Only expose it on trusted networks.
-    Use a VPN or reverse proxy with auth if remote access is needed.
-
+When :doc:`authentication` is enabled, add ``-H "Authorization: Bearer $TOKEN"`` to requests.
+Otherwise, expose the API only on trusted networks.
 
 Submitting Protocol Runs
 ------------------------
@@ -47,7 +41,6 @@ Submit a protocol run. All dynamic parameters (``eos_dynamic``) must be provided
               }
         }'
 
-
 Submitting Campaigns
 --------------------
 Submit a campaign to run a protocol multiple times, optionally with optimizer-driven parameters.
@@ -76,30 +69,28 @@ Submit a campaign to run a protocol multiple times, optionally with optimizer-dr
               }
         }'
 
-**Without optimization** (user provides all parameters):
+**Without optimization**, provide global parameters, a per-run schedule, or both.
+This example uses the bundled multiplication protocol:
 
 .. code-block:: bash
 
     curl -X POST http://localhost:8070/api/campaigns \
-         -H "Content-Type: application/json" \
-         -d '{
-              "name": "color_sweep",
-              "protocol": "color_mixing",
-              "owner": "alice",
-              "max_protocol_runs": 3,
-              "max_concurrent_protocol_runs": 1,
-              "optimize": false,
-              "protocol_run_parameters": [
-                {"mix_colors": {"cyan_volume": 5, "cyan_strength": 50, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [0, 200, 200]}},
-                {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 5, "magenta_strength": 50, "yellow_volume": 0, "yellow_strength": 0, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 0, 200]}},
-                {"mix_colors": {"cyan_volume": 0, "cyan_strength": 0, "magenta_volume": 0, "magenta_strength": 0, "yellow_volume": 5, "yellow_strength": 50, "black_volume": 0, "black_strength": 0, "mixing_time": 10, "mixing_speed": 150}, "score_color": {"target_color": [200, 200, 0]}}
-              ]
-        }'
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "multiplication_sweep",
+        "protocol": "optimize_multiplication",
+        "max_protocol_runs": 3,
+        "optimize": false,
+        "global_parameters": {"mult_1": {"factor": 8}, "mult_2": {"factor": 16}},
+        "protocol_run_parameters": [
+          {"mult_1": {"number": 4}},
+          {"mult_1": {"number": 8}},
+          {"mult_1": {"number": 16}}
+        ]
+      }'
 
-.. note::
-
-    When ``optimize`` is ``false``, ``protocol_run_parameters`` must have exactly ``max_protocol_runs`` entries.
-
+If supplied without optimization, the schedule must contain exactly ``max_protocol_runs`` entries.
+See :doc:`campaigns` for resume and concurrency settings and :doc:`beacon_optimizer` for runtime tuning.
 
 Submitting On-Demand Tasks
 --------------------------
@@ -134,7 +125,6 @@ Submit a single task for execution outside a protocol run.
               }
         }'
 
-
 Cancelling
 ----------
 Cancel a running protocol run or campaign:
@@ -147,7 +137,6 @@ Cancel a running protocol run or campaign:
     # Cancel a campaign
     curl -X POST http://localhost:8070/api/campaigns/color_optimization/cancel
 
-
 Querying Status
 ---------------
 Get the status of protocols and campaigns:
@@ -159,7 +148,6 @@ Get the status of protocols and campaigns:
 
     # Get campaign details
     curl http://localhost:8070/api/campaigns/color_optimization
-
 
 Device RPC
 ----------
@@ -183,13 +171,3 @@ The endpoint calls the specified function on the device actor with the provided 
 .. warning::
 
     Direct device control bypasses EOS validation, resource allocation, and scheduling.
-
-Documentation
--------------
-The REST API is documented with `OpenAPI <https://swagger.io/specification/>`_ and accessible at:
-
-.. code-block:: bash
-
-    http://localhost:8070/docs
-
-or the host and port configured for the REST API server.

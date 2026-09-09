@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -344,6 +344,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -351,6 +352,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -423,13 +425,10 @@
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#install-uv">1. Install uv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#install-eos">2. Install EOS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#configure-eos">3. Configure EOS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#launch-external-services">4. Launch External Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#start-eos">5. Start EOS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#launch-the-web-ui">6. Launch the Web UI</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#updating-eos">Updating EOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#install-uv-and-eos">Install uv and EOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#configure-and-start">Configure and Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#manual-configuration">Manual Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#update-eos">Update EOS</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="infrastructure_setup.html">Infrastructure Setup</a><ul>
@@ -470,16 +469,13 @@
 <li class="toctree-l2"><a class="reference internal" href="resources.html#assigning-resources-in-protocols">Assigning resources in protocols</a></li>
 <li class="toctree-l2"><a class="reference internal" href="resources.html#protocollevel-resource-metadata-optional">Protocol‑level resource metadata (optional)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="resources.html#allocation-and-exclusivity">Allocation and exclusivity</a></li>
-<li class="toctree-l2"><a class="reference internal" href="resources.html#when-to-model-as-a-resource">When to model as a resource</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laboratories.html">Laboratories</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="laboratories.html#laboratory-implementation">Laboratory Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="laboratories.html#computers-optional">Computers (Optional)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="laboratories.html#devices-required">Devices (Required)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="laboratories.html#resources-optional">Resources (Optional)</a></li>
-</ul>
-</li>
+<li class="toctree-l2"><a class="reference internal" href="laboratories.html#example">Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laboratories.html#computers">Computers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laboratories.html#devices">Devices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laboratories.html#resources">Resources</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a><ul>
@@ -505,51 +501,55 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="references.html">References</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="references.html#quick-syntax">Quick syntax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="references.html#minimal-example">Minimal example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#syntax">Syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#example">Example</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="protocols.html">Protocols</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="protocols.html#protocol-implementation">Protocol Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="protocols.html#yaml-file-protocol-yml">YAML File (protocol.yml)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#define-a-protocol">Define a Protocol</a></li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#task-fields">Task Fields</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="protocols.html#conditionals-run-if">Conditionals (run_if)</a></li>
-<li class="toctree-l3"><a class="reference internal" href="protocols.html#optimizer-file-optimizer-py">Optimizer File (optimizer.py)</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="protocols.html#optimization">Optimization</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="campaigns.html#optimization-setup-analyze-and-design-phases">Optimization Setup (Analyze and Design Phases)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="campaigns.html#automation-setup-make-and-test-phases">Automation Setup (Make and Test Phases)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="campaigns.html#choose-how-to-supply-parameters">Choose How to Supply Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="campaigns.html#campaign-settings">Campaign Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="campaigns.html#resuming">Resuming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="campaigns.html#prepare-a-protocol-for-repeated-runs">Prepare a Protocol for Repeated Runs</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="optimizers.html#distributed-execution">Distributed Execution</a></li>
-<li class="toctree-l2"><a class="reference internal" href="optimizers.html#optimizer-implementation">Optimizer Implementation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="optimizers.html#input-and-output-parameter-naming">Input and Output Parameter Naming</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="optimizers.html#example-custom-optimizer">Example Custom Optimizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimizers.html#choose-an-optimizer">Choose an Optimizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimizers.html#protocol-integration">Protocol Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimizers.html#custom-optimizer-contract">Custom Optimizer Contract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="optimizers.html#parameter-schema-and-runtime-controls">Parameter Schema and Runtime Controls</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#how-it-works">How It Works</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#why-hybrid">Why Hybrid?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#how-sampling-works">How Sampling Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#configure-beacon">Configure Beacon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#settings">Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#ai-providers">AI Providers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#claude-agent-sdk">Claude Agent SDK</a></li>
+<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#ollama">Ollama</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#setting-up">Setting Up</a></li>
-<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#parameter-reference">Parameter Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#strategy-mix">Strategy Mix</a></li>
-<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#ai-model">AI Model</a></li>
-<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#ai-context">AI Context</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#runtime-changes-and-insights">Runtime Changes and Insights</a></li>
+<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#history-and-token-use">History and Token Use</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#claude-agent-sdk">Claude Agent SDK</a></li>
-<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#using-local-models-with-ollama">Using Local Models with Ollama</a></li>
-<li class="toctree-l2"><a class="reference internal" href="beacon_optimizer.html#runtime-parameters">Runtime Parameters</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="beacon_optimizer.html#expert-insights">Expert Insights</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="custom_beacon.html#integration-rules">Integration Rules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="custom_beacon.html#a-complete-grid-search-example">A Complete Grid-Search Example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="custom_beacon.html#grid-optimizer">Grid Optimizer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="custom_beacon.html#beacon-subclass">Beacon Subclass</a></li>
+<li class="toctree-l3"><a class="reference internal" href="custom_beacon.html#factory">Factory</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="custom_beacon.html#run-and-tune-a-campaign">Run and Tune a Campaign</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a><ul>
@@ -561,7 +561,6 @@
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#protocol-run-priorities">Protocol run priorities</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#cp-sat-parameters">CP-SAT parameters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="scheduling.html#scheduling-simulation">Scheduling simulation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="scheduling.html#comparison-table">Comparison table</a></li>
 </ul>
 </li>
 </ul>
@@ -587,7 +586,6 @@
 <li class="toctree-l2"><a class="reference internal" href="rest_api.html#cancelling">Cancelling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rest_api.html#querying-status">Querying Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="rest_api.html#device-rpc">Device RPC</a></li>
-<li class="toctree-l2"><a class="reference internal" href="rest_api.html#documentation">Documentation</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a><ul>
@@ -601,13 +599,29 @@
 <li class="toctree-l2"><a class="reference internal" href="mcp.html#examples">Examples</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="authentication.html#how-it-works">How It Works</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="authentication.html#identity">Identity</a></li>
+<li class="toctree-l3"><a class="reference internal" href="authentication.html#roles">Roles</a></li>
+<li class="toctree-l3"><a class="reference internal" href="authentication.html#accounts">Accounts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="authentication.html#machine-access">Machine Access</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="authentication.html#setup">Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="authentication.html#tls">TLS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="authentication.html#configuration-reference">Configuration reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="authentication.html#managing-users-from-the-cli">Managing Users from the CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="authentication.html#calling-the-api-with-a-token">Calling the API with a Token</a></li>
+</ul>
+</li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="sila2_integration.html">SiLA 2 Integration</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="sila2_integration.html#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="sila2_integration.html#setup">Setup</a></li>
 <li class="toctree-l2"><a class="reference internal" href="sila2_integration.html#hosting-sila-servers">Hosting SiLA Servers</a></li>
 <li class="toctree-l2"><a class="reference internal" href="sila2_integration.html#connecting-to-external-sila-servers">Connecting to External SiLA Servers</a><ul>
@@ -621,7 +635,6 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="sila2_integration.html#lockcontroller-support">LockController Support</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="sila2_integration.html#default-behavior">Default Behavior</a></li>
 <li class="toctree-l3"><a class="reference internal" href="sila2_integration.html#custom-timeout">Custom Timeout</a></li>
 <li class="toctree-l3"><a class="reference internal" href="sila2_integration.html#custom-retry-behavior">Custom Retry Behavior</a></li>
 <li class="toctree-l3"><a class="reference internal" href="sila2_integration.html#disable-auto-locking">Disable Auto-Locking</a></li>
@@ -652,7 +665,6 @@
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#laboratory">Laboratory</a></li>
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#protocol">Protocol</a></li>
 <li class="toctree-l2"><a class="reference internal" href="color_mixing.html#dynamic-parameters-and-optimization">Dynamic Parameters and Optimization</a></li>
-<li class="toctree-l2"><a class="reference internal" href="color_mixing.html#references-between-tasks">References Between Tasks</a></li>
 </ul>
 </li>
 </ul>

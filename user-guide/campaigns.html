@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,111 +428,73 @@
                   
   <section id="campaigns">
 <h1>Campaigns<a class="headerlink" href="#campaigns" title="Link to this heading">#</a></h1>
-<p>A campaign in EOS is a protocol executed multiple times in sequence, usually with varying parameters, toward goals such as optimizing objectives by searching for optimal parameters.
-Campaigns are the highest-level execution unit in EOS and can be used to implement autonomous (self-driving) labs.</p>
-<p>The DMTA loop is a common paradigm in autonomous experimentation, and EOS campaigns can implement it.
-EOS has built-in support for running campaigns of a protocol, including a built-in Bayesian optimizer for parameter optimization.</p>
+<p>A campaign runs a protocol repeatedly with supplied or optimizer-generated parameters.
+<code class="docutils literal notranslate"><span class="pre">max_concurrent_protocol_runs</span></code> controls how many runs can execute at once.</p>
 <figure class="align-center">
-<img alt="The DMTA Loop" src="../_images/dmta-loop.png" />
+<img alt="The Design, Make, Test, Analyze loop" src="../_images/dmta-loop.png" />
 </figure>
-<section id="optimization-setup-analyze-and-design-phases">
-<h2>Optimization Setup (Analyze and Design Phases)<a class="headerlink" href="#optimization-setup-analyze-and-design-phases" title="Link to this heading">#</a></h2>
-<p>Both the “analyze” and “design” phases of the DMTA loop can be automated by optimizing protocol parameters over time.
-EOS natively supports this through a built-in Bayesian optimizer that integrates with the campaign execution module.
-Custom algorithms such as reinforcement learning can also be incorporated.</p>
-<p>The color mixing protocol shows how a campaign with optimization can be set up.
-It has ten dynamic parameters, all defined on the “mix_colors” task:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">cyan_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">cyan_strength</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">magenta_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">magenta_strength</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">yellow_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">yellow_strength</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">black_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">black_strength</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">mixing_time</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-<span class="nt">mixing_speed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-</pre></div>
-</div>
-<p>Looking at the task specification of the <code class="docutils literal notranslate"><span class="pre">score_color</span></code> task, we also see that there is an output parameter called “loss”.</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">task.yml</span></p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score Color</span>
-<span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Score a color based on how close it is to an expected color</span>
-
-<span class="nt">input_parameters</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">red</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The red component of the color</span>
-<span class="w">  </span><span class="nt">green</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The green component of the color</span>
-<span class="w">  </span><span class="nt">blue</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">int</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">The blue component of the color</span>
-
-<span class="nt">output_parameters</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">loss</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">float</span>
-<span class="w">    </span><span class="nt">unit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">n/a</span>
-<span class="w">    </span><span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Total loss of the color compared to the expected color</span>
-</pre></div>
-</div>
-<p>This protocol involves selecting CMYK color component volumes, a mixing time, and a mixing speed to minimize the loss of a synthesized color compared to an expected color.</p>
-<p>This setup is summarized in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>.</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qUCB</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.features.continuous</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.objectives.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinimizeObjective</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.sequential_bayesian_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesianSequentialOptimizer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.abstract_sequential_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
-    <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.cyan_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.magenta_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.magenta_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.yellow_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.yellow_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.black_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.black_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.mixing_time&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">45</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.mixing_speed&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">)),</span>
-        <span class="p">],</span>
-        <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">ContinuousOutput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;score_color.loss&quot;</span><span class="p">,</span> <span class="n">objective</span><span class="o">=</span><span class="n">MinimizeObjective</span><span class="p">(</span><span class="n">w</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)),</span>
-        <span class="p">],</span>
-        <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">[],</span>
-        <span class="s2">&quot;acquisition_function&quot;</span><span class="p">:</span> <span class="n">qUCB</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-        <span class="s2">&quot;initial_sampling_method&quot;</span><span class="p">:</span> <span class="n">SamplingMethodEnum</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
-    <span class="p">}</span>
-
-    <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code> function creates the campaign optimizer.
-The inputs are all the dynamic parameters in the protocol, the output is the “loss” parameter from the “score_color” task, and the objective is to minimize this loss.</p>
-<p>More about optimizers can be found in the Optimizers section.</p>
-</section>
-<section id="automation-setup-make-and-test-phases">
-<h2>Automation Setup (Make and Test Phases)<a class="headerlink" href="#automation-setup-make-and-test-phases" title="Link to this heading">#</a></h2>
-<p>EOS manages automation execution. Tasks and devices must be implemented by the user, and the protocol must be carefully set up to run autonomously.</p>
-<p>Some guidelines:</p>
+<section id="choose-how-to-supply-parameters">
+<h2>Choose How to Supply Parameters<a class="headerlink" href="#choose-how-to-supply-parameters" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Each protocol run should be standalone and not depend on previous runs.</p></li>
-<li><p>Each protocol run should leave the lab in a state ready for the next run.</p></li>
-<li><p>Minimize dependencies between tasks. A task should depend on another only when necessary.</p></li>
-<li><p>Tasks should declare any device they interact with, even if they do not operate it directly.
-For example, if a robot transfer task moves a container from device A to device B, the robot arm and both devices should be required.</p></li>
-<li><p>Branches and loops are not supported. If needed, encapsulate them inside larger tasks that span multiple protocol steps.</p></li>
+<li><p><strong>Optimization</strong>: Set <code class="docutils literal notranslate"><span class="pre">optimize:</span> <span class="pre">true</span></code> and define an <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> beside the protocol.
+EOS samples inputs, runs the protocol, and reports measured outputs to the optimizer.</p></li>
+<li><p><strong>Fixed parameters</strong>: Use <code class="docutils literal notranslate"><span class="pre">global_parameters</span></code> for values shared by every run.</p></li>
+<li><p><strong>Parameter schedule</strong>: Use <code class="docutils literal notranslate"><span class="pre">protocol_run_parameters</span></code> for values that vary by run.
+Without optimization, supply either global parameters or a complete schedule.</p></li>
+</ul>
+<p>For example, the <a class="reference internal" href="color_mixing.html"><span class="doc">Color Mixing</span></a> campaign optimizes mixing parameters to minimize
+<code class="docutils literal notranslate"><span class="pre">score_color.loss</span></code>. The desired <code class="docutils literal notranslate"><span class="pre">score_color.target_color</span></code> is fixed in <code class="docutils literal notranslate"><span class="pre">global_parameters</span></code>.
+See <a class="reference internal" href="optimizers.html"><span class="doc">Optimizers</span></a> for the optimizer contract and <a class="reference internal" href="rest_api.html"><span class="doc">REST API</span></a> for submission examples.</p>
+</section>
+<section id="campaign-settings">
+<h2>Campaign Settings<a class="headerlink" href="#campaign-settings" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">name</span></code> / <code class="docutils literal notranslate"><span class="pre">protocol</span></code></p></td>
+<td><p>Unique campaign name and loaded protocol type.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_protocol_runs</span></code></p></td>
+<td><p>Total number of runs, including completed runs when resuming.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_concurrent_protocol_runs</span></code></p></td>
+<td><p>Maximum simultaneous runs. Defaults to 1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">optimizer_ip</span></code></p></td>
+<td><p>Ray worker for optimization. Defaults to <code class="docutils literal notranslate"><span class="pre">127.0.0.1</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">meta.optimizer_overrides</span></code></p></td>
+<td><p>Optimizer settings to override at submission or resume.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">resume</span></code></p></td>
+<td><p>Resume an existing campaign using the same name.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="resuming">
+<h2>Resuming<a class="headerlink" href="#resuming" title="Link to this heading">#</a></h2>
+<p>EOS reconstructs the optimizer by reporting completed protocol results to it. Incomplete runs
+are removed before execution continues. Beacon also restores its journal, queued insights,
+and runtime settings. Explicit resume overrides take precedence over saved settings.</p>
+<p>Keep the optimizer domain compatible with completed results. Domain overrides are not accepted
+on resume. See <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a> for Beacon state and <a class="reference internal" href="custom_beacon.html"><span class="doc">Customizing Beacon</span></a> for custom optimizers.</p>
+</section>
+<section id="prepare-a-protocol-for-repeated-runs">
+<h2>Prepare a Protocol for Repeated Runs<a class="headerlink" href="#prepare-a-protocol-for-repeated-runs" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Make each run independent and leave the lab ready for the next run.</p></li>
+<li><p>Declare every device a task interacts with. A robot transfer should request the robot,
+source device, and destination device.</p></li>
+<li><p>Add only necessary dependencies. Use <a class="reference internal" href="scheduling.html"><span class="doc">Scheduling</span></a> holds when an allocation must survive
+between tasks.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">run_if</span></code> for conditional branches. Protocol graphs cannot contain loops.
+See <a class="reference internal" href="protocols.html"><span class="doc">Protocols</span></a> for branching and fan-in.</p></li>
 </ul>
 </section>
 </section>
@@ -582,8 +546,10 @@ For example, if a robot transfer task moves a container from device A to device 
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimization-setup-analyze-and-design-phases">Optimization Setup (Analyze and Design Phases)</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#automation-setup-make-and-test-phases">Automation Setup (Make and Test Phases)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choose-how-to-supply-parameters">Choose How to Supply Parameters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#campaign-settings">Campaign Settings</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#resuming">Resuming</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prepare-a-protocol-for-repeated-runs">Prepare a Protocol for Repeated Runs</a></li>
 </ul>
   </nav></div>
 

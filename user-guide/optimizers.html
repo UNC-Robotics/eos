@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,174 +428,140 @@
                   
   <section id="optimizers">
 <h1>Optimizers<a class="headerlink" href="#optimizers" title="Link to this heading">#</a></h1>
-<p>Optimizers are key to building an autonomous laboratory.
-In EOS, optimizers give intelligence to campaigns by optimizing task parameters to achieve objectives over time.
-EOS optimizers are <em>sequential</em>, meaning they iteratively optimize parameters by drawing on previous protocol runs.
-<strong>Bayesian optimization</strong> is one of the most common sequential methods, especially useful for expensive-to-evaluate black-box functions.</p>
+<p>A sequential optimizer proposes task parameters and learns from completed protocol runs.
+EOS runs it in a dedicated Ray actor, optionally on another computer selected by <code class="docutils literal notranslate"><span class="pre">optimizer_ip</span></code>.</p>
 <figure class="align-center">
 <img alt="Optimization and protocol run loop" src="../_images/optimize-protocol-loop.png" />
 </figure>
-<p>EOS has a built-in Bayesian optimizer powered by <a class="reference external" href="https://experimental-design.github.io/bofire/">BoFire</a>
-(based on <a class="reference external" href="https://botorch.org/">BoTorch</a>).
-This optimizer supports both constrained single-objective and multi-objective Bayesian optimization.
-It offers several different surrogate models, including Gaussian Processes (GPs) and Multi-Layer Perceptrons (MLPs),
-along with various acquisition functions.</p>
-<section id="distributed-execution">
-<h2>Distributed Execution<a class="headerlink" href="#distributed-execution" title="Link to this heading">#</a></h2>
-<p>EOS optimizers run in a dedicated Ray actor process, which can be placed on any machine with an active Ray worker.
-This allows the optimizer to run on a more capable machine than the one hosting the EOS orchestrator.</p>
+<section id="choose-an-optimizer">
+<h2>Choose an Optimizer<a class="headerlink" href="#choose-an-optimizer" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BayesianSequentialOptimizer</span></code> uses BoFire and BoTorch for constrained single-objective
+or multi-objective optimization.</p></li>
+<li><p><a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a> mixes an optimizer with AI suggestions, a journal, and expert insights.</p></li>
+<li><p>Implement <code class="docutils literal notranslate"><span class="pre">AbstractSequentialOptimizer</span></code> for a standalone algorithm, or follow
+<a class="reference internal" href="custom_beacon.html"><span class="doc">Customizing Beacon</span></a> to plug one into Beacon.</p></li>
+</ul>
 </section>
-<section id="optimizer-implementation">
-<h2>Optimizer Implementation<a class="headerlink" href="#optimizer-implementation" title="Link to this heading">#</a></h2>
-<p>EOS optimizers are defined in the <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> file adjacent to <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code> in an EOS package.
-Below is an example:</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qUCB</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">SamplingMethodEnum</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.features.continuous</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContinuousOutput</span><span class="p">,</span> <span class="n">ContinuousInput</span>
+<section id="protocol-integration">
+<h2>Protocol Integration<a class="headerlink" href="#protocol-integration" title="Link to this heading">#</a></h2>
+<p>Place <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> beside <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>. Its factory returns constructor arguments and
+an optimizer class. Input and output keys use <code class="docutils literal notranslate"><span class="pre">task_name.parameter_name</span></code> so EOS can collect
+and route values.</p>
+<p>This Bayesian optimizer works with the bundled multiplication protocol:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.acquisition_functions.acquisition_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">qLogNEI</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.features.continuous</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContinuousOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.features.discrete</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiscreteInput</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">bofire.data_models.objectives.identity</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinimizeObjective</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.sequential_bayesian_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">BayesianSequentialOptimizer</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.abstract_sequential_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
-    <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">():</span>
+    <span class="k">return</span> <span class="p">{</span>
         <span class="s2">&quot;inputs&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.cyan_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.magenta_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.magenta_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.yellow_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.yellow_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.black_volume&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">25</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.black_strength&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">100</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.mixing_time&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">45</span><span class="p">)),</span>
-            <span class="n">ContinuousInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mix_colors.mixing_speed&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">)),</span>
+            <span class="n">DiscreteInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mult_1.number&quot;</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">34</span><span class="p">))),</span>
+            <span class="n">DiscreteInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mult_1.factor&quot;</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">18</span><span class="p">))),</span>
+            <span class="n">DiscreteInput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;mult_2.factor&quot;</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">18</span><span class="p">))),</span>
         <span class="p">],</span>
         <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">ContinuousOutput</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="s2">&quot;score_color.loss&quot;</span><span class="p">,</span> <span class="n">objective</span><span class="o">=</span><span class="n">MinimizeObjective</span><span class="p">(</span><span class="n">w</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)),</span>
+            <span class="n">ContinuousOutput</span><span class="p">(</span>
+                <span class="n">key</span><span class="o">=</span><span class="s2">&quot;score_multiplication.loss&quot;</span><span class="p">,</span>
+                <span class="n">objective</span><span class="o">=</span><span class="n">MinimizeObjective</span><span class="p">(),</span>
+            <span class="p">),</span>
         <span class="p">],</span>
         <span class="s2">&quot;constraints&quot;</span><span class="p">:</span> <span class="p">[],</span>
-        <span class="s2">&quot;acquisition_function&quot;</span><span class="p">:</span> <span class="n">qUCB</span><span class="p">(</span><span class="n">beta</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-        <span class="s2">&quot;initial_sampling_method&quot;</span><span class="p">:</span> <span class="n">SamplingMethodEnum</span><span class="o">.</span><span class="n">SOBOL</span><span class="p">,</span>
-    <span class="p">}</span>
-
-    <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">BayesianSequentialOptimizer</span>
+        <span class="s2">&quot;acquisition_function&quot;</span><span class="p">:</span> <span class="n">qLogNEI</span><span class="p">(),</span>
+        <span class="s2">&quot;num_initial_samples&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="p">},</span> <span class="n">BayesianSequentialOptimizer</span>
 </pre></div>
 </div>
-<p>Each <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> must contain <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>, which returns:</p>
-<ol class="arabic simple">
-<li><p>The constructor arguments for an optimizer class instance</p></li>
-<li><p>The optimizer class type</p></li>
-</ol>
-<p>This example uses EOS’ built-in Bayesian optimizer.</p>
-<p>For most use cases, the <a class="reference internal" href="beacon_optimizer.html"><span class="doc">Beacon Optimizer</span></a> is recommended. It combines Bayesian optimization with AI-driven reasoning for faster convergence, using the same domain definition (inputs, outputs, constraints) but adding an AI agent that reasons about protocol run history to suggest smarter parameter sets.</p>
-<p>Custom optimizers can also be defined in this file; just return their constructor arguments and class type from <code class="docutils literal notranslate"><span class="pre">eos_create_campaign_optimizer</span></code>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>All optimizers must inherit from the class <code class="docutils literal notranslate"><span class="pre">AbstractSequentialOptimizer</span></code> under the <code class="docutils literal notranslate"><span class="pre">eos.optimization</span></code> module.</p>
+<p>The domain contains input features, output objectives, and constraints. The acquisition function
+selects later Bayesian samples after initialization. See the
+<a class="reference external" href="https://experimental-design.github.io/bofire/">BoFire documentation</a> for domain and strategy options.</p>
+</section>
+<section id="custom-optimizer-contract">
+<h2>Custom Optimizer Contract<a class="headerlink" href="#custom-optimizer-contract" title="Link to this heading">#</a></h2>
+<p>Inherit from <code class="docutils literal notranslate"><span class="pre">eos.optimization.abstract_sequential_optimizer.AbstractSequentialOptimizer</span></code>
+and implement these methods:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Contract</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sample(num_protocol_runs=1)</span></code></p></td>
+<td><p>Return a DataFrame with one row per requested run and one column per input.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">report(inputs_df,</span> <span class="pre">outputs_df)</span></code></p></td>
+<td><p>Record measured results. Input and output rows must correspond.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_optimal_solutions()</span></code></p></td>
+<td><p>Return the best observed inputs and outputs, or the non-dominated set for multiple objectives.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_input_names()</span></code> / <code class="docutils literal notranslate"><span class="pre">get_output_names()</span></code></p></td>
+<td><p>Return the DataFrame column names.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_num_samples_reported()</span></code></p></td>
+<td><p>Count reported rows, not sampling calls.</p></td>
+</tr>
+</tbody>
+</table>
 </div>
-<section id="input-and-output-parameter-naming">
-<h3>Input and Output Parameter Naming<a class="headerlink" href="#input-and-output-parameter-naming" title="Link to this heading">#</a></h3>
-<p>Input and output parameter names must reference task parameters using the EOS reference format:</p>
-<p><strong>TASK.PARAMETER_NAME</strong></p>
-<p>This lets EOS associate the optimizer with protocol tasks and forward parameter values correctly.</p>
+<p>Results may arrive in batches or out of order. Track pending samples if the algorithm needs to
+avoid duplicates. On resume, EOS creates a new optimizer and replays completed results.</p>
+<p>Define classes in <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> or install them as an importable Python package on the
+optimizer worker. EOS loads <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> by file path without adding its directory to
+<code class="docutils literal notranslate"><span class="pre">sys.path</span></code>. Sibling modules need an importable package path.</p>
+<p>See <a class="reference internal" href="custom_beacon.html"><span class="doc">Customizing Beacon</span></a> for a complete grid-search implementation of this contract.</p>
 </section>
-</section>
-<section id="example-custom-optimizer">
-<h2>Example Custom Optimizer<a class="headerlink" href="#example-custom-optimizer" title="Link to this heading">#</a></h2>
-<p>Below is a custom optimizer that randomly samples parameters for the same color mixing problem:</p>
-<p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">optimizer.py</span></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">eos.optimization.abstract_sequential_optimizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractSequentialOptimizer</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">ObjectiveType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-    <span class="n">MINIMIZE</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">MAXIMIZE</span> <span class="o">=</span> <span class="mi">2</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Parameter</span><span class="p">:</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">lower_bound</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">upper_bound</span><span class="p">:</span> <span class="nb">float</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">Metric</span><span class="p">:</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">objective</span><span class="p">:</span> <span class="n">ObjectiveType</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">RandomSamplingOptimizer</span><span class="p">(</span><span class="n">AbstractSequentialOptimizer</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span> <span class="n">metrics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Metric</span><span class="p">]):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span> <span class="o">=</span> <span class="n">metrics</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_protocol_runs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-        <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_protocol_runs</span><span class="p">):</span>
-            <span class="n">sample</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">lower_bound</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">upper_bound</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">}</span>
-            <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">report</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">outputs_df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">inputs_df</span><span class="p">,</span> <span class="n">outputs_df</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_optimal_solutions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
-            <span class="p">)</span>
-        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-        <span class="n">optimal_solutions</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">m</span><span class="o">.</span><span class="n">objective</span> <span class="o">==</span> <span class="n">ObjectiveType</span><span class="o">.</span><span class="n">MINIMIZE</span><span class="p">:</span>
-                <span class="n">optimal</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">optimal</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()]</span>
-            <span class="n">optimal_solutions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">optimal</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">optimal_solutions</span><span class="p">)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_input_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_output_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="k">return</span> <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">]</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_num_samples_reported</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">eos_create_campaign_optimizer</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">AbstractSequentialOptimizer</span><span class="p">]]:</span>
-    <span class="n">constructor_args</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;parameters&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.cyan_volume&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.cyan_strength&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.magenta_volume&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.magenta_strength&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.yellow_volume&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.yellow_strength&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.black_volume&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">25</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.black_strength&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.mixing_time&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">45</span><span class="p">),</span>
-            <span class="n">Parameter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mix_colors.mixing_speed&quot;</span><span class="p">,</span> <span class="n">lower_bound</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">upper_bound</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span>
-        <span class="p">],</span>
-        <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span>
-            <span class="n">Metric</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;score_color.loss&quot;</span><span class="p">,</span> <span class="n">objective</span><span class="o">=</span><span class="n">ObjectiveType</span><span class="o">.</span><span class="n">MINIMIZE</span><span class="p">),</span>
-        <span class="p">],</span>
-    <span class="p">}</span>
-    <span class="k">return</span> <span class="n">constructor_args</span><span class="p">,</span> <span class="n">RandomSamplingOptimizer</span>
+<section id="parameter-schema-and-runtime-controls">
+<span id="optimizer-parameter-schema"></span><h2>Parameter Schema and Runtime Controls<a class="headerlink" href="#parameter-schema-and-runtime-controls" title="Link to this heading">#</a></h2>
+<p>Declare <code class="docutils literal notranslate"><span class="pre">eos_param_schema()</span></code> on the optimizer class returned by the factory. It is optional
+and defaults to an empty list. EOS uses it for submission controls and allowed overrides.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@classmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">eos_param_schema</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">&quot;key&quot;</span><span class="p">:</span> <span class="s2">&quot;descending&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;checkbox&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span> <span class="s2">&quot;runtime&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+    <span class="p">]</span>
 </pre></div>
 </div>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">key</span></code> / <code class="docutils literal notranslate"><span class="pre">type</span></code></p></td>
+<td><p>Required constructor argument name and control type. Types are <code class="docutils literal notranslate"><span class="pre">number</span></code>, <code class="docutils literal notranslate"><span class="pre">text</span></code>,
+<code class="docutils literal notranslate"><span class="pre">select</span></code>, <code class="docutils literal notranslate"><span class="pre">checkbox</span></code>, and <code class="docutils literal notranslate"><span class="pre">json</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">label</span></code> / <code class="docutils literal notranslate"><span class="pre">description</span></code></p></td>
+<td><p>Optional display name and help text. The label defaults to the key.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">default</span></code></p></td>
+<td><p>Value displayed when no override is supplied. Keep it consistent with the constructor.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">min</span></code> / <code class="docutils literal notranslate"><span class="pre">max</span></code> / <code class="docutils literal notranslate"><span class="pre">step</span></code></p></td>
+<td><p>Numeric control bounds and increment.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">options</span></code></p></td>
+<td><p>Allowed choices for <code class="docutils literal notranslate"><span class="pre">select</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">runtime</span></code></p></td>
+<td><p>Whether the parameter can change during a campaign. Defaults to false.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Runtime controls also require <code class="docutils literal notranslate"><span class="pre">get_runtime_params()</span></code> and <code class="docutils literal notranslate"><span class="pre">set_runtime_params(params)</span></code>.
+The getter’s keys are the runtime API allowlist. Validate values in the setter. UI constraints
+are not a substitute for validation in your optimizer.</p>
+<p>Beacon merges the inner optimizer’s runtime parameters with its own, forwards custom updates,
+and persists them for resume. Standalone optimizers can implement <code class="docutils literal notranslate"><span class="pre">get_meta()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">restore_meta(meta)</span></code> to persist additional state. The web UI shows AI controls only for Beacon subclasses.</p>
 </section>
 </section>
 
@@ -644,12 +612,10 @@ Below is an example:</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#distributed-execution">Distributed Execution</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimizer-implementation">Optimizer Implementation</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#input-and-output-parameter-naming">Input and Output Parameter Naming</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-custom-optimizer">Example Custom Optimizer</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choose-an-optimizer">Choose an Optimizer</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol-integration">Protocol Integration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-optimizer-contract">Custom Optimizer Contract</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameter-schema-and-runtime-controls">Parameter Schema and Runtime Controls</a></li>
 </ul>
   </nav></div>
 

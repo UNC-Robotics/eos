@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -52,7 +52,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Web UI" href="web_ui.html" />
-    <link rel="prev" title="Beacon Optimizer" href="beacon_optimizer.html" />
+    <link rel="prev" title="Customizing Beacon" href="custom_beacon.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -480,43 +482,9 @@ shorter makespan).</p>
 </section>
 <section id="device-and-resource-allocation">
 <h2>Device and resource allocation<a class="headerlink" href="#device-and-resource-allocation" title="Link to this heading">#</a></h2>
-<p>Both schedulers support <strong>specific</strong> and <strong>dynamic</strong> devices and resources for tasks.</p>
-<p><strong>Devices</strong></p>
-<ul class="simple">
-<li><p><em>Specific device</em> - tasks request specific devices with a lab_name/name identifier.</p></li>
-<li><p><em>Dynamic device</em> - tasks request “any device of type X,” optionally with constraints (allowed labs/devices).</p></li>
-</ul>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Specific device</span>
-<span class="nt">devices</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">color_analyzer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_lab</span>
-<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
-
-<span class="c1"># Dynamic device (one device is selected)</span>
-<span class="nt">devices</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">color_analyzer</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
-<span class="w">    </span><span class="nt">device_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">color_analyzer</span>
-<span class="w">    </span><span class="nt">allowed_labs</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">color_lab</span><span class="p p-Indicator">]</span>
-</pre></div>
-</div>
-<p><strong>Resources</strong></p>
-<ul class="simple">
-<li><p><em>Specific resource</em> - tasks request specific resources by name.</p></li>
-<li><p><em>Dynamic resource</em> - tasks request resources by <strong>type</strong> (one resource is selected).</p></li>
-</ul>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1"># Specific resources</span>
-<span class="nt">resources</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">beaker_A</span>
-<span class="w">  </span><span class="nt">buffer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">buffer_01</span>
-
-<span class="c1"># Dynamic resource (one resource is selected)</span>
-<span class="nt">resources</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">tips</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">allocation_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dynamic</span>
-<span class="w">    </span><span class="nt">resource_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">p200_tips</span>
-</pre></div>
-</div>
+<p>Both schedulers support specific and dynamic device or resource assignments.
+See <a class="reference internal" href="protocols.html"><span class="doc">Protocols</span></a> and <a class="reference internal" href="resources.html"><span class="doc">Resources</span></a> for assignment syntax, and <a class="reference internal" href="references.html"><span class="doc">References</span></a> for reusing
+an earlier task’s allocation.</p>
 <p><strong>How schedulers choose</strong></p>
 <ul class="simple">
 <li><p><strong>Greedy</strong>: load balances between available eligible devices/resources at request time.</p></li>
@@ -615,7 +583,7 @@ combine a reference with <code class="docutils literal notranslate"><span class=
 </section>
 <section id="protocol-run-priorities">
 <h2>Protocol run priorities<a class="headerlink" href="#protocol-run-priorities" title="Link to this heading">#</a></h2>
-<p>Each protocol run has an integer priority (default <strong>0</strong>; higher values = higher importance). Priority is set at
+<p>Each protocol run has an integer priority (default <strong>0</strong>, with higher values taking priority). Priority is set at
 submission time via the REST API or a campaign definition, not in <code class="docutils literal notranslate"><span class="pre">protocol.yml</span></code>.</p>
 <ul class="simple">
 <li><p><strong>CP-SAT</strong>: after minimizing overall makespan (primary objective), uses priority as a secondary objective so
@@ -686,69 +654,6 @@ bottlenecks.</p>
 <p><strong>Output</strong> includes a timeline of task START/DONE events, per-device and per-resource utilization percentages,
 parallelism metrics (max and average concurrent tasks), and scheduler overhead statistics.</p>
 </section>
-<section id="comparison-table">
-<h2>Comparison table<a class="headerlink" href="#comparison-table" title="Link to this heading">#</a></h2>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 28.0%" />
-<col style="width: 36.0%" />
-<col style="width: 36.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Capability</p></th>
-<th class="head"><p>Greedy Scheduler</p></th>
-<th class="head"><p>CP-SAT Scheduler</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>Decision scope</p></td>
-<td><p>✅ Per-task, on demand</p></td>
-<td><p>✅ Global schedule across protocols</p></td>
-</tr>
-<tr class="row-odd"><td><p>Optimization goal</p></td>
-<td><p>✅ Start tasks ASAP</p></td>
-<td><p>✅ Minimize protocol run durations</p></td>
-</tr>
-<tr class="row-even"><td><p>Device/resource holds</p></td>
-<td><p>✅ Supported</p></td>
-<td><p>✅ Supported</p></td>
-</tr>
-<tr class="row-odd"><td><p>Task groups</p></td>
-<td><p>❌ Not supported</p></td>
-<td><p>✅ Supported</p></td>
-</tr>
-<tr class="row-even"><td><p>Task durations</p></td>
-<td><p>❌ Not supported</p></td>
-<td><p>✅ Supported and required</p></td>
-</tr>
-<tr class="row-odd"><td><p>Dynamic device allocation</p></td>
-<td><p>✅ First available from eligible pool</p></td>
-<td><p>✅ Optimized choices to reduce conflicts</p></td>
-</tr>
-<tr class="row-even"><td><p>Dynamic resource allocation</p></td>
-<td><p>✅ First available from eligible pool</p></td>
-<td><p>✅ Optimized choices to reduce conflicts</p></td>
-</tr>
-<tr class="row-odd"><td><p>Protocol run priorities</p></td>
-<td><p>❌ Only for tie-breaks</p></td>
-<td><p>✅ Shapes overall completion order</p></td>
-</tr>
-<tr class="row-even"><td><p>Multi-protocol-run optimization</p></td>
-<td><p>❌ Per protocol run</p></td>
-<td><p>✅ Joint scheduling of all protocol runs</p></td>
-</tr>
-<tr class="row-odd"><td><p>Tuning / parameters</p></td>
-<td><p>❌ None</p></td>
-<td><p>✅ Solver knobs (time limit, workers, seed)</p></td>
-</tr>
-<tr class="row-even"><td><p>Computational complexity</p></td>
-<td><p>Low</p></td>
-<td><p>High</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 </section>
 
 
@@ -762,12 +667,12 @@ parallelism metrics (max and average concurrent tasks), and scheduler overhead s
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="beacon_optimizer.html"
+       href="custom_beacon.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">Beacon Optimizer</p>
+        <p class="prev-next-title">Customizing Beacon</p>
       </div>
     </a>
     <a class="right-next"
@@ -806,7 +711,6 @@ parallelism metrics (max and average concurrent tasks), and scheduler overhead s
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol-run-priorities">Protocol run priorities</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cp-sat-parameters">CP-SAT parameters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scheduling-simulation">Scheduling simulation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#comparison-table">Comparison table</a></li>
 </ul>
   </nav></div>
 

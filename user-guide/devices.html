@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,16 +428,13 @@
                   
   <section id="devices">
 <h1>Devices<a class="headerlink" href="#devices" title="Link to this heading">#</a></h1>
-<p>In EOS, a device is an abstraction for a physical or virtual apparatus used by one or more tasks.
-Each device is managed by a dedicated process created when a laboratory definition is loaded.
-This process is usually implemented as a server that tasks call functions on.
-For example, a “magnetic mixer” device communicates with a physical mixer via serial and exposes functions such as <code class="docutils literal notranslate"><span class="pre">start</span></code>, <code class="docutils literal notranslate"><span class="pre">stop</span></code>, <code class="docutils literal notranslate"><span class="pre">set_time</span></code>, and <code class="docutils literal notranslate"><span class="pre">set_speed</span></code>.</p>
+<p>A device is a persistent process that exposes methods to tasks. It can control physical equipment
+or hold virtual state across protocol runs. EOS creates device processes when loading a lab.
+For objects that only need exclusive allocation, use <a class="reference internal" href="resources.html"><span class="doc">Resources</span></a>.</p>
 <figure class="align-center">
 <img alt="EOS Tasks and Devices" src="../_images/tasks-devices.png" />
 </figure>
-<p>The figure shows a GC Sampling task that uses two devices: a GC and a mobile manipulation robot for automating sample injection with a syringe.
-Both are physical devices with EOS implementations running as persistent processes.</p>
-<p>Most often an EOS device represents a physical lab instrument, but it can also represent anything that needs persistent state across protocols, such as an AI module that records inputs. A device is always a persistent process.</p>
+<p>The GC Sampling task uses a gas chromatograph and a robot for sample injection.</p>
 <section id="device-implementation">
 <h2>Device Implementation<a class="headerlink" href="#device-implementation" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -474,6 +473,7 @@ Both are physical devices with EOS implementations running as persistent process
 <span class="kn">from</span><span class="w"> </span><span class="nn">eos.devices.base_device</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseDevice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">user.eos_examples.color_lab.common.device_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeviceClient</span>
 
+
 <span class="k">class</span><span class="w"> </span><span class="nc">MagneticMixer</span><span class="p">(</span><span class="n">BaseDevice</span><span class="p">):</span>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">init_parameters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">port</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">init_parameters</span><span class="p">[</span><span class="s2">&quot;port&quot;</span><span class="p">])</span>
@@ -495,31 +495,9 @@ Both are physical devices with EOS implementations running as persistent process
         <span class="k">return</span> <span class="n">container</span>
 </pre></div>
 </div>
-<p>Every device implementation must define the following functions:</p>
-<ol class="arabic simple">
-<li><p><strong>_initialize</strong></p>
-<ul class="simple">
-<li><p>Called when device process is created</p></li>
-<li><p>Should set up necessary resources (e.g., serial connections)</p></li>
-</ul>
-</li>
-<li><p><strong>_cleanup</strong></p>
-<ul class="simple">
-<li><p>Called when the device process is terminated</p></li>
-<li><p>Should clean up any resources created by the device process (e.g., serial connections)</p></li>
-</ul>
-</li>
-<li><p><strong>_report</strong></p>
-<ul class="simple">
-<li><p>Should return any data needed to determine the state of the device (e.g., status and feedback)</p></li>
-</ul>
-</li>
-</ol>
-<p>The <code class="docutils literal notranslate"><span class="pre">mix</span></code> function is called by a task to mix a container’s contents. It:</p>
-<ul class="simple">
-<li><p>Sends a command to the lower-level driver with mixing time and speed</p></li>
-<li><p>Updates container metadata with the mixing details</p></li>
-</ul>
+<p>Required lifecycle methods are <code class="docutils literal notranslate"><span class="pre">_initialize</span></code> to open connections, <code class="docutils literal notranslate"><span class="pre">_cleanup</span></code> to release them,
+and <code class="docutils literal notranslate"><span class="pre">_report</span></code> to return current state. Task-facing methods such as <code class="docutils literal notranslate"><span class="pre">mix</span></code> perform device actions
+and may update resource metadata.</p>
 </section>
 </section>
 </section>

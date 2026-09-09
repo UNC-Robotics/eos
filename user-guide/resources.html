@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -348,6 +348,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -355,6 +356,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -426,11 +428,8 @@
                   
   <section id="resources">
 <h1>Resources<a class="headerlink" href="#resources" title="Link to this heading">#</a></h1>
-<p>Resources in EOS represent anything that requires exclusive allocation during task execution but does not need its own long‑running process like a device. They cover labware and shared objects such as beakers, vials, tip racks, pipettes, holders, fixtures, bench slots, fridge locations, etc. If multiple tasks could contend for the same physical thing, model it as a resource.</p>
-<ul class="simple">
-<li><p>Use a device when you need a persistent process with methods (e.g., a mixer, GC, robot).</p></li>
-<li><p>Use a resource when you only need exclusive use of something for a task.</p></li>
-</ul>
+<p>Resources provide exclusive access to labware, tools, and locations such as beakers, tip racks,
+and bench slots. Use a <a class="reference internal" href="devices.html"><span class="doc">device</span></a> when the object needs a persistent process with methods.</p>
 <section id="defining-resources-in-laboratories">
 <h2>Defining resources in laboratories<a class="headerlink" href="#defining-resources-in-laboratories" title="Link to this heading">#</a></h2>
 <p>Resources are defined per laboratory in <code class="docutils literal notranslate"><span class="pre">lab.yml</span></code> using two sections:</p>
@@ -474,7 +473,7 @@
 <section id="notes">
 <h3>Notes<a class="headerlink" href="#notes" title="Link to this heading">#</a></h3>
 <ul class="simple">
-<li><p>Resource names must be globally unique across all labs; EOS enforces this at load time.</p></li>
+<li><p>Resource names must be globally unique across all labs. EOS enforces this at load time.</p></li>
 <li><p>Instance <code class="docutils literal notranslate"><span class="pre">meta</span></code> overrides any defaults from the corresponding <code class="docutils literal notranslate"><span class="pre">resource_types</span></code> entry.</p></li>
 </ul>
 </section>
@@ -486,8 +485,9 @@
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Mix contents in a beaker</span>
 
-<span class="nt">device_types</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">magnetic_mixer</span>
+<span class="nt">devices</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mixer</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">magnetic_mixer</span>
 
 <span class="nt">input_resources</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">beaker</span><span class="p">:</span>
@@ -523,6 +523,8 @@
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">process_batch</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
 <span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">120</span>
+<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">mixer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prepare.mixer</span>
 <span class="w">    </span><span class="c1"># Dynamically allocate a beaker of the required type</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">beaker</span><span class="p">:</span>
@@ -533,6 +535,8 @@
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
 <span class="w">    </span><span class="nt">duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">mixer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">process_batch.mixer</span>
 <span class="w">    </span><span class="c1"># Reuse the same instance selected for &#39;process_batch&#39;</span>
 <span class="w">    </span><span class="c1"># (when a task outputs a resource, it can be referenced by name)</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
@@ -547,7 +551,7 @@
 </section>
 <section id="protocollevel-resource-metadata-optional">
 <h2>Protocol‑level resource metadata (optional)<a class="headerlink" href="#protocollevel-resource-metadata-optional" title="Link to this heading">#</a></h2>
-<p>You may attach protocol-specific metadata to resources via the top-level <code class="docutils literal notranslate"><span class="pre">resources</span></code> block. This annotates existing resource instances; it does not define new ones.</p>
+<p>You may attach protocol-specific metadata to resources via the top-level <code class="docutils literal notranslate"><span class="pre">resources</span></code> block. This annotates existing resource instances. It does not define new ones.</p>
 <p><span class="sd-sphinx-override sd-badge sd-bg-primary sd-bg-text-primary">protocol.yml</span></p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">water_purification</span>
 <span class="nt">desc</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Evaporate sample in a beaker</span>
@@ -561,6 +565,10 @@
 <span class="nt">tasks</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mixing</span>
 <span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Magnetic Mixing</span>
+<span class="w">    </span><span class="nt">devices</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">mixer</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">lab_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">small_lab</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">magnetic_mixer</span>
 <span class="w">    </span><span class="nt">resources</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">BEAKER_A</span>
 </pre></div>
@@ -569,20 +577,11 @@
 <section id="allocation-and-exclusivity">
 <h2>Allocation and exclusivity<a class="headerlink" href="#allocation-and-exclusivity" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.</p></li>
+<li><p>EOS allocates resources exclusively to the task that holds them. Conflicting tasks wait until resources are free.</p></li>
 <li><p>Specific assignments must name an existing resource instance defined in one of the protocol’s labs.</p></li>
 <li><p>Dynamic assignments select from the pool of eligible instances by <code class="docutils literal notranslate"><span class="pre">resource_type</span></code>.</p></li>
 <li><p>Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.</p></li>
 </ul>
-</section>
-<section id="when-to-model-as-a-resource">
-<h2>When to model as a resource<a class="headerlink" href="#when-to-model-as-a-resource" title="Link to this heading">#</a></h2>
-<ul class="simple">
-<li><p>Labware: beakers, vials, flasks, tip racks, plates.</p></li>
-<li><p>Fixtures/locations: bench or instrument slots, holders, storage positions.</p></li>
-<li><p>Tools without stateful control loops: manual pipettes, clamps, lids.</p></li>
-</ul>
-<p>Choose a device instead when the object exposes actions and status via a process (e.g., start/stop/move, sensors, drivers).</p>
 </section>
 </section>
 
@@ -641,7 +640,6 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#assigning-resources-in-protocols">Assigning resources in protocols</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocollevel-resource-metadata-optional">Protocol‑level resource metadata (optional)</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#allocation-and-exclusivity">Allocation and exclusivity</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#when-to-model-as-a-resource">When to model as a resource</a></li>
 </ul>
   </nav></div>
 

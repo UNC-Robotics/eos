@@ -1,9 +1,7 @@
 Resources
 =========
-Resources in EOS represent anything that requires exclusive allocation during task execution but does not need its own long‑running process like a device. They cover labware and shared objects such as beakers, vials, tip racks, pipettes, holders, fixtures, bench slots, fridge locations, etc. If multiple tasks could contend for the same physical thing, model it as a resource.
-
-- Use a device when you need a persistent process with methods (e.g., a mixer, GC, robot).
-- Use a resource when you only need exclusive use of something for a task.
+Resources provide exclusive access to labware, tools, and locations such as beakers, tip racks,
+and bench slots. Use a :doc:`device <devices>` when the object needs a persistent process with methods.
 
 Defining resources in laboratories
 ----------------------------------
@@ -49,7 +47,7 @@ Resources are defined per laboratory in ``lab.yml`` using two sections:
 
 Notes
 """""
-- Resource names must be globally unique across all labs; EOS enforces this at load time.
+- Resource names must be globally unique across all labs. EOS enforces this at load time.
 - Instance ``meta`` overrides any defaults from the corresponding ``resource_types`` entry.
 
 Declaring resources in task specifications
@@ -63,8 +61,9 @@ Tasks declare required resource types in ``task.yml``. EOS validates that protoc
     type: Magnetic Mixing
     desc: Mix contents in a beaker
 
-    device_types:
-      - magnetic_mixer
+    devices:
+      mixer:
+        type: magnetic_mixer
 
     input_resources:
       beaker:
@@ -102,6 +101,8 @@ In protocol tasks, assign specific resource names or request resources dynamical
       - name: process_batch
         type: Magnetic Mixing
         duration: 120
+        devices:
+          mixer: prepare.mixer
         # Dynamically allocate a beaker of the required type
         resources:
           beaker:
@@ -112,6 +113,8 @@ In protocol tasks, assign specific resource names or request resources dynamical
       - name: analyze
         type: Magnetic Mixing
         duration: 30
+        devices:
+          mixer: process_batch.mixer
         # Reuse the same instance selected for 'process_batch'
         # (when a task outputs a resource, it can be referenced by name)
         resources:
@@ -123,7 +126,7 @@ In protocol tasks, assign specific resource names or request resources dynamical
 
 Protocol‑level resource metadata (optional)
 --------------------------------------------
-You may attach protocol-specific metadata to resources via the top-level ``resources`` block. This annotates existing resource instances; it does not define new ones.
+You may attach protocol-specific metadata to resources via the top-level ``resources`` block. This annotates existing resource instances. It does not define new ones.
 
 :bdg-primary:`protocol.yml`
 
@@ -141,20 +144,16 @@ You may attach protocol-specific metadata to resources via the top-level ``resou
     tasks:
       - name: mixing
         type: Magnetic Mixing
+        devices:
+          mixer:
+            lab_name: small_lab
+            name: magnetic_mixer
         resources:
           beaker: BEAKER_A
 
 Allocation and exclusivity
 --------------------------
-- EOS allocates resources exclusively to the task that holds them; conflicting tasks wait until resources are free.
+- EOS allocates resources exclusively to the task that holds them. Conflicting tasks wait until resources are free.
 - Specific assignments must name an existing resource instance defined in one of the protocol’s labs.
 - Dynamic assignments select from the pool of eligible instances by ``resource_type``.
 - Allocation is handled automatically by the orchestrator and released when the task (or its request scope) finishes.
-
-When to model as a resource
----------------------------
-- Labware: beakers, vials, flasks, tip racks, plates.
-- Fixtures/locations: bench or instrument slots, holders, storage positions.
-- Tools without stateful control loops: manual pipettes, clamps, lids.
-
-Choose a device instead when the object exposes actions and status via a process (e.g., start/stop/move, sensors, drivers).

@@ -41,7 +41,7 @@
   <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=0790524f97105ba85085" />
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=0790524f97105ba85085" />
 
-    <script src="../_static/documentation_options.js?v=18784e62"></script>
+    <script src="../_static/documentation_options.js?v=9dfe5add"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -347,6 +347,7 @@
 <li class="toctree-l1"><a class="reference internal" href="campaigns.html">Campaigns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="optimizers.html">Optimizers</a></li>
 <li class="toctree-l1"><a class="reference internal" href="beacon_optimizer.html">Beacon Optimizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_beacon.html">Customizing Beacon</a></li>
 <li class="toctree-l1"><a class="reference internal" href="scheduling.html">Scheduling</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
@@ -354,6 +355,7 @@
 <li class="toctree-l1"><a class="reference internal" href="web_ui.html">Web UI</a></li>
 <li class="toctree-l1"><a class="reference internal" href="rest_api.html">REST API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="mcp.html">MCP Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="authentication.html">Authentication &amp; Authorization</a></li>
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">Advanced</span></p>
 <ul class="nav bd-sidenav">
@@ -427,7 +429,7 @@
 <h1>Color Mixing<a class="headerlink" href="#color-mixing" title="Link to this heading">#</a></h1>
 <p>This example demonstrates a virtual color mixing protocol in EOS.
 CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
-The example uses no physical devices; color mixing is simulated via real-time fluid simulation in a web browser.</p>
+Color mixing runs in a browser fluid simulation without physical devices.</p>
 <p>The example is implemented in an EOS package called <strong>color_lab</strong>, and can be found <a class="reference external" href="https://github.com/UNC-Robotics/eos-examples">here</a>.</p>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h2>
@@ -439,9 +441,9 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-R
 </pre></div>
 </div>
 <ol class="arabic simple" start="2">
-<li><p>Install the package’s dependencies in the EOS venv:</p></li>
+<li><p>Return to the EOS repository root and install the package dependencies in its environment:</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>user/eos_examples/color_lab/pyproject.toml
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>pkg<span class="w"> </span>install<span class="w"> </span>color_lab
 </pre></div>
 </div>
 <ol class="arabic simple" start="3">
@@ -466,26 +468,7 @@ git<span class="w"> </span>clone<span class="w"> </span>https://github.com/UNC-R
 <li><p>Start EOS.</p></li>
 <li><p>Submit tasks, protocols, or campaigns through the REST API.</p></li>
 </ol>
-<p>You can submit a request to run a campaign through the REST API with <cite>curl</cite> as follows:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8070/api/campaigns<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
-<span class="s1">          &quot;name&quot;: &quot;color_mixing&quot;,</span>
-<span class="s1">          &quot;protocol&quot;: &quot;color_mixing&quot;,</span>
-<span class="s1">          &quot;owner&quot;: &quot;name&quot;,</span>
-<span class="s1">          &quot;priority&quot;: 0,</span>
-<span class="s1">          &quot;max_protocol_runs&quot;: 100,</span>
-<span class="s1">          &quot;max_concurrent_protocol_runs&quot;: 3,</span>
-<span class="s1">          &quot;optimize&quot;: true,</span>
-<span class="s1">          &quot;optimizer_ip&quot;: &quot;127.0.0.1&quot;,</span>
-<span class="s1">          &quot;global_parameters&quot;: {</span>
-<span class="s1">            &quot;score_color&quot;: {</span>
-<span class="s1">                &quot;target_color&quot;: [47, 181, 49]</span>
-<span class="s1">            }</span>
-<span class="s1">          }</span>
-<span class="s1">    }&#39;</span>
-</pre></div>
-</div>
+<p>Use the color campaign request in <a class="reference internal" href="rest_api.html"><span class="doc">REST API</span></a>, setting <code class="docutils literal notranslate"><span class="pre">score_color.target_color</span></code> to the desired RGB value.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Do not minimize the fluid simulation browser windows while the campaign is running as the simulation may pause running.</p>
@@ -863,47 +846,9 @@ For campaigns with optimization (<code class="docutils literal notranslate"><spa
 Some dynamic parameters may still need to be provided by the user. In this protocol, <code class="docutils literal notranslate"><span class="pre">score_color.target_color</span></code> must be provided.
 Provide it via <code class="docutils literal notranslate"><span class="pre">global_parameters</span></code> or <code class="docutils literal notranslate"><span class="pre">protocol_run_parameters</span></code> in the campaign submission as shown above.</p>
 <p>The optimizer used for this protocol is defined in <code class="docutils literal notranslate"><span class="pre">optimizer.py</span></code> adjacent to the protocol YAML and uses Bayesian optimization to minimize <code class="docutils literal notranslate"><span class="pre">score_color.loss</span></code>.</p>
-</section>
-<section id="references-between-tasks">
-<h2>References Between Tasks<a class="headerlink" href="#references-between-tasks" title="Link to this heading">#</a></h2>
-<p>EOS protocols commonly link tasks together by referencing devices, resources, and parameters from earlier tasks. The color mixing protocol demonstrates each kind of reference.</p>
-<p><strong>Device references</strong>: reuse the same physical device across tasks by referencing a named device handle from a prior task.</p>
-<p>Example:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
-<span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.color_station</span>
-
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
-<span class="w">  </span><span class="nt">devices</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">color_station</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.color_station</span>
-</pre></div>
-</div>
-<p>The mix_colors task reuses the color_station allocated by retrieve_container; analyze_color then reuses the same station, ensuring the mixed color is analyzed on the same simulation window.</p>
-<p><strong>Resource references</strong>: pass the same physical resource instance (e.g., a beaker) downstream.</p>
-<p>Example:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors</span>
-<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">retrieve_container.beaker</span>
-
-<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color</span>
-<span class="w">  </span><span class="nt">resources</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">beaker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.beaker</span>
-</pre></div>
-</div>
-<p>The beaker dynamically chosen by retrieve_container is passed through mix_colors and into analyze_color.</p>
-<p><strong>Parameter references</strong>: feed outputs from one task as inputs to another by referencing output parameters.</p>
-<p>Example:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">score_color</span>
-<span class="w">  </span><span class="nt">parameters</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">red</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.red</span>
-<span class="w">    </span><span class="nt">green</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.green</span>
-<span class="w">    </span><span class="nt">blue</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">analyze_color.blue</span>
-<span class="w">    </span><span class="nt">total_color_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mix_colors.total_color_volume</span>
-<span class="w">    </span><span class="nt">max_total_color_volume</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">300.0</span>
-<span class="w">    </span><span class="nt">target_color</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eos_dynamic</span>
-</pre></div>
-</div>
-<p>The score_color task consumes the RGB outputs from analyze_color and the total color volume from mix_colors.</p>
+<p>The protocol reuses its color station and beaker through <a class="reference internal" href="references.html"><span class="doc">References</span></a>. The score task
+consumes the measured RGB values and total color volume. See <a class="reference internal" href="scheduling.html"><span class="doc">Scheduling</span></a> for holding
+allocations between tasks in concurrent campaigns.</p>
 </section>
 </section>
 
@@ -953,7 +898,6 @@ Provide it via <code class="docutils literal notranslate"><span class="pre">glob
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#laboratory">Laboratory</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#protocol">Protocol</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dynamic-parameters-and-optimization">Dynamic Parameters and Optimization</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references-between-tasks">References Between Tasks</a></li>
 </ul>
   </nav></div>
 

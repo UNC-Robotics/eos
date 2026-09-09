@@ -1,183 +1,127 @@
 Beacon Optimizer
 ================
-The Beacon optimizer combines Bayesian optimization with AI-driven reasoning.
-At each sampling step, it probabilistically selects between an acquisition function and an AI model
-that reasons about protocol run data to suggest new parameters.
+Beacon combines a pluggable optimizer with AI reasoning. Each sampling call uses the optimizer
+with probability ``p_bayesian`` or the AI with probability ``p_ai``. The probabilities must sum to 1.
+The default optimizer is Bayesian, but :doc:`custom_beacon` shows how to replace it.
 
-How It Works
-------------
-A weighted coin flip decides which strategy is used:
+How Sampling Works
+------------------
+* The AI receives the domain, protocol context, recent results, best observed results, and queued insights.
+  Its suggestions are validated against the domain.
+* If the AI call fails, Beacon restores the queued insights and falls back to the plugged-in optimizer.
+* All measured results are reported to the plugged-in optimizer, including results from AI suggestions.
+  Beacon keeps a recent history and associates AI samples with their journal entries.
 
-* **Bayesian**: Uses an acquisition function over a surrogate model.
-* **AI**: Sends protocol run history and domain constraints to an AI model that reasons about patterns
-  and suggests parameter sets. Suggestions are validated against the domain before being accepted.
-
-If the AI fails, Beacon falls back to Bayesian sampling automatically.
-Both strategies share the same result history.
-
-Why Hybrid?
-~~~~~~~~~~~
-* Bayesian optimizers treat the objective as a black box; AI can apply domain reasoning to make informed jumps.
-* AI models can hallucinate; the Bayesian component provides a mathematically grounded baseline.
-* Probabilistic mixing lets each strategy compensate for the other's weaknesses.
-
-Setting Up
-----------
-Modify your protocol's ``optimizer.py`` to return ``BeaconOptimizer``:
-
-:bdg-primary:`optimizer.py`
+Configure Beacon
+----------------
+Use the factory in :doc:`optimizers`, change its returned class to ``BeaconOptimizer``, and
+add Beacon settings to the constructor arguments:
 
 .. code-block:: python
 
-    from bofire.data_models.acquisition_functions.acquisition_function import qUCB
-    from bofire.data_models.enum import SamplingMethodEnum
-    from bofire.data_models.features.continuous import ContinuousOutput, ContinuousInput
-    from bofire.data_models.objectives.identity import MinimizeObjective
-
     from eos.optimization.beacon_optimizer import BeaconOptimizer
-    from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 
+    # Add these keys to the factory's constructor arguments.
+    beacon_settings = {
+        "p_bayesian": 0.5,
+        "p_ai": 0.5,
+        "ai_model": "claude-agent-sdk:sonnet",
+        "ai_history_size": 50,
+        "ai_additional_context": "Prefer experiments that use less starting material.",
+    }
 
-    def eos_create_campaign_optimizer() -> tuple[dict, type[AbstractSequentialOptimizer]]:
-        constructor_args = {
-            "inputs": [
-                ContinuousInput(key="mix_colors.cyan_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.cyan_strength", bounds=(2, 100)),
-                ContinuousInput(key="mix_colors.magenta_volume", bounds=(0, 25)),
-                ContinuousInput(key="mix_colors.magenta_strength", bounds=(2, 100)),
-            ],
-            "outputs": [
-                ContinuousOutput(key="score_color.loss", objective=MinimizeObjective(w=1.0)),
-            ],
-            "constraints": [],
-            "acquisition_function": qUCB(beta=1),
-            "num_initial_samples": 2,
-            "initial_sampling_method": SamplingMethodEnum.SOBOL,
-            "p_bayesian": 0.5,
-            "p_ai": 0.5,
-            "ai_model": "claude-agent-sdk:sonnet",
-            "ai_model_settings": {
-                "effort": "high",
-            },
-            "ai_additional_context": "The loss is euclidean distance of RGB components.",
-        }
+The default Bayesian optimizer still needs ``acquisition_function``. A custom replacement can
+omit Bayesian-specific settings. See the complete :doc:`custom_beacon` example.
 
-        return constructor_args, BeaconOptimizer
-
-.. note::
-    Domain parameters (``inputs``, ``outputs``, ``constraints``, etc.) work identically to
-    ``BayesianSequentialOptimizer``. See the :doc:`optimizers` page for details.
-
-Parameter Reference
--------------------
-
-Strategy Mix
-~~~~~~~~~~~~
-The **Bayesian / AI** slider controls the probability of each strategy at each sampling step.
-Default is 50/50. Fully **AI** makes Beacon AI-driven; fully **Bayesian** disables the AI agent.
-
-AI Model
-~~~~~~~~
-
+Settings
+--------
 .. list-table::
    :header-rows: 1
-   :widths: 20 15 65
 
-   * - Field
+   * - Constructor key
      - Default
-     - Description
-   * - **Model**
+     - Meaning
+   * - ``p_bayesian`` / ``p_ai``
+     - ``0.5`` / ``0.5``
+     - Probability of selecting the plugged-in optimizer or AI. ``p_ai=0`` disables the AI agent.
+   * - ``ai_model``
      - ``claude-agent-sdk:sonnet``
-     - Select from the dropdown or type a custom ``provider:model`` value.
-   * - **Model Settings**
-     - (empty)
-     - JSON settings, e.g., ``{"temperature": 0.3}``.
-   * - **Retries**
+     - A ``claude-agent-sdk:MODEL`` or ``ollama:MODEL`` identifier.
+   * - ``ai_model_settings``
+     - ``None``
+     - Model settings dictionary, such as ``{"effort": "high"}`` for Claude Agent SDK.
+   * - ``ai_retries``
      - ``3``
-     - Max retries for invalid AI suggestions.
-
-**Model** examples:
-
-* ``claude-agent-sdk:sonnet`` — Claude Sonnet via Agent SDK **(recommended)**
-* ``anthropic:claude-sonnet-4-6`` — Claude Sonnet 4.6 (requires ``ANTHROPIC_API_KEY``)
-* ``openai:gpt-5.4`` — GPT-5.4 (requires ``OPENAI_API_KEY``)
-* ``google-gla:gemini-3.1-pro-preview`` — Gemini 3.1 Pro (requires ``GOOGLE_API_KEY``)
-* ``ollama:qwen3.5:9b`` — Qwen 3.5 9B via Ollama (no API key, see below)
-
-.. tip::
-    The ``claude-agent-sdk`` provider is recommended. It uses Claude Code's agentic harness with
-    Claude's frontier reasoning capabilities, and authenticates via a Claude subscription
-    (``~/.claude`` credentials) or an ``ANTHROPIC_API_KEY``.
-
-AI Context
-~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 15 65
-
-   * - Field
-     - Default
-     - Description
-   * - **History Size**
+     - Retries for invalid AI output.
+   * - ``ai_history_size``
      - ``50``
-     - Number of recent protocols included in the AI prompt.
-   * - **Additional Context**
-     - (empty)
-     - Free-text domain knowledge for the AI.
-   * - **Additional Parameters**
-     - (empty)
-     - Extra result columns shown to the AI as context (not optimized).
-       Example: ``analyze_color.red, analyze_color.green, analyze_color.blue``
+     - Maximum recent result rows included in the AI prompt. Use a positive integer.
+   * - ``ai_additional_context``
+     - ``None``
+     - Free-text domain knowledge.
+   * - ``ai_additional_parameters``
+     - ``None``
+     - Extra ``task.parameter`` values included as AI context, such as ``mult_2.product``.
+       Beacon removes these columns before reporting outputs to the inner optimizer.
 
+AI Providers
+------------
 Claude Agent SDK
-----------------
-The ``claude-agent-sdk`` provider authenticates via Claude Code CLI credentials (``~/.claude``)
-or an ``ANTHROPIC_API_KEY``.
-
-Install the dependency:
+~~~~~~~~~~~~~~~~
+Install the optional dependency on the optimizer worker:
 
 .. code-block:: shell
 
-    uv pip install --group claude_agent_sdk
+    uv sync --group claude_agent_sdk
 
-Then set **Model** to ``claude-agent-sdk:sonnet`` (or ``opus``, ``haiku``).
+Use ``claude-agent-sdk:sonnet`` or another model supported by your Claude installation.
+Authentication uses Claude Code credentials in ``~/.claude`` or ``ANTHROPIC_API_KEY``.
+The optional ``ai_api_key`` constructor argument supplies that API key explicitly.
 
-Using Local Models with Ollama
-------------------------------
-Beacon supports local LLMs via `Ollama <https://ollama.com>`_.
-
-**1. Start Ollama** with sufficient context length:
+Ollama
+~~~~~~
+Start a local model server with enough context for the history you intend to send:
 
 .. code-block:: shell
 
     OLLAMA_CONTEXT_LENGTH=32000 ollama serve
 
-**2. Pull a model:**
+In another terminal, pull the model:
 
 .. code-block:: shell
 
     ollama pull qwen3.5:9b
 
-**3. Configure** in the web UI:
+Set ``ai_model`` to ``ollama:qwen3.5:9b``. Optional model settings include
+``{"temperature": 0.3}``. Other provider prefixes are rejected when the AI agent is created.
 
-* **Model** — ``ollama:qwen3.5:9b``
-* **Model Settings** — ``{"temperature": 0.3}``
+Runtime Changes and Insights
+----------------------------
+The web UI and REST API can change the strategy mix, history size, additional context, and
+custom runtime parameters without restarting the campaign. Updating either probability derives
+the other. Setting ``p_ai`` to zero removes the AI agent, and enabling it creates one as needed.
 
-
-Runtime Parameters
-------------------
-These can be changed at runtime via the REST API or the web UI without restarting a campaign:
-strategy mix, history size, and additional context.
-
-Expert Insights
-~~~~~~~~~~~~~~~
-Send domain knowledge to the AI agent during a running campaign via the web UI or REST API:
+For the default API address:
 
 .. code-block:: shell
 
-    curl -X POST http://localhost:8070/campaigns/my_campaign/optimizer/insight \
+    curl -X PUT http://localhost:8070/api/campaigns/my_campaign/optimizer/params \
       -H "Content-Type: application/json" \
-      -d '{"insight": "High mixing speed causes foaming, avoid values above 180."}'
+      -d '{"p_bayesian": 0.7, "ai_history_size": 20}'
 
-Insights are included in the next AI prompt and persisted across campaign resumes.
+    curl -X POST http://localhost:8070/api/campaigns/my_campaign/optimizer/insight \
+      -H "Content-Type: application/json" \
+      -d '{"insight": "Prefer smaller starting numbers."}'
+
+Add a bearer token when :doc:`authentication` is enabled. Insights are queued until an AI
+suggestion succeeds. The journal, queued insights, and runtime settings persist across resume.
+Explicit resume overrides take precedence. See :doc:`campaigns` for the resume lifecycle.
+
+History and Token Use
+---------------------
+Beacon sends history as a compact table. Domain and campaign context form a stable prompt prefix
+that can benefit from provider caching. History size bounds the recent results and attached
+reasoning sent to the AI, while the full journal remains available in the web UI.
+
+Claude Agent SDK calls log token usage, cache statistics, and reported cost. Use those logs to
+choose a history size that fits the model's context window and your token budget.

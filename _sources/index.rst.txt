@@ -19,7 +19,7 @@ to serve as the foundation for one or more automated or self-driving labs (SDLs)
 **Optimization**
 
 * Built-in Bayesian optimization for protocol run campaigns, with single and multi-objective support
-* Hybrid AI-Bayesian optimizer that combines Bayesian optimization with LLM reasoning
+* Beacon optimizer that combines a pluggable algorithm with AI reasoning
 
 **Interfaces**
 

@@ -1,25 +1,14 @@
 Installation
 ============
+Install EOS on the central laboratory computer. You need Python 3.11+, uv, Node.js and npm
+for the web UI, and Docker Compose for PostgreSQL and S3-compatible storage.
+See :doc:`infrastructure_setup` before connecting other lab computers.
 
-EOS should be installed on an easily accessible central laboratory computer.
-
-.. note::
-    EOS requires bi-directional network access to any computers used for automation.
-
-    Using an isolated laboratory network for security and performance is strongly recommended.
-    See :doc:`infrastructure setup <infrastructure_setup>` for details.
-
-EOS requires PostgreSQL and S3-compatible object storage (SeaweedFS by default) for data and file storage. We provide a
-Docker Compose file to set up these services.
-
-1. Install uv
-^^^^^^^^^^^^^
-
-uv manages EOS dependencies.
-
+Install uv and EOS
+------------------
 .. tab-set::
 
-    .. tab-item:: Linux/Mac
+    .. tab-item:: Linux/macOS
 
         .. code-block:: shell
 
@@ -27,86 +16,70 @@ uv manages EOS dependencies.
 
     .. tab-item:: Windows
 
-        .. code-block:: shell
+        .. code-block:: powershell
 
             powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-2. Install EOS
-^^^^^^^^^^^^^^
+Clone the repository and install dependencies:
 
 .. code-block:: shell
 
-    # Clone repository
     git clone https://github.com/UNC-Robotics/eos
     cd eos
-
-    # Create and activate virtual environment
-    uv venv
-    source .venv/bin/activate
-
-    # Install dependencies
     uv sync --all-groups
 
-3. Configure EOS
-^^^^^^^^^^^^^^^^
+Activate the environment with ``source .venv/bin/activate`` on Linux/macOS or
+``.venv\Scripts\Activate.ps1`` in Windows PowerShell.
+
+Configure and Start
+-------------------
+The setup wizard writes the configuration and can bootstrap Zitadel for :doc:`authentication`.
+Then start the infrastructure services and EOS, which initializes the database on its first run:
 
 .. code-block:: shell
 
-    # Set environment variables
-    cp .env.example .env
-    # Edit .env file and provide values
-
-    # Configure EOS
-    cp config.example.yml config.yml
-    # Edit config.yml and provide values
-
-4. Launch External Services
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: shell
-
-    # Start external services (PostgreSQL and SeaweedFS)
-    docker compose up -d
-
-5. Start EOS
-^^^^^^^^^^^^
-
-.. code-block:: shell
-
+    eos setup
+    eos services up
     eos start
 
-By default, EOS loads the "multiplication_lab" laboratory and "optimize_multiplication" protocol from an example package. This can be changed in the configuration file.
-
-6. Launch the Web UI
-^^^^^^^^^^^^^^^^^^^^
-
-**Option A: Without Docker**
+Install the web UI dependencies and start it in another terminal:
 
 .. code-block:: shell
 
     cd web_ui
-    cp .env.example .env
-    # Edit .env and provide values
     npm install
-    eos ui
+    eos start ui
 
-**Option B: With Docker**
+The UI defaults to ``http://localhost:3000``. The example configuration loads
+``multiplication_lab`` and ``optimize_multiplication``. Change ``config.yml`` to load your packages.
+
+Manual Configuration
+--------------------
+If you do not use the wizard, copy and edit the templates:
 
 .. code-block:: shell
 
-    cd web_ui
-    cp .env.docker.example .env.docker
-    # Edit .env.docker and provide values
-    docker compose up -d
+    cp .env.example .env
+    cp config.example.yml config.yml
+    cp web_ui/.env.example web_ui/.env
 
-The web UI is available at ``http://localhost:3000``.
+Then initialize services and start the orchestrator:
 
-Updating EOS
-^^^^^^^^^^^^
+.. code-block:: shell
 
+    eos services up
+    eos db init
+    eos start
+
+Install and start the UI as above. For a Docker UI deployment, copy and edit
+``web_ui/.env.docker.example`` as ``web_ui/.env.docker``, then run ``docker compose up -d``
+from ``web_ui``.
+
+Update EOS
+----------
 .. code-block:: shell
 
     eos update
 
-Pulls the latest ``master``, syncs dependencies, and runs database migrations. User package
-code and dependencies are preserved. Run ``eos update --help`` for available flags.
+This pulls ``master``, syncs dependencies, and runs database migrations while preserving
+user package code and dependencies. Use ``eos update --help`` for options.

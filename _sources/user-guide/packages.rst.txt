@@ -1,15 +1,13 @@
 Packages
 ========
-Code and resources in EOS are organized into packages, discovered and loaded at runtime.
-Each package is a folder that can contain laboratory, device, task, and protocol definitions, code, and data, enabling reuse and sharing.
-For example, a package can contain task and device implementations for a specific manufacturer's equipment, while another may contain only protocols for a specific lab.
+Packages contain reusable lab, device, task, and protocol definitions, plus supporting code and data.
+A package can serve one lab or share equipment implementations across labs.
 
 .. figure:: ../_static/img/package.png
    :alt: EOS package
    :align: center
 
-Using a package is as simple as placing it in a directory that EOS loads packages from.
-By default, this directory is called `user` and is located in the root of the EOS repository.
+Place packages under ``user_dir``, which defaults to ``user`` in the EOS repository.
 
 Below is the directory tree of an example EOS package called "color_lab".
 It contains a laboratory called "color_lab", the "color_mixing" protocol, and
@@ -27,8 +25,7 @@ Create a Package
 
    eos pkg create my_package
 
-This command creates a new package with all subdirectories.
-Feel free to delete subdirectories you don't expect to use.
+This creates the package directory structure. Remove unused subdirectories as needed.
 
 Add Entities to a Package
 -------------------------
@@ -45,9 +42,8 @@ seeds it with empty starter files.
 
 Install Package Dependencies
 ----------------------------
-Each package declares its Python dependencies in its ``pyproject.toml``. The ``install`` command
-is a thin wrapper around ``uv pip install -r <package>/pyproject.toml`` that resolves each
-package by name (even if it is nested inside a subdirectory under ``user/``).
+Declare Python dependencies in ``pyproject.toml``. ``eos pkg install`` resolves packages by name,
+including nested packages, and installs their dependencies with uv.
 
 .. code-block:: shell
 

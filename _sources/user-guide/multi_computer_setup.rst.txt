@@ -1,7 +1,8 @@
 Multi-Computer Lab Setup
 ========================
 
-EOS can orchestrate protocols across multiple computers using Ray for distributed communication. One computer runs the EOS orchestrator as the head node; additional computers join as worker nodes.
+One computer runs the EOS orchestrator and Ray head node. Additional computers join as Ray workers.
+See :doc:`infrastructure_setup` for network requirements.
 
 Main EOS Computer
 -----------------
@@ -21,20 +22,10 @@ Main EOS Computer
 Worker Computers
 ----------------
 
-1. Install dependencies:
+1. Install uv, clone EOS, and activate its environment as described in :doc:`installation`.
+   On workers, use the worker installer in place of the full dependency installation:
 
    .. code-block:: shell
-
-       # Install uv
-       curl -LsSf https://astral.sh/uv/install.sh | sh
-
-       # Clone EOS repository
-       git clone https://github.com/UNC-Robotics/eos
-       cd eos
-
-       # Create and activate virtual environment
-       uv venv
-       source .venv/bin/activate
 
        # Install EOS worker dependencies
        python3 scripts/install_worker.py
