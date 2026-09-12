@@ -1118,8 +1118,21 @@ Clone the repository and install dependencies:
     cd eos
     uv sync --all-groups
 
-Activate the environment with ``source .venv/bin/activate`` on Linux/macOS or
-``.venv\Scripts\Activate.ps1`` in Windows PowerShell.
+Activate the virtual environment in every terminal before running EOS commands:
+
+.. tab-set::
+
+    .. tab-item:: Linux/macOS
+
+        .. code-block:: shell
+
+            source .venv/bin/activate
+
+    .. tab-item:: Windows
+
+        .. code-block:: powershell
+
+            .venv\Scripts\Activate.ps1
 
 Configure and Start
 -------------------
@@ -1132,7 +1145,8 @@ Then start the infrastructure services and EOS, which initializes the database o
     eos services up
     eos start
 
-Install the web UI dependencies and start it in another terminal:
+In another terminal, open the EOS repository and activate the virtual environment
+using the command above. Then install the web UI dependencies and start it:
 
 .. code-block:: shell
 

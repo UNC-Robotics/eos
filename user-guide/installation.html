@@ -455,8 +455,23 @@ Windows</label><div class="sd-tab-content docutils">
 uv<span class="w"> </span>sync<span class="w"> </span>--all-groups
 </pre></div>
 </div>
-<p>Activate the environment with <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">.venv/bin/activate</span></code> on Linux/macOS or
-<code class="docutils literal notranslate"><span class="pre">.venv\Scripts\Activate.ps1</span></code> in Windows PowerShell.</p>
+<p>Activate the virtual environment in every terminal before running EOS commands:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-2" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-2">
+Linux/macOS</label><div class="sd-tab-content docutils">
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-3" name="sd-tab-set-1" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-3">
+Windows</label><div class="sd-tab-content docutils">
+<div class="highlight-powershell notranslate"><div class="highlight"><pre><span></span><span class="p">.</span><span class="n">venv</span><span class="p">\</span><span class="n">Scripts</span><span class="p">\</span><span class="n">Activate</span><span class="p">.</span><span class="n">ps1</span>
+</pre></div>
+</div>
+</div>
+</div>
 </section>
 <section id="configure-and-start">
 <h2>Configure and Start<a class="headerlink" href="#configure-and-start" title="Link to this heading">#</a></h2>
@@ -467,7 +482,8 @@ eos<span class="w"> </span>services<span class="w"> </span>up
 eos<span class="w"> </span>start
 </pre></div>
 </div>
-<p>Install the web UI dependencies and start it in another terminal:</p>
+<p>In another terminal, open the EOS repository and activate the virtual environment
+using the command above. Then install the web UI dependencies and start it:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>web_ui
 npm<span class="w"> </span>install
 eos<span class="w"> </span>start<span class="w"> </span>ui
