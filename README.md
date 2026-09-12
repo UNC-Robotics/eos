@@ -48,17 +48,19 @@ Then clone EOS and run the setup wizard:
 git clone https://github.com/UNC-Robotics/eos
 cd eos
 uv sync --all-groups
-uv run eos setup
-uv run eos services up
-uv run eos start
+source .venv/bin/activate
+eos setup
+eos services up
+eos start
 ```
 
 In another terminal, install and start the web UI:
 
 ```shell
 cd eos/web_ui
+source ../.venv/bin/activate
 npm install
-uv run eos start ui
+eos start ui
 ```
 
 See the [installation guide](https://unc-robotics.github.io/eos/user-guide/installation.html)
@@ -72,9 +74,8 @@ If you use EOS for your work, please cite:
 
 ```bibtex
 @inproceedings{Angelopoulos2025_EOS,
-  title = {The {{Experiment Orchestration System}} ({{EOS}}): {{Comprehensive Foundation}} for {{Laboratory Automation}}},
-  shorttitle = {The {{Experiment Orchestration System}} ({{EOS}})},
-  booktitle = {2025 {{IEEE International Conference}} on {{Robotics}} and {{Automation}} ({{ICRA}})},
+  title = {The Experiment Orchestration System ({EOS}): Comprehensive Foundation for Laboratory Automation},
+  booktitle = {2025 IEEE International Conference on Robotics and Automation (ICRA)},
   author = {Angelopoulos, Angelos and Baykal, Cem and Kandel, Jade and Verber, Matthew and Cahoon, James F. and Alterovitz, Ron},
   year = {2025},
   month = may,
