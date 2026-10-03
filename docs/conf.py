@@ -20,7 +20,10 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_click",
+    "sphinx.ext.imgconverter",
 ]
+
+latex_engine = "xelatex"
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
