@@ -500,6 +500,11 @@ cp<span class="w"> </span>config.example.yml<span class="w"> </span>config.yml
 cp<span class="w"> </span>web_ui/.env.example<span class="w"> </span>web_ui/.env
 </pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">.env</span></code> holds the credentials for the PostgreSQL database and the S3-compatible file store
+(SeaweedFS). Both run locally in Docker via <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">services</span> <span class="pre">up</span></code>, so no external database or AWS account
+is needed. Set <code class="docutils literal notranslate"><span class="pre">EOS_POSTGRES_USER</span></code>, <code class="docutils literal notranslate"><span class="pre">EOS_POSTGRES_PASSWORD</span></code>, <code class="docutils literal notranslate"><span class="pre">EOS_S3_ACCESS_KEY_ID</span></code> and
+<code class="docutils literal notranslate"><span class="pre">EOS_S3_SECRET_ACCESS_KEY</span></code> to values of your choice before running <code class="docutils literal notranslate"><span class="pre">eos</span> <span class="pre">services</span> <span class="pre">up</span></code>, and use the same
+values in <code class="docutils literal notranslate"><span class="pre">web_ui/.env</span></code>.</p>
 <p>Then initialize services and start the orchestrator:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>eos<span class="w"> </span>services<span class="w"> </span>up
 eos<span class="w"> </span>db<span class="w"> </span>init

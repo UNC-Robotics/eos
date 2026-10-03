@@ -1167,6 +1167,12 @@ If you do not use the wizard, copy and edit the templates:
     cp config.example.yml config.yml
     cp web_ui/.env.example web_ui/.env
 
+``.env`` holds the credentials for the PostgreSQL database and the S3-compatible file store
+(SeaweedFS). Both run locally in Docker via ``eos services up``, so no external database or AWS account
+is needed. Set ``EOS_POSTGRES_USER``, ``EOS_POSTGRES_PASSWORD``, ``EOS_S3_ACCESS_KEY_ID`` and
+``EOS_S3_SECRET_ACCESS_KEY`` to values of your choice before running ``eos services up``, and use the same
+values in ``web_ui/.env``.
+
 Then initialize services and start the orchestrator:
 
 .. code-block:: shell
