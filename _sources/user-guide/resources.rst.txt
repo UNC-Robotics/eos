@@ -50,29 +50,37 @@ Notes
 - Resource names must be globally unique across all labs. EOS enforces this at load time.
 - Instance ``meta`` overrides any defaults from the corresponding ``resource_types`` entry.
 
-Declaring resources in task specifications
-------------------------------------------
-Tasks declare required resource types in ``task.yml``. EOS validates that protocols supply matching resource instances (by name) or a dynamic request for the required type.
+Declaring resources in tasks
+----------------------------
+Tasks declare the resource types they need with ``Resource`` subclasses. EOS validates that protocols supply
+matching resource instances (by name) or a dynamic request for the required type.
 
-:bdg-primary:`task.yml`
+:bdg-primary:`resources.py`
 
-.. code-block:: yaml
+.. code-block:: python
 
-    type: Magnetic Mixing
-    desc: Mix contents in a beaker
+    from eos import Resource
 
-    devices:
-      mixer:
-        type: magnetic_mixer
 
-    input_resources:
-      beaker:
-        type: beaker_500
+    class Beaker500(Resource, type="beaker_500"): ...
 
-    # Optional: if not specified, output_resources default to input_resources
-    # output_resources:
-    #   beaker:
-    #     type: beaker_500
+:bdg-primary:`task.py`
+
+.. code-block:: python
+
+    from eos import task
+
+    from my_package.devices.magnetic_mixer.device import MagneticMixer
+    from my_package.resources import Beaker500
+
+
+    @task("Magnetic Mixing")
+    async def magnetic_mixing(mixer: MagneticMixer, beaker: Beaker500) -> None:
+        """Mix contents in a beaker."""
+        beaker.meta["mixed"] = True
+
+Input resources are also the task's output resources. Changes to their metadata are saved when the task
+completes.
 
 Assigning resources in protocols
 ----------------------------------

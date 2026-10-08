@@ -12,34 +12,11 @@ The GC Sampling task uses a gas chromatograph and a robot for sample injection.
 
 Device Implementation
 ---------------------
-* Devices are implemented in the `devices` subdirectory inside an EOS package
-* Each device has its own subfolder (e.g., devices/magnetic_mixer)
-* There are two key files per device: ``device.yml`` and ``device.py``
+Devices live in the ``devices`` directory of an EOS package. Each device has its own subdirectory
+(e.g., ``devices/magnetic_mixer``) containing a ``device.py``.
 
-YAML File (device.yml)
-~~~~~~~~~~~~~~~~~~~~~~
-* Specifies the device type, desc, and initialization parameters
-* The same implementation can be used for multiple devices of the same type
-* Initialization parameters can be overridden in laboratory definition
-
-Example device YAML for a magnetic mixer:
-
-:bdg-primary:`device.yml`
-
-.. code-block:: yaml
-
-    type: magnetic_mixer
-    desc: Magnetic mixer for mixing the contents of a container
-
-    init_parameters:
-      port: 5004
-
-Python File (device.py)
-~~~~~~~~~~~~~~~~~~~~~~~
-* Implements device functionality
-* All devices implementations must inherit from ``BaseDevice``
-
-Example magnetic mixer implementation:
+A device is a class that subclasses ``Device`` with a ``type``. The docstring is the device description,
+and a nested ``Config`` model declares its initialization parameters:
 
 :bdg-primary:`device.py`
 
@@ -47,31 +24,70 @@ Example magnetic mixer implementation:
 
     from typing import Any
 
-    from eos.resources.entities.resource import Resource
-    from eos.devices.base_device import BaseDevice
-    from user.eos_examples.color_lab.common.device_client import DeviceClient
+    from eos import Device
+
+    from my_package.common.device_client import DeviceClient
 
 
-    class MagneticMixer(BaseDevice):
-        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-            port = int(init_parameters["port"])
-            self.client = DeviceClient(port)
+    class MagneticMixer(Device, type="magnetic_mixer"):
+        """Magnetic mixer for mixing the contents of a container."""
+
+        class Config(Device.Config):
+            port: int = 5004
+
+        async def _initialize(self, config: Config) -> None:
+            self.client = DeviceClient(config.port)
             self.client.open_connection()
 
         async def _cleanup(self) -> None:
             self.client.close_connection()
 
         async def _report(self) -> dict[str, Any]:
-            return {}
+            return {"port": self.client.port}
 
-        def mix(self, container: Resource, mixing_time: int, mixing_speed: int) -> Resource:
-            result = self.client.send_command("mix", {"mixing_time": mixing_time, "mixing_speed": mixing_speed})
-            if result:
-                container.meta["mixing_time"] = mixing_time
-                container.meta["mixing_speed"] = mixing_speed
+        def mix(self, container: str, mixing_time: int, mixing_speed: int) -> None:
+            self.client.send_command("mix", {"container": container, "time": mixing_time, "speed": mixing_speed})
 
-            return container
+One implementation can back several devices of the same type. A lab sets each device's ``init_parameters``,
+which EOS validates against ``Config`` when the lab loads and again when the device starts. Fields without
+a default are required.
 
-Required lifecycle methods are ``_initialize`` to open connections, ``_cleanup`` to release them,
-and ``_report`` to return current state. Task-facing methods such as ``mix`` perform device actions
-and may update resource metadata.
+The lifecycle methods are optional:
+
+* ``_initialize`` opens connections, using the validated ``Config``.
+* ``_cleanup`` releases them.
+* ``_report`` returns current state.
+
+Public methods such as ``mix`` are what tasks call.
+
+Shared Device Code
+~~~~~~~~~~~~~~~~~~
+A ``Device`` subclass without a ``type`` is not registered, so it can serve as a base class. Subclasses
+inherit its methods and type, and extend its ``Config``:
+
+.. code-block:: python
+
+    class BridgeDevice(Device):
+        class Config(Device.Config):
+            host: str = "127.0.0.1"
+            port: int = 8765
+
+        async def _initialize(self, config: Config) -> None:
+            self.bridge = Bridge(config.host, config.port)
+
+
+    class Hotplate(BridgeDevice, type="hotplate"):
+        """Hotplate reached through the bridge."""
+
+        class Config(BridgeDevice.Config):
+            station: str
+
+        async def _initialize(self, config: Config) -> None:
+            self.station = config.station
+            await super()._initialize(config)
+
+Devices on Other Computers
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+EOS ships device code to the computer running the device, so the package does not need to be installed
+there. Third-party libraries it uses must be installed on that computer. Import libraries that only exist
+there, such as Windows-only SDKs, inside ``_initialize`` so the orchestrator can still load the device.

@@ -23,18 +23,24 @@ Host SiLA servers inside EOS devices using ``SilaDeviceMixin``:
 
     from typing import Any
 
-    from eos.devices.base_device import BaseDevice
+    from eos import Device
     from eos.integrations.sila import SilaDeviceMixin
     from your_package.sila import Server as YourSilaServer
 
 
-    class YourDevice(BaseDevice, SilaDeviceMixin):
-        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+    class YourDevice(Device, SilaDeviceMixin, type="your_device"):
+        """Device that hosts a SiLA server."""
+
+        class Config(Device.Config):
+            sila_port: int = 0  # 0 = auto-assign
+            sila_insecure: bool = True
+
+        async def _initialize(self, config: Config) -> None:
             self.sila_add_server(
                 name="server",
                 server_class=YourSilaServer,
-                port=init_parameters.get("sila_port", 0),  # 0 = auto-assign
-                insecure=init_parameters.get("sila_insecure", True),
+                port=config.sila_port,
+                insecure=config.sila_insecure,
             )
             await self.sila_start_all()
 
@@ -43,17 +49,6 @@ Host SiLA servers inside EOS devices using ``SilaDeviceMixin``:
 
         async def _report(self) -> dict[str, Any]:
             return {**self.sila_get_status()}
-
-:bdg-primary:`device.yml`
-
-.. code-block:: yaml
-
-    type: your_device
-    desc: Device that hosts a SiLA server
-
-    init_parameters:
-      sila_port: 0
-      sila_insecure: true
 
 Connecting to External SiLA Servers
 -----------------------------------
@@ -95,23 +90,29 @@ Connect to SiLA servers using ``SilaClientContext``:
 
 .. code-block:: python
 
-    from eos.tasks.base_task import BaseTask
+    from pydantic import BaseModel
+
+    from eos import task
     from eos.integrations.sila import SilaClientContext
+    from your_package.devices.your_device.device import YourDevice
     from your_package.sila import Client as YourSilaClient
 
 
-    class YourTask(BaseTask):
-        async def _execute(self, devices, parameters, resources):
-            device = devices["your_device"]
+    class YourOutputs(BaseModel):
+        result: str
 
-            async with SilaClientContext.connect(device, YourSilaClient) as client:
-                # Call commands
-                response = client.YourFeature.YourCommand(Parameter=value)
 
-                # Access properties
-                property_value = client.YourFeature.YourProperty.get()
+    @task("Your Task")
+    async def your_task(device: YourDevice, value: str) -> YourOutputs:
+        """Call a SiLA command."""
+        async with SilaClientContext.connect(device, YourSilaClient) as client:
+            # Call commands
+            response = client.YourFeature.YourCommand(Parameter=value)
 
-                return {"result": response.Result}, None, None
+            # Access properties
+            property_value = client.YourFeature.YourProperty.get()
+
+            return YourOutputs(result=response.Result)
 
 For devices with multiple servers, specify the server name:
 
@@ -148,15 +149,13 @@ SiLA servers can also be called from within an EOS device:
 
 .. code-block:: python
 
-    from typing import Any
-
-    from eos.devices.base_device import BaseDevice
+    from eos import Device
     from eos.integrations.sila import SilaDeviceMixin, SilaClientContext
     from your_package.sila import Client as YourSilaClient
 
 
-    class YourDevice(BaseDevice, SilaDeviceMixin):
-        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+    class YourDevice(Device, SilaDeviceMixin, type="your_device"):
+        async def _initialize(self, config: Device.Config) -> None:
             # Connect to external SiLA server
             self.sila_add_server_connection(
                 name="external",

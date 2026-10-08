@@ -125,9 +125,13 @@ Submit a single task for execution outside a protocol run.
               }
         }'
 
+If the devices or resources are busy, the task waits in a queue. Queued tasks with a higher ``priority`` go
+first, and a task that cannot start within ``allocation_timeout`` seconds (default 600) is recorded as failed.
+Task names must be unique among queued and running on-demand tasks.
+
 Cancelling
 ----------
-Cancel a running protocol run or campaign:
+Cancel a running protocol run, campaign, or task:
 
 .. code-block:: bash
 
@@ -136,6 +140,14 @@ Cancel a running protocol run or campaign:
 
     # Cancel a campaign
     curl -X POST http://localhost:8070/api/campaigns/color_optimization/cancel
+
+    # Cancel an on-demand task, or a task of a protocol run
+    curl -X POST http://localhost:8070/api/tasks/test_mix/cancel
+    curl -X POST "http://localhost:8070/api/tasks/mix/cancel?protocol_run_name=my_protocol_run_1"
+
+Cancelling a protocol run stops its running tasks before their devices go to other protocol runs.
+Cancelling one task of a protocol run fails that protocol run. Cancelling a queued on-demand task removes it
+from the queue.
 
 Querying Status
 ---------------

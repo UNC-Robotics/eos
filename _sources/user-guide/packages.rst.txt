@@ -9,8 +9,12 @@ A package can serve one lab or share equipment implementations across labs.
 
 Place packages under ``user_dir``, which defaults to ``user`` in the EOS repository.
 
-Below is the directory tree of an example EOS package called "color_lab".
-It contains a laboratory called "color_lab", the "color_mixing" protocol, and
+EOS imports each package as a Python package named after its directory, so code in a package imports its
+own modules normally (e.g., ``from my_package.devices.mixer.device import Mixer``). Package names must be
+valid Python identifiers and must not clash with installed modules.
+
+Below is the directory tree of an example EOS package called "color_lab_sim".
+It contains a laboratory called "color_lab_sim", the "color_mixing_sim" protocol, and
 various devices and tasks. The package also contains a device client under `common`,
 and a README file.
 
@@ -31,13 +35,13 @@ Add Entities to a Package
 -------------------------
 You can scaffold new labs, devices, tasks, and protocols inside an existing package with the
 ``eos pkg add`` subcommands. Each one creates the directory under the correct entity folder and
-seeds it with empty starter files.
+seeds it with starter files.
 
 .. code-block:: shell
 
    eos pkg add lab my_package my_lab            # creates labs/my_lab/lab.yml
-   eos pkg add device my_package my_device      # creates devices/my_device/{device.yml, device.py}
-   eos pkg add task my_package my_task          # creates tasks/my_task/{task.yml, task.py}
+   eos pkg add device my_package my_device      # creates devices/my_device/device.py
+   eos pkg add task my_package my_task          # creates tasks/my_task/task.py
    eos pkg add protocol my_package my_proto     # creates protocols/my_proto/{protocol.yml, optimizer.py}
 
 Install Package Dependencies
