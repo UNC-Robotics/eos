@@ -3,16 +3,26 @@ from unittest.mock import Mock
 
 import pytest
 
-from eos.devices.base_device import BaseDevice, DeviceStatus
+from pydantic import Field
+
+from eos.devices.base_device import BaseDevice, DeviceStatus, build_device_spec
 from eos.devices.exceptions import EosDeviceError, EosDeviceCleanupError, EosDeviceInitializationError
 
 
-class MockDevice(BaseDevice):
-    def __init__(self, device_name: str, lab_name: str, device_type: str):
-        self.mock_resource = None
-        super().__init__(device_name, lab_name, device_type)
+class MockDevice(BaseDevice, type="mock"):
+    """A mock device."""
 
-    async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+    class Config(BaseDevice.Config):
+        port: int = Field(8000, description="Server port")
+        station: str
+
+    def __init__(self, device_name: str, lab_name: str):
+        self.mock_resource = None
+        self.config = None
+        super().__init__(device_name, lab_name)
+
+    async def _initialize(self, config: Config) -> None:
+        self.config = config
         self.mock_resource = Mock()
 
     async def _cleanup(self) -> None:
@@ -30,8 +40,8 @@ class MockDevice(BaseDevice):
 class TestBaseDevice:
     @pytest.fixture
     async def mock_device(self):
-        mock_device = MockDevice("test_device", "test_lab", "mock")
-        await mock_device.initialize({})
+        mock_device = MockDevice("test_device", "test_lab")
+        await mock_device.initialize({"station": "s1"})
         return mock_device
 
     def test_initialize(self, mock_device):
@@ -39,6 +49,33 @@ class TestBaseDevice:
         assert mock_device.device_type == "mock"
         assert mock_device.status == DeviceStatus.IDLE
         assert mock_device.mock_resource is not None
+        assert mock_device.config == MockDevice.Config(port=8000, station="s1")
+        assert mock_device.get_init_parameters() == {"port": 8000, "station": "s1"}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("init_parameters", [{}, {"station": "s1", "bogus": 1}, {"station": "s1", "port": "x"}])
+    async def test_invalid_init_parameters(self, init_parameters):
+        device = MockDevice("test_device", "test_lab")
+        with pytest.raises(EosDeviceInitializationError):
+            await device.initialize(init_parameters)
+        assert device.status == DeviceStatus.ERROR
+
+    def test_build_device_spec(self):
+        spec = build_device_spec(MockDevice)
+        assert spec.type == "mock"
+        assert spec.desc == "A mock device."
+        assert spec.init_parameters["port"].model_dump() == {
+            "type": "int",
+            "desc": "Server port",
+            "default": 8000,
+            "required": False,
+        }
+        assert spec.init_parameters["station"].required
+
+    def test_subclass_without_type_is_unregistered(self):
+        class Base(BaseDevice): ...
+
+        assert Base.device_type is None
 
     @pytest.mark.asyncio
     async def test_cleanup(self, mock_device):
@@ -71,12 +108,12 @@ class TestBaseDevice:
     @pytest.mark.asyncio
     async def test_initialization_error(self):
         class FailingDevice(MockDevice):
-            async def _initialize(self, init_parameters: dict[str, Any]) -> None:
+            async def _initialize(self, config: MockDevice.Config) -> None:
                 raise ValueError("Initialization failed")
 
-        device = FailingDevice("fail_device", "test_lab", "failing")
+        device = FailingDevice("fail_device", "test_lab")
         with pytest.raises(EosDeviceInitializationError):
-            await device.initialize({})
+            await device.initialize({"station": "s1"})
 
     @pytest.mark.asyncio
     async def test_cleanup_error(self, mock_device):
@@ -114,15 +151,6 @@ class _MixinForTest:
 class _DeviceBaseForTest(BaseDevice):
     """Intermediate device base class. Its public methods should still be exposed."""
 
-    async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-        pass
-
-    async def _cleanup(self) -> None:
-        pass
-
-    async def _report(self) -> dict[str, Any]:
-        return {}
-
     def base_public_method(self) -> str:
         return "base"
 
@@ -144,7 +172,7 @@ class _UserDevice(_DeviceBaseForTest, _MixinForTest):
 class TestGetAvailableFunctions:
     @pytest.fixture
     def device(self):
-        return _UserDevice("test", "lab", "user")
+        return _UserDevice("test", "lab")
 
     def test_includes_user_methods(self, device):
         functions = device.get_available_functions()
@@ -171,7 +199,6 @@ class TestGetAvailableFunctions:
             "get_status",
             "get_name",
             "get_lab_name",
-            "get_device_type",
             "get_init_parameters",
             "get_available_functions",
         ]:
@@ -202,5 +229,5 @@ class TestGetAvailableFunctions:
 
     def test_result_is_cached_per_class(self, device):
         a = device.get_available_functions()
-        b = _UserDevice("other", "lab", "user").get_available_functions()
+        b = _UserDevice("other", "lab").get_available_functions()
         assert a is b

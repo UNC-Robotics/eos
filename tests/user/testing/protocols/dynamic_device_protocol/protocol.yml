@@ -6,7 +6,7 @@ labs:
 
 tasks:
   - name: A
-    type: Noop
+    type: Noop DT3
     devices:
       device_1:
         allocation_type: dynamic
@@ -14,7 +14,7 @@ tasks:
         allowed_labs: [dynamic_lab]
 
   - name: B
-    type: Noop
+    type: Noop DT2
     dependencies: ["A"]
     devices:
       device_1:
@@ -23,7 +23,7 @@ tasks:
         allowed_labs: [dynamic_lab]
 
   - name: C
-    type: Noop
+    type: Noop DT3
     dependencies: ["A"]
     devices:
       device_1:
@@ -35,7 +35,7 @@ tasks:
             name: DX3B
 
   - name: D
-    type: Noop
+    type: Noop DT5
     dependencies: ["B", "C"]
     devices:
       device_1:
@@ -44,19 +44,19 @@ tasks:
         allowed_labs: [dynamic_lab]
 
   - name: E
-    type: Noop
+    type: Noop DT3
     dependencies: ["D"]
     devices:
       device_1: C.device_1
 
   - name: F
-    type: Noop
+    type: Noop DT3
     dependencies: ["E"]
     devices:
       device_1: E.device_1
 
   - name: G
-    type: Noop
+    type: Noop Analyze
     dependencies: ["D", "F"]
     devices:
       analyzer: A.device_1

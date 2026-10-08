@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 
 import ray
@@ -8,7 +9,7 @@ from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
 from eos.configuration.configuration_manager import ConfigurationManager
-from eos.configuration.eos_config import DatabaseType, EosConfig, FileDbConfig
+from eos.configuration.eos_config import DatabaseType, EosConfig, ExecutionConfig, FileDbConfig
 from eos.resources.resource_manager import ResourceManager
 from eos.devices.device_manager import DeviceManager
 from eos.protocols.protocol_executor_factory import ProtocolExecutorFactory
@@ -51,6 +52,7 @@ class Orchestrator(metaclass=Singleton):
         self._scheduler_config = config.scheduler
         self._db_config = config.db
         self._file_db_config = config.file_db
+        self._execution_config = config.execution
 
         self._initialized = False
 
@@ -100,6 +102,7 @@ class Orchestrator(metaclass=Singleton):
         file_db_interface = FileDbInterface(self._file_db_config)
         di.register(FileDbInterface, file_db_interface)
         di.register(FileDbConfig, self._file_db_config)
+        di.register(ExecutionConfig, self._execution_config)
 
         # Ray cluster ############################################
         self._initialize_ray()
@@ -185,6 +188,8 @@ class Orchestrator(metaclass=Singleton):
         except ConnectionError:
             log.info("Initializing local Ray cluster...")
             num_cpus = min(8, os.cpu_count() or 8)
+            # Ray enables token auth for new local clusters and warns about it on every start
+            logging.getLogger("ray._private.authentication.authentication_token_setup").setLevel(logging.ERROR)
             ray.init(namespace="eos", num_cpus=num_cpus, resources={"eos": 1000}, include_dashboard=False)
             log.info("Initialized local Ray cluster.")
 

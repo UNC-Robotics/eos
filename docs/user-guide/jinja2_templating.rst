@@ -1,7 +1,7 @@
 Jinja2 Templating
 =================
 EOS evaluates `Jinja2 <https://jinja.palletsprojects.com/en/3.1.x/>`_ templates when loading YAML
-for labs, devices, tasks, and protocols. Use templates to generate definitions with variables,
+for labs and protocols. Use templates to generate definitions with variables,
 loops, or macros. For values and conditions that change during execution, use dynamic parameters,
 :doc:`references`, or protocol ``run_if`` conditions.
 
@@ -32,7 +32,7 @@ Arithmetic
 You can perform arithmetic within Jinja2 expressions.
 Below, the volumes of cyan, magenta, and yellow colorants are calculated from a total color volume:
 
-:bdg-primary:`task.yml`
+:bdg-primary:`protocol.yml`
 
 .. code-block:: yaml+jinja
 

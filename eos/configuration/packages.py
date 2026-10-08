@@ -1,29 +1,34 @@
+import importlib
+import importlib.machinery
+import importlib.util
+import os
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
+from types import ModuleType
 
 import jinja2
+import ray.cloudpickle
 import yaml
 
 from eos.configuration.constants import (
     DEVICES_DIR,
-    DEVICE_CONFIG_FILE_NAME,
+    DEVICE_FILE_NAME,
     PROTOCOLS_DIR,
     PROTOCOL_CONFIG_FILE_NAME,
     LABS_DIR,
     LAB_CONFIG_FILE_NAME,
     TASKS_DIR,
-    TASK_CONFIG_FILE_NAME,
+    TASK_FILE_NAME,
 )
-from eos.configuration.entities.device_spec_def import DeviceSpecDef
 from eos.configuration.entities.protocol_def import ProtocolDef
 from eos.configuration.entities.lab_def import LabDef
-from eos.configuration.entities.task_spec_def import TaskSpecDef
 from eos.configuration.exceptions import EosConfigurationError, EosMissingConfigurationError
 from eos.logging.logger import log
 
-EntityConfigType = LabDef | ProtocolDef | TaskSpecDef | DeviceSpecDef
+EntityConfigType = LabDef | ProtocolDef
 
 
 class EntityType(Enum):
@@ -36,8 +41,8 @@ class EntityType(Enum):
 @dataclass(frozen=True)
 class EntityInfo:
     dir_name: str
-    config_file_name: str
-    config_type: type[EntityConfigType]
+    file_name: str
+    config_type: type[EntityConfigType] | None = None
 
 
 @dataclass(frozen=True)
@@ -49,8 +54,8 @@ class EntityLocationInfo:
 ENTITY_INFO: dict[EntityType, EntityInfo] = {
     EntityType.LAB: EntityInfo(LABS_DIR, LAB_CONFIG_FILE_NAME, LabDef),
     EntityType.PROTOCOL: EntityInfo(PROTOCOLS_DIR, PROTOCOL_CONFIG_FILE_NAME, ProtocolDef),
-    EntityType.TASK: EntityInfo(TASKS_DIR, TASK_CONFIG_FILE_NAME, TaskSpecDef),
-    EntityType.DEVICE: EntityInfo(DEVICES_DIR, DEVICE_CONFIG_FILE_NAME, DeviceSpecDef),
+    EntityType.TASK: EntityInfo(TASKS_DIR, TASK_FILE_NAME),
+    EntityType.DEVICE: EntityInfo(DEVICES_DIR, DEVICE_FILE_NAME),
 }
 
 
@@ -63,8 +68,7 @@ class Package:
     _entity_dirs: dict[EntityType, Path] = field(init=False, repr=False)
 
     def __post_init__(self):
-        if isinstance(self.path, str):
-            self.path = Path(self.path)
+        self.path = Path(self.path).resolve()
         self._entity_dirs = {entity_type: self.path / info.dir_name for entity_type, info in ENTITY_INFO.items()}
 
     def get_entity_dir(self, entity_type: EntityType) -> Path:
@@ -105,7 +109,7 @@ class PackageManager:
     """Manages packages and entity configurations within the user directory."""
 
     def __init__(self, user_dir: str, allowed_packages: set[str] | None = None):
-        self._user_dir = Path(user_dir)
+        self._user_dir = Path(user_dir).resolve()
         self._allowed_packages = set(allowed_packages) if allowed_packages else None
         self._entity_indices: dict[EntityType, dict[str, EntityLocationInfo]] = defaultdict(dict)
         self._packages: dict[str, Package] = {}
@@ -158,42 +162,76 @@ class PackageManager:
     def read_protocol(self, protocol_run_name: str) -> ProtocolDef:
         return self._read_entity(protocol_run_name, EntityType.PROTOCOL)
 
-    def read_task_spec(self, task_name: str) -> TaskSpecDef:
-        return self._read_entity(task_name, EntityType.TASK)
-
-    def read_task_specs(self) -> tuple[dict[str, TaskSpecDef], dict[str, str]]:
-        return self._read_all_entities(EntityType.TASK)
-
-    def read_device_specs(self) -> tuple[dict[str, DeviceSpecDef], dict[str, str]]:
-        return self._read_all_entities(EntityType.DEVICE)
-
     def _read_entity(self, entity_name: str, entity_type: EntityType) -> EntityConfigType:
         location = self._get_entity_location(entity_name, entity_type)
         config_path = self._get_config_file_path(location, entity_type)
         return self._parse_config_file(config_path, entity_type)
 
-    def _read_all_entities(self, entity_type: EntityType) -> tuple[dict[str, EntityConfigType], dict[str, str]]:
-        all_entities: dict[str, EntityConfigType] = {}
-        all_dirs_to_types: dict[str, str] = {}
+    @staticmethod
+    def find_entity_dirs(package: Package, entity_type: EntityType) -> list[Path]:
+        """Return the entity directories of a package, relative to its entity type directory."""
+        entity_dir = package.get_entity_dir(entity_type)
+        file_name = ENTITY_INFO[entity_type].file_name
+        found = []
+        for root, dirs, files in os.walk(entity_dir):
+            if file_name in files and Path(root) != entity_dir:
+                found.append(Path(root).relative_to(entity_dir))
+                dirs.clear()  # Files nested inside an entity belong to it
+            else:
+                dirs[:] = [d for d in dirs if not d.startswith((".", "__"))]
+        return sorted(found)
 
-        for package in self._packages.values():
-            entity_dir = package.get_entity_dir(entity_type)
-            if not entity_dir.is_dir():
-                continue
+    def import_module(self, package: Package, relative_path: Path, *, fresh: bool = False) -> ModuleType:
+        """Import a module of a package by its path relative to the package root. ``fresh`` re-reads the module."""
+        self._make_importable(package)
+        module_name = ".".join([package.name, *relative_path.with_suffix("").parts])
+        if fresh:
+            sys.modules.pop(module_name, None)
+        return importlib.import_module(module_name)
 
-            info = ENTITY_INFO[entity_type]
-            for config_path in entity_dir.rglob(info.config_file_name):
-                subdir = config_path.relative_to(entity_dir).parent
-                try:
-                    entity = self._parse_config_file(config_path, entity_type)
-                    all_entities[entity.type] = entity
-                    all_dirs_to_types[Path(package.name) / subdir] = entity.type
-                    log.debug(f"Loaded {entity_type.name.lower()} '{entity.type}' from '{subdir}'")
-                except EosConfigurationError as e:
-                    log.error(f"Error loading {entity_type.name.lower()} from '{config_path}': {e}")
-                    raise
+    def purge_modules(self, package: Package | None = None) -> None:
+        """Forget imported modules of one or all packages so the next import re-reads them from disk."""
+        for purged in [package] if package else list(self._packages.values()):
+            root = sys.modules.get(purged.name)
+            if root is None or list(getattr(root, "__path__", [])) != [str(purged.path)]:
+                continue  # Not imported, or a different module of the same name
+            prefix = f"{purged.name}."
+            for module_name in [name for name in list(sys.modules) if name == purged.name or name.startswith(prefix)]:
+                del sys.modules[module_name]
+        importlib.invalidate_caches()
 
-        return all_entities, all_dirs_to_types
+    @staticmethod
+    def _make_importable(package: Package) -> None:
+        """Register a package as a top-level Python package that Ray pickles by value."""
+        module = sys.modules.get(package.name)
+        if module is None:
+            found = importlib.util.find_spec(package.name)
+            locations = None if found is None else found.submodule_search_locations or []
+        else:
+            locations = getattr(module, "__path__", [])
+        if locations is not None and package.path not in [Path(location) for location in locations]:
+            raise EosConfigurationError(f"Package name '{package.name}' clashes with another Python module.")
+        if module is not None:
+            return
+
+        init_file = package.path / "__init__.py"
+        if init_file.is_file():
+            spec = importlib.util.spec_from_file_location(
+                package.name, init_file, submodule_search_locations=[str(package.path)]
+            )
+        else:
+            spec = importlib.machinery.ModuleSpec(package.name, None, is_package=True)
+            spec.submodule_search_locations = [str(package.path)]
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[package.name] = module
+        try:
+            if spec.loader is not None:
+                spec.loader.exec_module(module)
+        except Exception:
+            del sys.modules[package.name]
+            raise
+        ray.cloudpickle.register_pickle_by_value(module)
 
     def get_package(self, name: str) -> Package | None:
         return self._packages.get(name)
@@ -219,7 +257,7 @@ class PackageManager:
         if package_name not in self._packages:
             raise EosMissingConfigurationError(f"Package '{package_name}' not found")
 
-        del self._packages[package_name]
+        self.purge_modules(self._packages.pop(package_name))
         self._remove_package_from_index(package_name)
 
         if self._allowed_packages is not None:
@@ -229,6 +267,7 @@ class PackageManager:
 
     def refresh(self) -> None:
         """Re-discover packages and rebuild entity indices."""
+        self.purge_modules()
         self._discover_packages()
         self._filter_packages(self._allowed_packages)
         self._build_entity_indices()
@@ -268,10 +307,8 @@ class PackageManager:
 
     def _index_package(self, package: Package) -> None:
         """Index all entities in a package."""
-        for entity_type, info in ENTITY_INFO.items():
-            entity_dir = package.get_entity_dir(entity_type)
-            for config_path in entity_dir.rglob(info.config_file_name):
-                relative_path = config_path.relative_to(entity_dir).parent
+        for entity_type in ENTITY_INFO:
+            for relative_path in self.find_entity_dirs(package, entity_type):
                 entity_name = relative_path.name
 
                 existing = self._entity_indices[entity_type].get(entity_name)
@@ -292,11 +329,11 @@ class PackageManager:
         """Get the config file path for an entity."""
         info = ENTITY_INFO[entity_type]
         package = self._packages[entity_location.package_name]
-        path = package.get_entity_dir(entity_type) / entity_location.entity_path / info.config_file_name
+        path = package.get_entity_dir(entity_type) / entity_location.entity_path / info.file_name
 
         if not path.is_file():
             raise EosMissingConfigurationError(
-                f"{entity_type.name.capitalize()} config '{info.config_file_name}' not found for "
+                f"{entity_type.name.capitalize()} config '{info.file_name}' not found for "
                 f"'{entity_location.entity_path}'"
             )
         return path

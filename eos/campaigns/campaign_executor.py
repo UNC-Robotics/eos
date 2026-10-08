@@ -24,6 +24,9 @@ if TYPE_CHECKING:
     from eos.protocols.protocol_executor import ProtocolExecutor
 
 
+PROTOCOL_RUN_CANCEL_TIMEOUT = 15  # seconds
+
+
 class OptimizerState(Enum):
     """States for the campaign optimizer lifecycle."""
 
@@ -248,14 +251,16 @@ class CampaignExecutor:
             await self._progress_protocol_runs()
 
             async with self._db_interface.get_async_session() as db:
-                campaign = await self._campaign_manager.get_campaign(db, self._campaign_name)
-                if not campaign:
+                protocol_runs_completed = await self._campaign_manager.get_protocol_runs_completed(
+                    db, self._campaign_name
+                )
+                if protocol_runs_completed is None:
                     raise EosCampaignExecutionError(f"Campaign '{self._campaign_name}' not found in database")
 
-                if self._is_campaign_completed(campaign):
+                if self._is_campaign_completed(protocol_runs_completed):
                     return await self._complete_campaign(db)
 
-                await self._create_protocol_runs(db, campaign)
+                await self._create_protocol_runs(db, protocol_runs_completed)
                 return False
 
         except Exception as e:
@@ -316,7 +321,7 @@ class CampaignExecutor:
 
         for run_name, executor in self._protocol_executors.items():
             try:
-                await asyncio.wait_for(executor.cancel_protocol_run(), timeout=15)
+                await asyncio.wait_for(executor.cancel_protocol_run(), timeout=PROTOCOL_RUN_CANCEL_TIMEOUT)
             except TimeoutError:
                 failed_cancellations.append((run_name, "timeout"))
                 log.warning(f"CMP '{self._campaign_name}' - Timeout while cancelling protocol run '{run_name}'")
@@ -354,7 +359,7 @@ class CampaignExecutor:
 
             executor = self._protocol_executors[protocol_run_name]
             try:
-                await asyncio.wait_for(executor.cancel_protocol_run(), timeout=15)
+                await asyncio.wait_for(executor.cancel_protocol_run(), timeout=PROTOCOL_RUN_CANCEL_TIMEOUT)
                 del self._protocol_executors[protocol_run_name]
                 log.warning(f"CMP '{self._campaign_name}' - Cancelled protocol run '{protocol_run_name}'")
             except TimeoutError:
@@ -374,7 +379,7 @@ class CampaignExecutor:
         if self._campaign_submission.optimize:
             self._campaign_optimizer_manager.terminate_campaign_optimizer_actor(self._campaign_name)
 
-    async def _create_protocol_runs(self, db: AsyncDbSession, campaign: Campaign) -> None:
+    async def _create_protocol_runs(self, db: AsyncDbSession, protocol_runs_completed: int) -> None:
         """Create new protocol runs up to the maximum allowed concurrent runs."""
         # Resolve any completed samples — protocol runs already exist as CREATED
         still_pending = []
@@ -392,15 +397,15 @@ class CampaignExecutor:
         pending_slots = sum(len(p.protocol_runs) for p in self._pending_samples)
         effective_in_flight = len(self._protocol_executors) + pending_slots
 
-        if not self._can_create_more_protocol_runs_with(campaign, effective_in_flight):
+        if not self._can_create_more_protocol_runs_with(protocol_runs_completed, effective_in_flight):
             return
 
         next_run_num = await self._get_next_protocol_run_number(db)
 
-        while self._can_create_more_protocol_runs_with(campaign, effective_in_flight):
+        while self._can_create_more_protocol_runs_with(protocol_runs_completed, effective_in_flight):
             protocol_run_name = f"{self._campaign_name}_run_{next_run_num}"
             next_run_num += 1
-            iteration = campaign.protocol_runs_completed + effective_in_flight
+            iteration = protocol_runs_completed + effective_in_flight
 
             parameters = self._get_protocol_run_parameters(iteration)
             if parameters is not None:
@@ -411,7 +416,7 @@ class CampaignExecutor:
             # Batch all remaining slots into one optimizer sample(N) call
             batch: list[tuple[str, dict]] = [(protocol_run_name, self._get_base_params())]
             projected = effective_in_flight + 1
-            while self._can_create_more_protocol_runs_with(campaign, projected):
+            while self._can_create_more_protocol_runs_with(protocol_runs_completed, projected):
                 protocol_run_name = f"{self._campaign_name}_run_{next_run_num}"
                 next_run_num += 1
                 batch.append((protocol_run_name, self._get_base_params()))
@@ -438,11 +443,11 @@ class CampaignExecutor:
         self._protocol_executors[protocol_run_name] = protocol_executor
         await protocol_executor.start_protocol_run(db)
 
-    def _can_create_more_protocol_runs_with(self, campaign: Campaign, num_in_flight: int) -> bool:
+    def _can_create_more_protocol_runs_with(self, protocol_runs_completed: int, num_in_flight: int) -> bool:
         """Check if more protocols can be created given a projected in-flight count."""
         max_concurrent = self._campaign_submission.max_concurrent_protocol_runs
         max_total = self._campaign_submission.max_protocol_runs
-        current_total = campaign.protocol_runs_completed + num_in_flight
+        current_total = protocol_runs_completed + num_in_flight
 
         return num_in_flight < max_concurrent and (max_total == 0 or current_total < max_total)
 
@@ -514,11 +519,11 @@ class CampaignExecutor:
             result.append((protocol_run_name, base_params))
         return result
 
-    def _is_campaign_completed(self, campaign: Campaign) -> bool:
+    def _is_campaign_completed(self, protocol_runs_completed: int) -> bool:
         """Check if campaign has completed all protocol runs."""
         max_protocol_runs = self._campaign_submission.max_protocol_runs
         return (
-            0 < max_protocol_runs <= campaign.protocol_runs_completed
+            0 < max_protocol_runs <= protocol_runs_completed
             and not self._protocol_executors
             and not self._pending_samples
         )
@@ -600,6 +605,7 @@ class CampaignExecutor:
         meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name)
         if meta and meta.get(OPTIMIZER_META_KEY):
             optimizer_meta = dict(meta[OPTIMIZER_META_KEY])
+            optimizer_meta["journal"] = await self._campaign_manager.get_journal(db, self._campaign_name)
             runtime_params = dict(optimizer_meta.get("runtime_params", {}))
             overrides = (self._campaign_submission.meta or {}).get("optimizer_overrides", {}) or {}
 
@@ -666,17 +672,9 @@ class CampaignExecutor:
         return pd.DataFrame(inputs), pd.DataFrame(outputs), additional
 
     async def _save_optimizer_meta_dict(self, meta: dict[str, Any]) -> None:
-        """
-        Save pre-fetched optimizer meta (journal, insights) to Campaign.meta.
-
-        Merges into the existing optimizer key so optimizer_config is preserved.
-        """
+        """Save pre-fetched optimizer meta (journal, insights), preserving optimizer_config."""
         async with self._db_interface.get_async_session() as db:
-            current_meta = await self._campaign_manager.get_campaign_meta(db, self._campaign_name) or {}
-            current = current_meta.get(OPTIMIZER_META_KEY, {}) or {}
-            await self._campaign_manager.update_campaign_meta(
-                db, self._campaign_name, OPTIMIZER_META_KEY, {**current, **meta}
-            )
+            await self._campaign_manager.save_optimizer_meta(db, self._campaign_name, meta)
 
     async def _process_results_for_optimization(self, db: AsyncDbSession, completed_protocol_runs: list[str]) -> None:
         """Record protocol run results and queue an optimizer report (non-blocking)."""

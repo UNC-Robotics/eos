@@ -1,0 +1,21 @@
+type: redundant_edge_hold_protocol
+desc: final cleanup depends on setup phase directly and through process
+labs: [abstract_lab]
+tasks:
+  - name: setup phase
+    type: Noop Hold
+    duration: 10
+    devices:
+      held_device: {lab_name: abstract_lab, name: D2, hold: true}
+  - name: process
+    type: Noop Hold
+    duration: 10
+    dependencies: [setup phase]
+    devices:
+      held_device: {ref: setup phase.held_device}
+  - name: final cleanup
+    type: Noop Hold
+    duration: 10
+    dependencies: [setup phase, process]
+    devices:
+      held_device: {ref: setup phase.held_device}

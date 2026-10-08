@@ -169,27 +169,26 @@ function GlobalParametersSection({
                 key={taskConfig.name}
                 className="border border-gray-200 dark:border-slate-700 rounded-md bg-gray-50 dark:bg-slate-800/50"
               >
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => toggleTaskExpansion(taskConfig.name)}
-                  className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors rounded-t-md"
-                >
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center pr-3 hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors rounded-t-md">
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleTaskExpansion(taskConfig.name)}
+                    className="flex-1 min-w-0 px-3 py-2.5 flex items-center gap-2 text-left rounded-t-md"
+                  >
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                     ) : (
                       <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                     )}
-                    <div className="text-left">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{taskConfig.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Type: {taskConfig.type}
-                        {taskConfig.desc && <DescriptionTooltip description={taskConfig.desc} />}
-                      </div>
-                    </div>
-                  </div>
-                </button>
+                    <span>
+                      <span className="block text-sm font-medium text-gray-900 dark:text-white">{taskConfig.name}</span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400">Type: {taskConfig.type}</span>
+                    </span>
+                  </button>
+                  {taskConfig.desc && <DescriptionTooltip description={taskConfig.desc} />}
+                </div>
 
                 {isExpanded && (
                   <div className="px-3 pt-3 pb-3 space-y-4 border-t border-gray-200 dark:border-slate-700">

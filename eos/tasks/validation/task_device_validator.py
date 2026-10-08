@@ -15,9 +15,6 @@ class TaskDeviceValidator:
 
     def validate(self) -> None:
         """Validate that the task has all required devices matching the task spec."""
-        if not self.task_spec.devices:
-            return
-
         # Validate all spec devices are present in task config
         self._validate_all_devices_present()
 
@@ -39,17 +36,17 @@ class TaskDeviceValidator:
         spec_device_names = set(self.task_spec.devices.keys())
         config_device_names = set(self.task.devices.keys())
 
-        missing_devices = spec_device_names - config_device_names
+        unexpected_devices = config_device_names - spec_device_names
+        if unexpected_devices:
+            raise ValueError(f"Task '{self.task.name}' has undeclared devices: {sorted(unexpected_devices)}")
+
+        required_devices = {name for name, spec in self.task_spec.devices.items() if not spec.optional}
+        missing_devices = required_devices - config_device_names
         if missing_devices:
             raise ValueError(f"Task '{self.task.name}' is missing required devices: {missing_devices}")
 
     def _validate_static_device(self, device_name: str, device: DeviceAssignmentDef) -> None:
         """Validate a specific device assignment against the task spec."""
-        # Check if this device is required by the spec
-        if device_name not in self.task_spec.devices:
-            # Device is not required by spec, skip validation (extra devices are allowed)
-            return
-
         # Validate lab exists
         if device.lab_name not in self.configuration_manager.labs:
             raise ValueError(
@@ -85,11 +82,6 @@ class TaskDeviceValidator:
 
     def _validate_dynamic_device(self, device_name: str, device: DynamicDeviceAssignmentDef) -> None:
         """Validate a dynamic device request against the task spec."""
-        # Check if this device is required by the spec
-        if device_name not in self.task_spec.devices:
-            # Device is not required by spec, skip validation
-            return
-
         spec_device = self.task_spec.devices[device_name]
 
         # Validate dynamic device type matches spec requirement

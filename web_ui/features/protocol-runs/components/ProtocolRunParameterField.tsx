@@ -18,8 +18,8 @@ interface ProtocolRunParameterFieldProps {
   onClear: () => void;
 }
 
-// Fallback chain: override > protocol.yml default > task.yml default > empty.
-// eos_dynamic requires an explicit submission value — never back-fill with the task.yml default.
+// Fallback chain: override > protocol.yml default > task spec default > empty.
+// eos_dynamic requires an explicit submission value. Never back-fill it with the task spec default.
 function getEffectiveValue(
   override: ParameterValue | undefined,
   specDefault: unknown,

@@ -11,21 +11,13 @@ from sqlalchemy import delete, select
 from eos.campaigns.entities.campaign import CampaignSample, CampaignSampleModel
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.eos_config import ExecutionConfig
 from eos.configuration.packages import EntityType
 from eos.logging.logger import log
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-from eos.optimization.beacon_optimizer import BeaconOptimizer
 from eos.optimization.sequential_optimizer_actor import SequentialOptimizerActor
 from eos.database.abstract_sql_db_interface import AsyncDbSession
-
-import warnings
-
 from eos.utils.di.di_container import inject
-
-# Ignore warnings from bofire
-warnings.filterwarnings("ignore", category=UserWarning, module="bofire.utils.cheminformatics")
-warnings.filterwarnings("ignore", category=UserWarning, module="bofire.surrogates.xgb")
-warnings.filterwarnings("ignore", category=UserWarning, module="bofire.strategies.predictives.enting")
 
 _SNAPSHOT_SKIP_KEYS = {"ai_api_key", "protocol_context"}  # "protocol_context" is the optimizer constructor key
 
@@ -56,8 +48,9 @@ class CampaignOptimizerManager:
     """
 
     @inject
-    def __init__(self, configuration_manager: ConfigurationManager):
+    def __init__(self, configuration_manager: ConfigurationManager, execution_config: ExecutionConfig):
         self._configuration_manager = configuration_manager
+        self._startup_timeout = execution_config.optimizer_startup_timeout
         self._campaign_optimizer_plugin_registry = configuration_manager.campaign_optimizers
         self._optimizer_actors: dict[str, ActorHandle] = {}
         log.debug("Campaign optimizer manager initialized.")
@@ -147,7 +140,7 @@ class CampaignOptimizerManager:
 
         descriptor = {
             "optimizer_type": optimizer_type.__name__,
-            "is_beacon": issubclass(optimizer_type, BeaconOptimizer),
+            "is_beacon": optimizer_type.is_beacon,
             "param_schema": optimizer_type.eos_param_schema(),
         }
 
@@ -304,11 +297,11 @@ class CampaignOptimizerManager:
     async def _validate_optimizer_health(self, actor: ActorHandle) -> None:
         """Check the health of an actor by calling a method with a timeout."""
         try:
-            async with asyncio.timeout(10.0):
+            async with asyncio.timeout(self._startup_timeout):
                 await actor.get_input_names.remote()
         except TimeoutError as e:
             ray.kill(actor)
-            log.error("Optimizer actor initialization timed out after 10 seconds.")
+            log.error(f"Optimizer actor initialization timed out after {self._startup_timeout} seconds.")
             raise EosCampaignExecutionError("Optimizer actor initialization timed out.") from e
         except Exception as e:
             ray.kill(actor)

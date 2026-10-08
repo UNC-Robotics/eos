@@ -1,0 +1,1409 @@
+type: parallel_campaign
+desc: >
+  High-throughput experimentation (HTE) campaign with six parallel reactor lines
+  contending for four reactors, two HPLCs, and two UV-Vis spectrometers. Lines
+  are ordered shortest-first (L1, L2 quick-screen with no HPLC; L3, L4 standard
+  with HPLC; L5, L6 high-temp with the longest reactions and slowest HPLC
+  methods). The order is adversarial for the greedy scheduler: it commits the
+  four reactors to L1-L4 first because they appear earlier in topo order, so the
+  long-pole lines (L5, L6) wait until L1 and L2 release reactors. CP-SAT can
+  detect this and start the long lines first to keep the critical path tight.
+  Realistic for a kinetic temperature/method screen where some conditions are
+  expected to react quickly and some slowly. Final aggregate-log waits on every
+  line. 91 tasks; durations span 1 s (log) to 3600 s (1 h reactor incubation).
+
+labs:
+  - synthesis_lab
+
+tasks:
+  # =========================================================================
+  # Line 1 — Quick screen (UV-Vis only, no HPLC) — fastest line
+  # =========================================================================
+  - name: L1_T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: L1_T02_prep_solvent
+    type: Prepare Solvent Blend
+    duration: 45
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: L1_T03_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 45
+    dependencies:
+      - L1_T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: L1_T01_fetch_vial.vial
+        hold: true
+
+  - name: L1_T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - L1_T03_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L1_T03_weigh_solid.vial
+        hold: true
+
+  - name: L1_T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - L1_T04_transfer_to_prep
+      - L1_T02_prep_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: L1_T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L1_T04_transfer_to_prep.vial
+        hold: true
+      cartridge: L1_T02_prep_solvent.cartridge
+
+  - name: L1_T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - L1_T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: L1_T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: L1_T05_add_solvent.vial
+        hold: true
+
+  - name: L1_T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - L1_T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: L1_T06_add_reagent.vial
+        hold: true
+
+  - name: L1_T08_heat_and_stir
+    type: Heat And Stir
+    duration: 180
+    dependencies:
+      - L1_T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: L1_T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: L1_T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: L1_T09_long_react
+    type: Long Reaction
+    duration: 600
+    dependencies:
+      - L1_T08_heat_and_stir
+    devices:
+      reactor: L1_T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: L1_T08_heat_and_stir.vial
+        hold: true
+
+  - name: L1_T10_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - L1_T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: L1_T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: L1_T11_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - L1_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: L1_T10_filter_split.cuvette
+        hold: true
+
+  - name: L1_T12_uv_vis_scan
+    type: UV-Vis Scan
+    duration: 90
+    dependencies:
+      - L1_T11_transfer_uv_vis
+    devices:
+      uv_vis: L1_T11_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: L1_T11_transfer_uv_vis.cuvette
+
+  - name: L1_T13_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L1_T12_uv_vis_scan
+
+  - name: L1_T14_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - L1_T13_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station
+
+  # =========================================================================
+  # Line 2 — Quick screen variant (UV-Vis only, no HPLC)
+  # =========================================================================
+  - name: L2_T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: L2_T02_prep_solvent
+    type: Prepare Solvent Blend
+    duration: 45
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: L2_T03_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 45
+    dependencies:
+      - L2_T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: L2_T01_fetch_vial.vial
+        hold: true
+
+  - name: L2_T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - L2_T03_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L2_T03_weigh_solid.vial
+        hold: true
+
+  - name: L2_T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - L2_T04_transfer_to_prep
+      - L2_T02_prep_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: L2_T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L2_T04_transfer_to_prep.vial
+        hold: true
+      cartridge: L2_T02_prep_solvent.cartridge
+
+  - name: L2_T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - L2_T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: L2_T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: L2_T05_add_solvent.vial
+        hold: true
+
+  - name: L2_T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - L2_T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: L2_T06_add_reagent.vial
+        hold: true
+
+  - name: L2_T08_heat_and_stir
+    type: Heat And Stir
+    duration: 180
+    dependencies:
+      - L2_T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: L2_T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: L2_T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: L2_T09_long_react
+    type: Long Reaction
+    duration: 600
+    dependencies:
+      - L2_T08_heat_and_stir
+    devices:
+      reactor: L2_T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: L2_T08_heat_and_stir.vial
+        hold: true
+
+  - name: L2_T10_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - L2_T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: L2_T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: L2_T11_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - L2_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: L2_T10_filter_split.cuvette
+        hold: true
+
+  - name: L2_T12_uv_vis_scan
+    type: UV-Vis Scan
+    duration: 90
+    dependencies:
+      - L2_T11_transfer_uv_vis
+    devices:
+      uv_vis: L2_T11_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: L2_T11_transfer_uv_vis.cuvette
+
+  - name: L2_T13_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L2_T12_uv_vis_scan
+
+  - name: L2_T14_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - L2_T13_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station
+
+  # =========================================================================
+  # Line 3 — Standard synthesis (medium reactor + short HPLC)
+  # =========================================================================
+  - name: L3_T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: L3_T02_prep_solvent
+    type: Prepare Solvent Blend
+    duration: 60
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: L3_T03_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 60
+    dependencies:
+      - L3_T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: L3_T01_fetch_vial.vial
+        hold: true
+
+  - name: L3_T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - L3_T03_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L3_T03_weigh_solid.vial
+        hold: true
+
+  - name: L3_T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - L3_T04_transfer_to_prep
+      - L3_T02_prep_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: L3_T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L3_T04_transfer_to_prep.vial
+        hold: true
+      cartridge: L3_T02_prep_solvent.cartridge
+
+  - name: L3_T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - L3_T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: L3_T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: L3_T05_add_solvent.vial
+        hold: true
+
+  - name: L3_T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - L3_T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: L3_T06_add_reagent.vial
+        hold: true
+
+  - name: L3_T08_heat_and_stir
+    type: Heat And Stir
+    duration: 240
+    dependencies:
+      - L3_T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: L3_T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: L3_T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: L3_T09_long_react
+    type: Long Reaction
+    duration: 1500
+    dependencies:
+      - L3_T08_heat_and_stir
+    devices:
+      reactor: L3_T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: L3_T08_heat_and_stir.vial
+        hold: true
+
+  - name: L3_T10_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - L3_T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: L3_T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: L3_T11a_transfer_hplc
+    type: Transfer To HPLC
+    duration: 20
+    dependencies:
+      - L3_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      hplc:
+        allocation_type: dynamic
+        device_type: hplc
+        hold: true
+    resources:
+      vial: L3_T10_filter_split.vial
+
+  - name: L3_T12a_hplc_analysis
+    type: HPLC Analysis
+    duration: 600
+    dependencies:
+      - L3_T11a_transfer_hplc
+    devices:
+      hplc: L3_T11a_transfer_hplc.hplc
+
+  - name: L3_T11b_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - L3_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: L3_T10_filter_split.cuvette
+        hold: true
+
+  - name: L3_T12b_uv_vis_scan
+    type: UV-Vis Scan
+    duration: 90
+    dependencies:
+      - L3_T11b_transfer_uv_vis
+    devices:
+      uv_vis: L3_T11b_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: L3_T11b_transfer_uv_vis.cuvette
+
+  - name: L3_T13b_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L3_T12b_uv_vis_scan
+
+  - name: L3_T14_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - L3_T12a_hplc_analysis
+      - L3_T13b_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station
+
+  # =========================================================================
+  # Line 4 — Standard synthesis (medium reactor + medium HPLC)
+  # =========================================================================
+  - name: L4_T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: L4_T02_prep_solvent
+    type: Prepare Solvent Blend
+    duration: 60
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: L4_T03_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 60
+    dependencies:
+      - L4_T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: L4_T01_fetch_vial.vial
+        hold: true
+
+  - name: L4_T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - L4_T03_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L4_T03_weigh_solid.vial
+        hold: true
+
+  - name: L4_T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - L4_T04_transfer_to_prep
+      - L4_T02_prep_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: L4_T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L4_T04_transfer_to_prep.vial
+        hold: true
+      cartridge: L4_T02_prep_solvent.cartridge
+
+  - name: L4_T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - L4_T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: L4_T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: L4_T05_add_solvent.vial
+        hold: true
+
+  - name: L4_T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - L4_T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: L4_T06_add_reagent.vial
+        hold: true
+
+  - name: L4_T08_heat_and_stir
+    type: Heat And Stir
+    duration: 240
+    dependencies:
+      - L4_T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: L4_T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: L4_T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: L4_T09_long_react
+    type: Long Reaction
+    duration: 1800
+    dependencies:
+      - L4_T08_heat_and_stir
+    devices:
+      reactor: L4_T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: L4_T08_heat_and_stir.vial
+        hold: true
+
+  - name: L4_T10_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - L4_T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: L4_T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: L4_T11a_transfer_hplc
+    type: Transfer To HPLC
+    duration: 20
+    dependencies:
+      - L4_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      hplc:
+        allocation_type: dynamic
+        device_type: hplc
+        hold: true
+    resources:
+      vial: L4_T10_filter_split.vial
+
+  - name: L4_T12a_hplc_analysis
+    type: HPLC Analysis
+    duration: 900
+    dependencies:
+      - L4_T11a_transfer_hplc
+    devices:
+      hplc: L4_T11a_transfer_hplc.hplc
+
+  - name: L4_T11b_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - L4_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: L4_T10_filter_split.cuvette
+        hold: true
+
+  - name: L4_T12b_uv_vis_scan
+    type: UV-Vis Scan
+    duration: 180
+    dependencies:
+      - L4_T11b_transfer_uv_vis
+    devices:
+      uv_vis: L4_T11b_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: L4_T11b_transfer_uv_vis.cuvette
+
+  - name: L4_T13b_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L4_T12b_uv_vis_scan
+
+  - name: L4_T14_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - L4_T12a_hplc_analysis
+      - L4_T13b_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station
+
+  # =========================================================================
+  # Line 5 — Long-term reaction (long reactor + long HPLC)
+  # =========================================================================
+  - name: L5_T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: L5_T02_prep_solvent
+    type: Prepare Solvent Blend
+    duration: 75
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: L5_T03_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 75
+    dependencies:
+      - L5_T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: L5_T01_fetch_vial.vial
+        hold: true
+
+  - name: L5_T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - L5_T03_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L5_T03_weigh_solid.vial
+        hold: true
+
+  - name: L5_T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - L5_T04_transfer_to_prep
+      - L5_T02_prep_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: L5_T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L5_T04_transfer_to_prep.vial
+        hold: true
+      cartridge: L5_T02_prep_solvent.cartridge
+
+  - name: L5_T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - L5_T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: L5_T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: L5_T05_add_solvent.vial
+        hold: true
+
+  - name: L5_T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - L5_T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: L5_T06_add_reagent.vial
+        hold: true
+
+  - name: L5_T08_heat_and_stir
+    type: Heat And Stir
+    duration: 300
+    dependencies:
+      - L5_T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: L5_T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: L5_T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: L5_T09_long_react
+    type: Long Reaction
+    duration: 2700
+    dependencies:
+      - L5_T08_heat_and_stir
+    devices:
+      reactor: L5_T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: L5_T08_heat_and_stir.vial
+        hold: true
+
+  - name: L5_T10_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - L5_T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: L5_T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: L5_T11a_transfer_hplc
+    type: Transfer To HPLC
+    duration: 20
+    dependencies:
+      - L5_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      hplc:
+        allocation_type: dynamic
+        device_type: hplc
+        hold: true
+    resources:
+      vial: L5_T10_filter_split.vial
+
+  - name: L5_T12a_hplc_analysis
+    type: HPLC Analysis
+    duration: 1500
+    dependencies:
+      - L5_T11a_transfer_hplc
+    devices:
+      hplc: L5_T11a_transfer_hplc.hplc
+
+  - name: L5_T11b_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - L5_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: L5_T10_filter_split.cuvette
+        hold: true
+
+  - name: L5_T12b_uv_vis_scan
+    type: UV-Vis Scan
+    duration: 180
+    dependencies:
+      - L5_T11b_transfer_uv_vis
+    devices:
+      uv_vis: L5_T11b_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: L5_T11b_transfer_uv_vis.cuvette
+
+  - name: L5_T13b_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L5_T12b_uv_vis_scan
+
+  - name: L5_T14_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - L5_T12a_hplc_analysis
+      - L5_T13b_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station
+
+  # =========================================================================
+  # Line 6 — Longest reaction + slowest HPLC method (critical path)
+  # =========================================================================
+  - name: L6_T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: L6_T02_prep_solvent
+    type: Prepare Solvent Blend
+    duration: 90
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: L6_T03_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 90
+    dependencies:
+      - L6_T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: L6_T01_fetch_vial.vial
+        hold: true
+
+  - name: L6_T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - L6_T03_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L6_T03_weigh_solid.vial
+        hold: true
+
+  - name: L6_T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - L6_T04_transfer_to_prep
+      - L6_T02_prep_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: L6_T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: L6_T04_transfer_to_prep.vial
+        hold: true
+      cartridge: L6_T02_prep_solvent.cartridge
+
+  - name: L6_T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - L6_T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: L6_T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: L6_T05_add_solvent.vial
+        hold: true
+
+  - name: L6_T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - L6_T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: L6_T06_add_reagent.vial
+        hold: true
+
+  - name: L6_T08_heat_and_stir
+    type: Heat And Stir
+    duration: 300
+    dependencies:
+      - L6_T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: L6_T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: L6_T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: L6_T09_long_react
+    type: Long Reaction
+    duration: 3600
+    dependencies:
+      - L6_T08_heat_and_stir
+    devices:
+      reactor: L6_T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: L6_T08_heat_and_stir.vial
+        hold: true
+
+  - name: L6_T10_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - L6_T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: L6_T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: L6_T11a_transfer_hplc
+    type: Transfer To HPLC
+    duration: 20
+    dependencies:
+      - L6_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      hplc:
+        allocation_type: dynamic
+        device_type: hplc
+        hold: true
+    resources:
+      vial: L6_T10_filter_split.vial
+
+  - name: L6_T12a_hplc_analysis
+    type: HPLC Analysis
+    duration: 1800
+    dependencies:
+      - L6_T11a_transfer_hplc
+    devices:
+      hplc: L6_T11a_transfer_hplc.hplc
+
+  - name: L6_T11b_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - L6_T10_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: L6_T10_filter_split.cuvette
+        hold: true
+
+  - name: L6_T12b_uv_vis_scan
+    type: UV-Vis Scan
+    duration: 300
+    dependencies:
+      - L6_T11b_transfer_uv_vis
+    devices:
+      uv_vis: L6_T11b_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: L6_T11b_transfer_uv_vis.cuvette
+
+  - name: L6_T13b_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L6_T12b_uv_vis_scan
+
+  - name: L6_T14_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - L6_T12a_hplc_analysis
+      - L6_T13b_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station
+
+  # =========================================================================
+  # Aggregate result for the campaign
+  # =========================================================================
+  - name: F01_aggregate_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - L1_T14_return_and_clean
+      - L2_T14_return_and_clean
+      - L3_T14_return_and_clean
+      - L4_T14_return_and_clean
+      - L5_T14_return_and_clean
+      - L6_T14_return_and_clean

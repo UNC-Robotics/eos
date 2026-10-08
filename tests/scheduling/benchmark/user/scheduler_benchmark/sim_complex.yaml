@@ -1,0 +1,12 @@
+# Concurrent scenario: two parallel_campaign runs side-by-side. With 6 reactor
+# lines per iteration × 2 iterations, 12 lines compete for 4 reactors and 2
+# HPLCs — a tight stress test of how schedulers pack the long-pole lines.
+# Durations span 1 s (log) to 3600 s (1 h reactor incubation).
+
+packages:
+  - scheduler_benchmark
+
+protocols:
+  - type: parallel_campaign
+    iterations: 2
+    max_concurrent: 2

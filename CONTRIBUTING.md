@@ -67,8 +67,17 @@ npm run format       # Prettier
 ## Testing
 
 ```shell
-eos_test                    # Run all tests with coverage
+eos_test                    # Run all tests
+eos_test --cov              # Run all tests with coverage
 eos_test -m "not slow"      # Skip slow tests
+```
+
+To compare the schedulers on small, medium and large benchmark workloads, with every schedule checked:
+
+```shell
+eos_bench_schedulers                        # All scenarios and schedulers
+eos_bench_schedulers --sizes small medium   # Some sizes only
+eos_bench_schedulers --cpsat-time-limit 60  # Longer CP-SAT solves
 ```
 
 ## Documentation

@@ -1,0 +1,28 @@
+type: inherited_hold_protocol
+desc: process inherits the hold of setup phase for final cleanup
+labs: [abstract_lab]
+tasks:
+  - name: setup phase
+    type: Noop Hold
+    duration: 10
+    devices:
+      shared_device: {lab_name: abstract_lab, name: D1}
+      held_device: {lab_name: abstract_lab, name: D2, hold: true}
+  - name: process
+    type: Noop Hold
+    duration: 10
+    dependencies: [setup phase]
+    devices:
+      held_device: {ref: setup phase.held_device}
+  - name: wait
+    type: Noop DT3
+    duration: 50
+    dependencies: [process]
+    devices:
+      device_1: {lab_name: abstract_lab, name: D3}
+  - name: final cleanup
+    type: Noop Hold
+    duration: 10
+    dependencies: [wait]
+    devices:
+      held_device: {ref: setup phase.held_device}

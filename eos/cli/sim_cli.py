@@ -19,7 +19,9 @@ def simulate(
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show scheduling decisions")] = False,
     jitter: Annotated[float, typer.Option("--jitter", help="Duration jitter fraction (e.g. 0.1 = +/-10%%)")] = 0.0,
     seed: Annotated[int | None, typer.Option("--seed", help="Random seed for reproducibility")] = None,
-    scheduler: Annotated[str, typer.Option("--scheduler", "-s", help="Scheduler type: greedy or cpsat")] = "greedy",
+    scheduler: Annotated[
+        str, typer.Option("--scheduler", "-s", help="Scheduler type: greedy, heuristic, or cpsat")
+    ] = "greedy",
     output_json: Annotated[
         bool, typer.Option("--json", help="Output results as JSON (suppresses text output)")
     ] = False,
@@ -28,7 +30,7 @@ def simulate(
     if output_json:
         logging.getLogger("rich").setLevel(logging.CRITICAL)
 
-    timeline, deadlock = run_simulation(
+    timeline, deadlock, scheduler_ms = run_simulation(
         config_path=config,
         user_dir=user_dir,
         verbose=verbose if not output_json else False,
@@ -44,6 +46,7 @@ def simulate(
     starts = [e for e in timeline if e.event_type == "START"]
     completions = [e for e in timeline if e.event_type == "DONE"]
     stats = compute_sim_stats(starts, completions, scheduler)
+    stats["scheduler_overhead_ms"] = scheduler_ms
     task_records = [
         {
             "protocol_run": ev.protocol_run_name,

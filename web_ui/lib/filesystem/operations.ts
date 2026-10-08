@@ -4,6 +4,7 @@ import { glob } from 'fast-glob';
 import yaml from 'js-yaml';
 import {
   ENTITY_FILE_NAMES,
+  entityMarkerFile,
   type EntityType,
   type Package,
   type EntityTree,
@@ -36,6 +37,7 @@ async function walkEntityDir(
   if (depth >= MAX_TREE_DEPTH) return [];
 
   const { yaml: yamlFile, python: pythonFile } = ENTITY_FILE_NAMES[entityType];
+  const markerFile = entityMarkerFile(entityType);
   let entries;
   try {
     entries = await fs.readdir(absDir, { withFileTypes: true });
@@ -48,16 +50,17 @@ async function walkEntityDir(
   const childDirs: string[] = [];
   for (const entry of entries) {
     if (entry.isFile()) {
-      if (entry.name === yamlFile) yamlPresent = true;
+      if (yamlFile && entry.name === yamlFile) yamlPresent = true;
       else if (pythonFile && entry.name === pythonFile) pythonPresent = true;
     } else if (entry.isDirectory() && !entry.name.startsWith('.') && !IGNORED_DIR_NAMES.has(entry.name)) {
       childDirs.push(entry.name);
     }
   }
 
-  // Leaf: a directory containing the entity's yaml file is a terminal entity.
+  // Leaf: a directory containing the entity's marker file is a terminal entity.
   // The root entityDir itself is never a leaf (relDir === '').
-  if (yamlPresent && relDir !== '') {
+  const markerPresent = markerFile === yamlFile ? yamlPresent : pythonPresent;
+  if (markerPresent && relDir !== '') {
     return [
       {
         kind: 'entity',
@@ -65,7 +68,7 @@ async function walkEntityDir(
         path: relDir,
         type: entityType,
         packageName,
-        hasYaml: true,
+        hasYaml: yamlPresent,
         hasPython: pythonPresent,
       },
     ];
@@ -99,50 +102,25 @@ async function walkEntityDir(
   return out;
 }
 
-// Entity templates for creating new entities
+// Entity templates for creating new entities. __NAME__ and __CLASS__ are replaced with the entity name.
 export const ENTITY_TEMPLATES = {
   devices: {
-    yaml: `type: my_device
-desc: Description of the device
+    yaml: '',
+    python: `from eos import Device
 
-# Add your device configuration here
-`,
-    python: `from eos.devices.base_device import BaseDevice
 
-class MyDevice(BaseDevice):
-    """Device implementation"""
-
-    def __init__(self, config):
-        super().__init__(config)
-
-    async def initialize(self):
-        """Initialize the device"""
-        pass
-
-    async def cleanup(self):
-        """Cleanup the device"""
-        pass
+class __CLASS__(Device, type="__NAME__"):
+    """Description of the device."""
 `,
   },
   tasks: {
-    yaml: `type: my_task
-desc: Description of the task
+    yaml: '',
+    python: `from eos import task
 
-input_parameters: {}
-output_parameters: {}
 
-devices: {}
-input_resources: {}
-output_resources: {}
-`,
-    python: `from eos.tasks.base_task import BaseTask
-
-class MyTask(BaseTask):
-    """Task implementation"""
-
-    async def _execute(self):
-        """Execute the task"""
-        pass
+@task("__NAME__")
+async def __NAME__() -> None:
+    """Description of the task."""
 `,
   },
   labs: {
@@ -267,8 +245,7 @@ export async function getPackageTree(packageName: string): Promise<EntityTree> {
 // Get max mtime across all files belonging to an entity
 async function getEntityMtime(entityPath: string, entityType: EntityType): Promise<number> {
   const fileNames = ENTITY_FILE_NAMES[entityType];
-  const paths = [path.join(entityPath, fileNames.yaml)];
-  if (fileNames.python) paths.push(path.join(entityPath, fileNames.python));
+  const paths = [fileNames.yaml, fileNames.python].filter(Boolean).map((name) => path.join(entityPath, name));
   if (entityType === 'protocols') paths.push(path.join(entityPath, 'layout.json'));
 
   const mtimes = await Promise.all(
@@ -314,12 +291,12 @@ export async function readEntityFiles(
     return null;
   }
 
-  const yamlPath = path.join(entityPath, fileNames.yaml);
+  const yamlPath = fileNames.yaml ? path.join(entityPath, fileNames.yaml) : '';
   const pythonPath = fileNames.python ? path.join(entityPath, fileNames.python) : '';
   const jsonPath = entityType === 'protocols' ? path.join(entityPath, 'layout.json') : '';
 
   const [yamlContent, python, json, mtime] = await Promise.all([
-    fs.readFile(yamlPath, 'utf-8').catch(() => ''),
+    yamlPath ? fs.readFile(yamlPath, 'utf-8').catch(() => '') : Promise.resolve(''),
     pythonPath ? fs.readFile(pythonPath, 'utf-8').catch(() => '') : Promise.resolve(''),
     jsonPath ? fs.readFile(jsonPath, 'utf-8').catch(() => '') : Promise.resolve(''),
     getEntityMtime(entityPath, entityType),
@@ -358,8 +335,10 @@ export async function writeEntityFiles(
   // Ensure directory exists
   await fs.mkdir(entityPath, { recursive: true });
 
-  // Write YAML file
-  await fs.writeFile(path.join(entityPath, fileNames.yaml), files.yaml, 'utf-8');
+  // Write YAML file if applicable
+  if (fileNames.yaml) {
+    await fs.writeFile(path.join(entityPath, fileNames.yaml), files.yaml, 'utf-8');
+  }
 
   // Write Python file if applicable
   if (fileNames.python && files.python != null) {
@@ -390,11 +369,21 @@ export async function createEntity(packageName: string, entityType: EntityType, 
     // Directory doesn't exist, which is what we want
   }
 
+  // Task and device templates use the name as a Python identifier
+  const template = ENTITY_TEMPLATES[entityType];
+  const name = path.basename(entityName);
+  if (template.python && fileNames.python && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    throw new Error(`'${name}' is not a valid Python identifier`);
+  }
+
   // Create directory
   await fs.mkdir(entityPath, { recursive: true });
 
   // Create files from templates
-  const template = ENTITY_TEMPLATES[entityType];
+  const className = name
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
   let yamlContent = template.yaml;
 
   // For protocols, replace the template type with the entity name
@@ -402,10 +391,13 @@ export async function createEntity(packageName: string, entityType: EntityType, 
     yamlContent = yamlContent.replace('type: my_protocol', `type: ${entityName}`);
   }
 
-  await fs.writeFile(path.join(entityPath, fileNames.yaml), yamlContent, 'utf-8');
+  if (fileNames.yaml) {
+    await fs.writeFile(path.join(entityPath, fileNames.yaml), yamlContent, 'utf-8');
+  }
 
   if (fileNames.python && template.python) {
-    await fs.writeFile(path.join(entityPath, fileNames.python), template.python, 'utf-8');
+    const python = template.python.replaceAll('__NAME__', name).replaceAll('__CLASS__', className);
+    await fs.writeFile(path.join(entityPath, fileNames.python), python, 'utf-8');
   }
 }
 

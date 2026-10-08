@@ -158,7 +158,7 @@ const TaskNodeComponent = ({ data }: NodeProps) => {
     return () => ro.disconnect();
   }, [taskNode.run_if, runIfRefs.length]);
 
-  // Parameter port is "filled" if the user set a value or the task.yml default exists
+  // Parameter port is "filled" if the user set a value or the task spec default exists
   const effectiveInputParams = useMemo(() => {
     const merged: Record<string, unknown> = {};
     for (const [name, spec] of Object.entries(flatInputParams)) {

@@ -5,6 +5,7 @@
  */
 
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { env } from '@/lib/env';
 
 export interface ZitadelUser {
@@ -31,6 +32,27 @@ async function zitadelFetch(path: string, init?: RequestInit): Promise<Record<st
     throw new Error((body as { message?: string }).message ?? `Zitadel API error (${response.status})`);
   }
   return response.json().catch(() => ({}));
+}
+
+const fetchUsername = unstable_cache(
+  async (userId: string): Promise<string | undefined> => {
+    const result = await zitadelFetch(`/v2/users/${encodeURIComponent(userId)}`);
+    const user = result.user as { username?: string } | undefined;
+    return user?.username || undefined;
+  },
+  ['zitadel-username', env.AUTH_ISSUER ?? '', env.AUTH_ORG_ID ?? ''],
+  { revalidate: 60 }
+);
+
+export async function getUsername(userId: string): Promise<string | undefined> {
+  if (!env.AUTH_ENABLED || !userId) return undefined;
+
+  try {
+    return await fetchUsername(userId);
+  } catch {
+    // Historical owners and unavailable identity services must not block campaign reads.
+    return undefined;
+  }
 }
 
 export async function listUsers(): Promise<ZitadelUser[]> {

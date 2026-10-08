@@ -1,0 +1,13 @@
+from eos import Resource
+
+
+class AnalysisCuvette(Resource, type="analysis_cuvette"): ...
+
+
+class FilterCartridge(Resource, type="filter_cartridge"): ...
+
+
+class ReactionVial(Resource, type="reaction_vial"): ...
+
+
+class SolventCartridge(Resource, type="solvent_cartridge"): ...

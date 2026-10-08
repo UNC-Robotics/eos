@@ -1,0 +1,152 @@
+name: synthesis_lab
+desc: Synthetic automated synthesis-and-characterize lab for scheduler benchmarking
+
+devices:
+  robot_arm:
+    desc: Single shared mover for vial transfers between stations
+    type: robot_arm
+    computer: eos_computer
+
+  balance_1:
+    desc: Analytical balance for solid weighing
+    type: balance
+    computer: eos_computer
+  balance_2:
+    desc: Analytical balance for solid weighing
+    type: balance
+    computer: eos_computer
+
+  prep_station_1:
+    desc: Sample prep rack
+    type: prep_station
+    computer: eos_computer
+  prep_station_2:
+    desc: Sample prep rack
+    type: prep_station
+    computer: eos_computer
+  prep_station_3:
+    desc: Sample prep rack
+    type: prep_station
+    computer: eos_computer
+
+  dispenser_1:
+    desc: Liquid dispenser
+    type: dispenser
+    computer: eos_computer
+  dispenser_2:
+    desc: Liquid dispenser
+    type: dispenser
+    computer: eos_computer
+  dispenser_3:
+    desc: Liquid dispenser
+    type: dispenser
+    computer: eos_computer
+
+  reactor_1:
+    desc: Heated stirred reactor position
+    type: reactor
+    computer: eos_computer
+  reactor_2:
+    desc: Heated stirred reactor position
+    type: reactor
+    computer: eos_computer
+  reactor_3:
+    desc: Heated stirred reactor position
+    type: reactor
+    computer: eos_computer
+  reactor_4:
+    desc: Heated stirred reactor position
+    type: reactor
+    computer: eos_computer
+
+  workup_station_1:
+    desc: Filtration and dilution station
+    type: workup_station
+    computer: eos_computer
+  workup_station_2:
+    desc: Filtration and dilution station
+    type: workup_station
+    computer: eos_computer
+
+  hplc_1:
+    desc: HPLC instrument with autosampler
+    type: hplc
+    computer: eos_computer
+
+  hplc_2:
+    desc: HPLC instrument with autosampler
+    type: hplc
+    computer: eos_computer
+
+  uv_vis_1:
+    desc: UV-Vis spectrometer
+    type: uv_vis
+    computer: eos_computer
+  uv_vis_2:
+    desc: UV-Vis spectrometer
+    type: uv_vis
+    computer: eos_computer
+
+  wash_station_1:
+    desc: Vial cleaning station
+    type: wash_station
+    computer: eos_computer
+  wash_station_2:
+    desc: Vial cleaning station
+    type: wash_station
+    computer: eos_computer
+
+resource_types:
+  reaction_vial: {}
+  solvent_cartridge: {}
+  filter_cartridge: {}
+  analysis_cuvette: {}
+
+resources:
+  reaction_vial_01:  { type: reaction_vial }
+  reaction_vial_02:  { type: reaction_vial }
+  reaction_vial_03:  { type: reaction_vial }
+  reaction_vial_04:  { type: reaction_vial }
+  reaction_vial_05:  { type: reaction_vial }
+  reaction_vial_06:  { type: reaction_vial }
+  reaction_vial_07:  { type: reaction_vial }
+  reaction_vial_08:  { type: reaction_vial }
+  reaction_vial_09:  { type: reaction_vial }
+  reaction_vial_10:  { type: reaction_vial }
+  reaction_vial_11:  { type: reaction_vial }
+  reaction_vial_12:  { type: reaction_vial }
+
+  solvent_cartridge_01: { type: solvent_cartridge }
+  solvent_cartridge_02: { type: solvent_cartridge }
+  solvent_cartridge_03: { type: solvent_cartridge }
+  solvent_cartridge_04: { type: solvent_cartridge }
+  solvent_cartridge_05: { type: solvent_cartridge }
+  solvent_cartridge_06: { type: solvent_cartridge }
+  solvent_cartridge_07: { type: solvent_cartridge }
+  solvent_cartridge_08: { type: solvent_cartridge }
+
+  filter_cartridge_01: { type: filter_cartridge }
+  filter_cartridge_02: { type: filter_cartridge }
+  filter_cartridge_03: { type: filter_cartridge }
+  filter_cartridge_04: { type: filter_cartridge }
+  filter_cartridge_05: { type: filter_cartridge }
+  filter_cartridge_06: { type: filter_cartridge }
+  filter_cartridge_07: { type: filter_cartridge }
+  filter_cartridge_08: { type: filter_cartridge }
+  filter_cartridge_09: { type: filter_cartridge }
+  filter_cartridge_10: { type: filter_cartridge }
+  filter_cartridge_11: { type: filter_cartridge }
+  filter_cartridge_12: { type: filter_cartridge }
+
+  analysis_cuvette_01: { type: analysis_cuvette }
+  analysis_cuvette_02: { type: analysis_cuvette }
+  analysis_cuvette_03: { type: analysis_cuvette }
+  analysis_cuvette_04: { type: analysis_cuvette }
+  analysis_cuvette_05: { type: analysis_cuvette }
+  analysis_cuvette_06: { type: analysis_cuvette }
+  analysis_cuvette_07: { type: analysis_cuvette }
+  analysis_cuvette_08: { type: analysis_cuvette }
+  analysis_cuvette_09: { type: analysis_cuvette }
+  analysis_cuvette_10: { type: analysis_cuvette }
+  analysis_cuvette_11: { type: analysis_cuvette }
+  analysis_cuvette_12: { type: analysis_cuvette }

@@ -1,4 +1,4 @@
-import io
+import asyncio
 import zipfile
 from pathlib import Path
 from collections.abc import AsyncIterable
@@ -39,36 +39,45 @@ class FileController(Controller):
     @get("/download/{protocol_run_name:str}/{task_name:str}")
     async def download_zip(self, protocol_run_name: str, task_name: str, orchestrator: Orchestrator) -> Stream:
         """Download all task output files as a zip archive."""
+        file_list = await orchestrator.results.list_task_output_files(protocol_run_name, task_name)
+        if not file_list:
+            raise APIError(status_code=404, detail="No files found for this task")
 
         async def zip_stream() -> AsyncIterable[bytes]:
-            file_list = await orchestrator.results.list_task_output_files(protocol_run_name, task_name)
-            if not file_list:
-                raise APIError(status_code=404, detail="No files found for this task")
-
-            buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            sink = _ZipSink()
+            with zipfile.ZipFile(sink, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for file_path in file_list:
                     file_name = Path(file_path).name
-                    zip_info = zipfile.ZipInfo(file_name)
-                    zip_info.compress_type = zipfile.ZIP_DEFLATED
-
-                    # Write file contents to zip
-                    with zip_file.open(zip_info, mode="w") as file_in_zip:
+                    with zip_file.open(file_name, mode="w") as file_in_zip:
                         async for chunk in orchestrator.results.download_task_output_file(
                             protocol_run_name, task_name, file_name
                         ):
-                            file_in_zip.write(chunk)
-
-                            # Yield data in chunks
-                            if buffer.tell() > CHUNK_SIZE:
-                                buffer.seek(0)
-                                yield buffer.read(CHUNK_SIZE)
-                                buffer.seek(0)
-                                buffer.truncate()
-
-            # Yield remaining data
-            buffer.seek(0)
-            yield buffer.getvalue()
+                            await asyncio.to_thread(file_in_zip.write, chunk)
+                            if sink.size > CHUNK_SIZE:
+                                yield sink.drain()
+            yield sink.drain()
 
         filename = f"{protocol_run_name}_{task_name}_output.zip"
         return Stream(zip_stream(), headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+
+class _ZipSink:
+    """Unseekable write target, so ZipFile streams with data descriptors and never rewrites drained bytes."""
+
+    def __init__(self) -> None:
+        self._chunks: list[bytes] = []
+        self.size = 0
+
+    def write(self, data: bytes) -> int:
+        self._chunks.append(bytes(data))
+        self.size += len(data)
+        return len(data)
+
+    def flush(self) -> None:
+        pass
+
+    def drain(self) -> bytes:
+        data = b"".join(self._chunks)
+        self._chunks.clear()
+        self.size = 0
+        return data

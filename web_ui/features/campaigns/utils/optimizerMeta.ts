@@ -14,8 +14,8 @@ export function extractOptimizerDomain(meta: unknown): DomainValue | null {
   };
 }
 
-/** Build an OptimizerInfo from persisted campaign.meta.optimizer for non-running campaigns. */
-export function extractOptimizerInfo(meta: unknown): OptimizerInfo | null {
+/** Build an OptimizerInfo from persisted campaign.meta.optimizer and the campaign's journal entries. */
+export function extractOptimizerInfo(meta: unknown, journal: string[]): OptimizerInfo | null {
   const optimizer = (meta as Record<string, unknown> | undefined)?.optimizer as Record<string, unknown> | undefined;
   if (!optimizer) return null;
 
@@ -39,6 +39,6 @@ export function extractOptimizerInfo(meta: unknown): OptimizerInfo | null {
       ai_additional_context: ((runtimeParams?.ai_additional_context ?? args?.ai_additional_context) as string) ?? null,
     },
     insights: (optimizer.insights as string[]) ?? [],
-    journal: (optimizer.journal as string[]) ?? [],
+    journal,
   };
 }

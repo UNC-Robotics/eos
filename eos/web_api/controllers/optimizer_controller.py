@@ -8,7 +8,6 @@ from eos.auth.entities.user_role import Role
 from eos.campaigns.campaign_optimizer_manager import serialize_value
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-from eos.optimization.beacon_optimizer import BeaconOptimizer
 from eos.orchestration.orchestrator import Orchestrator
 from eos.web_api.exception_handling import APIError
 
@@ -59,7 +58,7 @@ def _serialize_optimizer_defaults(
 
     return {
         "optimizer_type": optimizer_type_name,
-        "is_beacon": issubclass(optimizer_type, BeaconOptimizer),
+        "is_beacon": optimizer_type.is_beacon,
         "param_schema": param_schema,
         "inputs": [serialize_value(f) for f in constructor_args.get("inputs", [])],
         "outputs": [serialize_value(f) for f in constructor_args.get("outputs", [])],

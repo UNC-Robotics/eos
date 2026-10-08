@@ -20,15 +20,9 @@ class TestTaskSpecifications:
                 desc="Duration of evaporation in seconds.",
             )
 
-    def test_numeric_parameter_unit_not_specified(self):
-        with pytest.raises(ValidationError):
-            TaskParameterFactory.create(
-                TaskParameterType.INT,
-                unit="",
-                value=120,
-                min=60,
-                desc="Duration of evaporation in seconds.",
-            )
+    def test_numeric_parameter_unit_is_optional(self):
+        parameter = TaskParameterFactory.create(TaskParameterType.INT, value=120, min=60, desc="A count.")
+        assert parameter.unit is None
 
     def test_numeric_parameter_value_not_numeric(self):
         with pytest.raises(ValidationError):
@@ -90,14 +84,14 @@ class TestTaskSpecifications:
                 desc="Method to use",
             )
 
-    def test_choice_parameter_no_value(self):
-        with pytest.raises(ValidationError):
-            TaskParameterFactory.create(
-                TaskParameterType.CHOICE,
-                choices=["method1", "method2"],
-                value=None,
-                desc="Method to use",
-            )
+    def test_choice_parameter_without_value_is_required(self):
+        parameter = TaskParameterFactory.create(
+            TaskParameterType.CHOICE,
+            choices=["method1", "method2"],
+            value=None,
+            desc="Method to use",
+        )
+        assert parameter.value is None
 
     def test_choice_parameter_invalid_value(self):
         with pytest.raises(ValidationError):
@@ -248,13 +242,8 @@ class TestTaskSpecifications:
 
         del task_spec.input_parameters["invalid_name*"]
 
-    def test_output_numeric_parameter_unit_not_specified(self, configuration_manager):
-        with pytest.raises(ValidationError):
-            OutputParameter(
-                type=TaskParameterType.INT,
-                unit="",
-                desc="Duration of evaporation in seconds.",
-            )
+    def test_output_numeric_parameter_unit_is_optional(self, configuration_manager):
+        assert OutputParameter(type=TaskParameterType.INT, desc="A count.").unit is None
 
     def test_output_non_numeric_parameter_unit_specified(self, configuration_manager):
         with pytest.raises(ValidationError):

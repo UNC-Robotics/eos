@@ -1,0 +1,171 @@
+type: linear_synthesis
+desc: >
+  Single-vial synthesis with HPLC characterization. Strictly sequential 10-task chain:
+  fetch -> weigh -> prep -> dispense solvent -> add reagent -> react -> filter ->
+  HPLC analysis. Realistic baseline workflow for a chemist running one reaction at a
+  time. No parallelism within a single iteration; tests scheduler baseline behavior
+  and how schedulers pack multiple iterations against shared devices.
+
+labs:
+  - synthesis_lab
+
+tasks:
+  - name: T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: T02_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 60
+    dependencies:
+      - T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: T01_fetch_vial.vial
+        hold: true
+
+  - name: T03_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - T02_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: T02_weigh_solid.vial
+        hold: true
+
+  - name: T04_prepare_solvent
+    type: Prepare Solvent Blend
+    duration: 60
+    dependencies:
+      - T03_transfer_to_prep
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - T04_prepare_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: T03_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: T03_transfer_to_prep.vial
+        hold: true
+      cartridge: T04_prepare_solvent.cartridge
+
+  - name: T06_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - T05_add_solvent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: T05_add_solvent.vial
+        hold: true
+
+  - name: T07_heat_and_stir
+    type: Heat And Stir
+    duration: 300
+    dependencies:
+      - T06_transfer_to_reactor
+    devices:
+      reactor:
+        ref: T06_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: T06_transfer_to_reactor.vial
+        hold: true
+
+  - name: T08_filter_split
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - T07_heat_and_stir
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: T07_heat_and_stir.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+
+  - name: T09_transfer_to_hplc
+    type: Transfer To HPLC
+    duration: 20
+    dependencies:
+      - T08_filter_split
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      hplc:
+        allocation_type: dynamic
+        device_type: hplc
+        hold: true
+    resources:
+      vial: T08_filter_split.vial
+
+  - name: T10_hplc_analysis
+    type: HPLC Analysis
+    duration: 600
+    dependencies:
+      - T09_transfer_to_hplc
+    devices:
+      hplc: T09_transfer_to_hplc.hplc

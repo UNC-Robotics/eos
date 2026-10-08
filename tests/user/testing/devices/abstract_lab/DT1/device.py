@@ -1,14 +1,5 @@
-from typing import Any
-
-from eos.devices.base_device import BaseDevice
+from eos import Device
 
 
-class DT1(BaseDevice):
-    async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-        pass
-
-    async def _cleanup(self) -> None:
-        pass
-
-    async def _report(self) -> dict[str, Any]:
-        pass
+class DT1(Device, type="DT1"):
+    """An abstract device for testing."""

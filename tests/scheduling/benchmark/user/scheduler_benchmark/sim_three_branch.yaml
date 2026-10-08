@@ -1,0 +1,12 @@
+# Scenario 2: 3-branch characterization.
+# Linear setup feeds a workup with two filter splits, then three concurrent
+# analytical paths (HPLC + 2 UV-Vis on different spectrometers) converge to a
+# single robot return-and-clean. 4 iterations stress concurrent device packing.
+
+packages:
+  - scheduler_benchmark
+
+protocols:
+  - type: branched_characterization
+    iterations: 4
+    max_concurrent: 4

@@ -14,11 +14,18 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   const { campaignName } = await params;
   const decodedName = decodeURIComponent(campaignName);
 
-  const { campaign, samples, protocolRuns } = await getCampaignWithDetails(decodedName);
+  const { campaign, samples, protocolRuns, journal } = await getCampaignWithDetails(decodedName);
 
   if (!campaign) {
     notFound();
   }
 
-  return <CampaignExecutionView campaign={campaign} initialSamples={samples} initialProtocolRuns={protocolRuns} />;
+  return (
+    <CampaignExecutionView
+      campaign={campaign}
+      initialSamples={samples}
+      initialProtocolRuns={protocolRuns}
+      initialJournal={journal}
+    />
+  );
 }

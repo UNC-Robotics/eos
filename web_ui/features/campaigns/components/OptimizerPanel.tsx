@@ -683,6 +683,9 @@ export function OptimizerPanel(props: OptimizerPanelProps) {
     );
   }
 
+  const optimizerType = props.mode === 'runtime' ? props.optimizerInfo.optimizer_type : props.defaults.optimizer_type;
+  const optimizerLabel = optimizerType === 'BeaconOptimizer' ? 'Beacon Optimizer' : optimizerType;
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
       <button type="button" onClick={() => setExpanded(!expanded)} className="w-full flex items-center gap-2 text-left">
@@ -694,7 +697,7 @@ export function OptimizerPanel(props: OptimizerPanelProps) {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <SlidersHorizontal className="h-5 w-5" />
-            {props.mode === 'runtime' ? props.optimizerInfo.optimizer_type : props.defaults.optimizer_type}
+            {optimizerLabel}
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {props.mode === 'runtime'

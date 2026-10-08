@@ -77,6 +77,9 @@ If you do not use the wizard, copy and edit the templates:
     cp config.example.yml config.yml
     cp web_ui/.env.example web_ui/.env
 
+In ``config.yml``, the ``execution`` section can limit how many tasks run at once (``max_concurrent_tasks``)
+and set how long to wait for a campaign optimizer to start (``optimizer_startup_timeout``, in seconds).
+
 ``.env`` holds the credentials for the PostgreSQL database and the S3-compatible file store
 (SeaweedFS). Both run locally in Docker via ``eos services up``, so no external database or AWS account
 is needed. Set ``EOS_POSTGRES_USER``, ``EOS_POSTGRES_PASSWORD``, ``EOS_S3_ACCESS_KEY_ID`` and

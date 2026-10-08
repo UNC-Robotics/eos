@@ -65,7 +65,7 @@ Device names must be unique within a lab. Multiple instances may share a device 
    * - ``computer``
      - ``eos_computer`` or a computer defined above.
    * - ``init_parameters``
-     - Optional overrides for the device's initialization defaults.
+     - Values for fields of the device's ``Config``. Required fields must be set.
    * - ``meta``
      - Optional instance metadata, such as location.
 

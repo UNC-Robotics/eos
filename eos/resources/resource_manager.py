@@ -1,4 +1,3 @@
-import asyncio
 from collections import defaultdict
 from typing import Any
 from collections.abc import Callable
@@ -205,7 +204,8 @@ class ResourceManager:
             await self._remove_resources_for_labs(db, unloaded_labs)
 
         if loaded_labs:
-            await asyncio.gather(*[self._create_resources_for_lab(db, lab_name) for lab_name in loaded_labs])
+            for lab_name in loaded_labs:
+                await self._create_resources_for_lab(db, lab_name)
             self._refresh_defaults_for_labs(loaded_labs)
 
         log.debug("Resources have been updated.")

@@ -14,6 +14,7 @@ class TaskValidator:
     def validate(self, task: TaskDef) -> None:
         task_spec = self.task_specs.get_spec_by_type(task.type)
         self._validate_devices(task, task_spec)
+        self._validate_resources(task, task_spec)
         self._validate_parameters(task, task_spec)
         self._validate_files(task, task_spec)
 
@@ -24,6 +25,17 @@ class TaskValidator:
     def _validate_parameters(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         validator = TaskInputParameterValidator(task, task_spec)
         validator.validate()
+
+    def _validate_resources(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
+        declared = task_spec.input_resources
+        unexpected = task.resources.keys() - declared.keys()
+        if unexpected:
+            raise ValueError(f"Task '{task.name}' has undeclared resources: {sorted(unexpected)}")
+
+        required = {name for name, spec in declared.items() if not spec.optional}
+        missing = required - task.resources.keys()
+        if missing:
+            raise ValueError(f"Task '{task.name}' is missing required resources: {sorted(missing)}")
 
     def _validate_files(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         validator = TaskInputFileValidator(task, task_spec)

@@ -6,7 +6,7 @@ from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.campaign_executor_factory import CampaignExecutorFactory
 from eos.campaigns.campaign_manager import CampaignManager
 from eos.campaigns.campaign_optimizer_manager import CampaignOptimizerManager
-from eos.campaigns.entities.campaign import OPTIMIZER_META_KEY, Campaign, CampaignStatus, CampaignSubmission
+from eos.campaigns.entities.campaign import Campaign, CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
 from eos.configuration.configuration_manager import ConfigurationManager
@@ -169,14 +169,21 @@ class CampaignService:
         if not campaign_names:
             return
 
-        cancellation_tasks = [self._submitted_campaigns[cmp_name].cancel_campaign() for cmp_name in campaign_names]
-        results = await asyncio.gather(*cancellation_tasks, return_exceptions=True)
+        # Duplicate requests, and campaigns that finished meanwhile, have nothing left to cancel
+        executors = {
+            campaign_name: executor
+            for campaign_name in dict.fromkeys(campaign_names)
+            if (executor := self._submitted_campaigns.get(campaign_name)) is not None
+        }
+        results = await asyncio.gather(
+            *(executor.cancel_campaign() for executor in executors.values()), return_exceptions=True
+        )
 
-        for campaign_name, result in zip(campaign_names, results, strict=True):
+        for (campaign_name, executor), result in zip(executors.items(), results, strict=True):
             if isinstance(result, Exception):
                 log.error(f"Error cancelling campaign '{campaign_name}': {result}")
-            self._submitted_campaigns[campaign_name].cleanup()
-            del self._submitted_campaigns[campaign_name]
+            executor.cleanup()
+            self._submitted_campaigns.pop(campaign_name, None)
 
     def _validate_protocol_type(self, protocol_type: str) -> None:
         if protocol_type not in self._configuration_manager.protocols:
@@ -198,11 +205,7 @@ class CampaignService:
         if not meta:
             return
         async with self._db_interface.get_async_session() as db:
-            current_meta = await self._campaign_manager.get_campaign_meta(db, campaign_name) or {}
-            current = current_meta.get(OPTIMIZER_META_KEY, {}) or {}
-            await self._campaign_manager.update_campaign_meta(
-                db, campaign_name, OPTIMIZER_META_KEY, {**current, **meta}
-            )
+            await self._campaign_manager.save_optimizer_meta(db, campaign_name, meta)
 
     async def add_optimizer_insight(self, campaign_name: str, insight: str) -> None:
         """Add an expert insight to the optimizer of a running campaign."""

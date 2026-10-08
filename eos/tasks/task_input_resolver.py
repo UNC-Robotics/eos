@@ -93,7 +93,7 @@ class TaskInputResolver:
         protocol_run = await self._protocol_run_manager.get_protocol_run(db, protocol_run_name)
         task_parameters = protocol_run.parameters.get(task.name, {})
 
-        # Fill task.yml defaults for params not set by protocol.yml or the run submission
+        # Fill task spec defaults for params not set by protocol.yml or the run submission
         task_spec = self._task_spec_registry.get_spec_by_type(task.type)
         if task_spec is not None:
             for param_name, param_spec in task_spec.iter_parameters():

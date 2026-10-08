@@ -5,11 +5,8 @@ TASKS_DIR = "tasks"
 
 PROTOCOL_CONFIG_FILE_NAME = "protocol.yml"
 LAB_CONFIG_FILE_NAME = "lab.yml"
-DEVICE_CONFIG_FILE_NAME = "device.yml"
-TASK_CONFIG_FILE_NAME = "task.yml"
-
-DEVICE_IMPLEMENTATION_FILE_NAME = "device.py"
-TASK_IMPLEMENTATION_FILE_NAME = "task.py"
+DEVICE_FILE_NAME = "device.py"
+TASK_FILE_NAME = "task.py"
 
 CAMPAIGN_OPTIMIZER_FILE_NAME = "optimizer.py"
 CAMPAIGN_OPTIMIZER_CREATION_FUNCTION_NAME = "eos_create_campaign_optimizer"

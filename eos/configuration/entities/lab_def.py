@@ -1,15 +1,18 @@
 from typing import Any
 
-from bofire.data_models.base import BaseModel
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class LabComputerDef(BaseModel):
+class _LabModel(BaseModel):
+    model_config = ConfigDict(validate_assignment=True, extra="forbid")
+
+
+class LabComputerDef(_LabModel):
     ip: str
     desc: str | None = None
 
 
-class LabDeviceDef(BaseModel):
+class LabDeviceDef(_LabModel):
     type: str
     computer: str
     desc: str | None = None
@@ -17,20 +20,20 @@ class LabDeviceDef(BaseModel):
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class ResourceTypeDef(BaseModel):
+class ResourceTypeDef(_LabModel):
     """Configuration for a resource type with default metadata."""
 
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class ResourceDef(BaseModel):
+class ResourceDef(_LabModel):
     """Configuration for a unique resource instance."""
 
     type: str
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
-class LabDef(BaseModel):
+class LabDef(_LabModel):
     name: str
     desc: str
     devices: dict[str, LabDeviceDef]

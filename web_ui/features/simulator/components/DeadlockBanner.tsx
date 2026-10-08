@@ -28,8 +28,8 @@ export function DeadlockBanner({ deadlock, scheduler }: { deadlock: DeadlockInfo
                 {deadlock.queued_count} additional run{deadlock.queued_count === 1 ? '' : 's'} never got to start.{' '}
               </>
             )}
-            Try the <span className="font-mono">cpsat</span> scheduler, lower{' '}
-            <span className="font-mono">max_concurrent</span>, or relax unnecessary{' '}
+            Try the <span className="font-mono">heuristic</span> or <span className="font-mono">cpsat</span> scheduler,
+            lower <span className="font-mono">max_concurrent</span>, or relax unnecessary{' '}
             <span className="font-mono">hold</span> flags.
           </p>
         </div>

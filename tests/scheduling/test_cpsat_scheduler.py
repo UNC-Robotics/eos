@@ -7,6 +7,7 @@ from eos.scheduling.exceptions import EosSchedulerRegistrationError
 from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
 
+
 PROTOCOL = "abstract_protocol_2"
 
 
@@ -57,7 +58,7 @@ class TestCpSatScheduler:
     @pytest.mark.asyncio
     async def test_request_tasks_unregistered_protocol_run(self, db, cpsat_scheduler):
         with pytest.raises(EosSchedulerRegistrationError):
-            await cpsat_scheduler.request_tasks(db, "nonexistent")
+            await request_tasks(cpsat_scheduler, db, "nonexistent")
 
     async def _create_and_start_protocol_run(
         self, db, protocol_run_manager, protocol_run_name: str = "protocol_run_1", priority: int = 0
@@ -93,9 +94,9 @@ class TestCpSatScheduler:
         expected_tasks: list[ExpectedTask],
     ):
         """Helper to process and verify a batch of scheduled tasks (order not enforced)"""
-        tasks = await scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(scheduler, db, protocol_run_name)
         if not tasks:
-            tasks = await scheduler.request_tasks(db, protocol_run_name)
+            tasks = await request_tasks(scheduler, db, protocol_run_name)
 
         tasks_by_name = {task.name: task for task in tasks}
 
@@ -142,7 +143,7 @@ class TestCpSatScheduler:
         assert await cpsat_scheduler.is_protocol_run_completed(db, "protocol_run_1")
 
         # Verify no more tasks are scheduled
-        final_tasks = await cpsat_scheduler.request_tasks(db, "protocol_run_1")
+        final_tasks = await request_tasks(cpsat_scheduler, db, "protocol_run_1")
         assert len(final_tasks) == 0
 
 
@@ -174,9 +175,9 @@ class TestCpSatSchedulerDynamicDevices:
         await cpsat_scheduler.register_protocol_run(protocol_run_name, protocol, graph)
 
         # Step 1: Task A requires a DT3 device dynamically
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         if not tasks:
-            tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+            tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
 
         tasks_by_name = {t.name: t for t in tasks}
         assert "A" in tasks_by_name
@@ -191,7 +192,7 @@ class TestCpSatSchedulerDynamicDevices:
         await task_manager.complete_task(db, protocol_run_name, "A")
 
         # Step 2: B (DT2) and C (DT3 with allowed_devices=DX3B)
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
 
@@ -214,7 +215,7 @@ class TestCpSatSchedulerDynamicDevices:
         await task_manager.complete_task(db, protocol_run_name, "C")
 
         # Step 3: D (DT5)
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "D" in tasks_by_name
         task_d = tasks_by_name["D"]
@@ -228,7 +229,7 @@ class TestCpSatSchedulerDynamicDevices:
 
         # Steps 4-6: E, F, G
         for task_name in ["E", "F", "G"]:
-            tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+            tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
             tasks_by_name = {t.name: t for t in tasks}
             assert task_name in tasks_by_name
             await task_manager.create_task(
@@ -239,7 +240,7 @@ class TestCpSatSchedulerDynamicDevices:
 
         # Verify protocol run completion
         assert await cpsat_scheduler.is_protocol_run_completed(db, protocol_run_name)
-        assert len(await cpsat_scheduler.request_tasks(db, protocol_run_name)) == 0
+        assert len(await request_tasks(cpsat_scheduler, db, protocol_run_name)) == 0
 
 
 @pytest.mark.parametrize("setup_lab_protocol", [("dynamic_lab", "dynamic_device_protocol")], indirect=True)
@@ -269,9 +270,9 @@ class TestCpSatSchedulerDeviceReferences:
         await cpsat_scheduler.register_protocol_run(protocol_run_name, protocol, graph)
 
         # Step 1: Task A dynamically allocates a DT3 device
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         if not tasks:
-            tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+            tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "A" in tasks_by_name
         task_a = tasks_by_name["A"]
@@ -283,7 +284,7 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.complete_task(db, protocol_run_name, "A")
 
         # Step 2: B and C (C must get DX3B)
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
 
@@ -299,7 +300,7 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.complete_task(db, protocol_run_name, "C")
 
         # Step 3: D
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "D" in tasks_by_name
         task_d = tasks_by_name["D"]
@@ -310,7 +311,7 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.complete_task(db, protocol_run_name, "D")
 
         # Step 4: E references C.device_1 - must use DX3B
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "E" in tasks_by_name
         task_e = tasks_by_name["E"]
@@ -321,7 +322,7 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.complete_task(db, protocol_run_name, "E")
 
         # Step 5: F references E.device_1 - must use DX3B
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "F" in tasks_by_name
         task_f = tasks_by_name["F"]
@@ -332,7 +333,7 @@ class TestCpSatSchedulerDeviceReferences:
         await task_manager.complete_task(db, protocol_run_name, "F")
 
         # Step 6: G references A.device_1 and D.device_1
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "G" in tasks_by_name
         task_g = tasks_by_name["G"]
@@ -374,9 +375,9 @@ class TestCpSatSchedulerDynamicContainers:
         await cpsat_scheduler.register_protocol_run(protocol_run_name, protocol, graph)
 
         # Step 1: A requires dynamic beaker_500
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         if not tasks:
-            tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+            tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "A" in tasks_by_name
         task_a = tasks_by_name["A"]
@@ -390,7 +391,7 @@ class TestCpSatSchedulerDynamicContainers:
         await task_manager.complete_task(db, protocol_run_name, "A")
 
         # Step 2: B (dynamic beaker_500) and C (specific B500B)
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert {"B", "C"}.issubset(tasks_by_name.keys())
 
@@ -415,7 +416,7 @@ class TestCpSatSchedulerDynamicContainers:
         await task_manager.complete_task(db, protocol_run_name, "C")
 
         # Step 3: D (dynamic vial)
-        tasks = await cpsat_scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(cpsat_scheduler, db, protocol_run_name)
         tasks_by_name = {t.name: t for t in tasks}
         assert "D" in tasks_by_name
         task_d = tasks_by_name["D"]
@@ -430,7 +431,7 @@ class TestCpSatSchedulerDynamicContainers:
 
         # Confirm protocol run completion
         assert await cpsat_scheduler.is_protocol_run_completed(db, protocol_run_name)
-        assert len(await cpsat_scheduler.request_tasks(db, protocol_run_name)) == 0
+        assert len(await request_tasks(cpsat_scheduler, db, protocol_run_name)) == 0
 
 
 @pytest.mark.parametrize("setup_lab_protocol", [("abstract_lab", PROTOCOL)], indirect=True)
@@ -465,9 +466,9 @@ class TestCpSatSchedulerContinuation:
         protocol_run_name: str,
         expected_tasks: list[ExpectedTask],
     ):
-        tasks = await scheduler.request_tasks(db, protocol_run_name)
+        tasks = await request_tasks(scheduler, db, protocol_run_name)
         if not tasks:
-            tasks = await scheduler.request_tasks(db, protocol_run_name)
+            tasks = await request_tasks(scheduler, db, protocol_run_name)
         tasks_by_name = {task.name: task for task in tasks}
         for expected in expected_tasks:
             task = tasks_by_name.get(expected.task_name)
@@ -624,7 +625,7 @@ class TestCpSatSchedulerContinuation:
         await self._create_and_start_protocol_run(db, protocol_run_manager)
         await cpsat_scheduler.register_protocol_run("protocol_run_1", PROTOCOL, protocol_graph)
 
-        await cpsat_scheduler.request_tasks(db, "protocol_run_1")
+        await request_tasks(cpsat_scheduler, db, "protocol_run_1")
 
         schedule = cpsat_scheduler._schedule["protocol_run_1"]
         durations = cpsat_scheduler._task_durations["protocol_run_1"]
@@ -679,8 +680,8 @@ class TestCpSatSchedulerContinuation:
         await cpsat_scheduler.register_protocol_run("run1", PROTOCOL, graph_1)
         await cpsat_scheduler.register_protocol_run("run2", PROTOCOL, graph_2)
 
-        await cpsat_scheduler.request_tasks(db, "run1")
-        await cpsat_scheduler.request_tasks(db, "run2")
+        await request_tasks(cpsat_scheduler, db, "run1")
+        await request_tasks(cpsat_scheduler, db, "run2")
 
         schedule_1 = cpsat_scheduler._schedule["run1"]
         durations_1 = cpsat_scheduler._task_durations["run1"]

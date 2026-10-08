@@ -1,4 +1,4 @@
-"""Tests for device/resource hold behavior in greedy and CP-SAT schedulers.
+"""Tests for device/resource hold behavior in greedy, heuristic, and CP-SAT schedulers.
 
 The hold_test_protocol has three tasks:
   setup   -> uses D1 (shared, no hold) and D2 (hold=true)
@@ -17,6 +17,7 @@ from eos.configuration.protocol_graph import ProtocolGraph
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
+from eos.scheduling.utils import compute_hold_users
 from eos.tasks.entities.task import TaskSubmission
 from tests.fixtures import *
 
@@ -24,11 +25,9 @@ HOLD_PROTOCOL = "hold_test_protocol"
 HOLD_DYNAMIC_PROTOCOL = "hold_test_dynamic_protocol"
 
 
-@pytest.fixture(params=["greedy", "cpsat"])
-def scheduler(request, greedy_scheduler, cpsat_scheduler) -> AbstractScheduler:
-    if request.param == "greedy":
-        return greedy_scheduler
-    return cpsat_scheduler
+@pytest.fixture(params=["greedy", "heuristic", "cpsat"])
+def scheduler(request, greedy_scheduler, heuristic_scheduler, cpsat_scheduler) -> AbstractScheduler:
+    return {"greedy": greedy_scheduler, "heuristic": heuristic_scheduler, "cpsat": cpsat_scheduler}[request.param]
 
 
 class _HoldTestBase:
@@ -44,18 +43,20 @@ class _HoldTestBase:
         )
         await protocol_run_manager.start_protocol_run(db, name)
 
-    async def _complete_task(self, db, task_manager, task_name: str, protocol_run_name: str):
+    async def _complete_task(self, db, task_manager, scheduler, task_name: str, protocol_run_name: str):
+        """Complete a task like the task executor does, which also releases it in the scheduler."""
         await task_manager.create_task(
             db, TaskSubmission(name=task_name, type="Noop", protocol_run_name=protocol_run_name)
         )
         await task_manager.start_task(db, protocol_run_name, task_name)
         await task_manager.complete_task(db, protocol_run_name, task_name)
+        await scheduler.release_task(db, task_name, protocol_run_name)
 
     async def _spin_cycle(self, db, scheduler: AbstractScheduler) -> dict[str, dict[str, ScheduledTask]]:
         """Run one scheduling cycle for all registered protocol runs."""
         result: dict[str, dict[str, ScheduledTask]] = {}
         for name in list(scheduler._registered_protocol_runs.keys()):
-            tasks = await scheduler.request_tasks(db, name)
+            tasks = await request_tasks(scheduler, db, name)
             result[name] = {t.name: t for t in tasks}
         return result
 
@@ -90,7 +91,7 @@ class _HoldTestBase:
                 continue
 
             for run_name, task_name in newly_scheduled:
-                await self._complete_task(db, task_manager, task_name, run_name)
+                await self._complete_task(db, task_manager, scheduler, task_name, run_name)
                 completed_set.add((run_name, task_name))
                 completed_order.append((run_name, task_name))
 
@@ -142,7 +143,7 @@ class TestSchedulerHold(_HoldTestBase):
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
             if "setup phase" in all_tasks.get("run1", {}):
-                await self._complete_task(db, task_manager, "setup phase", "run1")
+                await self._complete_task(db, task_manager, scheduler, "setup phase", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -168,7 +169,7 @@ class TestSchedulerHold(_HoldTestBase):
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
             if "setup phase" in all_tasks.get("run1", {}):
-                await self._complete_task(db, task_manager, "setup phase", "run1")
+                await self._complete_task(db, task_manager, scheduler, "setup phase", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -248,7 +249,7 @@ class TestSchedulerDynamicHold(_HoldTestBase):
         for _ in range(10):
             all_tasks = await self._spin_cycle(db, scheduler)
             if "setup phase" in all_tasks.get("run1", {}):
-                await self._complete_task(db, task_manager, "setup phase", "run1")
+                await self._complete_task(db, task_manager, scheduler, "setup phase", "run1")
                 break
 
         await self._spin_cycle(db, scheduler)
@@ -259,3 +260,25 @@ class TestSchedulerDynamicHold(_HoldTestBase):
         assert d1_owner is None, f"D1 should be released (no hold), but owned by {d1_owner}"
         assert d2_owner is not None, "D2 should be held (dynamic assignment with hold=true)"
         assert d2_owner.protocol_run_name == "run1", "D2 should be held by run1"
+
+
+@pytest.mark.parametrize("setup_lab_protocol", [("abstract_lab", HOLD_PROTOCOL)], indirect=True)
+class TestHoldUsers:
+    def test_hold_users_follow_references(self, setup_lab_protocol, configuration_manager):
+        """A hold lasts until the last descendant that references the held device."""
+        graph = ProtocolGraph(configuration_manager.protocols[HOLD_PROTOCOL])
+        device_users, resource_users = compute_hold_users(graph)
+
+        assert device_users == {
+            ("setup phase", "held_device"): frozenset({"process", "final cleanup"}),
+            ("process", "held_device"): frozenset({"final cleanup"}),
+        }
+        assert resource_users == {}
+
+    def test_hold_without_later_user_has_no_users(self, setup_lab_protocol, configuration_manager):
+        """A hold that no later task reuses is released on completion."""
+        protocol = configuration_manager.protocols[HOLD_PROTOCOL].model_copy(deep=True)
+        next(t for t in protocol.tasks if t.name == "final cleanup").device_holds["held_device"] = True
+        device_users, _ = compute_hold_users(ProtocolGraph(protocol))
+
+        assert device_users[("final cleanup", "held_device")] == frozenset()

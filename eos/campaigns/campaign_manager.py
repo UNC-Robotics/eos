@@ -8,6 +8,7 @@ from eos.campaigns.entities.campaign import (
     Campaign,
     CampaignStatus,
     CampaignSubmission,
+    CampaignJournalEntryModel,
     CampaignModel,
     CampaignSampleModel,
 )
@@ -73,6 +74,9 @@ class CampaignManager:
             await db.execute(delete(ProtocolRunModel).where(ProtocolRunModel.campaign == campaign_name))
 
         await db.execute(delete(CampaignSampleModel).where(CampaignSampleModel.campaign_name == campaign_name))
+        await db.execute(
+            delete(CampaignJournalEntryModel).where(CampaignJournalEntryModel.campaign_name == campaign_name)
+        )
         await db.execute(delete(CampaignModel).where(CampaignModel.name == campaign_name))
 
         log.info(f"Deleted campaign '{campaign_name}'.")
@@ -83,6 +87,13 @@ class CampaignManager:
         if campaign_model := result.scalar_one_or_none():
             return Campaign.model_validate(campaign_model)
         return None
+
+    async def get_protocol_runs_completed(self, db: AsyncDbSession, campaign_name: str) -> int | None:
+        """Get only the completed protocol run count of a campaign, without loading the full row."""
+        result = await db.execute(
+            select(CampaignModel.protocol_runs_completed).where(CampaignModel.name == campaign_name)
+        )
+        return result.scalar_one_or_none()
 
     async def get_campaigns(self, db: AsyncDbSession, **filters: Any) -> list[Campaign]:
         """Query campaigns with arbitrary parameters."""
@@ -186,6 +197,41 @@ class CampaignManager:
                 .where(CampaignModel.name == campaign_name)
                 .values(meta={**current_meta, key: value})
             )
+
+    async def save_optimizer_meta(self, db: AsyncDbSession, campaign_name: str, meta: dict[str, Any]) -> None:
+        """Merge optimizer state into the campaign meta. Journal entries are appended to their own table."""
+        meta = dict(meta)
+        if (journal := meta.pop("journal", None)) is not None:
+            await self._append_journal(db, campaign_name, journal)
+
+        current_meta = await self.get_campaign_meta(db, campaign_name)
+        if current_meta is None:
+            return
+        current = current_meta.get(OPTIMIZER_META_KEY, {}) or {}
+        await db.execute(
+            update(CampaignModel)
+            .where(CampaignModel.name == campaign_name)
+            .values(meta={**current_meta, OPTIMIZER_META_KEY: {**current, **meta}})
+        )
+
+    async def _append_journal(self, db: AsyncDbSession, campaign_name: str, journal: list[str]) -> None:
+        """Store the journal entries not yet persisted. The optimizer journal only ever grows."""
+        stored = await db.scalar(
+            select(func.count())
+            .select_from(CampaignJournalEntryModel)
+            .where(CampaignJournalEntryModel.campaign_name == campaign_name)
+        )
+        if new_entries := journal[stored:]:
+            db.add_all(CampaignJournalEntryModel(campaign_name=campaign_name, entry=entry) for entry in new_entries)
+
+    async def get_journal(self, db: AsyncDbSession, campaign_name: str) -> list[str]:
+        """Get the optimizer journal of a campaign in insertion order."""
+        result = await db.execute(
+            select(CampaignJournalEntryModel.entry)
+            .where(CampaignJournalEntryModel.campaign_name == campaign_name)
+            .order_by(CampaignJournalEntryModel.id)
+        )
+        return list(result.scalars())
 
     async def set_pareto_solutions(
         self, db: AsyncDbSession, campaign_name: str, pareto_solutions: list[dict[str, Any]]

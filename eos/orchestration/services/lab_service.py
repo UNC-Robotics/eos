@@ -33,8 +33,7 @@ class LabService:
         task_device_types = set()
         if task_type:
             task_spec = self._configuration_manager.task_specs.get_spec_by_type(task_type)
-            if task_spec.device_types:
-                task_device_types = set(task_spec.device_types)
+            task_device_types = {device.type for device in task_spec.devices.values()}
 
         lab_devices = {}
         for lab_type in effective_lab_types:

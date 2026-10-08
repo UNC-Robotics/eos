@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 
@@ -10,6 +10,8 @@ class AbstractSequentialOptimizer(ABC):
     At a minimum, the optimizer should give new parameters to clients, receive results from clients, and
     report the best parameters found so far.
     """
+
+    is_beacon: ClassVar[bool] = False  # Tells the web UI to render Beacon (Bayesian + AI) controls
 
     @abstractmethod
     def sample(self, num_protocol_runs: int = 1) -> pd.DataFrame:

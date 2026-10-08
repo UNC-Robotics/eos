@@ -5,7 +5,6 @@ import pandas as pd
 import ray
 
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-from eos.optimization.beacon_optimizer import BeaconOptimizer
 
 
 async def _maybe_await(result) -> Any:
@@ -62,7 +61,7 @@ class SequentialOptimizerActor(AbstractSequentialOptimizer):
         optimizer_type = type(self.optimizer)
         return {
             "optimizer_type": optimizer_type.__name__,
-            "is_beacon": isinstance(self.optimizer, BeaconOptimizer),
+            "is_beacon": optimizer_type.is_beacon,
             "param_schema": optimizer_type.eos_param_schema(),
         }
 

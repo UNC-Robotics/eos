@@ -166,3 +166,19 @@ class CampaignSampleModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
+
+
+class CampaignJournalEntryModel(Base):
+    """An optimizer journal entry of a campaign, stored as its own row so the journal can grow cheaply."""
+
+    __tablename__ = "campaign_journal_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    campaign_name: Mapped[str] = mapped_column(
+        String(255), ForeignKey("campaigns.name", ondelete="CASCADE"), nullable=False, index=True
+    )
+    entry: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )

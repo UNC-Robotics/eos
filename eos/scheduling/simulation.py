@@ -2,14 +2,18 @@
 Discrete-event simulation of the EOS scheduler.
 
 Reads actual EOS lab/protocol definitions via PackageManager and simulates
-scheduling algorithms (greedy or CP-SAT) with exclusive device/resource locking.
+scheduling algorithms (greedy, heuristic, or CP-SAT) with exclusive device/resource locking.
 Produces a timeline and summary statistics showing task ordering, parallelism,
 and device utilization.
 """
 
+import copy
+import math
 import random
 import sys
-from dataclasses import dataclass, field
+import threading
+import time
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import networkx as nx
@@ -27,7 +31,8 @@ from eos.configuration.protocol_graph import ProtocolGraph
 from eos.configuration.packages import PackageManager
 from eos.configuration.registries import TaskSpecRegistry
 from eos.configuration.utils import is_device_reference, is_resource_reference
-from eos.scheduling.utils import filter_device_pool, sort_resource_pool
+from eos.scheduling.entities.planned_task import PlannedTask
+from eos.scheduling.utils import compute_hold_needs, compute_hold_users, filter_device_pool, sort_resource_pool
 from eos.utils.timer import Timer
 
 
@@ -98,6 +103,10 @@ class ProtocolRunInstance:
     completed_tasks: set[str] = field(default_factory=set)
     task_device_assignments: dict[str, dict[str, DeviceAssignmentDef]] = field(default_factory=dict)
     task_resource_assignments: dict[str, dict[str, str]] = field(default_factory=dict)
+    device_hold_users: dict[tuple[str, str], frozenset[str]] = field(default_factory=dict)
+    resource_hold_users: dict[tuple[str, str], frozenset[str]] = field(default_factory=dict)
+    device_hold_needs: dict[tuple[str, str], frozenset] = field(default_factory=dict)
+    resource_hold_needs: dict[tuple[str, str], frozenset] = field(default_factory=dict)
 
 
 @dataclass
@@ -218,6 +227,9 @@ def create_protocol_run_instances(
 ) -> list[ProtocolRunInstance]:
     """Create N protocol run instances with independent graphs."""
     instances = []
+    protocol_graph = ProtocolGraph(protocol_def)
+    device_hold_users, resource_hold_users = compute_hold_users(protocol_graph)
+    device_hold_needs, resource_hold_needs = compute_hold_needs(protocol_graph, device_hold_users, resource_hold_users)
     for i in range(1, iterations + 1):
         name = f"{protocol_type}_{i:03d}"
         graph = ProtocolGraph(protocol_def)
@@ -236,6 +248,10 @@ def create_protocol_run_instances(
                 ancestors=ancestors,
                 priority=priority,
                 all_tasks=all_tasks,
+                device_hold_users=device_hold_users,
+                resource_hold_users=resource_hold_users,
+                device_hold_needs=device_hold_needs,
+                resource_hold_needs=resource_hold_needs,
             )
         )
     return instances
@@ -248,10 +264,11 @@ class SimLockEntry:
     protocol_run_name: str
     task_name: str
     held: bool = False
+    hold_for: frozenset[str] = frozenset()
 
 
 class LockManager:
-    """Exclusive device and resource locks for simulation with hold transparency."""
+    """Exclusive device and resource locks for simulation, with the same hold rules as the EOS schedulers."""
 
     def __init__(self) -> None:
         self._device_locks: dict[tuple[str, str], SimLockEntry] = {}
@@ -263,78 +280,92 @@ class LockManager:
         device_name: str,
         protocol_run_name: str,
         task_name: str,
-        ancestors: set[str] | None = None,
-        completed_tasks: set[str] | None = None,
+        ancestors: dict[str, set[str]] | None = None,
     ) -> bool:
+        """Pass the run's ancestors when the task asks for this specific device."""
         entry = self._device_locks.get((lab_name, device_name))
-        if entry is None:
-            return True
-        if entry.protocol_run_name == protocol_run_name and entry.task_name == task_name:
-            return True
-        return self._is_hold_transparent(entry, protocol_run_name, task_name, ancestors, completed_tasks)
+        return self._is_available(entry, protocol_run_name, task_name, ancestors)
 
     def is_resource_available(
+        self, resource_name: str, protocol_run_name: str, task_name: str, ancestors: dict[str, set[str]] | None = None
+    ) -> bool:
+        """Pass the run's ancestors when the task asks for this specific resource."""
+        return self._is_available(self._resource_locks.get(resource_name), protocol_run_name, task_name, ancestors)
+
+    @staticmethod
+    def _is_available(
+        entry: SimLockEntry | None, protocol_run_name: str, task_name: str, ancestors: dict[str, set[str]] | None
+    ) -> bool:
+        """The same rules as BaseScheduler._is_hold_transparent."""
+        if entry is None:
+            return True
+        if entry.protocol_run_name != protocol_run_name:
+            return False
+        if entry.task_name == task_name or (entry.held and task_name in entry.hold_for):
+            return True
+        return entry.held and ancestors is not None and any(task_name in ancestors[user] for user in entry.hold_for)
+
+    def crosses_other_holds(
+        self, protocol_run_name: str, devices: dict, resources: dict, device_needs: dict, resource_needs: dict
+    ) -> bool:
+        """The same rule as BaseScheduler._crosses_other_holds, for the slot to item maps of one task."""
+        for slots, locks, needs in (
+            (devices, self._device_locks, device_needs),
+            (resources, self._resource_locks, resource_needs),
+        ):
+            for slot, item in slots.items():
+                current = locks.get(item)
+                if current is not None and current.held and current.protocol_run_name == protocol_run_name:
+                    continue
+                for needed in needs.get(slot, ()):
+                    other = locks.get(needed)
+                    if other is not None and other.hold_for and other.protocol_run_name != protocol_run_name:
+                        return True
+        return False
+
+    def lock_device(
+        self,
+        lab_name: str,
+        device_name: str,
+        protocol_run_name: str,
+        task_name: str,
+        held: bool = False,
+        hold_for: frozenset[str] = frozenset(),
+    ) -> None:
+        key = (lab_name, device_name)
+        self._device_locks[key] = self._entry(self._device_locks.get(key), protocol_run_name, task_name, held, hold_for)
+
+    def lock_resource(
         self,
         resource_name: str,
         protocol_run_name: str,
         task_name: str,
-        ancestors: set[str] | None = None,
-        completed_tasks: set[str] | None = None,
-    ) -> bool:
-        entry = self._resource_locks.get(resource_name)
-        if entry is None:
-            return True
-        if entry.protocol_run_name == protocol_run_name and entry.task_name == task_name:
-            return True
-        return self._is_hold_transparent(entry, protocol_run_name, task_name, ancestors, completed_tasks)
-
-    @staticmethod
-    def _is_hold_transparent(
-        entry: SimLockEntry,
-        protocol_run_name: str,
-        task_name: str,
-        ancestors: set[str] | None,
-        completed_tasks: set[str] | None,
-    ) -> bool:
-        return bool(
-            entry.held
-            and ancestors
-            and completed_tasks
-            and entry.protocol_run_name == protocol_run_name
-            and entry.task_name in completed_tasks
-            and entry.task_name in ancestors
+        held: bool = False,
+        hold_for: frozenset[str] = frozenset(),
+    ) -> None:
+        self._resource_locks[resource_name] = self._entry(
+            self._resource_locks.get(resource_name), protocol_run_name, task_name, held, hold_for
         )
 
-    def lock_device(self, lab_name: str, device_name: str, protocol_run_name: str, task_name: str) -> None:
-        self._device_locks[(lab_name, device_name)] = SimLockEntry(protocol_run_name, task_name)
+    @staticmethod
+    def _entry(
+        previous: SimLockEntry | None, protocol_run_name: str, task_name: str, held: bool, hold_for: frozenset[str]
+    ) -> SimLockEntry:
+        """A new lock, which keeps holding for the remaining users when it takes over a hold of its run."""
+        if previous is not None and previous.held and previous.protocol_run_name == protocol_run_name:
+            hold_for |= previous.hold_for - {task_name}
+        return SimLockEntry(protocol_run_name, task_name, held, hold_for)
 
-    def lock_resource(self, resource_name: str, protocol_run_name: str, task_name: str) -> None:
-        self._resource_locks[resource_name] = SimLockEntry(protocol_run_name, task_name)
-
-    def release_task(
-        self,
-        protocol_run_name: str,
-        task_name: str,
-        device_hold_keys: set[tuple[str, str]],
-        resource_hold_keys: set[str],
-        has_pending_successors: bool,
-    ) -> None:
-        """Release locks for a completed task, holding where configured and successors exist."""
-        for key, entry in list(self._device_locks.items()):
-            if entry.protocol_run_name != protocol_run_name or entry.task_name != task_name:
-                continue
-            if key in device_hold_keys and has_pending_successors:
-                entry.held = True
-            else:
-                del self._device_locks[key]
-
-        for key, entry in list(self._resource_locks.items()):
-            if entry.protocol_run_name != protocol_run_name or entry.task_name != task_name:
-                continue
-            if key in resource_hold_keys and has_pending_successors:
-                entry.held = True
-            else:
-                del self._resource_locks[key]
+    def release_task(self, protocol_run_name: str, task_name: str, completed_tasks: set[str]) -> None:
+        """Release the locks of a completed task, holding those a pending hold user still needs."""
+        for locks in (self._device_locks, self._resource_locks):
+            for key, entry in list(locks.items()):
+                if entry.protocol_run_name != protocol_run_name or entry.task_name != task_name:
+                    continue
+                if entry.hold_for <= completed_tasks:
+                    del locks[key]
+                else:
+                    entry.held = True
 
     def release_all_for_protocol_run(self, protocol_run_name: str) -> None:
         """Release all locks for a protocol run (including held)."""
@@ -361,11 +392,13 @@ class SimGreedyScheduler:
         resources_by_type: dict[str, list[str]],
         lock_manager: LockManager,
         verbose: bool = False,
+        priorities: dict[tuple[str, str], float] | None = None,
     ) -> None:
         self._devices_by_type = devices_by_type
         self._resources_by_type = resources_by_type
         self._locks = lock_manager
         self._verbose = verbose
+        self.priorities = priorities
 
     def schedule(
         self,
@@ -374,6 +407,9 @@ class SimGreedyScheduler:
         current_time: int = 0,
     ) -> list[ScheduledSimTask]:
         """One scheduling cycle across all active protocols."""
+        if self.priorities is not None:
+            return self._schedule_by_priority(protocol_runs, running_tasks)
+
         scheduled: list[ScheduledSimTask] = []
 
         for exp in sorted(protocol_runs, key=lambda e: e.priority, reverse=True):
@@ -390,6 +426,19 @@ class SimGreedyScheduler:
 
         return scheduled
 
+    def _schedule_by_priority(
+        self, protocol_runs: list[ProtocolRunInstance], running_tasks: set[tuple[str, str]]
+    ) -> list[ScheduledSimTask]:
+        """Dispatch pending tasks across all runs in run priority, then planned priority order."""
+        candidates = [
+            (-exp.priority, self.priorities.get((exp.name, task_name), math.inf), exp, task_name)
+            for exp in protocol_runs
+            for task_name in exp.all_tasks - exp.completed_tasks
+            if (exp.name, task_name) not in running_tasks
+        ]
+        candidates.sort(key=lambda c: (c[0], c[1], c[2].name, c[3]))
+        return [s for _, _, exp, task_name in candidates if (s := self._try_schedule_task(exp, task_name))]
+
     def _try_schedule_task(self, exp: ProtocolRunInstance, task_name: str) -> ScheduledSimTask | None:
         task = exp.tasks[task_name]
         deps = exp.protocol_graph.get_task_dependencies(task_name)
@@ -399,31 +448,41 @@ class SimGreedyScheduler:
                 _echo(f"  [skip] {exp.name}.{task_name}: unmet deps {unmet}")
             return None
 
-        ancestors = exp.ancestors.get(task_name, set())
-
-        resolved_resources = self._resolve_resources(exp, task, ancestors)
+        resolved_resources = self._resolve_resources(exp, task)
         if resolved_resources is None:
             if self._verbose:
                 _echo(f"  [skip] {exp.name}.{task_name}: resources unavailable")
             return None
 
-        resolved_devices = self._resolve_devices(exp, task, ancestors)
+        resolved_devices = self._resolve_devices(exp, task)
         if resolved_devices is None:
             if self._verbose:
                 _echo(f"  [skip] {exp.name}.{task_name}: devices unavailable")
             return None
 
-        if not self._check_all_available(
-            exp.name, task_name, resolved_devices, resolved_resources, ancestors, exp.completed_tasks
-        ):
+        if not self._check_all_available(exp, task, resolved_devices, resolved_resources):
             if self._verbose:
                 _echo(f"  [skip] {exp.name}.{task_name}: lock conflict")
             return None
 
-        for dev in resolved_devices.values():
-            self._locks.lock_device(dev.lab_name, dev.name, exp.name, task_name)
-        for res_name in resolved_resources.values():
-            self._locks.lock_resource(res_name, exp.name, task_name)
+        device_keys = {slot: (dev.lab_name, dev.name) for slot, dev in resolved_devices.items()}
+        if self._locks.crosses_other_holds(
+            exp.name,
+            device_keys,
+            resolved_resources,
+            {slot: needs for (name, slot), needs in exp.device_hold_needs.items() if name == task_name},
+            {slot: needs for (name, slot), needs in exp.resource_hold_needs.items() if name == task_name},
+        ):
+            if self._verbose:
+                _echo(f"  [skip] {exp.name}.{task_name}: its hold could deadlock with another run's hold")
+            return None
+
+        for slot, dev in resolved_devices.items():
+            hold_for = exp.device_hold_users.get((task_name, slot), frozenset())
+            self._locks.lock_device(dev.lab_name, dev.name, exp.name, task_name, hold_for=hold_for)
+        for slot, res_name in resolved_resources.items():
+            hold_for = exp.resource_hold_users.get((task_name, slot), frozenset())
+            self._locks.lock_resource(res_name, exp.name, task_name, hold_for=hold_for)
 
         return ScheduledSimTask(
             protocol_run_name=exp.name,
@@ -433,7 +492,7 @@ class SimGreedyScheduler:
             resources=resolved_resources,
         )
 
-    def _resolve_resources(self, exp: ProtocolRunInstance, task: TaskDef, ancestors: set[str]) -> dict[str, str] | None:
+    def _resolve_resources(self, exp: ProtocolRunInstance, task: TaskDef) -> dict[str, str] | None:
         resolved: dict[str, str] = {}
         chosen: set[str] = set()
 
@@ -447,7 +506,7 @@ class SimGreedyScheduler:
                 resolved[slot] = concrete
                 chosen.add(concrete)
             elif isinstance(value, str):
-                if not self._locks.is_resource_available(value, exp.name, task.name, ancestors, exp.completed_tasks):
+                if not self._locks.is_resource_available(value, exp.name, task.name, exp.ancestors):
                     return None
                 if value in chosen:
                     continue
@@ -461,7 +520,7 @@ class SimGreedyScheduler:
                 for res_name in pool:
                     if res_name in chosen:
                         continue
-                    if self._locks.is_resource_available(res_name, exp.name, task.name, ancestors, exp.completed_tasks):
+                    if self._locks.is_resource_available(res_name, exp.name, task.name):
                         selected = res_name
                         break
                 if selected is None:
@@ -471,9 +530,7 @@ class SimGreedyScheduler:
 
         return resolved
 
-    def _resolve_devices(
-        self, exp: ProtocolRunInstance, task: TaskDef, ancestors: set[str]
-    ) -> dict[str, DeviceAssignmentDef] | None:
+    def _resolve_devices(self, exp: ProtocolRunInstance, task: TaskDef) -> dict[str, DeviceAssignmentDef] | None:
         assigned: dict[str, DeviceAssignmentDef] = {}
         chosen_pairs: set[tuple[str, str]] = set()
 
@@ -503,9 +560,7 @@ class SimGreedyScheduler:
             for lab_name, dev_name in pool:
                 if (lab_name, dev_name) in chosen_pairs:
                     continue
-                if self._locks.is_device_available(
-                    lab_name, dev_name, exp.name, task.name, ancestors, exp.completed_tasks
-                ):
+                if self._locks.is_device_available(lab_name, dev_name, exp.name, task.name):
                     selected = DeviceAssignmentDef(lab_name=lab_name, name=dev_name)
                     break
             if selected is None:
@@ -517,22 +572,20 @@ class SimGreedyScheduler:
 
     def _check_all_available(
         self,
-        protocol_run_name: str,
-        task_name: str,
+        exp: ProtocolRunInstance,
+        task: TaskDef,
         devices: dict[str, DeviceAssignmentDef],
         resources: dict[str, str],
-        ancestors: set[str],
-        completed_tasks: set[str] | None = None,
     ) -> bool:
-        for dev in devices.values():
-            if not self._locks.is_device_available(
-                dev.lab_name, dev.name, protocol_run_name, task_name, ancestors, completed_tasks
-            ):
+        """Slots that name a specific item may take over a held one, as in BaseScheduler._is_hold_transparent."""
+        for slot, dev in devices.items():
+            ancestors = exp.ancestors if isinstance(task.devices[slot], DeviceAssignmentDef) else None
+            if not self._locks.is_device_available(dev.lab_name, dev.name, exp.name, task.name, ancestors):
                 return False
-        for res_name in resources.values():
-            if not self._locks.is_resource_available(
-                res_name, protocol_run_name, task_name, ancestors, completed_tasks
-            ):
+        for slot, name in resources.items():
+            value = task.resources[slot]
+            ancestors = exp.ancestors if isinstance(value, str) and not is_resource_reference(value) else None
+            if not self._locks.is_resource_available(name, exp.name, task.name, ancestors):
                 return False
         return True
 
@@ -674,10 +727,14 @@ class Simulator:
         verbose: bool = False,
         jitter: float = 0.0,
         scheduler_type: str = "greedy",
+        lock_manager: LockManager | None = None,
+        running_tasks: list[RunningTask] | None = None,
+        priorities: dict[tuple[str, str], float] | None = None,
     ) -> None:
+        self._labs = labs
         self._instance_map: dict[str, ProtocolRunInstance] = {exp.name: exp for exp in all_instances}
         self._concurrency_limits = concurrency_limits or {}
-        self._lock_manager = LockManager()
+        self._lock_manager = lock_manager or LockManager()
 
         devices_by_type, resources_by_type = build_type_indices(labs)
         if scheduler_type == "cpsat":
@@ -687,12 +744,14 @@ class Simulator:
             )
         else:
             self._scheduler = SimGreedyScheduler(
-                devices_by_type, resources_by_type, self._lock_manager, verbose=verbose
+                devices_by_type, resources_by_type, self._lock_manager, verbose=verbose, priorities=priorities
             )
         self._use_holds = not isinstance(self._scheduler, SimCpSatScheduler)
+        self._replans = scheduler_type == "heuristic"
+        self._plan_pending = False
         self._jitter = jitter
-        self._running_tasks: list[RunningTask] = []
-        self._running_set: set[tuple[str, str]] = set()
+        self._running_tasks: list[RunningTask] = list(running_tasks or [])
+        self._running_set: set[tuple[str, str]] = {(rt.protocol_run_name, rt.task_name) for rt in self._running_tasks}
         self._timeline: list[TimelineEvent] = []
         self._current_time = 0
         self._verbose = verbose
@@ -720,6 +779,8 @@ class Simulator:
                 _echo(f"\n--- t={self._current_time}s ---")
 
             with Timer() as t:
+                if self._plan_pending:
+                    self._plan(incomplete)
                 scheduled = self._scheduler.schedule(incomplete, self._running_set, self._current_time)
             self._scheduler_time_ms += t.get_duration("ms")
             self._scheduler_calls += 1
@@ -762,11 +823,18 @@ class Simulator:
                     self._current_time = next_time
                 else:
                     self._deadlock_info = self._capture_deadlock_info()
-                    _echo_err("\nDEADLOCK: No running tasks but protocols are incomplete!")
-                    self._print_deadlock_info()
                     break
 
         return self._timeline
+
+    def _plan(self, protocol_runs: list[ProtocolRunInstance]) -> None:
+        """Replan dispatch priorities from the current simulation state."""
+        running = [replace(rt, start_time=0, end_time=rt.end_time - self._current_time) for rt in self._running_tasks]
+        plan = plan_priorities(self._labs, protocol_runs, running, self._lock_manager)
+        self._scheduler.priorities = plan.priorities
+        self._plan_pending = False
+        if self._verbose:
+            _echo(f"  [plan] makespan={plan.makespan}s after {plan.rollouts} rollouts")
 
     def _activate_protocol_runs(self) -> None:
         still_queued: list[ProtocolRunInstance] = []
@@ -787,6 +855,8 @@ class Simulator:
         self._queued = still_queued
         if activated and not self._use_holds:
             self._scheduler.mark_stale()
+        elif activated and self._replans:
+            self._plan_pending = True
 
     def _complete_tasks(self) -> None:
         completed = [rt for rt in self._running_tasks if rt.end_time <= self._current_time]
@@ -796,35 +866,19 @@ class Simulator:
             self._running_set.discard((rt.protocol_run_name, rt.task_name))
             exp = self._instance_map[rt.protocol_run_name]
 
-            if self._use_holds:
-                task = exp.tasks[rt.task_name]
-                device_hold_keys = {
-                    (rt.devices[slot].lab_name, rt.devices[slot].name)
-                    for slot in task.device_holds
-                    if task.device_holds[slot] and slot in rt.devices
-                }
-                resource_hold_keys = {
-                    rt.resources[slot]
-                    for slot in task.resource_holds
-                    if task.resource_holds[slot] and slot in rt.resources
-                }
-                graph = exp.protocol_graph.get_graph()
-                has_pending_successors = any(
-                    graph.nodes[s].get("node_type") == "task" and s not in exp.completed_tasks
-                    for s in graph.successors(rt.task_name)
-                )
-                self._lock_manager.release_task(
-                    rt.protocol_run_name, rt.task_name, device_hold_keys, resource_hold_keys, has_pending_successors
-                )
-                if self._verbose and (device_hold_keys or resource_hold_keys) and has_pending_successors:
-                    for dp in device_hold_keys:
-                        _echo(f"  [hold] {dp[0]}.{dp[1]} kept under {rt.protocol_run_name}.{rt.task_name}")
-                    for rn in resource_hold_keys:
-                        _echo(f"  [hold] resource {rn} kept under {rt.protocol_run_name}.{rt.task_name}")
-            else:
-                self._lock_manager.release_task(rt.protocol_run_name, rt.task_name, set(), set(), False)
-
             exp.completed_tasks.add(rt.task_name)
+            self._lock_manager.release_task(rt.protocol_run_name, rt.task_name, exp.completed_tasks)
+            if self._verbose:
+                for key, entry in [
+                    *self._lock_manager.device_locks.items(),
+                    *self._lock_manager.resource_locks.items(),
+                ]:
+                    if entry.held and (entry.protocol_run_name, entry.task_name) == (
+                        rt.protocol_run_name,
+                        rt.task_name,
+                    ):
+                        _echo(f"  [hold] {key} kept under {rt.protocol_run_name}.{rt.task_name}")
+
             if exp.completed_tasks == exp.all_tasks:
                 self._completed_protocol_runs.add(exp.name)
                 self._lock_manager.release_all_for_protocol_run(exp.name)
@@ -906,7 +960,7 @@ class Simulator:
             resource_locks=resource_locks,
         )
 
-    def _print_deadlock_info(self) -> None:
+    def print_deadlock_info(self) -> None:
         if self._queued:
             _echo_err(f"\n  {len(self._queued)} protocol run(s) still queued (awaiting concurrency slots)")
         for exp in self._active:
@@ -931,6 +985,156 @@ class Simulator:
             for res, entry in sorted(self._lock_manager.resource_locks.items()):
                 held_tag = " [HELD]" if entry.held else ""
                 _echo_err(f"    {res} -> {entry.protocol_run_name}.{entry.task_name}{held_tag}")
+
+
+PLAN_TIME_BUDGET_S = 1.0
+
+
+@dataclass
+class DispatchPlan:
+    """Dispatch priorities (lower first) found by rollout search, with the simulated makespan and schedule."""
+
+    priorities: dict[tuple[str, str], int]
+    makespan: float
+    rollouts: int
+    schedule: dict[tuple[str, str], PlannedTask] = field(default_factory=dict)
+
+
+def bottom_levels(protocol_graph: ProtocolGraph, tasks: dict[str, TaskDef]) -> dict[str, int]:
+    """Longest duration path from each task to the end of its protocol (critical path length)."""
+    graph = protocol_graph.get_task_graph()
+    levels: dict[str, int] = {}
+    for task_name in reversed(protocol_graph.get_topologically_sorted_tasks()):
+        successor_level = max((levels[s] for s in graph.successors(task_name)), default=0)
+        levels[task_name] = tasks[task_name].duration + successor_level
+    return levels
+
+
+def _dispatch_rules(
+    instances: list[ProtocolRunInstance], levels: dict[str, dict[str, int]]
+) -> list[dict[tuple[str, str], tuple]]:
+    """Classic job shop dispatch rules: topological (greedy), most work remaining, run-major MWKR, SPT."""
+    topo, mwkr, run_mwkr, spt = {}, {}, {}, {}
+    for i, exp in enumerate(instances):
+        for j, task_name in enumerate(exp.protocol_graph.get_topologically_sorted_tasks()):
+            key = (exp.name, task_name)
+            level = levels[exp.name][task_name]
+            topo[key] = (i, j)
+            mwkr[key] = (-level, i, j)
+            run_mwkr[key] = (i, -level, j)
+            spt[key] = (exp.tasks[task_name].duration, i, j)
+    return [topo, mwkr, run_mwkr, spt]
+
+
+def _to_ranks(keys: dict[tuple[str, str], object]) -> dict[tuple[str, str], int]:
+    return {key: rank for rank, key in enumerate(sorted(keys, key=keys.get))}
+
+
+def _lower_bound(
+    instances: list[ProtocolRunInstance], running: list[RunningTask], levels: dict[str, dict[str, int]]
+) -> int:
+    """Makespan lower bound from the remaining critical path of every run."""
+    running_ends = {(rt.protocol_run_name, rt.task_name): rt.end_time for rt in running}
+    bound = 0
+    for exp in instances:
+        graph = exp.protocol_graph.get_task_graph()
+        run_levels = levels[exp.name]
+        for task_name in exp.all_tasks - exp.completed_tasks:
+            end = running_ends.get((exp.name, task_name))
+            if end is None:
+                bound = max(bound, run_levels[task_name])
+            else:
+                bound = max(bound, end + max((run_levels[s] for s in graph.successors(task_name)), default=0))
+    return bound
+
+
+def _rollout(
+    labs: dict[str, LabDef],
+    instances: list[ProtocolRunInstance],
+    running: list[RunningTask],
+    lock_manager: LockManager,
+    priorities: dict[tuple[str, str], int],
+) -> tuple[float, dict[tuple[str, str], PlannedTask]]:
+    """Simulate the remaining work under the given priorities and return its makespan and schedule."""
+    copies = [
+        replace(
+            exp,
+            completed_tasks=set(exp.completed_tasks),
+            task_device_assignments=dict(exp.task_device_assignments),
+            task_resource_assignments=dict(exp.task_resource_assignments),
+        )
+        for exp in instances
+    ]
+    sim = Simulator(
+        labs, copies, lock_manager=copy.deepcopy(lock_manager), running_tasks=running, priorities=priorities
+    )
+    timeline = sim.run()
+    schedule = {
+        (e.protocol_run_name, e.task_name): PlannedTask(e.time, dict(e.devices), dict(e.resources))
+        for e in timeline
+        if e.event_type == "START"
+    }
+    if sim.deadlock_info:
+        return math.inf, schedule
+    return max((e.time for e in timeline if e.event_type == "DONE"), default=0), schedule
+
+
+def plan_priorities(
+    labs: dict[str, LabDef],
+    instances: list[ProtocolRunInstance],
+    running: list[RunningTask] | None = None,
+    lock_manager: LockManager | None = None,
+    time_budget_s: float = PLAN_TIME_BUDGET_S,
+    seed: int = 0,
+    stop: threading.Event | None = None,
+) -> DispatchPlan:
+    """
+    Find dispatch priorities for the remaining work with rollout-based list scheduling.
+
+    Each rollout simulates the hold-aware greedy dispatcher in a given priority order. Dispatch rules seed the
+    search, then random-key perturbation improves the best order until the time budget or the lower bound is hit,
+    or until stop is set. Running task end times are relative to now.
+    """
+    running = running or []
+    lock_manager = lock_manager or LockManager()
+    instances = [exp for exp in instances if exp.all_tasks - exp.completed_tasks]
+    if not instances:
+        return DispatchPlan(priorities={}, makespan=0, rollouts=0)
+
+    deadline = time.perf_counter() + time_budget_s
+    levels = {exp.name: bottom_levels(exp.protocol_graph, exp.tasks) for exp in instances}
+    lower_bound = _lower_bound(instances, running, levels)
+
+    best: dict[tuple[str, str], int] = {}
+    best_makespan = math.inf
+    best_schedule: dict[tuple[str, str], PlannedTask] = {}
+    rollouts = 0
+    stop = stop or threading.Event()
+    for rule in _dispatch_rules(instances, levels):
+        if best and (time.perf_counter() >= deadline or stop.is_set()):
+            break  # Keep at least one seed plan, but respect the budget on large instances
+        ranks = _to_ranks(rule)
+        makespan, schedule = _rollout(labs, instances, running, lock_manager, ranks)
+        rollouts += 1
+        if not best or makespan < best_makespan:
+            best, best_makespan, best_schedule = ranks, makespan, schedule
+
+    rng = random.Random(seed)  # noqa: S311
+    keys = sorted(best)
+    sample_size = max(1, len(keys) // 10)
+    sigma = len(keys) / 5
+    while best_makespan > lower_bound and time.perf_counter() < deadline and not stop.is_set():
+        candidate = {key: float(rank) for key, rank in best.items()}
+        for key in rng.sample(keys, sample_size):
+            candidate[key] += rng.gauss(0, sigma)
+        ranks = _to_ranks(candidate)
+        makespan, schedule = _rollout(labs, instances, running, lock_manager, ranks)
+        rollouts += 1
+        # Accept ties to drift across plateaus
+        if makespan <= best_makespan:
+            best, best_makespan, best_schedule = ranks, makespan, schedule
+
+    return DispatchPlan(priorities=best, makespan=best_makespan, rollouts=rollouts, schedule=best_schedule)
 
 
 def _echo(msg: str) -> None:
@@ -1119,8 +1323,8 @@ def run_simulation(
     seed: int | None = None,
     scheduler_type: str = "greedy",
     quiet: bool = False,
-) -> tuple[list[TimelineEvent], DeadlockInfo | None]:
-    """Run a complete scheduling simulation and print results."""
+) -> tuple[list[TimelineEvent], DeadlockInfo | None, float]:
+    """Run a complete scheduling simulation and print results. Returns (timeline, deadlock, scheduler time in ms)."""
     echo = _echo if not quiet else lambda *_a, **_k: None
 
     if seed is not None:
@@ -1168,13 +1372,16 @@ def run_simulation(
         scheduler_type=scheduler_type,
     )
     timeline = sim.run()
+    if sim.deadlock_info:
+        _echo_err("\nDEADLOCK: No running tasks but protocols are incomplete!")
+        sim.print_deadlock_info()
 
     if not quiet:
         print_timeline(timeline)
         print_stats(timeline)
         _print_scheduler_overhead(sim.scheduler_time_ms, sim.scheduler_calls)
 
-    return timeline, sim.deadlock_info
+    return timeline, sim.deadlock_info, sim.scheduler_time_ms
 
 
 def compute_sim_stats(

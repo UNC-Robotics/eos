@@ -37,6 +37,34 @@ class TestCampaignManager:
         assert persisted[OPTIMIZER_META_KEY] == optimizer_meta
         assert persisted["optimizer_overrides"] == {"ai_history_size": 7}
 
+    async def test_optimizer_journal_is_stored_as_rows(self, db, campaign_manager):
+        submission = create_campaign_submission("journal_rows")
+        await campaign_manager.create_campaign(db, submission)
+        await campaign_manager.save_optimizer_meta(db, submission.name, {"optimizer_config": {"type": "beacon"}})
+
+        await campaign_manager.save_optimizer_meta(db, submission.name, {"journal": ["a", "b"], "insights": ["i"]})
+        await campaign_manager.save_optimizer_meta(db, submission.name, {"journal": ["a", "b", "c"], "insights": []})
+        await db.flush()
+
+        assert await campaign_manager.get_journal(db, submission.name) == ["a", "b", "c"]
+        persisted = await campaign_manager.get_campaign_meta(db, submission.name)
+        assert persisted[OPTIMIZER_META_KEY] == {"optimizer_config": {"type": "beacon"}, "insights": []}
+
+        await campaign_manager.delete_campaign(db, submission.name)
+        assert await campaign_manager.get_journal(db, submission.name) == []
+
+    async def test_progress_reads_only_the_completed_count(self, db, db_interface, campaign_manager):
+        submission = create_campaign_submission("completed_count")
+        await campaign_manager.create_campaign(db, submission)
+        await campaign_manager.increment_iteration(db, submission.name)
+        await db.flush()
+
+        with count_statements(db_interface) as statements:
+            assert await campaign_manager.get_protocol_runs_completed(db, submission.name) == 1
+        assert len(statements) == 1
+        assert "meta" not in statements[0]
+        assert await campaign_manager.get_protocol_runs_completed(db, "missing") is None
+
     @pytest.mark.asyncio
     async def test_create_campaign(self, db, campaign_manager):
         await campaign_manager.create_campaign(db, create_campaign_submission("test_campaign"))

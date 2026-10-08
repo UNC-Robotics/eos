@@ -1,19 +1,8 @@
-from typing import Any
-
-from eos.devices.base_device import BaseDevice
+from eos import Device
 
 
-class Multiplier(BaseDevice):
-    """Multiplies two numbers."""
-
-    async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-        pass
-
-    async def _cleanup(self) -> None:
-        pass
-
-    async def _report(self) -> dict[str, Any]:
-        pass
+class Multiplier(Device, type="multiplier"):
+    """A device for multiplying two numbers."""
 
     def multiply(self, a: int, b: int) -> int:
         return a * b

@@ -1,13 +1,13 @@
-from eos.tasks.base_task import BaseTask
+from pydantic import BaseModel
+
+from eos import File, Param, task
 
 
-class FileConsumer(BaseTask):
-    async def _execute(
-        self,
-        devices: BaseTask.DevicesType,
-        parameters: BaseTask.ParametersType,
-        resources: BaseTask.ResourcesType,
-        files: BaseTask.InputFilesType,
-    ) -> BaseTask.OutputType | None:
-        data = await files["input"].read()
-        return {"length": len(data)}, None, None
+class FileConsumerOutputs(BaseModel):
+    length: int = Param(desc="Number of bytes read from the input file.")
+
+
+@task("File Consumer")
+async def file_consumer(input: File = Param(desc="The file to read.")) -> FileConsumerOutputs:  # noqa: A002
+    """Reads an input file and reports its length."""
+    return FileConsumerOutputs(length=len(await input.read()))

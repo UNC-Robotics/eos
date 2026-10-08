@@ -1,0 +1,314 @@
+type: branched_characterization
+desc: >
+  Synthesis followed by 3-branch parallel characterization. Linear setup feeds a
+  workup that extracts two analytical aliquots from one reaction vial, then three
+  analyses run concurrently on the vial + two cuvettes: an HPLC purity method, a
+  quick single-wavelength UV-Vis scan, and a deep multi-wavelength UV-Vis scan on
+  a second spectrometer. The three branches converge to a single robot-arm
+  return-and-clean. Realistic multi-method QC of one synthesized batch and a clean
+  test of how each scheduler packs three concurrent analytical paths sharing the
+  robot arm and dispenser.
+
+labs:
+  - synthesis_lab
+
+tasks:
+  # ---------- Linear setup ----------
+  - name: T01_fetch_vial
+    type: Fetch Reaction Vial
+    duration: 10
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+    resources:
+      vial:
+        allocation_type: dynamic
+        resource_type: reaction_vial
+        hold: true
+
+  - name: T02_weigh_solid
+    type: Weigh Solid Reagent
+    duration: 60
+    dependencies:
+      - T01_fetch_vial
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      balance:
+        allocation_type: dynamic
+        device_type: balance
+    resources:
+      vial:
+        ref: T01_fetch_vial.vial
+        hold: true
+
+  - name: T03_prepare_solvent
+    type: Prepare Solvent Blend
+    duration: 60
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      cartridge:
+        allocation_type: dynamic
+        resource_type: solvent_cartridge
+        hold: true
+
+  - name: T04_transfer_to_prep
+    type: Transfer To Prep Station
+    duration: 10
+    dependencies:
+      - T02_weigh_solid
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      prep_station:
+        allocation_type: dynamic
+        device_type: prep_station
+        hold: true
+    resources:
+      vial:
+        ref: T02_weigh_solid.vial
+        hold: true
+
+  - name: T05_add_solvent
+    type: Add Solvent
+    duration: 30
+    dependencies:
+      - T04_transfer_to_prep
+      - T03_prepare_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station:
+        ref: T04_transfer_to_prep.prep_station
+        hold: true
+    resources:
+      vial:
+        ref: T04_transfer_to_prep.vial
+        hold: true
+      cartridge: T03_prepare_solvent.cartridge
+
+  - name: T06_add_reagent
+    type: Add Reagent
+    duration: 25
+    dependencies:
+      - T05_add_solvent
+    devices:
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+      prep_station: T05_add_solvent.prep_station
+    resources:
+      vial:
+        ref: T05_add_solvent.vial
+        hold: true
+
+  - name: T07_transfer_to_reactor
+    type: Transfer To Reactor
+    duration: 15
+    dependencies:
+      - T06_add_reagent
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      reactor:
+        allocation_type: dynamic
+        device_type: reactor
+        hold: true
+    resources:
+      vial:
+        ref: T06_add_reagent.vial
+        hold: true
+
+  - name: T08_heat_and_stir
+    type: Heat And Stir
+    duration: 240
+    dependencies:
+      - T07_transfer_to_reactor
+    devices:
+      reactor:
+        ref: T07_transfer_to_reactor.reactor
+        hold: true
+    resources:
+      vial:
+        ref: T07_transfer_to_reactor.vial
+        hold: true
+
+  - name: T09_long_react
+    type: Long Reaction
+    duration: 1800
+    dependencies:
+      - T08_heat_and_stir
+    devices:
+      reactor: T08_heat_and_stir.reactor
+    resources:
+      vial:
+        ref: T08_heat_and_stir.vial
+        hold: true
+
+  # ---------- Dual aliquot extraction ----------
+  - name: T10_filter_split_a
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - T09_long_react
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: T09_long_react.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  - name: T11_filter_split_b
+    type: Filter And Split Aliquot
+    duration: 180
+    dependencies:
+      - T10_filter_split_a
+    devices:
+      workup_station:
+        allocation_type: dynamic
+        device_type: workup_station
+      dispenser:
+        allocation_type: dynamic
+        device_type: dispenser
+    resources:
+      vial:
+        ref: T10_filter_split_a.vial
+        hold: true
+      filter:
+        allocation_type: dynamic
+        resource_type: filter_cartridge
+      cuvette:
+        allocation_type: dynamic
+        resource_type: analysis_cuvette
+        hold: true
+
+  # ---------- Branch A: HPLC purity method ----------
+  - name: T12a_transfer_hplc
+    type: Transfer To HPLC
+    duration: 20
+    dependencies:
+      - T11_filter_split_b
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      hplc:
+        allocation_type: dynamic
+        device_type: hplc
+        hold: true
+    resources:
+      vial: T11_filter_split_b.vial
+
+  - name: T13a_hplc_analysis
+    type: HPLC Analysis
+    duration: 1200
+    dependencies:
+      - T12a_transfer_hplc
+    devices:
+      hplc: T12a_transfer_hplc.hplc
+
+  # ---------- Branch B: Quick UV-Vis ----------
+  - name: T12b_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - T11_filter_split_b
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: T10_filter_split_a.cuvette
+        hold: true
+
+  - name: T13b_uv_vis_quick
+    type: UV-Vis Scan
+    duration: 90
+    dependencies:
+      - T12b_transfer_uv_vis
+    devices:
+      uv_vis: T12b_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: T12b_transfer_uv_vis.cuvette
+
+  - name: T14b_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - T13b_uv_vis_quick
+
+  # ---------- Branch C: Deep multi-wavelength UV-Vis ----------
+  - name: T12c_transfer_uv_vis
+    type: Transfer To UV-Vis
+    duration: 15
+    dependencies:
+      - T11_filter_split_b
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      uv_vis:
+        allocation_type: dynamic
+        device_type: uv_vis
+        hold: true
+    resources:
+      cuvette:
+        ref: T11_filter_split_b.cuvette
+        hold: true
+
+  - name: T13c_uv_vis_deep
+    type: UV-Vis Scan
+    duration: 300
+    dependencies:
+      - T12c_transfer_uv_vis
+    devices:
+      uv_vis: T12c_transfer_uv_vis.uv_vis
+    resources:
+      cuvette: T12c_transfer_uv_vis.cuvette
+
+  - name: T14c_log
+    type: Log UV-Vis Data
+    duration: 1
+    dependencies:
+      - T13c_uv_vis_deep
+
+  # ---------- Convergence ----------
+  - name: T15_return_and_clean
+    type: Return And Clean
+    duration: 60
+    dependencies:
+      - T13a_hplc_analysis
+      - T14b_log
+      - T14c_log
+    devices:
+      robot_arm:
+        lab_name: synthesis_lab
+        name: robot_arm
+      wash_station:
+        allocation_type: dynamic
+        device_type: wash_station

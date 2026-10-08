@@ -1,12 +1,8 @@
-from eos.tasks.base_task import BaseTask
+from eos import task
+
+from testing.resources import Beaker500
 
 
-class ContainerUsage(BaseTask):
-    async def _execute(
-        self,
-        devices: BaseTask.DevicesType,
-        parameters: BaseTask.ParametersType,
-        resources: BaseTask.ResourcesType,
-    ) -> BaseTask.OutputType | None:
-        # For testing purposes, return empty outputs
-        return {}, {}, {}
+@task("Container Usage")
+async def container_usage(sample: Beaker500) -> None:
+    """Task that requires a single container input for testing."""

@@ -1,6 +1,6 @@
 [project]
 name = "eos"
-version = "0.30.0"
+version = "0.31.0"
 description = "EOS is a comprehensive software framework and runtime for laboratory automation."
 keywords = ["automation", "science", "lab", "experiment", "protocol", "orchestration", "distributed", "infrastructure"]
 authors = [
@@ -19,53 +19,53 @@ classifiers = [
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "ray[default]>=2.53.0",
-    "typer>=0.21.1",
-    "rich>=14.2.0",
+    "ray[default]>=2.59.0",
+    "typer>=0.27.3",
+    "rich>=15.0.0",
     "PyYAML>=6.0.3",
     "jinja2>=3.1.6",
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.12.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
     "networkx>=3.6.1",
-    "sqlalchemy>=2.0.45",
-    "alembic>=1.18.0",
-    "psycopg[binary]>=3.3.2",
-    "asyncpg>=0.31.0",
-    "boto3>=1.42.40",
-    "bofire[optimization]>=0.3.1",
-    "pandas>=2.3.3",
+    "sqlalchemy[asyncio]>=2.1.4",
+    "alembic>=1.20.0",
+    "psycopg[binary]>=3.3.6",
+    "asyncpg>=0.32.0",
+    "boto3>=1.43.109",
+    "bofire[optimization]>=0.5.0",
+    "pandas>=3.0.6",
     "ortools<=9.12",
-    "litestar[standard]>=2.19.0",
-    "pydantic-ai>=1.57.0",
-    "pyjwt[crypto]>=2.10",
-    "httpx>=0.28",
+    "litestar[standard]>=2.24.0",
+    "pydantic-ai>=2.54.0",
+    "pyjwt[crypto]>=2.15.1",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
 worker = [
-    "ray[default]>=2.53.0",
-    "typer>=0.21.1",
-    "rich>=14.2.0",
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.12.0",
-    "sqlalchemy>=2.0.45",
-    "alembic>=1.18.0",
+    "ray[default]>=2.59.0",
+    "typer>=0.27.3",
+    "rich>=15.0.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "sqlalchemy[asyncio]>=2.1.4",
+    "alembic>=1.20.0",
 ]
 optimizer_worker = [
     { include-group = "worker" },
-    "bofire[optimization]>=0.3.1",
-    "pandas>=2.3.3",
-    "pydantic-ai>=1.57.0",
+    "bofire[optimization]>=0.5.0",
+    "pandas>=3.0.6",
+    "pydantic-ai>=2.54.0",
 ]
 
 claude_agent_sdk = [
-    "claude-agent-sdk>=0.1.48",
+    "claude-agent-sdk>=0.2.164",
 ]
 
 sila2 = [
-    "sila2>=0.7",
-    "protobuf>=6.32",
-    "grpcio-tools>=1.75",
+    "sila2>=0.14",
+    "protobuf>=7.36",
+    "grpcio-tools>=1.84",
     "black",
     "isort",
 ]
@@ -101,18 +101,19 @@ packages = ["eos"]
 eos = "eos.eos:eos_app"
 
 eos_test = "scripts.dev.test:main"
+eos_bench_schedulers = "scripts.dev.bench_schedulers:main"
 eos_lint = "scripts.dev.lint:main"
 eos_format = "scripts.dev.format:main"
 eos_docs_build = "scripts.dev.docs_build:main"
 eos_docs_build_gh = "scripts.dev.docs_build_gh:main"
 eos_docs_serve = "scripts.dev.docs_serve:main"
-eos_generate_llms_txt = "scripts.dev.generate_llms_txt:main"
 
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
 ]
 asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"  # One loop, since tests share async DB connections
 markers = [
     "slow: mark tests as slow (deselect with '-m \"not slow\"')",
 ]
@@ -170,7 +171,7 @@ lint.select = [
     "W", # pycodestyle - warning
     "YTT", # flake8-2020
 ]
-lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR0913", "PLR0915", "N805", "A005", "S603"]
+lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR0913", "PLR0915", "PLR0917", "N805", "A005", "S603"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.*" = [
@@ -197,7 +198,8 @@ lint.ignore = ["I001", "ANN001", "ANN002", "ANN003", "ANN204", "ANN401", "PLR091
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = [
-    "typer.Argument"
+    "typer.Argument",
+    "eos.Param",
 ]
 
 [tool.coverage.run]

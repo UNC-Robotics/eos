@@ -1,11 +1,6 @@
-from eos.tasks.base_task import BaseTask
+from eos import task
 
 
-class Noop(BaseTask):
-    async def _execute(
-        self,
-        devices: BaseTask.DevicesType,
-        parameters: BaseTask.ParametersType,
-        resources: BaseTask.ResourcesType,
-    ) -> BaseTask.OutputType | None:
-        pass
+@task("Noop")
+async def noop() -> None:
+    """This task does nothing."""

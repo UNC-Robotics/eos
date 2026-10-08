@@ -64,12 +64,14 @@ class ProtocolService:
             try:
                 await protocol_executor.start_protocol_run(db)
                 await db.commit()
-                self._submitted_protocol_runs[protocol_run_name] = protocol_executor
-                self._work_signal.signal()
-            except EosProtocolRunExecutionError:
+            except Exception as e:
+                await protocol_executor.abandon(db)
                 log.error(f"Failed to submit protocol run '{protocol_run_name}': {traceback.format_exc()}")
-                self._submitted_protocol_runs.pop(protocol_run_name, None)
-                raise
+                if isinstance(e, EosProtocolRunExecutionError):
+                    raise
+                raise EosProtocolRunExecutionError(f"Failed to submit protocol run '{protocol_run_name}'") from e
+            self._submitted_protocol_runs[protocol_run_name] = protocol_executor
+            self._work_signal.signal()
 
     async def cancel_protocol_run(self, protocol_run_name: str) -> None:
         """
@@ -151,16 +153,20 @@ class ProtocolService:
 
         log.warning(f"Attempting to cancel protocols: {protocol_run_names}")
 
-        async def cancel(run_name: str) -> None:
-            await self._submitted_protocol_runs[run_name].cancel_protocol_run()
+        # Duplicate requests, and runs that finished meanwhile, have nothing left to cancel
+        executors = {
+            run_name: executor
+            for run_name in dict.fromkeys(protocol_run_names)
+            if (executor := self._submitted_protocol_runs.get(run_name)) is not None
+        }
+        results = await asyncio.gather(
+            *(executor.cancel_protocol_run() for executor in executors.values()), return_exceptions=True
+        )
 
-        cancellation_tasks = [cancel(run_name) for run_name in protocol_run_names]
-        results = await asyncio.gather(*cancellation_tasks, return_exceptions=True)
-
-        for run_name, result in zip(protocol_run_names, results, strict=True):
+        for run_name, result in zip(executors, results, strict=True):
             if isinstance(result, Exception):
                 log.error(f"Error cancelling protocol run '{run_name}': {result}")
-            del self._submitted_protocol_runs[run_name]
+            self._submitted_protocol_runs.pop(run_name, None)
 
         log.warning(f"Cancelled protocols: {protocol_run_names}")
 

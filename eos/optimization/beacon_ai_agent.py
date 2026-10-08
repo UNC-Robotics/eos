@@ -19,13 +19,13 @@ from pydantic_ai.settings import ModelSettings
 from tenacity import before_sleep_log, retry, retry_if_not_exception_type, stop_after_attempt, wait_exponential
 
 from eos.logging.logger import log
+from eos.optimization.beacon_optimizer import FLOAT_PRECISION, round_floats
 
 from bofire.data_models.domain.domain import Domain
 
 if TYPE_CHECKING:
     from pydantic_ai.result import AgentRunResult
 
-FLOAT_PRECISION = 5
 # History is only read for trends, so it renders coarser than the values Beacon returns.
 _HISTORY_FLOAT_PRECISION = 4
 _DISCRETE_INLINE_LIMIT = 20
@@ -52,17 +52,6 @@ class BeaconDeps:
     best_results: list[dict[str, Any]]
     insights: list[str]
     total_runs: int = 0
-
-
-def round_floats(value: Any) -> Any:
-    """Round any float to FLOAT_PRECISION decimal places, recursing into dicts and lists."""
-    if isinstance(value, float):
-        return round(value, FLOAT_PRECISION)
-    if isinstance(value, dict):
-        return {k: round_floats(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [round_floats(v) for v in value]
-    return value
 
 
 def _build_input_section(domain: Domain) -> str:
@@ -160,10 +149,12 @@ def _build_history_section(history: list[dict[str, Any]], columns: list[str]) ->
 def build_system_prompt(domain: Domain) -> str:
     """Translate a BoFire domain into natural-language instructions for the AI."""
     sections: list[str] = [
-        "You are an expert experiment designer working in a sequential optimization loop. "
-        "Each experiment is costly and time-consuming — your goal is to find optimal solutions "
-        "in as few protocols as possible. You must return structured output matching the "
-        "required schema exactly.",
+        (
+            "You are an expert experiment designer working in a sequential optimization loop. "
+            "Each experiment is costly and time-consuming — your goal is to find optimal solutions "
+            "in as few protocols as possible. You must return structured output matching the "
+            "required schema exactly."
+        ),
         _build_input_section(domain),
         _build_objective_section(domain),
     ]

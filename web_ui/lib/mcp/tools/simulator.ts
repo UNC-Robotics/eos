@@ -134,7 +134,7 @@ function formatDeadlock(deadlock: DeadlockInfo, scheduler: string): string {
 
   lines.push('');
   lines.push(
-    'Suggestion: try scheduler=cpsat, lower max_concurrent, or remove unnecessary hold:true flags on resources/devices that no successor task reuses.'
+    'Suggestion: try scheduler=heuristic or cpsat, lower max_concurrent, or remove unnecessary hold:true flags.'
   );
 
   return lines.join('\n');
@@ -164,10 +164,10 @@ export function registerSimulatorTools(server: McpServer) {
           .optional()
           .describe('Packages to load. Omit to use all currently active packages.'),
         scheduler: z
-          .enum(['greedy', 'cpsat'])
+          .enum(['greedy', 'heuristic', 'cpsat'])
           .default('greedy')
           .describe(
-            'greedy is the production default; cpsat is a planning scheduler that avoids deadlocks but is slower'
+            'greedy is the production default; heuristic plans dispatch order in about a second and usually shortens makespan; cpsat is an optimizing planner that avoids deadlocks but is much slower'
           ),
         jitter: z.number().min(0).max(1).default(0).describe('Duration jitter fraction (0.1 = ±10%)'),
         seed: z.number().int().optional().describe('Random seed for reproducibility'),

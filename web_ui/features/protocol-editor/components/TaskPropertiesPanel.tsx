@@ -471,7 +471,7 @@ export function TaskPropertiesPanel({
               (() => {
                 const structure = iterateInputParameters(taskSpec.input_parameters);
                 const renderParam = (name: string, spec: ParameterSpec) => {
-                  // User override falls back to task.yml default; serializer strips equal-to-default values
+                  // User override falls back to the task spec default; serializer strips equal-to-default values
                   const effectiveValue = taskNode.parameters?.[name] ?? spec.value;
                   const field =
                     spec.type === 'bool' ? (

@@ -1,11 +1,8 @@
-from eos.tasks.base_task import BaseTask
+from eos import task
+
+from testing.resources import Vial
 
 
-class ContainerVialUsage(BaseTask):
-    async def _execute(
-        self,
-        devices: BaseTask.DevicesType,
-        parameters: BaseTask.ParametersType,
-        resources: BaseTask.ResourcesType,
-    ) -> BaseTask.OutputType | None:
-        return {}, {}, {}
+@task("Container Vial Usage")
+async def container_vial_usage(sample: Vial) -> None:
+    """Task that requires a vial container input for testing."""

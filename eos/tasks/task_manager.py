@@ -8,7 +8,7 @@ from eos.configuration.configuration_manager import ConfigurationManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.database.file_db_interface import FileDbInterface
-from eos.tasks.base_task import build_task_output_file_path
+from eos.tasks.task_definition import build_task_output_file_path
 from eos.tasks.entities.task import Task, TaskStatus, TaskSubmission, TaskModel
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from eos.utils.di.di_container import inject
@@ -96,11 +96,6 @@ class TaskManager:
         db.add(task_model)
         await db.flush()
 
-    async def _validate_task_exists(self, db: AsyncDbSession, protocol_run_name: str, task_name: str) -> None:
-        """Check if a task exists."""
-        if not await self._check_task_exists(db, protocol_run_name, task_name):
-            raise EosTaskStateError(f"Task '{task_name}' in protocol run '{protocol_run_name}' does not exist.")
-
     async def delete_task(self, db: AsyncDbSession, protocol_run_name: str, task_name: str) -> None:
         """Delete a protocol run task instance."""
         await db.execute(
@@ -110,24 +105,20 @@ class TaskManager:
 
     async def start_task(self, db: AsyncDbSession, protocol_run_name: str | None, task_name: str) -> None:
         """Update task status to running."""
-        await self._validate_task_exists(db, protocol_run_name, task_name)
         await self._set_task_status(db, protocol_run_name, task_name, TaskStatus.RUNNING)
 
     async def complete_task(self, db: AsyncDbSession, protocol_run_name: str | None, task_name: str) -> None:
         """Update task status to completed."""
-        await self._validate_task_exists(db, protocol_run_name, task_name)
         await self._set_task_status(db, protocol_run_name, task_name, TaskStatus.COMPLETED)
 
     async def fail_task(
         self, db: AsyncDbSession, protocol_run_name: str | None, task_name: str, error_message: str | None = None
     ) -> None:
         """Update task status to failed."""
-        await self._validate_task_exists(db, protocol_run_name, task_name)
         await self._set_task_status(db, protocol_run_name, task_name, TaskStatus.FAILED, error_message=error_message)
 
     async def cancel_task(self, db: AsyncDbSession, protocol_run_name: str | None, task_name: str) -> None:
         """Update task status to cancelled."""
-        await self._validate_task_exists(db, protocol_run_name, task_name)
         await self._set_task_status(db, protocol_run_name, task_name, TaskStatus.CANCELLED)
         log.warning(f"RUN '{protocol_run_name}' - Cancelled task '{task_name}'.")
 
@@ -229,7 +220,7 @@ class TaskManager:
         new_status: TaskStatus,
         error_message: str | None = None,
     ) -> None:
-        """Update the status of a task."""
+        """Update the status of a task, raising if it does not exist."""
         update_fields: dict = {"status": new_status}
         now = datetime.now(UTC)
 
@@ -243,11 +234,13 @@ class TaskManager:
         if error_message is not None:
             update_fields["error_message"] = error_message
 
-        await db.execute(
+        result = await db.execute(
             update(TaskModel)
             .where(TaskModel.protocol_run_name == protocol_run_name, TaskModel.name == task_name)
             .values(**update_fields)
         )
+        if result.rowcount == 0:
+            raise EosTaskStateError(f"Task '{task_name}' in protocol run '{protocol_run_name}' does not exist.")
 
     async def fail_tasks_batch(
         self, db: AsyncDbSession, task_keys: list[tuple[str, str]], error_message: str | None = None

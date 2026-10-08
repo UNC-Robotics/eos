@@ -5,7 +5,7 @@ import Editor, { type BeforeMount } from '@monaco-editor/react';
 import { Save, CheckCircle, AlertCircle, AlertTriangle, Code, Eye, RefreshCw, Download, Upload } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEditorStore } from '@/lib/stores/editorStore';
-import { validateYaml, entityHasPythonFile } from '@/lib/utils/editor-utils';
+import { validateYaml, entityHasPythonFile, entityHasYamlFile } from '@/lib/utils/editor-utils';
 import { loadEntity, unloadEntity, reloadEntity } from '@/features/editor/api/reload';
 import { useOrchestratorConnected } from '@/contexts/OrchestratorStatusContext';
 import { getLoadedStatus } from '@/features/editor/api/loaded-status';
@@ -50,6 +50,7 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
   const [isLoaded, setIsLoaded] = useState(false);
 
   const hasPythonFile = selectedEntityType && entityHasPythonFile(selectedEntityType);
+  const hasYamlFile = selectedEntityType && entityHasYamlFile(selectedEntityType);
 
   // Check if this entity type supports load/unload
   const supportsLoadUnload =
@@ -76,12 +77,14 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
     checkLoadedStatus();
   }, [selectedEntityName, selectedEntityType, supportsLoadUnload]);
 
-  // Reset to YAML tab when switching to an entity without Python file
+  // Switch tabs when the selected entity type lacks the active file
   useEffect(() => {
     if (!hasPythonFile && activeTab === 'python') {
       setActiveTab('yaml');
+    } else if (!hasYamlFile && activeTab === 'yaml') {
+      setActiveTab('python');
     }
-  }, [hasPythonFile, activeTab]);
+  }, [hasPythonFile, hasYamlFile, activeTab]);
 
   // Validate YAML when content changes
   useEffect(() => {
@@ -338,16 +341,18 @@ export function CodeEditorPanel({ onSave, onReload, onToggleMode, canUseVisualMo
       {/* Tab Bar */}
       {fileNames && (
         <div className="flex items-center gap-1 px-4 py-1 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <button
-            onClick={() => setActiveTab('yaml')}
-            className={`px-3 py-1 text-sm rounded ${
-              activeTab === 'yaml'
-                ? 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700'
-                : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            {fileNames.yaml}
-          </button>
+          {hasYamlFile && (
+            <button
+              onClick={() => setActiveTab('yaml')}
+              className={`px-3 py-1 text-sm rounded ${
+                activeTab === 'yaml'
+                  ? 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {fileNames.yaml}
+            </button>
+          )}
 
           {hasPythonFile && (
             <button

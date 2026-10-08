@@ -35,14 +35,21 @@ interface CampaignExecutionViewProps {
   campaign: Campaign;
   initialSamples: CampaignSample[];
   initialProtocolRuns: ProtocolRun[];
+  initialJournal: string[];
 }
 
-export function CampaignExecutionView({ campaign, initialSamples, initialProtocolRuns }: CampaignExecutionViewProps) {
+export function CampaignExecutionView({
+  campaign,
+  initialSamples,
+  initialProtocolRuns,
+  initialJournal,
+}: CampaignExecutionViewProps) {
   const router = useRouter();
   const { isConnected } = useOrchestratorConnected();
   const [currentCampaign, setCurrentCampaign] = React.useState<Campaign>(campaign);
   const [samples, setSamples] = React.useState<CampaignSample[]>(initialSamples);
   const [protocolRuns, setProtocolRuns] = React.useState<ProtocolRun[]>(initialProtocolRuns);
+  const [journal, setJournal] = React.useState<string[]>(initialJournal);
   const [pollingInterval, setPollingInterval] = React.useState(campaign.status === 'RUNNING' ? 5000 : 0);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [isCancelling, setIsCancelling] = React.useState(false);
@@ -55,12 +62,14 @@ export function CampaignExecutionView({ campaign, initialSamples, initialProtoco
         campaign: freshCampaign,
         samples: freshSamples,
         protocolRuns: freshProtocolRuns,
+        journal: freshJournal,
       } = await getCampaignWithDetails(campaign.name);
 
       if (freshCampaign) {
         setCurrentCampaign(freshCampaign);
         setSamples(freshSamples);
         setProtocolRuns(freshProtocolRuns);
+        setJournal(freshJournal);
 
         if (freshCampaign.status !== 'RUNNING' && pollingInterval !== 0) {
           setPollingInterval(0);
@@ -119,8 +128,8 @@ export function CampaignExecutionView({ campaign, initialSamples, initialProtoco
 
   // Build optimizer info from persisted campaign meta (avoids hitting the Ray actor)
   const resolvedOptimizerInfo = React.useMemo(() => {
-    return extractOptimizerInfo(currentCampaign.meta);
-  }, [currentCampaign.meta]);
+    return extractOptimizerInfo(currentCampaign.meta, journal);
+  }, [currentCampaign.meta, journal]);
 
   const isBeacon = resolvedOptimizerInfo?.is_beacon ?? false;
 
@@ -140,7 +149,7 @@ export function CampaignExecutionView({ campaign, initialSamples, initialProtoco
                 <Badge variant={getStatusBadgeVariant(currentCampaign.status)}>{currentCampaign.status}</Badge>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {currentCampaign.protocol} • {currentCampaign.owner}
+                {currentCampaign.protocol} • {currentCampaign.owner_username ?? currentCampaign.owner}
               </p>
             </div>
           </div>

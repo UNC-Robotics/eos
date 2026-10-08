@@ -63,7 +63,10 @@ export function registerFilesystemTools(server: McpServer) {
         const sections = types.map((type) => {
           const entities = flattenLeaves(tree[type]);
           if (entities.length === 0) return `${type}: (none)`;
-          return `${type}:\n${entities.map((e) => `  • ${e.path} (yaml: ${e.hasYaml ? 'yes' : 'no'}, python: ${e.hasPython ? 'yes' : 'no'})`).join('\n')}`;
+          const { yaml, python } = ENTITY_FILE_NAMES[type];
+          const files = (e: (typeof entities)[number]) =>
+            [e.hasYaml && yaml, e.hasPython && python].filter(Boolean).join(', ');
+          return `${type}:\n${entities.map((e) => `  • ${e.path} (${files(e)})`).join('\n')}`;
         });
 
         return textResult(`Package "${package_name}":\n\n${sections.join('\n\n')}`);
@@ -78,7 +81,7 @@ export function registerFilesystemTools(server: McpServer) {
     {
       title: 'Read Entity File',
       description:
-        'Read the YAML and/or Python file for an entity (task, device, lab, or protocol). For protocols, also returns layout.json if present.',
+        'Read the files of an entity. Tasks and devices are a Python file, labs a YAML file, and protocols a YAML file plus an optional optimizer.py and layout.json.',
       inputSchema: {
         package_name: z.string().describe('Package name (e.g. "eos_examples/color_lab")'),
         entity_type: z.enum(['devices', 'tasks', 'labs', 'protocols']).describe('Entity type'),
@@ -98,7 +101,7 @@ export function registerFilesystemTools(server: McpServer) {
         const fileNames = ENTITY_FILE_NAMES[entity_type as EntityType];
         const parts: string[] = [];
 
-        if (file === 'yaml' || file === 'all') {
+        if ((file === 'yaml' || file === 'all') && fileNames.yaml) {
           parts.push(`--- ${fileNames.yaml} ---\n${files.yaml || '(empty or not found)'}`);
         }
         if ((file === 'python' || file === 'all') && fileNames.python) {

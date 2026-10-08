@@ -2,7 +2,7 @@ import asyncio
 
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
 from eos.protocols.protocol_executor import ProtocolExecutor
-from eos.tasks.base_task import build_task_output_file_path
+from eos.tasks.task_definition import build_task_output_file_path
 from tests.fixtures import *
 
 LAB_NAME = "small_lab"

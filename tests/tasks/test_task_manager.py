@@ -1,5 +1,5 @@
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
-from eos.tasks.base_task import build_task_output_file_path
+from eos.tasks.task_definition import build_task_output_file_path
 from eos.tasks.entities.task import TaskStatus, TaskSubmission
 from eos.tasks.exceptions import EosTaskStateError, EosTaskExistsError
 from tests.fixtures import *
@@ -89,6 +89,25 @@ class TestTaskManager:
         await task_manager.complete_task(db, PROTOCOL, "mixing")
         task = await task_manager.get_task(db, PROTOCOL, "mixing")
         assert task.status == TaskStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_status_transition_is_a_single_statement(self, db, db_interface, task_manager, protocol_run_manager):
+        await task_manager.create_task(
+            db, TaskSubmission(name="mixing", type="Magnetic Mixing", protocol_run_name=PROTOCOL)
+        )
+        await db.flush()
+        for transition in (task_manager.start_task, task_manager.complete_task):
+            with count_statements(db_interface) as statements:
+                await transition(db, PROTOCOL, "mixing")
+            assert len(statements) == 1
+
+    @pytest.mark.asyncio
+    async def test_on_demand_task_status(self, db, task_manager):
+        await task_manager.create_task(db, TaskSubmission(name="on_demand_mix", type="Magnetic Mixing"))
+        await task_manager.start_task(db, None, "on_demand_mix")
+        assert (await task_manager.get_task(db, None, "on_demand_mix")).status == TaskStatus.RUNNING
+        with pytest.raises(EosTaskStateError):
+            await task_manager.fail_task(db, None, "missing")
 
     @pytest.mark.asyncio
     async def test_set_task_status_nonexistent_task(self, db, task_manager, protocol_run_manager):

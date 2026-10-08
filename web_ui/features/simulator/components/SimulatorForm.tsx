@@ -186,7 +186,7 @@ export function SimulatorForm({ protocolTypes, loading, onRun, onLoadConfig, con
           <div>
             <Label htmlFor="scheduler" className="mb-1 block">
               Scheduler
-              <DescriptionTooltip description="The scheduling algorithm to use. Greedy schedules tasks as soon as resources are available. CP-SAT uses constraint programming to find an optimal schedule." />
+              <DescriptionTooltip description="The scheduling algorithm to use. Greedy schedules tasks as soon as resources are available. Heuristic does the same but plans which tasks get contended devices first. CP-SAT uses constraint programming to find an optimal schedule." />
             </Label>
             <Select value={config.scheduler} onValueChange={(v) => setConfig({ ...config, scheduler: v })}>
               <SelectTrigger id="scheduler" className="h-9 text-sm">
@@ -194,6 +194,7 @@ export function SimulatorForm({ protocolTypes, loading, onRun, onLoadConfig, con
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="greedy">Greedy</SelectItem>
+                <SelectItem value="heuristic">Heuristic</SelectItem>
                 <SelectItem value="cpsat">CP-SAT</SelectItem>
               </SelectContent>
             </Select>

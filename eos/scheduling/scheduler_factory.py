@@ -1,6 +1,7 @@
 from eos.configuration.eos_config import SchedulerType
 from eos.scheduling.abstract_scheduler import AbstractScheduler
 from eos.scheduling.greedy_scheduler import GreedyScheduler
+from eos.scheduling.heuristic_scheduler import HeuristicScheduler
 from eos.scheduling.cpsat_scheduler import CpSatScheduler
 
 
@@ -16,6 +17,8 @@ class SchedulerFactory:
         """
         if scheduler_type == SchedulerType.GREEDY:
             return GreedyScheduler()
+        if scheduler_type == SchedulerType.HEURISTIC:
+            return HeuristicScheduler()
         if scheduler_type == SchedulerType.CPSAT:
             return CpSatScheduler()
 

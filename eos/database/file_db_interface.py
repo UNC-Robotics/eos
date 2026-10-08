@@ -1,13 +1,22 @@
 import asyncio
+import io
 from collections.abc import AsyncIterable
+from pathlib import Path
 
 import boto3
+from boto3.s3.transfer import TransferConfig
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError, EndpointConnectionError, ConnectTimeoutError
 
 from eos.configuration.eos_config import FileDbConfig
 from eos.database.exceptions import EosFileDbError
 from eos.logging.logger import log
+
+
+# Files above the threshold upload as parallel multipart chunks, which also lifts the 5 GB single-request limit
+_TRANSFER_CONFIG = TransferConfig(
+    multipart_threshold=64 * 1024 * 1024, multipart_chunksize=8 * 1024 * 1024, max_concurrency=4
+)
 
 
 class FileDbInterface:
@@ -54,12 +63,19 @@ class FileDbInterface:
 
         log.debug("File database interface initialized.")
 
-    async def store_file(self, path: str, file_data: bytes) -> None:
+    async def store_file(self, path: str, file_data: bytes | Path) -> None:
         """
-        Store a file at the specified path.
+        Store a file at the specified path. A ``Path`` is streamed from disk instead of read into memory.
         """
         try:
-            await asyncio.to_thread(self._client.put_object, Bucket=self._bucket_name, Key=path, Body=file_data)
+            if isinstance(file_data, Path):
+                await asyncio.to_thread(
+                    self._client.upload_file, str(file_data), self._bucket_name, path, Config=_TRANSFER_CONFIG
+                )
+            else:
+                await asyncio.to_thread(
+                    self._client.upload_fileobj, io.BytesIO(file_data), self._bucket_name, path, Config=_TRANSFER_CONFIG
+                )
             log.debug(f"File at path '{path}' uploaded successfully.")
         except ClientError as e:
             raise EosFileDbError(f"Error uploading file at path '{path}': {e!s}") from e

@@ -1,0 +1,12 @@
+# Baseline: single parallel_campaign run, no concurrency.
+# A single iteration already exercises the 6 internal reactor lines, which is
+# the protocol's intrinsic multi-line parallelism. The concurrent variant
+# (sim_complex.yaml) runs two iterations side-by-side for tighter contention.
+
+packages:
+  - scheduler_benchmark
+
+protocols:
+  - type: parallel_campaign
+    iterations: 1
+    max_concurrent: 1

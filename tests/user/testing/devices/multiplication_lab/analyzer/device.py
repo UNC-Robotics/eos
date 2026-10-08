@@ -1,17 +1,8 @@
-from typing import Any
-
-from eos.devices.base_device import BaseDevice
+from eos import Device
 
 
-class Analyzer(BaseDevice):
-    async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-        pass
-
-    async def _cleanup(self) -> None:
-        pass
-
-    async def _report(self) -> dict[str, Any]:
-        pass
+class Analyzer(Device, type="analyzer"):
+    """A device for analyzing the result of the multiplication of two numbers."""
 
     def analyze_result(self, number: int, product: int) -> int:
         return number + 100 * abs(product - 1024)

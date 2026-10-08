@@ -1,10 +1,10 @@
 Color Mixing
 ============
 This example demonstrates a virtual color mixing protocol in EOS.
-CMYK ingredient colors are mixed to produce a target color using Bayesian optimization, with a secondary objective of minimizing ingredient usage.
+CMYK ingredient colors are mixed to produce a target color using Beacon with 80% Claude Opus sampling and 20% Bayesian sampling.
 Color mixing runs in a browser fluid simulation without physical devices.
 
-The example is implemented in an EOS package called **color_lab**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
+The example is implemented in an EOS package called **color_lab_sim**, and can be found `here <https://github.com/UNC-Robotics/eos-examples>`_.
 
 Installation
 ------------
@@ -13,30 +13,34 @@ Installation
 .. code-block:: bash
 
     cd eos/user
-    git clone https://github.com/UNC-Robotics/eos-examples eos_examples
+    git clone https://github.com/UNC-Robotics/eos-examples
 
 2. Return to the EOS repository root and install the package dependencies in its environment:
 
 .. code-block:: bash
 
-   eos pkg install color_lab
+   eos pkg install color_lab_sim
+
+This example supports EOS 0.30.x.
 
 3. Load the package in EOS:
 
-Edit the ``config.yml`` file to have the following for user_dir, labs, and protocols:
+Edit the ``config.yml`` file to have the following for user_dir, packages, labs, and protocols:
 
 .. code-block:: yaml
 
   user_dir: ./user
+  packages:
+    - color_lab_sim
   labs:
-    - color_lab
+    - color_lab_sim
   protocols:
-    - color_mixing
+    - color_mixing_sim
 
 Sample Usage
 ------------
 1. ``cd`` into the ``eos`` directory
-2. Run ``python3 user/eos_examples/color_lab/device_drivers.py`` to start the fluid simulation and simulated device drivers. Browser windows will open automatically.
+2. Run ``python user/eos-examples/color_lab_sim/device_drivers.py`` to start the fluid simulation and simulated device drivers. Browser windows will open automatically.
 
    On dual-GPU systems (e.g., NVIDIA + integrated GPU on Wayland), pass ``--browser chrome --nvidia`` to launch the browser with NVIDIA GPU offload and X11 mode for correct WebGL rendering.
 3. Start EOS.
@@ -50,11 +54,11 @@ Use the color campaign request in :doc:`rest_api`, setting ``score_color.target_
 
 Package Structure
 -----------------
-The top-level structure of the ``color_lab`` package is as follows:
+The top-level structure of the ``color_lab_sim`` package is as follows:
 
 .. code-block:: text
 
-    color_lab/
+    color_lab_sim/
     ├── common/ <-- contains shared code
     ├── devices/ <-- contains the device implementations
     ├── protocols/ <-- contains the color mixing protocol definitions
@@ -72,34 +76,45 @@ The package contains the following device implementations:
 * **Robot arm**: Moves sample containers between other devices.
 * **Cleaning station**: Cleans sample containers (by erasing their stored metadata).
 
+The three devices talk to the fluid simulation over a local socket, so they share a ``SimulationDevice``
+base class that opens the connection from a ``port`` init parameter:
+
+:bdg-primary:`common/device_client.py`
+
+.. code-block:: python
+
+    class SimulationDevice(Device):
+        """A device backed by the fluid simulation, reached over a local socket."""
+
+        class Config(Device.Config):
+            port: int
+
+        async def _initialize(self, config: Config) -> None:
+            self.client = DeviceClient(config.port)
+            self.client.open_connection()
+
+        async def _cleanup(self) -> None:
+            self.client.close_connection()
+
 This is the Python code for the color station device:
 
 :bdg-primary:`device.py`
 
 .. code-block:: python
 
-    from typing import Any
-
-    from eos.resources.entities.resource import Resource
-    from eos.devices.base_device import BaseDevice
-    from user.eos_examples.color_lab.common.device_client import DeviceClient
+    from color_lab_sim.common.device_client import SimulationDevice
+    from color_lab_sim.resources import Beaker
 
 
-    class ColorStation(BaseDevice):
-        async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-            port = int(init_parameters["port"])
-            self.client = DeviceClient(port)
-            self.client.open_connection()
+    class ColorStation(SimulationDevice, type="color_station"):
+        """Color mixing and analysis station backed by a fluid simulation."""
 
-        async def _cleanup(self) -> None:
-            self.client.close_connection()
-
-        async def _report(self) -> dict[str, Any]:
-            return {}
+        class Config(SimulationDevice.Config):
+            port: int = 5003
 
         def mix(
             self,
-            container: Resource,
+            container: Beaker,
             cyan_volume: float,
             cyan_strength: float,
             magenta_volume: float,
@@ -110,28 +125,16 @@ This is the Python code for the color station device:
             black_strength: float,
             mixing_time: int,
             mixing_speed: int,
-        ) -> Resource:
+        ) -> Beaker:
             ...
 
-        def analyze(self, container: Resource) -> tuple[Resource, tuple[int, int, int]]:
+        def analyze(self, container: Beaker) -> tuple[Beaker, tuple[int, int, int]]:
             rgb = self.client.send_command("analyze", {})
             return container, rgb
 
 The color station combines mixing and analysis into a single device, ensuring a single allocation connects to one fluid simulation window so the mixed color is the same one analyzed.
 
-The implementation communicates with another process over a socket, a common pattern when device drivers are supplied by a third party. It initializes a client that connects to the driver and exposes a ``mix`` function for dispensing colors and an ``analyze`` function that returns the average RGB value from the fluid simulation.
-
-The device YAML file for the color station device is:
-
-:bdg-primary:`device.yml`
-
-.. code-block:: yaml
-
-    type: color_station
-    desc: Color mixing and analysis station backed by a fluid simulation
-
-    init_parameters:
-      port: 5003
+The implementation communicates with another process over a socket, a common pattern when device drivers are supplied by a third party. It exposes a ``mix`` function for dispensing colors and an ``analyze`` function that returns the average RGB value from the fluid simulation. Each color station in the lab sets its own ``port``.
 
 Tasks
 -----
@@ -140,8 +143,7 @@ The package contains the following tasks:
 * **Retrieve container**: Retrieves a beaker from storage and moves it to a color station using the robot arm.
 * **Mix colors**: Dispenses and mixes colors using a color station (fluid simulation).
 * **Analyze color**: Analyzes the color of the fluid using a color station (fluid simulation).
-* **Score color**: Calculates a loss function taking into account how close the mixed color is to the target color and
-  how much color ingredients were used.
+* **Score color**: Calculates the normalized RGB distance from the target color.
 * **Empty container**: Empties a beaker with the robot arm.
 * **Clean container**: Cleans a beaker with the cleaning station.
 * **Store container**: Stores a beaker in storage with the robot arm.
@@ -152,60 +154,27 @@ This is the Python code for the "Analyze color" task:
 
 .. code-block:: python
 
-    from eos.tasks.base_task import BaseTask
+    from eos import Param, task
+
+    from color_lab_sim.devices.color_station.device import ColorStation
+    from color_lab_sim.resources import Beaker, BeakerOutputs
 
 
-    class AnalyzeColor(BaseTask):
-        async def _execute(
-            self,
-            devices: BaseTask.DevicesType,
-            parameters: BaseTask.ParametersType,
-            resources: BaseTask.ResourcesType,
-        ) -> BaseTask.OutputType:
-            color_station = devices["color_station"]
+    class AnalyzeOutputs(BeakerOutputs):
+        red: int = Param(desc="The red component of the color")
+        green: int = Param(desc="The green component of the color")
+        blue: int = Param(desc="The blue component of the color")
 
-            resources["beaker"], rgb = color_station.analyze(resources["beaker"])
 
-            output_parameters = {
-                "red": rgb[0],
-                "green": rgb[1],
-                "blue": rgb[2],
-            }
+    @task("Analyze Color")
+    async def analyze_color(color_station: ColorStation, beaker: Beaker) -> AnalyzeOutputs:
+        """Analyze the color of a solution."""
+        beaker, (red, green, blue) = color_station.analyze(beaker)
+        return AnalyzeOutputs(beaker=beaker, red=red, green=green, blue=blue)
 
-            return output_parameters, resources, None
-
-The task gets a reference to the color station, calls ``analyze``, then returns the output parameters and resources.
-
-The task YAML file is the following:
-
-:bdg-primary:`task.yml`
-
-.. code-block:: yaml
-
-    type: Analyze Color
-    desc: Analyze the color of a solution
-
-    devices:
-      color_station:
-        type: color_station
-
-    input_resources:
-      beaker:
-        type: beaker
-
-    output_parameters:
-      red:
-        type: int
-        unit: n/a
-        desc: The red component of the color
-      green:
-        type: int
-        unit: n/a
-        desc: The green component of the color
-      blue:
-        type: int
-        unit: n/a
-        desc: The blue component of the color
+The task calls ``analyze`` on the color station and returns the color along with the beaker the device
+returned. ``BeakerOutputs`` is a small shared model with a ``beaker`` field, so tasks that update the beaker
+through a device return it to EOS.
 
 Laboratory
 ----------
@@ -215,7 +184,7 @@ The laboratory YAML definition is shown below. Three color stations are defined 
 
 .. code-block:: yaml
 
-    name: color_lab
+    name: color_lab_sim
     desc: A laboratory for color analysis and mixing
 
     devices:
@@ -223,15 +192,6 @@ The laboratory YAML definition is shown below. Three color stations are defined 
         desc: Robotic arm for moving containers
         type: robot_arm
         computer: eos_computer
-
-        init_parameters:
-          locations:
-            - container_storage
-            - color_station_1
-            - color_station_2
-            - color_station_3
-            - cleaning_station
-            - emptying_location
 
       cleaning_station:
         desc: Station for cleaning containers
@@ -320,11 +280,11 @@ The YAML definition of the protocol is shown below:
 
 .. code-block:: yaml
 
-    type: color_mixing
+    type: color_mixing_sim
     desc: Protocol to find optimal parameters to synthesize a desired color
 
     labs:
-      - color_lab
+      - color_lab_sim
 
     tasks:
       - name: retrieve_container
@@ -333,7 +293,7 @@ The YAML definition of the protocol is shown below:
         duration: 5
         devices:
           robot_arm:
-            lab_name: color_lab
+            lab_name: color_lab_sim
             name: robot_arm
           color_station:
             allocation_type: dynamic
@@ -383,8 +343,6 @@ The YAML definition of the protocol is shown below:
           red: analyze_color.red
           green: analyze_color.green
           blue: analyze_color.blue
-          total_color_volume: mix_colors.total_color_volume
-          max_total_color_volume: 300.0
           target_color: eos_dynamic
         dependencies: [analyze_color]
 
@@ -394,12 +352,12 @@ The YAML definition of the protocol is shown below:
         duration: 5
         devices:
           robot_arm:
-            lab_name: color_lab
+            lab_name: color_lab_sim
             name: robot_arm
           cleaning_station:
             allocation_type: dynamic
             device_type: cleaning_station
-            allowed_labs: [color_lab]
+            allowed_labs: [color_lab_sim]
         resources:
           beaker: analyze_color.beaker
         parameters:
@@ -424,7 +382,7 @@ The YAML definition of the protocol is shown below:
         duration: 5
         devices:
           robot_arm:
-            lab_name: color_lab
+            lab_name: color_lab_sim
             name: robot_arm
         resources:
           beaker: clean_container.beaker
@@ -439,8 +397,11 @@ For campaigns with optimization (``optimize: true``), EOS uses the protocol's op
 Some dynamic parameters may still need to be provided by the user. In this protocol, ``score_color.target_color`` must be provided.
 Provide it via ``global_parameters`` or ``protocol_run_parameters`` in the campaign submission as shown above.
 
-The optimizer used for this protocol is defined in ``optimizer.py`` adjacent to the protocol YAML and uses Bayesian optimization to minimize ``score_color.loss``.
+The optimizer used for this protocol is defined in ``optimizer.py`` adjacent to the protocol YAML and uses Beacon to minimize ``score_color.loss``. It is configured with
+``ai_model: claude-agent-sdk:opus``, ``p_ai: 0.8``, and ``p_bayesian: 0.2``.
+Authenticate Claude on the optimizer worker using Claude Code credentials or
+``ANTHROPIC_API_KEY``. See :doc:`beacon_optimizer` for provider setup.
 
 The protocol reuses its color station and beaker through :doc:`references`. The score task
-consumes the measured RGB values and total color volume. See :doc:`scheduling` for holding
+consumes the measured RGB values. See :doc:`scheduling` for holding
 allocations between tasks in concurrent campaigns.

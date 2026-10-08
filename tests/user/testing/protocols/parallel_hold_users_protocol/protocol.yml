@@ -1,0 +1,21 @@
+type: parallel_hold_users_protocol
+desc: setup phase holds D2 for two parallel tasks that both reuse it
+labs: [abstract_lab]
+tasks:
+  - name: setup phase
+    type: Noop Hold
+    duration: 10
+    devices:
+      held_device: {lab_name: abstract_lab, name: D2, hold: true}
+  - name: left
+    type: Noop Hold
+    duration: 10
+    dependencies: [setup phase]
+    devices:
+      held_device: {ref: setup phase.held_device}
+  - name: right
+    type: Noop Hold
+    duration: 20
+    dependencies: [setup phase]
+    devices:
+      held_device: {ref: setup phase.held_device}

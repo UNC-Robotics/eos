@@ -3,13 +3,16 @@ from typing import Any
 from unittest.mock import patch
 
 import ray
+from pydantic import BaseModel
 from sqlalchemy import select, delete
 
+import eos
+from eos import Device
 from eos.configuration.entities.definition import DefinitionModel
 from eos.configuration.entities.task_def import DeviceAssignmentDef
-from eos.devices.base_device import BaseDevice
 from eos.devices.device_manager import DeviceManager
 from eos.devices.entities.device import DeviceModel
+from eos.configuration.exceptions import EosDevicePluginError
 from eos.devices.exceptions import EosDeviceInitializationError
 from eos.orchestration.services.loading_service import LoadingService
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
@@ -17,8 +20,8 @@ from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.resources.entities.resource import ResourceModel
 from eos.resources.resource_manager import ResourceManager
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.tasks.base_task import BaseTask
 from eos.tasks.entities.task import TaskSubmission
+from eos.tasks.task_definition import TaskDefinition
 from eos.tasks.task_manager import TaskManager
 from tests.fixtures import *
 
@@ -110,6 +113,15 @@ class TestLoadLabs:
         assert await _get_lab_loaded(db, LAB_NAME) is True
 
     @pytest.mark.asyncio
+    async def test_device_actors_receive_validated_config(self, loading_env, db):
+        service, dm, _ = loading_env
+
+        await service.load_labs(db, {LAB_NAME})
+
+        assert await dm.get_device_actor(LAB_NAME, "magnetic_mixer").report.remote() == {"max_speed": 50}
+        assert await dm.get_device_actor(LAB_NAME, "magnetic_mixer_2").report.remote() == {"max_speed": 100}
+
+    @pytest.mark.asyncio
     async def test_partial_failure_rolls_back(self, loading_env, db):
         service, dm, cm = loading_env
 
@@ -123,6 +135,19 @@ class TestLoadLabs:
         assert _get_actor_names_for_lab(dm, LAB_NAME) == set()
         assert await _get_device_count(db, LAB_NAME) == 0
         assert await _get_lab_loaded(db, LAB_NAME) is False
+
+    @pytest.mark.asyncio
+    async def test_broken_device_code_leaves_lab_unloaded(self, loading_env, db):
+        service, dm, cm = loading_env
+
+        with (
+            patch.object(cm.devices, "reload_plugin", side_effect=EosDevicePluginError("SyntaxError")),
+            pytest.raises(EosDeviceInitializationError, match="SyntaxError"),
+        ):
+            await service.load_labs(db, {LAB_NAME})
+
+        assert LAB_NAME not in cm.labs
+        assert _get_actor_names_for_lab(dm, LAB_NAME) == set()
 
     @pytest.mark.asyncio
     async def test_all_devices_fail_rolls_back(self, loading_env, db):
@@ -252,27 +277,21 @@ class TestReloadDevices:
         # Verify original evaporator report returns None
         actor = dm.get_device_actor(LAB_NAME, "evaporator")
         report_before = await actor.report.remote()
-        assert report_before is None
+        assert report_before == {}
 
         # Define a new evaporator class with different behavior
-        class EvaporatorV2(BaseDevice):
-            async def _initialize(self, init_parameters: dict[str, Any]) -> None:
-                pass
-
-            async def _cleanup(self) -> None:
-                pass
-
+        class EvaporatorV2(Device, type="evaporator"):
             async def _report(self) -> dict[str, Any]:
                 return {"version": 2}
 
         # Patch reload_plugin to inject the new class without touching disk
         original_reload = dm._device_plugin_registry.reload_plugin
 
-        def mock_reload(device_type: str) -> None:
+        def mock_reload(device_type: str) -> str:
             if device_type == "evaporator":
                 dm._device_plugin_registry.plugin_types[device_type] = EvaporatorV2
-            else:
-                original_reload(device_type)
+                return device_type
+            return original_reload(device_type)
 
         with patch.object(dm._device_plugin_registry, "reload_plugin", mock_reload):
             await service.reload_devices(db, LAB_NAME, ["evaporator"])
@@ -284,6 +303,20 @@ class TestReloadDevices:
 
         # Other devices should be unaffected
         assert f"{LAB_NAME}.magnetic_mixer" in dm._device_actor_handles
+
+
+def _make_magnetic_mixing_v2() -> TaskDefinition:
+    """Build a replacement task outside the test so its model doesn't capture unpicklable fixtures."""
+
+    class MixingV2Outputs(BaseModel):
+        mixing_time: int
+        version: int
+
+    @eos.task("Magnetic Mixing")
+    async def magnetic_mixing_v2(time: int) -> MixingV2Outputs:
+        return MixingV2Outputs(mixing_time=time, version=2)
+
+    return magnetic_mixing_v2
 
 
 class TestReloadTaskPlugins:
@@ -343,19 +376,17 @@ class TestReloadTaskPlugins:
         output_before = await self._execute_task(task_executor, task, "mixing_v1")
         assert output_before == {"mixing_time": 5}
 
-        # Reload with a new task class that adds a "version" field
-        class MagneticMixingV2(BaseTask):
-            async def _execute(self, devices, parameters, resources):
-                return {"mixing_time": parameters["time"], "version": 2}, None, None
+        # Reload with a new task that adds a "version" output
+        magnetic_mixing_v2 = _make_magnetic_mixing_v2()
 
         task_registry = configuration_manager.tasks
         original_reload = task_registry.reload_plugin
 
-        def mock_reload(task_type: str) -> None:
+        def mock_reload(task_type: str) -> str:
             if task_type == "Magnetic Mixing":
-                task_registry.plugin_types[task_type] = MagneticMixingV2
-            else:
-                original_reload(task_type)
+                task_registry.plugin_types[task_type] = magnetic_mixing_v2
+                return task_type
+            return original_reload(task_type)
 
         with patch.object(task_registry, "reload_plugin", mock_reload):
             task_registry.reload_plugin("Magnetic Mixing")

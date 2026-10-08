@@ -1,0 +1,11 @@
+# Baseline: single linear_synthesis run, no concurrency.
+# Anchors the protocol's intrinsic critical path under no contention so the
+# concurrent run (sim_linear.yaml) can be compared against it.
+
+packages:
+  - scheduler_benchmark
+
+protocols:
+  - type: linear_synthesis
+    iterations: 1
+    max_concurrent: 1

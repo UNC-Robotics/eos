@@ -17,6 +17,8 @@ from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession
 from eos.utils.di.di_container import inject
 
+HEALTH_CHECK_TIMEOUT = 5  # seconds
+
 
 class DeviceManager:
     """
@@ -81,10 +83,11 @@ class DeviceManager:
         """
         self._error_collector = BatchErrorLogger()
 
+        created_actor_names = []
         for lab_name in lab_names:
-            await self._create_devices_for_lab(db, lab_name)
+            created_actor_names += await self._create_devices_for_lab(db, lab_name)
 
-        self._raise_on_errors()
+        await self._raise_on_errors(created_actor_names)
 
     async def reload_devices(self, db: AsyncDbSession, lab_name: str, device_names: list[str]) -> None:
         """Reload specific devices within a lab with updated plugin code.
@@ -105,13 +108,15 @@ class DeviceManager:
         device_types_to_reload = {
             self._configuration_manager.labs[lab_name].devices[name].type for name in device_names
         }
+        reloaded_types = set()
         for device_type in device_types_to_reload:
             try:
-                self._device_plugin_registry.reload_plugin(device_type)
+                reloaded_types.add(self._device_plugin_registry.reload_plugin(device_type))
                 log.info(f"Reloaded device plugin code for type '{device_type}'")
             except Exception as e:
                 log.error(f"Failed to reload device plugin code for type '{device_type}': {e}")
                 raise
+        await self._configuration_manager.def_sync.sync_device_defs(db, types=reloaded_types)
 
         # Cleanup existing actors
         actors_to_cleanup = [
@@ -130,7 +135,7 @@ class DeviceManager:
         await self._create_and_persist_devices(db, lab_name, device_names)
         await db.commit()
 
-        self._raise_on_errors()
+        await self._raise_on_errors([f"{lab_name}.{name}" for name in device_names])
         log.info(f"Reloaded devices {device_names} in lab '{lab_name}'")
 
     # --- Cleanup ---
@@ -178,49 +183,31 @@ class DeviceManager:
         if not cleanup_refs:
             return
 
-        pending_refs = set(cleanup_refs.keys())
-        start_time = asyncio.get_event_loop().time()
+        waiters = {asyncio.ensure_future(self._await_cleanup(ref, name)): name for ref, name in cleanup_refs.items()}
+        _, pending = await asyncio.wait(waiters, timeout=cleanup_timeout)
+        for waiter in pending:
+            waiter.cancel()
 
-        while pending_refs:
-            elapsed = asyncio.get_event_loop().time() - start_time
-            remaining_timeout = max(0, cleanup_timeout - elapsed)
-
-            if remaining_timeout <= 0:
-                break
-
-            ready_refs, _ = ray.wait(
-                list(pending_refs),
-                num_returns=1,
-                timeout=remaining_timeout,
-            )
-
-            if not ready_refs:
-                break
-
-            for ref in ready_refs:
-                pending_refs.discard(ref)
-                actor_name = cleanup_refs[ref]
-                try:
-                    ray.get(ref)
-                    log.info(f"Cleaned up device '{actor_name}'")
-                    self._kill_actor(actor_name)
-                except Exception as e:
-                    log.error(f"Cleanup failed for device '{actor_name}': {e}")
-                finally:
-                    self._remove_device_references(actor_name)
-
-        # Forcefully kill actors that timed out
-        if pending_refs:
-            timed_out_actors = [cleanup_refs[ref] for ref in pending_refs]
+        timed_out_actors = [waiters[waiter] for waiter in pending]
+        if timed_out_actors:
             log.warning(
                 f"Timed out cleaning up {len(timed_out_actors)} device(s) after {cleanup_timeout} seconds: "
                 f"{', '.join(timed_out_actors)}"
             )
-            for ref in pending_refs:
-                actor_name = cleanup_refs[ref]
+
+        for actor_name in cleanup_refs.values():
+            if actor_name in timed_out_actors:
                 log.warning(f"Forcefully killing device '{actor_name}'")
-                self._kill_actor(actor_name)
-                self._remove_device_references(actor_name)
+            self._kill_actor(actor_name)
+            self._remove_device_references(actor_name)
+
+    @staticmethod
+    async def _await_cleanup(ref: ray.ObjectRef, actor_name: str) -> None:
+        try:
+            await ref
+            log.info(f"Cleaned up device '{actor_name}'")
+        except Exception as e:
+            log.error(f"Cleanup failed for device '{actor_name}': {e}")
 
     def _kill_actor(self, actor_name: str) -> None:
         """Kill a device actor to release its Ray name."""
@@ -259,8 +246,8 @@ class DeviceManager:
 
     # --- Device creation ---
 
-    async def _create_devices_for_lab(self, db: AsyncDbSession, lab_name: str) -> None:
-        """Create devices for a specific lab, skipping any that are already active."""
+    async def _create_devices_for_lab(self, db: AsyncDbSession, lab_name: str) -> list[str]:
+        """Create devices for a specific lab, skipping any that are already active. Returns the new actor names."""
         lab = self._configuration_manager.labs[lab_name]
 
         # Get existing devices from DB
@@ -278,6 +265,7 @@ class DeviceManager:
             await self._create_and_persist_devices(db, lab_name, device_names_to_create)
 
         log.debug(f"Updated devices for lab '{lab_name}'")
+        return [f"{lab_name}.{name}" for name in device_names_to_create]
 
     async def _create_and_persist_devices(self, db: AsyncDbSession, lab_name: str, device_names: list[str]) -> None:
         """Create device actors concurrently and persist successful ones to DB."""
@@ -318,13 +306,11 @@ class DeviceManager:
             computer_ip = "127.0.0.1" if computer_name == EOS_COMPUTER_NAME else lab.computers[computer_name].ip
 
             # Try to recover an existing actor (e.g., after orchestrator restart)
-            if self._try_recover_actor(device_actor_name, computer_ip):
+            if await self._try_recover_actor(device_actor_name, computer_ip):
                 return
 
             log.info(f"Creating device actor '{device_actor_name}'...")
             self._device_actor_computer_ips[device_actor_name] = computer_ip
-
-            initialization_parameters = self._get_initialization_parameters(device)
 
             resources = self._get_actor_resources(computer_ip)
             device_class = ray.remote(self._device_plugin_registry.get_plugin_class_type(device.type))
@@ -332,9 +318,9 @@ class DeviceManager:
                 name=device_actor_name,
                 num_cpus=0,
                 resources=resources,
-            ).remote(device.name, device.lab_name, device.type)
+            ).remote(device.name, device.lab_name)
 
-            await self._device_actor_handles[device_actor_name].initialize.remote(initialization_parameters)
+            await self._device_actor_handles[device_actor_name].initialize.remote(lab_device.init_parameters)
             log.info(f"Created device actor '{device_actor_name}'.")
         except Exception as e:
             self._cleanup_failed_actor(device_actor_name)
@@ -344,24 +330,25 @@ class DeviceManager:
                 EosDeviceInitializationError,
             )
 
-    def _try_recover_actor(self, actor_name: str, computer_ip: str) -> bool:
+    async def _try_recover_actor(self, actor_name: str, computer_ip: str) -> bool:
         """Try to recover an existing actor from the Ray cluster.
 
         Returns True if the actor was recovered, False if it needs to be created fresh.
         """
         try:
-            existing_handle = ray.get_actor(actor_name)
+            existing_handle = await asyncio.to_thread(ray.get_actor, actor_name)
         except ValueError:
             return False
 
-        # Actor exists — check if it's healthy
+        # Actor exists, check if it's healthy
         try:
-            ready, _ = ray.wait([existing_handle.get_status.remote()], timeout=5)
-            if ready:
-                self._device_actor_handles[actor_name] = existing_handle
-                self._device_actor_computer_ips[actor_name] = computer_ip
-                log.info(f"Recovered existing device actor '{actor_name}'")
-                return True
+            await asyncio.wait_for(existing_handle.get_status.remote(), timeout=HEALTH_CHECK_TIMEOUT)
+            self._device_actor_handles[actor_name] = existing_handle
+            self._device_actor_computer_ips[actor_name] = computer_ip
+            log.info(f"Recovered existing device actor '{actor_name}'")
+            return True
+        except TimeoutError:
+            pass
         except Exception as e:
             log.warning(f"Health check failed for existing device actor '{actor_name}': {e}")
 
@@ -370,15 +357,6 @@ class DeviceManager:
         with contextlib.suppress(Exception):
             ray.kill(existing_handle)
         return False
-
-    def _get_initialization_parameters(self, device: Device) -> dict[str, Any]:
-        """Get merged initialization parameters for a device."""
-        lab_device = self._configuration_manager.labs[device.lab_name].devices[device.name]
-
-        spec_params = self._configuration_manager.device_specs.get_spec_by_type(device.type).init_parameters or {}
-        config_params = lab_device.init_parameters or {}
-
-        return {**spec_params, **config_params}
 
     def _get_actor_resources(self, computer_ip: str) -> dict[str, float]:
         """Get Ray resource requirements for an actor."""
@@ -397,33 +375,25 @@ class DeviceManager:
 
     # --- Health checking ---
 
-    def _raise_on_errors(self) -> None:
-        """Check health of all device actors and raise any accumulated errors.
+    async def _raise_on_errors(self, actor_names: list[str]) -> None:
+        """Check health of the given device actors and raise any accumulated errors.
 
         :raises EosDeviceInitializationError: If any device actors failed to create or are unhealthy
         """
-        if self._device_actor_handles:
-            status_reports = [actor_handle.get_status.remote() for actor_handle in self._device_actor_handles.values()]
-            status_report_to_device_actor_name = {
-                status_report: device_actor_name
-                for device_actor_name, status_report in zip(
-                    self._device_actor_handles.keys(), status_reports, strict=True
-                )
-            }
-
-            _ready_status_reports, not_ready_status_reports = ray.wait(
-                status_reports,
-                num_returns=len(self._device_actor_handles),
-                timeout=5,
-            )
-
-            for not_ready_ref in not_ready_status_reports:
-                device_actor_name = status_report_to_device_actor_name[not_ready_ref]
-                actor_handle = self._device_actor_handles[device_actor_name]
+        checks = {
+            asyncio.ensure_future(self._device_actor_handles[name].get_status.remote()): name
+            for name in actor_names
+            if name in self._device_actor_handles
+        }
+        if checks:
+            _, unreachable = await asyncio.wait(checks, timeout=HEALTH_CHECK_TIMEOUT)
+            for check in unreachable:
+                check.cancel()
+                device_actor_name = checks[check]
                 computer_ip = self._device_actor_computer_ips[device_actor_name]
 
                 with contextlib.suppress(Exception):
-                    ray.kill(actor_handle)
+                    ray.kill(self._device_actor_handles[device_actor_name])
 
                 self._remove_device_references(device_actor_name)
 

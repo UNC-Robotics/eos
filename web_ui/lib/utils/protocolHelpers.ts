@@ -236,7 +236,7 @@ export function isEmptyParamValue(value: unknown): boolean {
   return value === undefined || value === null || value === '';
 }
 
-/** True when a value deep-equals the task.yml default for this param. */
+/** True when a value deep-equals the task spec default for this param. */
 export function matchesSpecDefault(value: unknown, spec: Pick<ParameterSpec, 'value'>): boolean {
   if (spec.value === undefined) return false;
   return deepEqual(value, spec.value);
@@ -252,7 +252,7 @@ export function restoreDefaultIfEmpty(
   onChange(spec.value);
 }
 
-/** Seed a parameters object with task.yml defaults; booleans without `value:` default to false. */
+/** Seed a parameters object with task spec defaults; booleans without a default become false. */
 export function buildDefaultParameters(spec: Pick<TaskSpec, 'input_parameters'>): Record<string, unknown> {
   const defaults: Record<string, unknown> = {};
   for (const [name, paramSpec] of Object.entries(flattenInputParameters(spec.input_parameters))) {

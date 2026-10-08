@@ -8,7 +8,16 @@
 import { desc, count, eq, and, asc, or, ilike, inArray } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import { db } from './client';
-import { tasks, protocolRuns, campaigns, campaignSamples, resources, userRoles, apiTokens } from './schema';
+import {
+  tasks,
+  protocolRuns,
+  campaigns,
+  campaignSamples,
+  campaignJournalEntries,
+  resources,
+  userRoles,
+  apiTokens,
+} from './schema';
 import { DEFAULT_PAGE_SIZE, type TableQueryOptions, type ColumnFilterOption } from '@/lib/types/table';
 
 // Paginated result wrapper
@@ -405,6 +414,15 @@ export async function getCampaignSamples(campaignName: string): Promise<Campaign
     meta: (row.meta as Record<string, unknown>) || {},
     createdAt: row.createdAt,
   }));
+}
+
+export async function getCampaignJournal(campaignName: string): Promise<string[]> {
+  const results = await db
+    .select({ entry: campaignJournalEntries.entry })
+    .from(campaignJournalEntries)
+    .where(eq(campaignJournalEntries.campaignName, campaignName))
+    .orderBy(asc(campaignJournalEntries.id));
+  return results.map((row) => row.entry);
 }
 
 export async function getProtocolRunsByOwner(owner: string): Promise<ProtocolRunRow[]> {

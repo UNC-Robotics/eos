@@ -1,3 +1,4 @@
+import keyword
 import subprocess
 from enum import StrEnum
 from pathlib import Path
@@ -23,12 +24,27 @@ class EntityType(StrEnum):
     PROTOCOL = "protocol"
 
 
-# Starter files stamped out (empty) for each entity type.
-ENTITY_FILES: dict[EntityType, list[str]] = {
-    EntityType.LAB: ["lab.yml"],
-    EntityType.DEVICE: ["device.yml", "device.py"],
-    EntityType.TASK: ["task.yml", "task.py"],
-    EntityType.PROTOCOL: ["protocol.yml", "optimizer.py"],
+_DEVICE_TEMPLATE = '''from eos import Device
+
+
+class {class_name}(Device, type="{name}"):
+    """Describe the device."""
+'''
+
+_TASK_TEMPLATE = '''from eos import task
+
+
+@task("{name}")
+async def {name}() -> None:
+    """Describe the task."""
+'''
+
+# Starter files stamped out for each entity type, formatted with the entity name.
+ENTITY_FILES: dict[EntityType, dict[str, str]] = {
+    EntityType.LAB: {"lab.yml": ""},
+    EntityType.DEVICE: {"device.py": _DEVICE_TEMPLATE},
+    EntityType.TASK: {"task.py": _TASK_TEMPLATE},
+    EntityType.PROTOCOL: {"protocol.yml": "", "optimizer.py": ""},
 }
 
 
@@ -263,14 +279,15 @@ def _validate_package_exists(package_dir: Path) -> None:
         raise typer.BadParameter(f"{package_dir} is not a directory")
 
 
-def _add_entity(package_dir: Path, entity_type: str, name: str, files: list[str]) -> None:
-    """Add a new entity to the package, creating its (empty) starter files."""
+def _add_entity(package_dir: Path, entity_type: str, name: str, files: dict[str, str]) -> None:
+    """Add a new entity to the package, creating its starter files."""
     base_dir = package_dir / f"{entity_type}s" / name
+    class_name = "".join(part.capitalize() for part in name.split("_"))
 
     try:
         base_dir.mkdir(parents=True, exist_ok=False)
-        for filename in files:
-            (base_dir / filename).write_text("")
+        for filename, template in files.items():
+            (base_dir / filename).write_text(template.format(name=name, class_name=class_name))
         typer.echo(f"Successfully created {entity_type} '{name}' in {base_dir}")
     except FileExistsError:
         typer.echo(f"Error: {entity_type.title()} '{name}' already exists", err=True)
@@ -331,6 +348,9 @@ def add_entity(
     """Add a new lab, device, task, or protocol to an existing package."""
     package_dir = _resolve_user_dir(user_dir, config) / package
     _validate_package_exists(package_dir)
+    if entity in (EntityType.DEVICE, EntityType.TASK) and (not name.isidentifier() or keyword.iskeyword(name)):
+        typer.echo(f"Error: {entity.value.title()} name '{name}' must be a valid Python identifier", err=True)
+        raise typer.Exit(1)
     _add_entity(package_dir, entity.value, name, ENTITY_FILES[entity])
 
 

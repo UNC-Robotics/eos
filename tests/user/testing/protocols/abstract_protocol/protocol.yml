@@ -6,14 +6,14 @@ labs:
 
 tasks:
   - name: A
-    type: Noop
+    type: Noop DT2
     devices:
       device_1:
         lab_name: abstract_lab
         name: D2
 
   - name: B
-    type: Noop
+    type: Noop DT1
     dependencies: [ "A" ]
     devices:
       device_1:
@@ -21,7 +21,7 @@ tasks:
         name: D1
 
   - name: C
-    type: Noop
+    type: Noop DT3
     dependencies: [ "A" ]
     devices:
       device_1:
@@ -29,7 +29,7 @@ tasks:
         name: D3
 
   - name: D
-    type: Noop
+    type: Noop DT1
     dependencies: [ "A" ]
     devices:
       device_1:
@@ -37,7 +37,7 @@ tasks:
         name: D1
 
   - name: E
-    type: Noop
+    type: Noop DT3
     dependencies: [ "B" ]
     devices:
       device_1:
@@ -45,7 +45,7 @@ tasks:
         name: D3
 
   - name: F
-    type: Noop
+    type: Noop DT2
     dependencies: [ "C" ]
     devices:
       device_1:
@@ -53,7 +53,7 @@ tasks:
         name: D2
 
   - name: G
-    type: Noop
+    type: Noop DT5
     dependencies: [ "D", "E", "F" ]
     devices:
       device_1:
@@ -61,7 +61,7 @@ tasks:
         name: D5
 
   - name: H
-    type: Noop
+    type: Noop DT6
     dependencies: [ "G" ]
     devices:
       device_1:

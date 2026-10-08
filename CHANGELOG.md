@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.31.0
+
+- Breaking: Replaced `task.yml` and `device.yml` with Python-only task and device definitions.
+- Breaking: Changed EOS packages to load as regular Python packages, so package names must be valid Python identifiers and must not clash with installed modules.
+- Added an AI agent skill (`.agents/skills/eos-migrate-python-api`) that migrates existing tasks and devices to the Python-only API.
+- Added a heuristic scheduler that starts tasks as soon as they're ready and uses a quick simulation of all runs to decide who gets shared devices first. Its schedules can be up to 22% shorter than greedy's and are on par with CP-SAT's, while planning up to 300x faster.
+- Changed holds to release once no later task in the run needs the device or resource, shortening schedules by up to 21% when protocol runs execute concurrently.
+- Sped up orchestrator startup by about 6x and cut its memory use by about 85%.
+- Sped up CLI command startup by up to 13x.
+- Reduced scheduling overhead with many waiting runs by 20 to 100x per cycle, with over 100x fewer database queries.
+- Moved CP-SAT solving to the background so it no longer blocks other requests.
+- Fixed hung device cleanups and health checks blocking the orchestrator.
+- Fixed a memory leak where every task run left data behind in Ray.
+- Added streaming of task output files from disk, which makes uploads about 2.7x faster with about 97% less memory, and allows files over 5 GB.
+- Fixed corrupted zip downloads for large task files.
+- Added type and required-field checks for device settings in lab definitions.
+- Improved protocol run reliability when tasks or runs are cancelled or fail.
+- Updated the docs and switched the color mixing example to the Beacon optimizer.
+
 ## 0.30.0
 
 - Added optional Zitadel authentication with role-based access, lab-scoped administration, and user management through the CLI and web UI.

@@ -1,13 +1,12 @@
 import asyncio
-from asyncio import CancelledError
 from unittest.mock import patch
 
 from eos.configuration.entities.task_def import TaskDef, DeviceAssignmentDef
 from eos.protocols.entities.protocol_run import ProtocolRunSubmission
 from eos.scheduling.entities.scheduled_task import ScheduledTask
-from eos.tasks.base_task import BaseTask
+import eos
 from eos.tasks.entities.task import TaskSubmission, TaskStatus
-from eos.tasks.exceptions import EosTaskExecutionError
+from eos.tasks.exceptions import EosTaskCancellationError, EosTaskExecutionError
 from tests.fixtures import *
 
 
@@ -71,7 +70,7 @@ class TestTaskExecutor:
         async with db_interface.get_async_session() as db:
             await self._setup_protocol_run(db, protocol_run_manager)
 
-        devices = {"device_1": DeviceAssignmentDef(lab_name="small_lab", name="general_computer")}
+        devices = {}
         sleep_config = TaskDef(
             name="sleep_task",
             type="Sleep",
@@ -97,10 +96,13 @@ class TestTaskExecutor:
         await task_executor.cancel_task(task_submission.protocol_run_name, task_submission.name)
         await self._process_until_done(task_executor, future, timeout_seconds=2)
 
-        with pytest.raises(CancelledError):
+        with pytest.raises(EosTaskCancellationError):
             await future
 
         assert not task_executor._pending_tasks
+        async with db_interface.get_async_session() as db:
+            task = await task_executor._task_manager.get_task(db, "water_purification", "sleep_task")
+        assert task.status == TaskStatus.CANCELLED
 
     @pytest.mark.asyncio
     async def test_failed_task_is_marked_failed_in_db(
@@ -115,9 +117,9 @@ class TestTaskExecutor:
         devices = {"magnetic_mixer": DeviceAssignmentDef(lab_name="small_lab", name="magnetic_mixer")}
         task.devices = devices
 
-        class FailingTask(BaseTask):
-            async def _execute(self, devices, parameters, resources):
-                raise RuntimeError("Simulated device failure")
+        @eos.task("Magnetic Mixing")
+        async def failing_task() -> None:
+            raise RuntimeError("Simulated device failure")
 
         task_submission = TaskSubmission.from_def(task, "water_purification")
         task_submission.name = "failing_mix"
@@ -128,7 +130,7 @@ class TestTaskExecutor:
             resources={},
         )
 
-        with patch.dict(task_executor._task_plugin_registry.plugin_types, {"Magnetic Mixing": FailingTask}):
+        with patch.dict(task_executor._task_plugin_registry.plugin_types, {"Magnetic Mixing": failing_task}):
             future = asyncio.create_task(task_executor.request_task_execution(task_submission, scheduled_task))
             await self._process_until_done(task_executor, future)
 

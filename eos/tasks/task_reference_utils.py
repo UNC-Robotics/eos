@@ -4,7 +4,7 @@ from typing import Any, TYPE_CHECKING
 
 from eos.configuration.entities.task_def import DeviceAssignmentDef
 from eos.database.abstract_sql_db_interface import AsyncDbSession
-from eos.tasks.base_task import build_task_output_file_path
+from eos.tasks.task_definition import build_task_output_file_path
 from eos.tasks.entities.task import Task
 
 if TYPE_CHECKING:

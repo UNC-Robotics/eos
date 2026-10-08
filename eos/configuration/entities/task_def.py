@@ -74,7 +74,7 @@ class TaskDef(BaseModel):
     type: str
     desc: str | None = None
 
-    duration: int = 1  # seconds
+    duration: int = Field(1, ge=0)  # seconds
     group: str | None = None
 
     devices: dict[str, str | DeviceAssignmentDef | DeviceReferenceDef | DynamicDeviceAssignmentDef] = Field(

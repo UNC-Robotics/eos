@@ -17,7 +17,7 @@ function serializeTaskForYaml(task: TaskNode, specMap: Map<string, TaskSpec>): R
 
   const spec = specMap.get(task.type);
 
-  // Strip values equal to the task.yml default so protocol.yml tracks task.yml; form text is coerced once here.
+  // Strip values equal to the task spec default so protocol.yml tracks the task spec; form text is coerced once here.
   if (result.parameters && spec) {
     const flatSpecParams = flattenInputParameters(spec.input_parameters);
     if (Object.keys(flatSpecParams).length === 0) {

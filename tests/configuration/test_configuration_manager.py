@@ -1,7 +1,6 @@
 import copy
 import shutil
 
-from eos.configuration.constants import TASK_IMPLEMENTATION_FILE_NAME
 from eos.configuration.exceptions import (
     EosMissingConfigurationError,
     EosConfigurationError,

@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import time
 from typing import Any
 
 from eos.configuration.protocol_graph import ProtocolGraph
@@ -13,14 +15,20 @@ from eos.protocols.exceptions import (
 from eos.protocols.protocol_run_manager import ProtocolRunManager
 from eos.logging.logger import log
 from eos.database.abstract_sql_db_interface import AsyncDbSession, AbstractSqlDbInterface
-from eos.scheduling.abstract_scheduler import AbstractScheduler
+from eos.scheduling.abstract_scheduler import SCHEDULER_POLL_INTERVAL, AbstractScheduler
 from eos.scheduling.entities.scheduled_task import ScheduledTask
+from eos.scheduling.exceptions import EosSchedulerRegistrationError
 from eos.tasks.entities.task import Task, TaskStatus, TaskSubmission
 from eos.tasks.exceptions import EosTaskExecutionError, EosTaskCancellationError
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_input_resolver import TaskInputResolver
 from eos.tasks.task_manager import TaskManager
 from eos.tasks.task_reference_utils import resolve_parameter
+
+
+def _retrieve_exception(future: asyncio.Future) -> None:
+    if not future.cancelled():
+        future.exception()
 
 
 class ProtocolExecutor:
@@ -56,6 +64,11 @@ class ProtocolExecutor:
 
         self._run_if_parsed: dict[str, ParsedExpr] = self._parse_run_if_expressions()
 
+        # Progress only does DB work when this run's tasks changed or the scheduler state moved on
+        self._tasks_changed = True
+        self._requested_at_version: int | None = None
+        self._requested_at = 0.0
+
     async def start_protocol_run(self, db: AsyncDbSession) -> None:
         """Start the protocol run and register the executor with the scheduler."""
         protocol_run_created = False
@@ -79,17 +92,8 @@ class ProtocolExecutor:
 
             action = "Resumed" if self._protocol_run_submission.resume else "Started"
             log.info(f"{action} protocol run '{self._protocol_run_name}'.")
-        except EosProtocolRunExecutionError as e:
-            if protocol_run_created:
-                try:
-                    await self._protocol_run_manager.fail_protocol_run(
-                        db, self._protocol_run_name, error_message=str(e)
-                    )
-                    self._protocol_run_status = ProtocolRunStatus.FAILED
-                except Exception as fail_err:
-                    log.error(f"Failed to mark protocol run '{self._protocol_run_name}' as failed: {fail_err}")
-            raise
         except Exception as e:
+            await self.abandon(db)
             if protocol_run_created:
                 try:
                     await self._protocol_run_manager.fail_protocol_run(
@@ -98,7 +102,14 @@ class ProtocolExecutor:
                     self._protocol_run_status = ProtocolRunStatus.FAILED
                 except Exception as fail_err:
                     log.error(f"Failed to mark protocol run '{self._protocol_run_name}' as failed: {fail_err}")
+            if isinstance(e, EosProtocolRunExecutionError):
+                raise
             raise EosProtocolRunExecutionError(f"Failed to start protocol run '{self._protocol_run_name}'") from e
+
+    async def abandon(self, db: AsyncDbSession) -> None:
+        """Release the scheduler registration of a run that could not be started."""
+        with contextlib.suppress(EosSchedulerRegistrationError):
+            await self._scheduler.unregister_protocol_run(db, self._protocol_run_name)
 
     async def _handle_existing_protocol_run(self, db: AsyncDbSession, protocol_run: ProtocolRun) -> None:
         """Handle cases when the protocol run already exists."""
@@ -124,18 +135,22 @@ class ProtocolExecutor:
         async with self._db_interface.get_async_session() as db:
             protocol_run = await self._protocol_run_manager.get_protocol_run(db, self._protocol_run_name)
             if not protocol_run or protocol_run.status != ProtocolRunStatus.RUNNING:
+                status = protocol_run.status if protocol_run else None
                 raise EosProtocolRunCancellationError(
-                    f"Cannot cancel protocol run '{self._protocol_run_name}' with status '{protocol_run.status}'. "
+                    f"Cannot cancel protocol run '{self._protocol_run_name}' with status '{status}'. "
                     f"It must be running."
                 )
 
             log.warning(f"Cancelling protocol run '{self._protocol_run_name}'...")
             self._protocol_run_status = ProtocolRunStatus.CANCELLED
-
             await self._protocol_run_manager.cancel_protocol_run(db, self._protocol_run_name)
-            await self._scheduler.unregister_protocol_run(db, self._protocol_run_name)
 
-        await self._cancel_running_tasks()
+        # Stop the tasks before their devices are released to other runs
+        try:
+            await self._cancel_running_tasks()
+        finally:
+            async with self._db_interface.get_async_session() as db:
+                await self.abandon(db)
 
         log.warning(f"Cancelled protocol run '{self._protocol_run_name}'.")
 
@@ -150,14 +165,18 @@ class ProtocolExecutor:
                 return self._protocol_run_status == ProtocolRunStatus.CANCELLED
 
             await self._process_completed_tasks(db)
-            await self._propagate_skips(db)
 
-            # Completion check must follow skip propagation so the scheduler's cycle cache is fresh.
-            if await self._scheduler.is_protocol_run_completed(db, self._protocol_run_name):
-                await self._complete_protocol_run(db)
-                return True
+            tasks_changed = self._tasks_changed
+            if tasks_changed:
+                await self._propagate_skips(db)
 
-            await self._execute_tasks(db)
+                # Completion check must follow skip propagation so the scheduler's cycle cache is fresh.
+                if await self._scheduler.is_protocol_run_completed(db, self._protocol_run_name):
+                    await self._complete_protocol_run(db)
+                    return True
+                self._tasks_changed = False
+
+            await self._execute_tasks(db, force=tasks_changed)
 
             return False
         except Exception as e:
@@ -206,26 +225,35 @@ class ProtocolExecutor:
 
     async def _fail_protocol_run(self, db: AsyncDbSession, error_message: str | None = None) -> None:
         """Fail the protocol run and cancel any running tasks."""
-        await self._scheduler.unregister_protocol_run(db, self._protocol_run_name)
-        await self._protocol_run_manager.fail_protocol_run(db, self._protocol_run_name, error_message=error_message)
-        self._protocol_run_status = ProtocolRunStatus.FAILED
-        await db.commit()
-
-        # Ensure any running tasks are cancelled to avoid orphan work
         try:
-            await self._cancel_running_tasks()
+            await self._protocol_run_manager.fail_protocol_run(db, self._protocol_run_name, error_message=error_message)
+            self._protocol_run_status = ProtocolRunStatus.FAILED
+            await db.commit()
         finally:
-            log.warning(f"Failed protocol run '{self._protocol_run_name}'. All running tasks cancelled.")
+            # Stop the tasks before their devices are released to other runs, even if marking the run failed did not
+            # work. A fresh session, since the given one may be what failed.
+            try:
+                await self._cancel_running_tasks()
+            finally:
+                async with self._db_interface.get_async_session() as cleanup_db:
+                    await self.abandon(cleanup_db)  # Tolerates a completion that already unregistered
+                log.warning(f"Failed protocol run '{self._protocol_run_name}'. All running tasks cancelled.")
 
     async def _process_completed_tasks(self, db: AsyncDbSession) -> None:
         """Process the output of completed tasks."""
         completed_tasks = [task_name for task_name, future in self._task_output_futures.items() if future.done()]
+        if completed_tasks:
+            self._tasks_changed = True
         for task_name in completed_tasks:
             try:
                 self._task_output_futures[task_name].result()  # Just check for exceptions
             except EosTaskExecutionError as e:
                 raise EosProtocolRunTaskExecutionError(
                     f"Error executing task '{task_name}' of protocol run '{self._protocol_run_name}'"
+                ) from e
+            except (EosTaskCancellationError, asyncio.CancelledError) as e:
+                raise EosProtocolRunTaskExecutionError(
+                    f"Task '{task_name}' of protocol run '{self._protocol_run_name}' was cancelled"
                 ) from e
             finally:
                 del self._task_output_futures[task_name]
@@ -284,8 +312,18 @@ class ProtocolExecutor:
                 f"Task '{task_name}' run_if evaluation failed in run '{self._protocol_run_name}': {e}"
             ) from e
 
-    async def _execute_tasks(self, db: AsyncDbSession) -> None:
-        """Request and execute new tasks from the scheduler."""
+    async def _execute_tasks(self, db: AsyncDbSession, force: bool) -> None:
+        """Request and execute new tasks from the scheduler, unless nothing changed since the last request."""
+        if (
+            not force
+            and self._scheduler.state_version == self._requested_at_version
+            and time.monotonic() - self._requested_at < SCHEDULER_POLL_INTERVAL
+        ):
+            return
+
+        # Read before requesting, so a change made while the request runs (e.g. a finished plan) is not missed
+        self._requested_at_version = self._scheduler.state_version
+        self._requested_at = time.monotonic()
         new_scheduled_tasks = await self._scheduler.request_tasks(db, self._protocol_run_name)
         for scheduled_task in new_scheduled_tasks:
             if scheduled_task.name not in self._current_task_submissions:
@@ -303,9 +341,9 @@ class ProtocolExecutor:
         task_submission = TaskSubmission.from_def(task, self._protocol_run_name)
         task_submission.priority = self._protocol_run_submission.priority
 
-        self._task_output_futures[scheduled_task.name] = asyncio.create_task(
-            self._task_executor.request_task_execution(task_submission, scheduled_task)
-        )
+        future = asyncio.create_task(self._task_executor.request_task_execution(task_submission, scheduled_task))
+        future.add_done_callback(_retrieve_exception)  # Abandoned futures (e.g. after a cancel) must not warn
+        self._task_output_futures[scheduled_task.name] = future
         self._current_task_submissions[scheduled_task.name] = task_submission
 
     def _validate_parameters(self, parameters: dict[str, dict[str, Any]]) -> None:

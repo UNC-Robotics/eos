@@ -28,6 +28,7 @@ class AllocationManager:
         self._db_interface = db_interface
         self._device_allocations: dict[tuple[str, str], DeviceAllocation] = {}
         self._resource_allocations: dict[str, ResourceAllocation] = {}
+        self._may_have_pending_reservations = True  # Pending reservations survive restarts, so check once
 
     async def initialize(self, db: AsyncDbSession) -> None:
         await db.execute(delete(DeviceAllocationModel))
@@ -232,6 +233,7 @@ class AllocationManager:
                 resources=resources,
             )
 
+        self._may_have_pending_reservations = True
         model = ReservationModel(
             owner=owner,
             priority=priority,
@@ -271,12 +273,15 @@ class AllocationManager:
 
     async def process_reservations(self, db: AsyncDbSession) -> None:
         """Try to grant pending reservations in priority order."""
+        if not self._may_have_pending_reservations:
+            return
         result = await db.execute(
             select(ReservationModel)
             .where(ReservationModel.status == ReservationStatus.PENDING)
             .order_by(desc(ReservationModel.priority), ReservationModel.created_at)
         )
 
+        still_pending = False
         for model in result.scalars():
             devices = [(d[0], d[1]) for d in model.devices]
             resources = model.resources
@@ -294,6 +299,10 @@ class AllocationManager:
                     .values(status=ReservationStatus.GRANTED)
                 )
                 log.info(f"Granted reservation {model.id} for '{model.owner}'.")
+            else:
+                still_pending = True
+
+        self._may_have_pending_reservations = still_pending
 
     async def get_pending_reservations(self, db: AsyncDbSession) -> list[Reservation]:
         result = await db.execute(select(ReservationModel).where(ReservationModel.status == ReservationStatus.PENDING))

@@ -1,5 +1,6 @@
 import asyncio
 
+import eos.campaigns.campaign_executor as campaign_executor_module
 from eos.campaigns.campaign_executor import CampaignExecutor
 from eos.campaigns.entities.campaign import CampaignStatus, CampaignSubmission
 from eos.campaigns.exceptions import EosCampaignExecutionError
@@ -234,15 +235,18 @@ class TestCampaignExecutor:
 
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_campaign_cancellation_timeout(self, campaign_executor_setup, campaign_manager, db_interface):
+    async def test_campaign_cancellation_timeout(
+        self, campaign_executor_setup, campaign_manager, db_interface, monkeypatch
+    ):
         """Test handling of timeouts during campaign cancellation."""
+        monkeypatch.setattr(campaign_executor_module, "PROTOCOL_RUN_CANCEL_TIMEOUT", 0.1)
         async with db_interface.get_async_session() as db:
             await campaign_executor_setup.start_campaign(db)
 
         # Mock slow protocol run cancellation
         class SlowCancelProtocolRunExecutor:
             async def cancel_protocol_run(self):
-                await asyncio.sleep(16)
+                await asyncio.sleep(5)
 
         campaign_executor_setup._protocol_executors = {
             "run1": SlowCancelProtocolRunExecutor(),

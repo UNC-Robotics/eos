@@ -1,0 +1,12 @@
+# Scenario 1: Linear sequential synthesis.
+# 10 sequential tasks per iteration; 4 iterations contend for shared devices
+# (1 robot arm, 2 balances, 3 prep stations, 3 dispensers, 4 reactors,
+# 2 workups, 2 HPLCs, 2 wash stations).
+
+packages:
+  - scheduler_benchmark
+
+protocols:
+  - type: linear_synthesis
+    iterations: 4
+    max_concurrent: 4

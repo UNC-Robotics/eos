@@ -1,5 +1,8 @@
+from boto3.s3.transfer import TransferConfig
+
+import eos.database.file_db_interface as file_db_module
 from eos.database.file_db_interface import FileDbInterface, get_worker_file_db
-from eos.tasks.input_file_handle import InputFileHandle
+from eos.tasks.file import File
 from tests.fixtures import *
 
 
@@ -28,6 +31,25 @@ class TestFileDbInterface:
         await file_db_interface.delete_file("test_list/a.txt")
         await file_db_interface.delete_file("test_list/b.txt")
 
+    @pytest.mark.parametrize("from_path", [False, True])
+    async def test_multipart_upload_round_trip(self, file_db_interface, monkeypatch, tmp_path, from_path):
+        monkeypatch.setattr(
+            file_db_module,
+            "_TRANSFER_CONFIG",
+            TransferConfig(multipart_threshold=5 * 1024 * 1024, multipart_chunksize=5 * 1024 * 1024),
+        )
+        key = f"test_io/multipart_{from_path}.bin"
+        data = os.urandom(12 * 1024 * 1024)  # 3 parts
+        source = tmp_path / "upload.bin"
+        source.write_bytes(data)
+
+        await file_db_interface.store_file(key, source if from_path else data)
+
+        head = file_db_interface._client.head_object(Bucket=file_db_interface._bucket_name, Key=key)
+        assert head["ETag"].strip('"').endswith("-3")  # Multipart ETags end with the part count
+        assert await file_db_interface.get_file(key) == data
+        await file_db_interface.delete_file(key)
+
     def test_get_worker_file_db_caches_and_skips_bucket_check(self, eos_config):
         first = get_worker_file_db(eos_config.file_db)
         second = get_worker_file_db(eos_config.file_db)
@@ -35,11 +57,11 @@ class TestFileDbInterface:
         assert isinstance(first, FileDbInterface)
 
 
-class TestInputFileHandle:
+class TestFile:
     async def test_read(self, file_db_interface):
         key = "test_handle/read.bin"
         await file_db_interface.store_file(key, b"payload")
-        handle = InputFileHandle(lambda: file_db_interface, key)
+        handle = File(lambda: file_db_interface, key)
         assert await handle.read() == b"payload"
         await file_db_interface.delete_file(key)
 
@@ -47,7 +69,7 @@ class TestInputFileHandle:
         key = "test_handle/stream.bin"
         data = b"x" * 5000
         await file_db_interface.store_file(key, data)
-        handle = InputFileHandle(lambda: file_db_interface, key)
+        handle = File(lambda: file_db_interface, key)
         out = b""
         async for chunk in handle.stream(chunk_size=512):
             out += chunk
@@ -57,7 +79,7 @@ class TestInputFileHandle:
     async def test_download_to(self, file_db_interface, tmp_path):
         key = "test_handle/download.bin"
         await file_db_interface.store_file(key, b"to disk")
-        handle = InputFileHandle(lambda: file_db_interface, key)
+        handle = File(lambda: file_db_interface, key)
         dest = tmp_path / "out.bin"
         await handle.download_to(dest)
         assert dest.read_bytes() == b"to disk"

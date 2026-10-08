@@ -2,10 +2,13 @@ import asyncio
 import atexit
 import functools
 import inspect
-from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar, get_args
 
+from pydantic import BaseModel, ConfigDict
+from pydantic_core import to_jsonable_python
+
+from eos.configuration.entities.device_spec_def import DeviceInitParameterDef, DeviceSpecDef
 from eos.devices.exceptions import (
     EosDeviceInitializationError,
     EosDeviceCleanupError,
@@ -35,20 +38,25 @@ class DeviceStatus(Enum):
     ERROR = "ERROR"
 
 
-class BaseDevice(ABC):
+class BaseDevice:
     """
-    The base class for all devices in EOS.
+    The base class for all devices in EOS. Subclass with ``type="..."`` to register a device type.
+    Declare initialization parameters as fields of a nested ``Config`` model.
     """
 
-    def __init__(
-        self,
-        device_name: str,
-        lab_name: str,
-        device_type: str,
-    ):
+    class Config(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+    device_type: ClassVar[str | None] = None
+
+    def __init_subclass__(cls, type: str | None = None, **kwargs: Any) -> None:  # noqa: A002
+        super().__init_subclass__(**kwargs)
+        if type is not None:
+            cls.device_type = type
+
+    def __init__(self, device_name: str, lab_name: str):
         self._device_name = device_name
         self._lab_name = lab_name
-        self._device_type = device_type
         self._status = DeviceStatus.DISABLED
         self._init_parameters = {}
 
@@ -66,9 +74,10 @@ class BaseDevice(ABC):
                 raise EosDeviceInitializationError(f"Device {self._device_name} is already initialized.")
 
             try:
-                await self._initialize(init_parameters)
+                config = self.Config.model_validate(init_parameters)
+                await self._initialize(config)
                 self._status = DeviceStatus.IDLE
-                self._init_parameters = init_parameters
+                self._init_parameters = config.model_dump()
             except Exception as e:
                 self._status = DeviceStatus.ERROR
                 raise EosDeviceInitializationError(
@@ -129,9 +138,6 @@ class BaseDevice(ABC):
     def get_lab_name(self) -> str:
         return self._lab_name
 
-    def get_device_type(self) -> str:
-        return self._device_type
-
     def get_init_parameters(self) -> dict[str, Any]:
         return self._init_parameters
 
@@ -142,10 +148,6 @@ class BaseDevice(ABC):
     @property
     def lab_name(self) -> str:
         return self._lab_name
-
-    @property
-    def device_type(self) -> str:
-        return self._device_type
 
     @property
     def status(self) -> DeviceStatus:
@@ -162,23 +164,33 @@ class BaseDevice(ABC):
         """
         return _build_available_functions(type(self))
 
-    @abstractmethod
-    async def _initialize(self, initialization_parameters: dict[str, Any]) -> None:
-        """
-        Implementation for the initialization of the device.
-        """
+    async def _initialize(self, config: Config) -> None:
+        """Set up the device from its validated ``Config``."""
 
-    @abstractmethod
     async def _cleanup(self) -> None:
-        """
-        Implementation for the cleanup of the device.
-        """
+        """Release the device's connections and resources."""
 
-    @abstractmethod
     async def _report(self) -> dict[str, Any]:
-        """
-        Implementation for the report method.
-        """
+        """Return device state for logging and progress tracking."""
+        return {}
+
+
+def build_device_spec(cls: type[BaseDevice]) -> DeviceSpecDef:
+    """Build the spec of a device class from its type, docstring, and ``Config`` model."""
+    init_parameters = {}
+    for name, field in cls.Config.model_fields.items():
+        required = field.is_required()
+        default = None if required else field.get_default(call_default_factory=True)
+        init_parameters[name] = DeviceInitParameterDef(
+            type=_format_annotation(field.annotation, None),
+            desc=field.description,
+            default=to_jsonable_python(default, fallback=str),
+            required=required,
+        )
+    doc = cls.__dict__.get("__doc__")
+    return DeviceSpecDef(
+        type=cls.device_type, desc=inspect.cleandoc(doc) if doc else None, init_parameters=init_parameters
+    )
 
 
 @functools.cache
@@ -230,6 +242,6 @@ def _build_available_functions(cls: type) -> dict[str, Any]:
 def _format_annotation(annotation: Any, empty_sentinel: Any) -> str:
     if annotation is empty_sentinel:
         return "Any"
-    if hasattr(annotation, "__name__"):
+    if hasattr(annotation, "__name__") and not get_args(annotation):
         return annotation.__name__
     return str(annotation).replace("typing.", "")

@@ -4,7 +4,7 @@ from unittest.mock import patch
 from eos.protocols.entities.protocol_run import ProtocolRunStatus, ProtocolRunSubmission
 from eos.protocols.exceptions import EosProtocolRunExecutionError
 from eos.protocols.protocol_executor import ProtocolExecutor
-from eos.tasks.base_task import BaseTask
+import eos
 from tests.fixtures import *
 
 LAB_NAME = "small_lab"
@@ -148,13 +148,13 @@ class TestProtocolExecutor:
         async with db_interface.get_async_session() as db:
             await protocol_executor.start_protocol_run(db)
 
-        class FailingTask(BaseTask):
-            async def _execute(self, devices, parameters, resources):
-                raise RuntimeError("Simulated task failure")
+        @eos.task("Magnetic Mixing")
+        async def failing_task() -> None:
+            raise RuntimeError("Simulated task failure")
 
         task_registry = configuration_manager.tasks
         with (
-            patch.dict(task_registry.plugin_types, {"Magnetic Mixing": FailingTask}),
+            patch.dict(task_registry.plugin_types, {"Magnetic Mixing": failing_task}),
             pytest.raises(EosProtocolRunExecutionError),
         ):
             while True:

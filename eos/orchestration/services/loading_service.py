@@ -1,4 +1,5 @@
 from eos.configuration.configuration_manager import ConfigurationManager
+from eos.configuration.entities.task_def import DeviceAssignmentDef, DynamicDeviceAssignmentDef
 from eos.configuration.exceptions import EosConfigurationError
 from eos.configuration.packages import EntityType
 from eos.resources.resource_manager import ResourceManager
@@ -49,8 +50,8 @@ class LoadingService:
 
     async def _load_single_lab(self, db: AsyncDbSession, lab_name: str) -> None:
         """Load a single lab. Rolls back all state on failure."""
+        await self._reload_lab_device_plugins(db, lab_name)
         self._configuration_manager.load_lab(lab_name)
-        self._reload_device_plugins_for_lab(lab_name)
         try:
             await self._device_manager.create_devices_for_labs(db, {lab_name})
             await self._resource_manager.update_resources(db, loaded_labs={lab_name})
@@ -60,13 +61,13 @@ class LoadingService:
             await self._rollback_lab_load(db, {lab_name})
             raise
 
-    def _reload_device_plugins_for_lab(self, lab_name: str) -> None:
-        """Reload device plugins for all device types in a lab to pick up code changes from disk."""
-        lab = self._configuration_manager.labs[lab_name]
-        device_types = {device.type for device in lab.devices.values()}
-        for device_type in device_types:
-            if device_type in self._configuration_manager.devices.plugin_types:
-                self._configuration_manager.devices.reload_plugin(device_type)
+    async def _reload_lab_device_plugins(self, db: AsyncDbSession, lab_name: str) -> None:
+        """Reload the device plugins of a lab from disk and sync their specs to the database."""
+        devices = self._configuration_manager.devices
+        lab = self._configuration_manager.package_manager.read_lab(lab_name)
+        device_types = {device.type for device in lab.devices.values()} & devices.plugin_types.keys()
+        reloaded = {devices.reload_plugin(device_type) for device_type in device_types}
+        await self._configuration_manager.def_sync.sync_device_defs(db, types=reloaded)
 
     async def _rollback_lab_load(self, db: AsyncDbSession, labs: set[str]) -> None:
         """Clean up all state from a failed lab load attempt. Best-effort: each step is independent."""
@@ -120,14 +121,11 @@ class LoadingService:
     async def reload_labs(self, db: AsyncDbSession, lab_types: set[str]) -> None:
         """Reload one or more labs in the orchestrator with updated device plugin code."""
         for lab_type in lab_types:
-            lab = self._configuration_manager.package_manager.read_lab(lab_type)
-            device_types = {device.type for device in lab.devices.values()}
-            for device_type in device_types:
-                try:
-                    self._configuration_manager.devices.reload_plugin(device_type)
-                except Exception as e:
-                    log.error(f"Failed to reload device '{device_type}' before lab reload: {e}")
-                    raise
+            try:
+                await self._reload_lab_device_plugins(db, lab_type)
+            except Exception as e:
+                log.error(f"Failed to reload devices of lab '{lab_type}' before lab reload: {e}")
+                raise
 
         async with self._loading_lock:
             # Determine which protocols will need re-loading after lab reload
@@ -254,12 +252,8 @@ class LoadingService:
 
             package_count = len(package_manager.get_all_packages())
 
-            # Re-read task and device specs to update registries
-            task_specs, task_dirs_to_types = package_manager.read_task_specs()
-            self._configuration_manager.task_specs.update_specs(task_specs, task_dirs_to_types)
-
-            device_specs, device_dirs_to_types = package_manager.read_device_specs()
-            self._configuration_manager.device_specs.update_specs(device_specs, device_dirs_to_types)
+            # Re-import tasks and devices to update registries
+            self._configuration_manager.load_plugins()
 
             # Sync all specifications to the database
             await self._configuration_manager.def_sync.sync_all_defs(db)
@@ -288,12 +282,8 @@ class LoadingService:
             for name in package_names:
                 package_manager.add_package(name)
 
-            # Re-read specs and sync to DB
-            task_specs, task_dirs = package_manager.read_task_specs()
-            self._configuration_manager.task_specs.update_specs(task_specs, task_dirs)
-            device_specs, device_dirs = package_manager.read_device_specs()
-            self._configuration_manager.device_specs.update_specs(device_specs, device_dirs)
-            self._configuration_manager._initialize_task_plugins()
+            # Re-import plugins and sync to DB
+            self._configuration_manager.load_plugins()
             await self._configuration_manager.def_sync.sync_all_defs(db)
             await self._resync_loaded_state(db)
 
@@ -309,11 +299,8 @@ class LoadingService:
             for name in package_names:
                 package_manager.remove_package(name)
 
-            # Re-read specs and sync/cleanup DB
-            task_specs, task_dirs = package_manager.read_task_specs()
-            self._configuration_manager.task_specs.update_specs(task_specs, task_dirs)
-            device_specs, device_dirs = package_manager.read_device_specs()
-            self._configuration_manager.device_specs.update_specs(device_specs, device_dirs)
+            # Re-import plugins and sync/cleanup DB
+            self._configuration_manager.load_plugins()
             await self._configuration_manager.def_sync.sync_all_defs(db)
             await self._configuration_manager.def_sync.cleanup_deleted_defs(db)
             await self._resync_loaded_state(db)
@@ -366,14 +353,14 @@ class LoadingService:
                     continue
                 to_reload.add(task_type)
 
+            reloaded = set()
             for task_type in to_reload:
-                self._configuration_manager.refresh_task_spec(task_type)
-                self._configuration_manager.tasks.reload_plugin(task_type)
+                reloaded.add(self._configuration_manager.tasks.reload_plugin(task_type))
                 log.info(f"Reloaded task '{task_type}'")
 
-            if to_reload:
-                await self._configuration_manager.def_sync.sync_task_defs(db, types=to_reload)
-            return to_reload
+            if reloaded:
+                await self._configuration_manager.def_sync.sync_task_defs(db, types=reloaded)
+            return reloaded
 
     async def _check_tasks_using_devices(
         self, db: AsyncDbSession, lab_name: str, device_names: list[str] | None = None
@@ -400,10 +387,11 @@ class LoadingService:
             if task.protocol_run_name and task.protocol_run_name != "on_demand":
                 continue
 
-            for device_config in task.devices:
-                if device_config.lab == lab_name and (device_names is None or device_config.name in device_names):
-                    device_tasks.append(task)
-                    break
+            if any(
+                device.lab_name == lab_name and (device_names is None or device.name in device_names)
+                for device in task.devices.values()
+            ):
+                device_tasks.append(task)
 
         return device_tasks
 
@@ -438,17 +426,18 @@ class LoadingService:
         running_protocol_runs = await self._protocol_run_manager.get_protocol_runs(
             db, status=ProtocolRunStatus.RUNNING.value
         )
+        lab = self._configuration_manager.labs.get(lab_name)
+        device_types = {lab.devices[name].type for name in device_names if name in lab.devices} if lab else set()
         using_protocol_runs = []
 
         for protocol_run in running_protocol_runs:
             protocol_def = self._configuration_manager.protocols[protocol_run.type]
-            if lab_name in protocol_def.labs:
-                # Get the protocol's task graph to see if it uses any of these devices
-                task_graph = protocol_def.task_graph
-                for task in task_graph.tasks.values():
-                    if task.lab == lab_name and any(device_name in task.devices for device_name in device_names):
-                        using_protocol_runs.append(protocol_run)
-                        break
+            if lab_name in protocol_def.labs and any(
+                _may_use_devices(assignment, lab_name, device_names, device_types)
+                for task in protocol_def.tasks
+                for assignment in task.devices.values()
+            ):
+                using_protocol_runs.append(protocol_run)
 
         return using_protocol_runs
 
@@ -533,3 +522,22 @@ class LoadingService:
             task_names = ", ".join(task.name for task in active_tasks)
             log.error(f"Cannot modify task type '{task_type}' as it has active instances: {task_names}")
             raise EosProtocolInUseError(f"Task type '{task_type}' has active instances")
+
+
+def _may_use_devices(
+    assignment: str | DeviceAssignmentDef | DynamicDeviceAssignmentDef,
+    lab_name: str,
+    device_names: list[str],
+    device_types: set[str],
+) -> bool:
+    """Whether a protocol device assignment can resolve to one of the given devices."""
+    if isinstance(assignment, DeviceAssignmentDef):
+        return assignment.lab_name == lab_name and assignment.name in device_names
+    if isinstance(assignment, DynamicDeviceAssignmentDef):
+        if assignment.allowed_devices is not None:
+            return any(d.lab_name == lab_name and d.name in device_names for d in assignment.allowed_devices)
+        return assignment.device_type in device_types and (
+            assignment.allowed_labs is None or lab_name in assignment.allowed_labs
+        )
+    # References point at another task's assignment, which is checked on its own.
+    return False

@@ -130,6 +130,24 @@ export const campaignSamples = pgTable(
 );
 
 // ============================================================================
+// Campaign Journal Entries Table
+// ============================================================================
+export const campaignJournalEntries = pgTable(
+  'campaign_journal_entries',
+  {
+    id: serial('id').primaryKey(),
+    campaignName: text('campaign_name')
+      .notNull()
+      .references(() => campaigns.name, { onDelete: 'cascade' }),
+    entry: text('entry').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    campaignNameIdx: index('ix_campaign_journal_entries_campaign_name').on(table.campaignName),
+  })
+);
+
+// ============================================================================
 // Resources Table
 // ============================================================================
 export const resources = pgTable(

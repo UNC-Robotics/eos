@@ -58,11 +58,6 @@ html_theme_options = {
             "url": "https://github.com/UNC-Robotics/eos",
             "icon": "fa-brands fa-github",
         },
-        {
-            "name": "LLM-friendly docs",
-            "url": "llms.txt",
-            "icon": "fa-solid fa-robot",
-        },
     ],
 }
 

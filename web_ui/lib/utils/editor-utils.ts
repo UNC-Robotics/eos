@@ -181,28 +181,17 @@ export function validateYaml(content: string): ValidationResult {
 }
 
 /**
+ * Check if entity type has a YAML file
+ */
+export function entityHasYamlFile(entityType: EntityType): boolean {
+  return ENTITY_FILE_NAMES[entityType].yaml !== '';
+}
+
+/**
  * Check if entity type has a Python file
  */
 export function entityHasPythonFile(entityType: EntityType): boolean {
   return ENTITY_FILE_NAMES[entityType].python !== '';
-}
-
-/**
- * Get entity file paths
- */
-export function getEntityFilePaths(
-  userDir: string,
-  packageName: string,
-  entityType: EntityType,
-  entityName: string
-): { yamlPath: string; pythonPath: string } {
-  const basePath = `${userDir}/${packageName}/${entityType}/${entityName}`;
-  const fileNames = ENTITY_FILE_NAMES[entityType];
-
-  return {
-    yamlPath: `${basePath}/${fileNames.yaml}`,
-    pythonPath: fileNames.python ? `${basePath}/${fileNames.python}` : '',
-  };
 }
 
 /**
@@ -213,10 +202,10 @@ export function validateEntityName(name: string): { valid: boolean; error?: stri
     return { valid: false, error: 'Name is required' };
   }
 
-  if (!/^[a-z0-9_]+$/.test(name)) {
+  if (!/^[a-z][a-z0-9_]*$/.test(name)) {
     return {
       valid: false,
-      error: 'Name must be lowercase alphanumeric with underscores only',
+      error: 'Name must be lowercase alphanumeric with underscores only and start with a letter',
     };
   }
 

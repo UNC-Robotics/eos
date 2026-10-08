@@ -6,7 +6,7 @@ labs:
 
 tasks:
   - name: A
-    type: Noop
+    type: Noop DT1
     duration: 10
     devices:
       device_1:
@@ -14,7 +14,7 @@ tasks:
         name: D1
 
   - name: B
-    type: Noop
+    type: Noop DT2
     dependencies: [ "A" ]
     duration: 20
     devices:
@@ -23,7 +23,7 @@ tasks:
         name: D2
 
   - name: C
-    type: Noop
+    type: Noop DT3
     dependencies: [ "A" ]
     duration: 20
     devices:
@@ -32,7 +32,7 @@ tasks:
         name: D3
 
   - name: D
-    type: Noop
+    type: Noop DT3
     dependencies: [ "B" ]
     duration: 40
     devices:
@@ -41,7 +41,7 @@ tasks:
         name: D3
 
   - name: E
-    type: Noop
+    type: Noop DT4
     dependencies: [ "C", "D" ]
     duration: 20
     devices:
@@ -50,7 +50,7 @@ tasks:
         name: D4
 
   - name: F
-    type: Noop
+    type: Noop DT3
     dependencies: [ "A" ]
     duration: 40
     devices:
@@ -59,7 +59,7 @@ tasks:
         name: D3
 
   - name: G
-    type: Noop
+    type: Noop DT5
     dependencies: [ "E", "F" ]
     duration: 15
     devices:

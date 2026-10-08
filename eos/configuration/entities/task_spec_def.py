@@ -16,6 +16,7 @@ from eos.configuration.entities.task_parameters import (
 
 class ResourceRequirement(BaseModel):
     type: str
+    optional: bool = False
 
     @field_validator("type")
     def _validate_type_not_empty(cls, v: str) -> str:
@@ -28,6 +29,7 @@ class FileRequirement(BaseModel):
     """Declares an input file a task consumes."""
 
     desc: str | None = None
+    optional: bool = False
 
 
 class OutputFile(BaseModel):
@@ -50,19 +52,14 @@ class OutputParameter(BaseModel):
 
     @model_validator(mode="after")
     def _validate_unit(self) -> Self:
-        numeric_types = {TaskParameterType.INT, TaskParameterType.FLOAT}
-        is_numeric = self.type in numeric_types
-        has_unit = self.unit is not None and self.unit.strip() != ""
-
-        if is_numeric and not has_unit:
-            raise ValueError("Task output parameter type is numeric but no unit is specified.")
-        if not is_numeric and has_unit:
+        if self.unit is not None and not self.type.is_numeric:
             raise ValueError("Task output parameter type is not numeric but a unit is specified.")
         return self
 
 
 class DeviceRequirementDef(BaseModel):
     type: str
+    optional: bool = False
 
     @field_validator("type")
     def _validate_type_not_empty(cls, v: str) -> str:

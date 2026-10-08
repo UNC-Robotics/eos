@@ -1,0 +1,11 @@
+# Baseline: single branched_characterization run, no concurrency.
+# Anchors the protocol's intrinsic critical path (with intra-protocol branch
+# parallelism) under no contention.
+
+packages:
+  - scheduler_benchmark
+
+protocols:
+  - type: branched_characterization
+    iterations: 1
+    max_concurrent: 1

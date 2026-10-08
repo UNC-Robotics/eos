@@ -150,6 +150,7 @@ class SchedulerType(Enum):
     """The type of scheduler to use for protocol run scheduling."""
 
     GREEDY = "greedy"
+    HEURISTIC = "heuristic"
     CPSAT = "cpsat"
 
 
@@ -167,6 +168,13 @@ class OrchestratorHzConfig(BaseModel):
     maintenance_interval: float = 60.0
 
 
+class ExecutionConfig(BaseModel):
+    """Limits for task and campaign optimizer execution."""
+
+    max_concurrent_tasks: int | None = Field(None, ge=1)  # None means unlimited
+    optimizer_startup_timeout: float = Field(60.0, gt=0)
+
+
 class EosConfig(BaseSettings):
     user_dir: Path = Field(default=Path("./user"))
     packages: set[str] = Field(default_factory=set)
@@ -176,6 +184,7 @@ class EosConfig(BaseSettings):
     orchestrator_hz: OrchestratorHzConfig = Field(default_factory=OrchestratorHzConfig)
     log_level: str = "INFO"
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     web_api: WebApiConfig = Field(default_factory=WebApiConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
 

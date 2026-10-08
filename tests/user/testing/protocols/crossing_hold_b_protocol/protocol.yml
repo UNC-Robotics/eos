@@ -1,0 +1,16 @@
+type: crossing_hold_b_protocol
+desc: holds D2, then needs D2 and D1
+labs: [abstract_lab]
+tasks:
+  - name: c
+    type: Noop Hold
+    duration: 10
+    devices:
+      held_device: {lab_name: abstract_lab, name: D2, hold: true}
+  - name: e
+    type: Noop Hold
+    duration: 10
+    dependencies: [c]
+    devices:
+      held_device: {ref: c.held_device}
+      shared_device: {lab_name: abstract_lab, name: D1}

@@ -10,21 +10,23 @@ class TaskInputFileValidator:
     def __init__(self, task: TaskDef, task_spec: TaskSpecDef):
         self._task_name = task.name
         self._input_files = task.files
-        self._required_files = task_spec.input_files or {}
+        self._declared_files = task_spec.input_files or {}
 
     def validate(self) -> None:
         """Ensure every required input file slot is provided and no unknown slots are present."""
-        if not self._required_files and not self._input_files:
+        if not self._declared_files and not self._input_files:
             return
 
         for input_name in self._input_files:
-            if input_name not in self._required_files:
+            if input_name not in self._declared_files:
                 batch_error(
                     f"Input file '{input_name}' is not a valid input file for task '{self._task_name}'.",
                     EosTaskValidationError,
                 )
-        for input_name in self._required_files:
+        for input_name, requirement in self._declared_files.items():
             value = self._input_files.get(input_name)
+            if requirement.optional and value is None:
+                continue
             if not value or not str(value).strip():
                 batch_error(
                     f"Required input file '{input_name}' not provided for task '{self._task_name}'.",

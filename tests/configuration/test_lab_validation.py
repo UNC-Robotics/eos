@@ -20,6 +20,7 @@ class TestLabValidation:
                 lab,
                 configuration_manager.task_specs,
                 configuration_manager.device_specs,
+                configuration_manager.devices.plugin_types,
             ).validate()
 
     def test_resources_allow_duplicate_types(self, configuration_manager, lab):
@@ -34,6 +35,7 @@ class TestLabValidation:
             lab,
             configuration_manager.task_specs,
             configuration_manager.device_specs,
+            configuration_manager.devices.plugin_types,
         ).validate()
 
     def test_resource_duplicate_names_within_lab_not_possible(self, configuration_manager, lab):
@@ -48,4 +50,21 @@ class TestLabValidation:
             lab,
             configuration_manager.task_specs,
             configuration_manager.device_specs,
+            configuration_manager.devices.plugin_types,
         ).validate()
+
+    @pytest.mark.parametrize(
+        "init_parameters",
+        [{"max_speed": "fast"}, {"bogus": 1}],
+    )
+    def test_invalid_device_init_parameters(self, configuration_manager, lab, init_parameters):
+        lab.devices["magnetic_mixer"].init_parameters = init_parameters
+
+        with pytest.raises(EosLabConfigurationError, match="initialization parameters"):
+            LabValidator(
+                configuration_manager._user_dir,
+                lab,
+                configuration_manager.task_specs,
+                configuration_manager.device_specs,
+                configuration_manager.devices.plugin_types,
+            ).validate()

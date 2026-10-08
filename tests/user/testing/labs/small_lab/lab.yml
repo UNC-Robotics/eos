@@ -11,6 +11,8 @@ devices:
     desc: Mixer for substance blending
     type: magnetic_mixer
     computer: eos_computer
+    init_parameters:
+      max_speed: 50
 
   magnetic_mixer_2:
     desc: Mixer for substance blending

@@ -1,7 +1,10 @@
 import copy
 from collections import defaultdict
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
+
+from pydantic import ValidationError
 
 from eos.configuration.constants import EOS_COMPUTER_NAME, LABS_DIR
 from eos.configuration.entities.protocol_def import ProtocolDef
@@ -19,6 +22,7 @@ from eos.configuration.exceptions import (
 from eos.configuration.protocol_graph import TaskReferenceOrderingValidator
 from eos.configuration.registries import DeviceSpecRegistry, TaskSpecRegistry
 from eos.configuration.run_if import EosRunIfError, parse as parse_run_if, typecheck as typecheck_run_if
+from eos.devices.base_device import BaseDevice
 from eos.configuration.utils import (
     is_device_reference,
     is_dynamic_parameter,
@@ -35,11 +39,19 @@ class LabValidator:
     """Validates lab configuration."""
 
     @inject
-    def __init__(self, config_dir: str, lab: LabDef, task_specs: TaskSpecRegistry, device_specs: DeviceSpecRegistry):
+    def __init__(
+        self,
+        config_dir: str,
+        lab: LabDef,
+        task_specs: TaskSpecRegistry,
+        device_specs: DeviceSpecRegistry,
+        device_classes: Mapping[str, type[BaseDevice]],
+    ):
         self._lab = lab
         self._lab_dir = Path(config_dir) / LABS_DIR / lab.name.lower()
         self._task_specs = task_specs
         self._device_specs = device_specs
+        self._device_classes = device_classes
 
     def validate(self) -> None:
         """Run all lab validation checks."""
@@ -116,19 +128,22 @@ class LabValidator:
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_device_init_parameters(self) -> None:
-        """Validate device initialization parameters against their specs."""
+        """Validate device initialization parameters against the device's ``Config``."""
         for device_name, device in self._lab.devices.items():
-            device_spec = self._device_specs.get_spec_by_config(device)
-            if device.init_parameters:
-                spec_params = device_spec.init_parameters or {}
-                for param_name in device.init_parameters:
-                    if param_name not in spec_params:
-                        batch_error(
-                            f"Invalid initialization parameter '{param_name}' for device '{device_name}' "
-                            f"of type '{device.type}' in lab type '{self._lab.name}'. "
-                            f"Valid parameters are: {', '.join(spec_params.keys())}",
-                            EosLabConfigurationError,
-                        )
+            where = f"device '{device_name}' of type '{device.type}' in lab type '{self._lab.name}'"
+            spec_params = self._device_specs.get_spec_by_config(device).init_parameters
+            unknown = [name for name in device.init_parameters if name not in spec_params]
+            if unknown:
+                batch_error(
+                    f"Invalid initialization parameters {unknown} for {where}. "
+                    f"Valid parameters are: {', '.join(spec_params.keys())}",
+                    EosLabConfigurationError,
+                )
+                continue
+            try:
+                self._device_classes[device.type].Config.model_validate(device.init_parameters)
+            except ValidationError as e:
+                batch_error(f"Invalid initialization parameters for {where}: {e}", EosLabConfigurationError)
         raise_batched_errors(EosLabConfigurationError)
 
     def _validate_resources(self) -> None:
@@ -395,7 +410,7 @@ class TaskValidator:
 
     def _validate_task_resources(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         """Validate task resources including references."""
-        if not task.resources and task_spec.input_resources:
+        if not task.resources and any(not resource.optional for resource in task_spec.input_resources.values()):
             raise EosTaskValidationError(f"Task '{task.name}' requires input resources but none were provided.")
 
         if not task.resources:
@@ -442,9 +457,11 @@ class TaskValidator:
         self, task_name: str, required: dict[str, ResourceRequirement], provided: dict[str, str]
     ) -> None:
         """Validate resource count matches requirements."""
-        if len(provided) != len(required):
+        minimum = sum(not resource.optional for resource in required.values())
+        if not minimum <= len(provided) <= len(required):
+            count = str(minimum) if minimum == len(required) else f"{minimum} to {len(required)}"
             batch_error(
-                f"Task '{task_name}' requires {len(required)} resource(s) but {len(provided)} were provided.",
+                f"Task '{task_name}' requires {count} resource(s) but {len(provided)} were provided.",
                 EosTaskValidationError,
             )
 
@@ -454,6 +471,8 @@ class TaskValidator:
         """Validate resource types match requirements."""
         for resource_name, resource_spec in required.items():
             if resource_name not in provided:
+                if resource_spec.optional:
+                    continue
                 batch_error(
                     f"Required resource '{resource_name}' not provided for task '{task_name}'.",
                     EosTaskValidationError,
@@ -515,7 +534,8 @@ class TaskValidator:
 
     def _validate_task_files(self, task: TaskDef, task_spec: TaskSpecDef) -> None:
         """Validate task input files: required slots are provided and references point to real output files."""
-        required_files = task_spec.input_files or {}
+        declared_files = task_spec.input_files or {}
+        required_files = [name for name, requirement in declared_files.items() if not requirement.optional]
 
         if not task.files and required_files:
             raise EosTaskValidationError(f"Task '{task.name}' requires input files but none were provided.")
@@ -524,7 +544,7 @@ class TaskValidator:
             return
 
         for input_name in task.files:
-            if input_name not in required_files:
+            if input_name not in declared_files:
                 batch_error(
                     f"input file '{input_name}' is not a valid input file for task '{task.name}'.",
                     EosTaskValidationError,
@@ -568,9 +588,15 @@ class TaskValidator:
         """Validate task device assignments."""
         spec_devices = task_spec.devices or {}
 
-        # Check all required devices from spec are provided
-        for device_name in spec_devices:
-            if device_name not in task.devices:
+        for device_name in task.devices.keys() - spec_devices.keys():
+            batch_error(
+                f"Unexpected device '{device_name}' provided for task '{task.name}'.",
+                EosTaskValidationError,
+            )
+
+        # Optional devices may be omitted, but must still be declared in the spec.
+        for device_name, requirement in spec_devices.items():
+            if not requirement.optional and device_name not in task.devices:
                 batch_error(
                     f"Required device '{device_name}' not provided for task '{task.name}'.",
                     EosTaskValidationError,

@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import os
 import tempfile
@@ -23,14 +24,49 @@ from eos.database.sqlite_db_interface import SqliteDbInterface
 from eos.allocation.allocation_manager import AllocationManager
 from eos.allocation.entities.device_allocation import DeviceAllocationModel
 from eos.devices.entities.device import DeviceModel
-from sqlalchemy import delete
+from sqlalchemy import delete, event
 from eos.scheduling.greedy_scheduler import GreedyScheduler
 from eos.scheduling.cpsat_scheduler import CpSatScheduler
+from eos.scheduling.heuristic_scheduler import HeuristicScheduler
 from eos.orchestration.work_signal import WorkSignal
 from eos.tasks.task_executor import TaskExecutor
 from eos.tasks.task_manager import TaskManager
 
 log.set_level("WARNING")
+
+TEST_PLAN_TIME_BUDGET_S = 0.05  # Heuristic planning for test-sized protocols needs no more
+
+
+@contextlib.contextmanager
+def count_statements(db_interface):
+    """Count SQL statements sent to the database inside the block."""
+    statements: list[str] = []
+    engine = db_interface._async_engine.sync_engine
+
+    def record(conn, cursor, statement, *args) -> None:
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record)
+    try:
+        yield statements
+    finally:
+        event.remove(engine, "before_cursor_execute", record)
+
+
+def _background_work(scheduler) -> asyncio.Future | None:
+    """The scheduler's in-flight CP-SAT solve or heuristic plan, if any."""
+    if (solve := getattr(scheduler, "_pending_solve", None)) is not None:
+        return solve[0]
+    return getattr(scheduler, "_pending_plan", None)
+
+
+async def request_tasks(scheduler, db, protocol_run_name: str) -> list:
+    """Request tasks, waiting out background solves and plans so tests see their result."""
+    tasks = await scheduler.request_tasks(db, protocol_run_name)
+    while (pending := _background_work(scheduler)) is not None:
+        await asyncio.wait({pending})  # Failures surface through the scheduler, not here
+        tasks += await scheduler.request_tasks(db, protocol_run_name)
+    return tasks
 
 
 def load_test_config() -> EosConfig:
@@ -159,43 +195,83 @@ async def resource_manager(setup_lab_protocol, configuration_manager, db_interfa
     return resource_manager
 
 
+def _device_models(configuration_manager, actor_names=None) -> list[DeviceModel]:
+    """DB records for the devices of loaded labs, optionally only those with the given actor names."""
+    return [
+        DeviceModel(
+            name=device_name,
+            lab_name=lab_name,
+            type=lab_device.type,
+            computer=lab_device.computer,
+            meta=lab_device.meta or {},
+        )
+        for lab_name, lab in configuration_manager.labs.items()
+        for device_name, lab_device in lab.devices.items()
+        if actor_names is None or f"{lab_name}.{device_name}" in actor_names
+    ]
+
+
+async def _is_reusable(name: str, handle, configuration_manager) -> bool:
+    """Whether a cached device actor still belongs to a loaded lab, is registered under its name and responds."""
+    lab_name, _, device_name = name.partition(".")
+    if device_name not in getattr(configuration_manager.labs.get(lab_name), "devices", {}):
+        return False
+    try:
+        if ray.get_actor(name)._actor_id != handle._actor_id:
+            return False
+        await asyncio.wait_for(handle.get_status.remote(), timeout=2)
+    except Exception:
+        return False
+    return True
+
+
+# Device actors created by these fixtures. Each test module gets its own session fixtures through
+# `from tests.fixtures import *`, so modules adopt each other's actors instead of recreating them.
+_FIXTURE_DEVICE_ACTOR_IDS = set()
+
+
+@pytest.fixture(scope="session")
+def session_device_manager(configuration_manager):
+    """Device actors take about 70 ms each to start, so test classes reuse them."""
+    return DeviceManager(configuration_manager=configuration_manager)
+
+
 @pytest.fixture(scope="class")
-async def class_device_manager(setup_lab_protocol, configuration_manager, db_interface):
-    """Create device actors once per test class."""
-    # Clean up stale state from previous classes whose teardown may not have run
+async def class_device_manager(setup_lab_protocol, session_device_manager, configuration_manager, db_interface):
+    """Ensure device actors exist for all loaded labs, reusing healthy ones from earlier classes."""
+    dm = session_device_manager
+    for name, handle in list(dm._device_actor_handles.items()):
+        if not await _is_reusable(name, handle, configuration_manager):
+            with contextlib.suppress(Exception):
+                ray.kill(handle)
+            dm._remove_device_references(name)
+
+    # Actors left by other device managers (e.g. in loading tests) would otherwise be adopted
+    for lab_name, lab in configuration_manager.labs.items():
+        for device_name in lab.devices:
+            name = f"{lab_name}.{device_name}"
+            if name not in dm._device_actor_handles:
+                with contextlib.suppress(ValueError):
+                    actor = ray.get_actor(name)
+                    if actor._actor_id not in _FIXTURE_DEVICE_ACTOR_IDS:
+                        ray.kill(actor)
+
     async with db_interface.get_async_session() as session:
         await session.execute(delete(DeviceAllocationModel))
         await session.execute(delete(DeviceModel))
-    for lab_name, lab in configuration_manager.labs.items():
-        for device_name in lab.devices:
-            with contextlib.suppress(ValueError):
-                ray.kill(ray.get_actor(f"{lab_name}.{device_name}"))
-
-    dm = DeviceManager(configuration_manager=configuration_manager)
-    async with db_interface.get_async_session() as session:
+        session.add_all(_device_models(configuration_manager, dm._device_actor_handles))  # Marks them as existing
         await dm.create_devices_for_labs(session, set(configuration_manager.labs.keys()))
+    _FIXTURE_DEVICE_ACTOR_IDS.update(handle._actor_id for handle in dm._device_actor_handles.values())
     yield dm
     async with db_interface.get_async_session() as session:
         await session.execute(delete(DeviceAllocationModel))
-        await dm.cleanup_device_actors(session)
 
 
 @pytest.fixture
 async def device_manager(class_device_manager, setup_lab_protocol, db, db_interface, clear_db):
-    """Function-scoped wrapper: reuses class-scoped actors, re-inserts device DB records."""
+    """Function-scoped wrapper: reuses the device actors and re-inserts the device records wiped by clear_db."""
     dm = class_device_manager
-    # Re-insert device records wiped by clear_db
-    for lab_name, lab in dm._configuration_manager.labs.items():
-        for device_name, lab_device in lab.devices.items():
-            db.add(
-                DeviceModel(
-                    name=device_name,
-                    lab_name=lab_name,
-                    type=lab_device.type,
-                    computer=lab_device.computer,
-                    meta=lab_device.meta or {},
-                )
-            )
+    db.add_all(_device_models(dm._configuration_manager))
     await db.flush()
     yield dm
     await db.execute(delete(DeviceAllocationModel))
@@ -255,6 +331,7 @@ def task_executor(
         db_interface,
         work_signal,
         eos_config.file_db,
+        eos_config.execution,
     )
 
 
@@ -273,7 +350,7 @@ def greedy_scheduler(
 
 
 @pytest.fixture
-def cpsat_scheduler(
+async def heuristic_scheduler(
     setup_lab_protocol,
     configuration_manager,
     protocol_run_manager,
@@ -281,13 +358,32 @@ def cpsat_scheduler(
     device_manager,
     allocation_manager,
 ):
-    return CpSatScheduler(
+    scheduler = HeuristicScheduler(
+        configuration_manager, protocol_run_manager, task_manager, device_manager, allocation_manager
+    )
+    await scheduler.update_parameters({"time_budget_s": TEST_PLAN_TIME_BUDGET_S})
+    return scheduler
+
+
+@pytest.fixture
+async def cpsat_scheduler(
+    setup_lab_protocol,
+    configuration_manager,
+    protocol_run_manager,
+    task_manager,
+    device_manager,
+    allocation_manager,
+):
+    scheduler = CpSatScheduler(
         configuration_manager,
         protocol_run_manager,
         task_manager,
         device_manager,
         allocation_manager,
     )
+    await scheduler.update_parameters({"warm_start_budget_s": TEST_PLAN_TIME_BUDGET_S})
+    yield scheduler
+    scheduler._discard_pending_solve()  # Otherwise closing the event loop waits for the solve thread
 
 
 @pytest.fixture
@@ -317,5 +413,6 @@ async def campaign_manager(setup_lab_protocol, configuration_manager, clear_db):
 @pytest.fixture
 async def campaign_optimizer_manager(
     configuration_manager,
+    eos_config,
 ):
-    return CampaignOptimizerManager(configuration_manager)
+    return CampaignOptimizerManager(configuration_manager, eos_config.execution)

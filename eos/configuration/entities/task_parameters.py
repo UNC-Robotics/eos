@@ -75,15 +75,9 @@ class TaskParameter(BaseModel):
 class NumericTaskParameter(TaskParameter):
     """Parameter type for numeric values (int or float)."""
 
-    unit: str
+    unit: str | None = None
     min: int | float | None = None
     max: int | float | None = None
-
-    @field_validator("unit")
-    def validate_unit(cls, unit: str) -> str:
-        if not unit.strip():
-            raise ValueError("Task numeric parameter requires a unit to be specified.")
-        return unit.strip()
 
     @model_validator(mode="after")
     def _validate_bounds(self) -> Self:
@@ -125,13 +119,13 @@ class BooleanTaskParameter(TaskParameter):
 
 
 class ChoiceTaskParameter(TaskParameter):
-    """Parameter type for list values."""
+    """Parameter type for choice values."""
 
     choices: list[str] = Field(..., min_length=1)
 
     @model_validator(mode="after")
     def _validate_choice(self) -> Self:
-        if not self.value or (self.value not in self.choices and not is_dynamic_parameter(self.value)):
+        if self.value is not None and self.value not in self.choices and not is_dynamic_parameter(self.value):
             raise ValueError(f"Task parameter value '{self.value}' is not one of the choices {self.choices}.")
         return self
 

@@ -71,10 +71,16 @@ export interface WriteFilesRequest {
   expectedMtime?: number; // If set, reject write when disk mtime is newer
 }
 
-// File name constants
+// File name constants. An empty name means the entity type has no file of that kind.
 export const ENTITY_FILE_NAMES: Record<EntityType, { yaml: string; python: string }> = {
-  devices: { yaml: 'device.yml', python: 'device.py' },
-  tasks: { yaml: 'task.yml', python: 'task.py' },
-  labs: { yaml: 'lab.yml', python: '' }, // Labs don't have Python files
+  devices: { yaml: '', python: 'device.py' },
+  tasks: { yaml: '', python: 'task.py' },
+  labs: { yaml: 'lab.yml', python: '' },
   protocols: { yaml: 'protocol.yml', python: 'optimizer.py' }, // optimizer.py is optional
 };
+
+/** The file whose presence marks a directory as an entity. */
+export function entityMarkerFile(entityType: EntityType): string {
+  const { yaml, python } = ENTITY_FILE_NAMES[entityType];
+  return yaml || python;
+}

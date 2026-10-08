@@ -2,6 +2,7 @@
 
 import {
   getCampaignByName,
+  getCampaignJournal,
   getCampaignSamples,
   getProtocolRunsByCampaign,
   CampaignRow,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/db/queries';
 import type { Campaign, ProtocolRun } from '@/lib/types/api';
 import { requireRole } from '@/lib/auth/authz';
+import { getUsername } from '@/lib/api/zitadel';
 
 export interface CampaignSample {
   campaignName: string;
@@ -20,11 +22,12 @@ export interface CampaignSample {
   createdAt: string;
 }
 
-function transformDbCampaign(row: CampaignRow): Campaign {
+async function transformDbCampaign(row: CampaignRow): Promise<Campaign> {
   return {
     name: row.name,
     protocol: row.protocol,
     owner: row.owner,
+    owner_username: await getUsername(row.owner),
     priority: row.priority,
     max_protocol_runs: row.maxProtocolRuns,
     max_concurrent_protocol_runs: row.maxConcurrentProtocolRuns,
@@ -111,23 +114,26 @@ export async function getCampaignWithDetails(campaignName: string): Promise<{
   campaign: Campaign | null;
   samples: CampaignSample[];
   protocolRuns: ProtocolRun[];
+  journal: string[];
 }> {
   await requireRole('VIEWER');
   try {
-    const [campaignRow, sampleRows, protocolRunRows] = await Promise.all([
+    const [campaignRow, sampleRows, protocolRunRows, journal] = await Promise.all([
       getCampaignByName(campaignName),
       getCampaignSamples(campaignName),
       getProtocolRunsByCampaign(campaignName),
+      getCampaignJournal(campaignName),
     ]);
 
     if (!campaignRow) {
-      return { campaign: null, samples: [], protocolRuns: [] };
+      return { campaign: null, samples: [], protocolRuns: [], journal: [] };
     }
 
     return {
-      campaign: transformDbCampaign(campaignRow),
+      campaign: await transformDbCampaign(campaignRow),
       samples: sampleRows.map(transformDbSample),
       protocolRuns: protocolRunRows.map(transformDbProtocolRun),
+      journal,
     };
   } catch (error) {
     console.error('Failed to fetch campaign with details:', error);

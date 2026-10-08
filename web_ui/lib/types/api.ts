@@ -86,6 +86,7 @@ export interface CampaignDefinition {
 }
 
 export interface Campaign extends CampaignDefinition {
+  owner_username?: string;
   status: CampaignStatus;
   error_message?: string | null;
   protocol_runs_completed: number;

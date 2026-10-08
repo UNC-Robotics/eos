@@ -1,6 +1,6 @@
 import asyncio
 import random
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pandas as pd
 from bofire.data_models.acquisition_functions.acquisition_function import AcquisitionFunction
@@ -16,14 +16,30 @@ from bofire.data_models.surrogates.api import BotorchSurrogates
 
 from eos.logging.logger import log
 from eos.optimization.abstract_sequential_optimizer import AbstractSequentialOptimizer
-from eos.optimization.beacon_ai_agent import BeaconAIAgent, round_floats
 from eos.optimization.sequential_bayesian_optimizer import BayesianSequentialOptimizer
 
+if TYPE_CHECKING:
+    from eos.optimization.beacon_ai_agent import BeaconAIAgent
+
 _PROBABILITY_TOLERANCE = 1e-9
+FLOAT_PRECISION = 5
+
+
+def round_floats(value: Any) -> Any:
+    """Round any float to FLOAT_PRECISION decimal places, recursing into dicts and lists."""
+    if isinstance(value, float):
+        return round(value, FLOAT_PRECISION)
+    if isinstance(value, dict):
+        return {k: round_floats(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [round_floats(v) for v in value]
+    return value
 
 
 class BeaconOptimizer(AbstractSequentialOptimizer):
     """Select between a pluggable optimizer and AI at each sampling step."""
+
+    is_beacon = True
 
     InputType = ContinuousInput | DiscreteInput | CategoricalInput
     OutputType = ContinuousOutput | CategoricalOutput
@@ -117,7 +133,10 @@ class BeaconOptimizer(AbstractSequentialOptimizer):
             surrogate_specs=self._surrogate_specs,
         )
 
-    def _create_ai_agent(self) -> BeaconAIAgent:
+    def _create_ai_agent(self) -> "BeaconAIAgent":
+        # pydantic_ai takes about 0.4 s to import, so only AI sampling loads it
+        from eos.optimization.beacon_ai_agent import BeaconAIAgent  # noqa: PLC0415
+
         agent = BeaconAIAgent(
             domain=self._domain,
             model=self._ai_model,

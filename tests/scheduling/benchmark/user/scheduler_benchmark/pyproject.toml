@@ -1,0 +1,7 @@
+[project]
+name = "scheduler_benchmark"
+version = "1.0.0"
+description = "Synthetic synthesis-and-characterize benchmark for comparing and validating the EOS schedulers"
+dependencies = [
+    "eos"
+]

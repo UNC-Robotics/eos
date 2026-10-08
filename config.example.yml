@@ -8,3 +8,7 @@ log_level: INFO
 
 scheduler:
   type: greedy
+
+execution:
+  max_concurrent_tasks: null      # Most tasks that may run at once, or null for no limit
+  optimizer_startup_timeout: 60   # Seconds to wait for a campaign optimizer to start
